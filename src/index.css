@@ -1,0 +1,108 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: light;
+  --background: #f3f5f8;
+  --foreground: #0b1f3a;
+  --ink-2: #33435c;
+  --card: #ffffff;
+  --muted: #edf1f6;
+  --muted-foreground: #5b6b82;
+  --placeholder: #66758c;
+  --border: #dde3ec;
+  --input: #c9d2df;
+  --ring: #1d4ed8;
+  --primary: #1d4ed8;
+  --primary-foreground: #ffffff;
+  --primary-ink: #1d3faf;
+  --primary-soft: #e6ecf7;
+  --board: #0b1f3a;
+  --board-line: #1c3456;
+  --board-muted: #8fa3c2;
+  --board-mine: #a9c1f5;
+  --board-gain: #7ddba9;
+  --board-loss: #ff9b8f;
+  --board-fx: #c9b8ff;
+  --gain: #15803d;
+  --gain-soft: #e7f5ec;
+  --gain-ink: #116532;
+  --loss: #c2410c;
+  --loss-soft: #fcede6;
+  --fx: #6c3fa6;
+  --fx-soft: #f1ebfa;
+  --fx-line: #cdbdeb;
+  --warning-bg: #fff4d6;
+  --warning-fg: #7a5300;
+  --destructive: #b42318;
+  --destructive-bg: #fdecec;
+  --market-us: #1f4fa3;
+  --market-set: #b9560f;
+  --market-crypto: #0e7490;
+  --market-fund: #4d7c0f;
+  --market-intl: #44506a;
+  --market-cash: #64748b;
+  --route-neutral: #9aa3b5;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-ink-2: var(--ink-2);
+  --color-card: var(--card);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-placeholder: var(--placeholder);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-ink: var(--primary-ink);
+  --color-primary-soft: var(--primary-soft);
+  --color-board: var(--board);
+  --color-board-line: var(--board-line);
+  --color-board-muted: var(--board-muted);
+  --color-board-mine: var(--board-mine);
+  --color-board-gain: var(--board-gain);
+  --color-board-loss: var(--board-loss);
+  --color-board-fx: var(--board-fx);
+  --color-gain: var(--gain);
+  --color-gain-soft: var(--gain-soft);
+  --color-gain-ink: var(--gain-ink);
+  --color-loss: var(--loss);
+  --color-loss-soft: var(--loss-soft);
+  --color-fx: var(--fx);
+  --color-fx-soft: var(--fx-soft);
+  --color-fx-line: var(--fx-line);
+  --color-warning-bg: var(--warning-bg);
+  --color-warning-fg: var(--warning-fg);
+  --color-destructive: var(--destructive);
+  --color-destructive-bg: var(--destructive-bg);
+  --color-market-us: var(--market-us);
+  --color-market-set: var(--market-set);
+  --color-market-crypto: var(--market-crypto);
+  --color-market-fund: var(--market-fund);
+  --color-market-intl: var(--market-intl);
+  --color-market-cash: var(--market-cash);
+  --color-route-neutral: var(--route-neutral);
+  --font-sans: "Noto Sans Thai", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Anuphan", "Noto Sans Thai", ui-sans-serif, sans-serif;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background font-sans text-[15px] leading-relaxed text-foreground antialiased tabular-nums;
+  }
+  h1,
+  h2,
+  h3 {
+    @apply font-display;
+  }
+  ::selection {
+    background: #c9d8fb;
+    color: var(--foreground);
+  }
+}
