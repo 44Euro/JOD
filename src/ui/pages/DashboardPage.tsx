@@ -19,12 +19,13 @@ function toneOf(value: Decimal): Station['tone'] {
   return value.greaterThan(0) ? 'gain' : value.lessThan(0) ? 'loss' : undefined
 }
 
-// Each station is rounded to whole units; the currency station is the remainder by definition (spec 7.2),
-// so it also absorbs the rounding and the stations always add up to the end value exactly.
+// Each station is rounded to whole units; the currency station is the remainder by definition, so it also
+// absorbs the rounding and the stations always add up to the end value exactly. With no currency effect at
+// all, the stock station takes the rounding instead, so the currency station does not show a stray "+1".
 function costToToday(summary: PortfolioSummary): Station[] {
   const cost = summary.costBase.toDecimalPlaces(0)
   const value = summary.marketValueBase.toDecimalPlaces(0)
-  const price = summary.priceEffectBase.toDecimalPlaces(0)
+  const price = summary.fxEffectBase.isZero() ? value.minus(cost) : summary.priceEffectBase.toDecimalPlaces(0)
   const fx = value.minus(cost).minus(price)
   return [
     { value: fmtNumber(cost, 0), label: 'ทุนของที่ถืออยู่' },

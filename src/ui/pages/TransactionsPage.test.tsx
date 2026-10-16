@@ -95,6 +95,37 @@ describe('TransactionsPage', () => {
     expect(within(table).getByText('แพงกว่าตลาด 1.49%')).toBeInTheDocument()
   })
 
+  it('shows the cost of an opening holding and no net amount for a split', async () => {
+    await db.transactions.bulkAdd([
+      makeTx({
+        id: 'o',
+        type: 'opening',
+        instrumentId: 'US:VOO',
+        quantity: '10',
+        price: '400',
+        fxRate: '34.5',
+        fxSource: 'estimated',
+        date: '2024-01-05',
+      }),
+      makeTx({ id: 'b', date: '2024-01-10' }),
+      makeTx({
+        id: 's',
+        type: 'split',
+        quantity: undefined,
+        price: undefined,
+        splitRatio: '4',
+        fxRate: '1',
+        fxSource: 'same',
+        date: '2024-01-20',
+      }),
+    ])
+    renderRoute('/transactions')
+    const table = await screen.findByRole('table')
+    expect(await within(table).findByText('ทุน 138,000')).toBeInTheDocument()
+    const split = within(table).getByText('แตกพาร์/รวมหุ้น').closest('tr')!
+    expect(split.cells[5]).toHaveTextContent(/^—$/)
+  })
+
   it('shows two-line rows on a phone', async () => {
     vi.stubGlobal('matchMedia', (query: string) => ({
       matches: false,
@@ -105,7 +136,7 @@ describe('TransactionsPage', () => {
     await db.transactions.add(makeTx({ id: 'b', date: '2024-01-10', fxRate: '35' }))
     renderRoute('/transactions')
     const list = await screen.findByRole('list', { name: 'รายการทั้งหมด' })
-    expect(within(list).getByText('1 × 100 USD')).toBeInTheDocument()
+    expect(within(list).getByText('1 × 100.00 USD')).toBeInTheDocument()
     expect(within(list).getByText('กรอกเอง')).toBeInTheDocument()
     expect(within(list).getByRole('link', { name: /AAPL/ })).toHaveAttribute('href', '/transactions/b')
     expect(screen.queryByRole('table')).not.toBeInTheDocument()

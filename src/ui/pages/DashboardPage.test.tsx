@@ -53,4 +53,28 @@ describe('DashboardPage', () => {
     expect(within(board).getByText('−5.71%')).toBeInTheDocument()
     expect(within(board).getByText('−2,400.00 THB')).toBeInTheDocument()
   })
+
+  it('puts the rounding on the stock station when there is no currency effect', async () => {
+    await db.accounts.add(account)
+    await db.instruments.add({
+      id: 'SET:PTT',
+      market: 'SET',
+      symbol: 'PTT',
+      name: 'ปตท.',
+      assetType: 'stock',
+      currency: 'THB',
+      lastPrice: '100.8',
+    })
+    await db.transactions.add(
+      makeTx({ instrumentId: 'SET:PTT', currency: 'THB', quantity: '1', price: '100.4', fxRate: '1', fxSource: 'same' }),
+    )
+    renderRoute('/')
+    const route = await screen.findByRole('list', { name: 'จากทุนถึงมูลค่าวันนี้' })
+    expect(within(route).getAllByRole('listitem').map((item) => item.textContent)).toEqual([
+      '100ทุนของที่ถืออยู่',
+      '+1จากหุ้น · ยังไม่ขาย',
+      '0จากค่าเงิน · ยังไม่ขาย',
+      '101มูลค่าวันนี้',
+    ])
+  })
 })

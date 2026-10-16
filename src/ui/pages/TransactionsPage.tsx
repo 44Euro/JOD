@@ -14,13 +14,13 @@ import { deleteTransaction } from '../../db/repo'
 import { todayLocal } from '../../domain/dates'
 import { D } from '../../domain/decimal'
 import { fxConvertSummary } from '../../domain/fxConvert'
-import { cashDeltaQuote, sortTransactions } from '../../domain/ledger'
+import { acquisitionCostQuote, cashDeltaQuote, sortTransactions } from '../../domain/ledger'
 import { MARKETS, TX_TYPES, type Instrument, type Transaction } from '../../domain/types'
 import { cn } from '../../lib/cn'
 import { CashPill, MarketPill } from '../components/MarketPill'
 import { PageHeader } from '../components/PageHeader'
 import { downloadText } from '../download'
-import { fmtDay, fmtNumber, fmtSigned, plClass } from '../format'
+import { fmtDate, fmtDay, fmtNumber, fmtPrice, fmtSigned, fmtValue, plClass } from '../format'
 import { useAppData, useLedger } from '../hooks'
 import { FX_SOURCE_LABELS, MARKET_LABELS, TX_TYPE_LABELS, marketOf } from '../labels'
 import { useIsDesktop } from '../useIsDesktop'
@@ -29,9 +29,9 @@ function describeAmount(tx: Transaction): string {
   switch (tx.type) {
     case 'buy':
     case 'sell':
-      return `${fmtNumber(tx.quantity, 8)} × ${fmtNumber(tx.price, 4)}`
+      return `${fmtNumber(tx.quantity, 8)} × ${fmtPrice(tx.price)}`
     case 'opening':
-      return tx.instrumentId ? `${fmtNumber(tx.quantity, 8)} × ${fmtNumber(tx.price, 4)}` : fmtNumber(tx.amount)
+      return tx.instrumentId ? `${fmtNumber(tx.quantity, 8)} × ${fmtPrice(tx.price)}` : fmtNumber(tx.amount)
     case 'split':
       return `× ${fmtNumber(tx.splitRatio, 4)}`
     case 'fx_convert':
@@ -64,7 +64,7 @@ function RateCell({ tx }: { tx: Transaction }) {
     const { effectiveRate, spreadPct } = fxConvertSummary(tx)
     return (
       <span className="inline-flex flex-wrap items-center gap-1.5">
-        {fmtNumber(effectiveRate, 4)}
+        {fmtPrice(effectiveRate)}
         {spreadPct && !spreadPct.isZero() && (
           <Badge variant={spreadPct.abs().greaterThanOrEqualTo(1) ? 'warning' : 'default'}>
             {spreadPct.greaterThan(0) ? 'แพงกว่า' : 'ถูกกว่า'}ตลาด {fmtNumber(spreadPct.abs())}%
@@ -76,10 +76,21 @@ function RateCell({ tx }: { tx: Transaction }) {
   if (tx.fxSource === 'same') return <span className="text-muted-foreground">—</span>
   return (
     <span className="inline-flex items-center gap-1.5">
-      {fmtNumber(tx.fxRate, 4)}
+      {fmtPrice(tx.fxRate)}
       <Badge variant={tx.fxSource}>{FX_SOURCE_LABELS[tx.fxSource]}</Badge>
     </span>
   )
+}
+
+// A transaction the ledger skipped moves no cash, so showing its amount would mislead. An opening holding was
+// paid for before the app existed, so its row shows what it cost instead; a split moves nothing at all.
+function netOf(tx: Transaction, skipped: boolean): { text: string; className: string } {
+  if (skipped || tx.type === 'split') return { text: '—', className: 'text-muted-foreground' }
+  if (tx.type === 'opening' && tx.instrumentId) {
+    return { text: `ทุน ${fmtValue(acquisitionCostQuote(tx).times(D(tx.fxRate)))}`, className: 'text-muted-foreground' }
+  }
+  const net = cashDeltaQuote(tx).times(D(tx.fxRate))
+  return { text: fmtSigned(net), className: plClass(net) }
 }
 
 export function TransactionsPage() {
@@ -112,7 +123,7 @@ export function TransactionsPage() {
   const issues = new Map(ledger.issues.map((i) => [i.txId, i.message]))
 
   async function handleDelete(tx: Transaction) {
-    if (!window.confirm(`ลบรายการ${TX_TYPE_LABELS[tx.type]} วันที่ ${tx.date}?`)) return
+    if (!window.confirm(`ลบรายการ${TX_TYPE_LABELS[tx.type]} วันที่ ${fmtDate(tx.date)}?`)) return
     await deleteTransaction(db, tx.id)
   }
 
@@ -124,8 +135,6 @@ export function TransactionsPage() {
       accountName={accountNames.get(tx.accountId) ?? '—'}
     />
   )
-  // A transaction the ledger skipped moves no cash, so showing its amount would mislead.
-  const netOf = (tx: Transaction) => (issues.has(tx.id) ? null : cashDeltaQuote(tx).times(D(tx.fxRate)))
 
   return (
     <>
@@ -154,7 +163,7 @@ export function TransactionsPage() {
           <Input
             aria-label="ค้นหา"
             placeholder="ค้นหาสัญลักษณ์ หรือหมายเหตุ"
-            className="h-[42px] pl-10"
+            className="h-11 pl-10 md:h-[42px]"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
@@ -216,7 +225,7 @@ export function TransactionsPage() {
             <tbody>
               {rows.map((tx, index) => {
                 const issue = issues.get(tx.id)
-                const net = netOf(tx)
+                const net = netOf(tx, issue !== undefined)
                 const newDay = index === 0 || rows[index - 1].date !== tx.date
                 return (
                   <Fragment key={tx.id}>
@@ -248,7 +257,7 @@ export function TransactionsPage() {
                       <Td>
                         <RateCell tx={tx} />
                       </Td>
-                      <Td className={cn('text-right font-display font-semibold', plClass(net))}>{net ? fmtSigned(net) : '—'}</Td>
+                      <Td className={cn('text-right font-display font-semibold', net.className)}>{net.text}</Td>
                       <Td className="text-right">
                         <span className="inline-flex items-center gap-1">
                           <Link
@@ -288,7 +297,7 @@ export function TransactionsPage() {
           <ul aria-label="รายการทั้งหมด">
             {rows.map((tx, index) => {
               const issue = issues.get(tx.id)
-              const net = netOf(tx)
+              const net = netOf(tx, issue !== undefined)
               const newDay = index === 0 || rows[index - 1].date !== tx.date
               return (
                 <Fragment key={tx.id}>
@@ -299,7 +308,7 @@ export function TransactionsPage() {
                         {assetOf(tx)}
                         <span className="shrink-0 text-[13px] text-muted-foreground">{TX_TYPE_LABELS[tx.type]}</span>
                       </span>
-                      <span className={cn('font-display font-semibold', plClass(net))}>{net ? fmtSigned(net) : '—'}</span>
+                      <span className={cn('font-display font-semibold', net.className)}>{net.text}</span>
                       <span className="col-span-2 flex flex-wrap items-center gap-x-1.5 text-[12.5px] text-muted-foreground">
                         <span>
                           {describeAmount(tx)}

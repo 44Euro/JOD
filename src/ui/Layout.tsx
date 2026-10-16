@@ -68,7 +68,7 @@ export function Layout() {
           JOD
           <span className="mt-1 block font-sans text-xs font-normal text-muted-foreground">จดทุกเทรด รู้ทุกบาท</span>
         </p>
-        <NavLink to={NEW_TRANSACTION} className={cn(buttonVariants(), 'mt-[22px] mb-4 h-12 text-base')}>
+        <NavLink to={NEW_TRANSACTION} className={cn(buttonVariants(), 'mt-[22px] mb-4 h-12 text-base md:h-12')}>
           <Plus aria-hidden />
           บันทึกรายการ
         </NavLink>
