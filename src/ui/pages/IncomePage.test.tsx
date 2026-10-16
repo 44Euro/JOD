@@ -38,7 +38,8 @@ async function seedIncome() {
 describe('IncomePage', () => {
   it('invites the user to record income when there is none', async () => {
     renderRoute('/income')
-    expect(await screen.findByText('ยังไม่มีรายได้ · บันทึกปันผลหรือดอกเบี้ยแล้วจะสรุปให้ที่นี่')).toBeInTheDocument()
+    expect(await screen.findByText('ยังไม่มีรายได้')).toBeInTheDocument()
+    expect(screen.getByText('บันทึกปันผลหรือดอกเบี้ยแล้วจะสรุปให้ที่นี่')).toBeInTheDocument()
   })
 
   it('sums this year after tax and compares it with the same days last year', async () => {
@@ -91,6 +92,26 @@ describe('IncomePage', () => {
     expect(years.map((year) => year.textContent)).toEqual(['2024 ฿1,189', '2025 ฿1,502'])
   })
 
+  it('compares this year with last year when everything is shown', async () => {
+    await seedIncome()
+    const user = userEvent.setup()
+    renderRoute('/income')
+    await user.click(await screen.findByRole('button', { name: 'ทั้งหมด' }))
+    expect(screen.getByText('ปีนี้เทียบปีก่อน')).toBeInTheDocument()
+    expect(screen.getByText('+419.6%')).toBeInTheDocument()
+    expect(screen.getByText('ปีนี้ ฿1,502 · ช่วงเดียวกันปีก่อน ฿289')).toBeInTheDocument()
+  })
+
+  it('names the twelve months in the headline and the table with a space', async () => {
+    await seedIncome()
+    const user = userEvent.setup()
+    renderRoute('/income')
+    await user.click(await screen.findByRole('button', { name: '12 เดือนล่าสุด' }))
+    expect(screen.getByText('รายได้ 12 เดือนล่าสุด · หลังหักภาษี')).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'รายได้ 12 เดือนล่าสุด (THB)' })).toBeInTheDocument()
+    expect(screen.getByText('12 เดือนก่อนหน้า ฿289')).toBeInTheDocument()
+  })
+
   it('shows the net after tax and fees for an asset whose dividend carried a fee', async () => {
     await db.instruments.add({ id: 'SET:PTT', market: 'SET', symbol: 'PTT', name: 'ปตท.', assetType: 'stock', currency: 'THB' })
     await db.transactions.add(
@@ -124,6 +145,11 @@ describe('IncomePage', () => {
     renderRoute('/income')
     const list = await screen.findByRole('list', { name: 'รายได้ตามสินทรัพย์' })
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
-    expect(within(list).getAllByRole('listitem')[0]).toHaveTextContent('PTT1,080ปันผล/ทุน 6.6% · หัก 120')
+    const items = within(list).getAllByRole('listitem')
+    expect(items[0]).toHaveTextContent('PTT1,080ปันผล/ทุน 6.6% · หัก 120')
+    const cash = items.find((item) => item.textContent?.includes('Dime US'))!
+    expect(within(cash).getByText('ดอกเบี้ยเงินสด · หัก 15')).toBeInTheDocument()
+    expect(within(cash).getAllByText(/ดอกเบี้ยเงินสด/)).toHaveLength(1)
+    expect(cash).not.toHaveTextContent('ปันผล/ทุน')
   })
 })

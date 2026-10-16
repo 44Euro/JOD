@@ -37,7 +37,7 @@ const PERIODS = [
   { value: 'all', label: 'ทั้งหมด' },
 ] as const satisfies readonly { value: IncomePeriod; label: string }[]
 
-const PERIOD_TITLE: Record<IncomePeriod, string> = { year: 'ปีนี้', '12m': '12 เดือนล่าสุด', all: 'ทั้งหมด' }
+const PERIOD_INCOME_LABEL: Record<IncomePeriod, string> = { year: 'รายได้ปีนี้', '12m': 'รายได้ 12 เดือนล่าสุด', all: 'รายได้ทั้งหมด' }
 
 // e.g. "SET 10% · US 15%": the share of gross income withheld, per market, in the order the assets are listed.
 function withholdingNote(rows: readonly AssetIncomeRow[]): string {
@@ -71,18 +71,20 @@ function AssetCell({
   instrument,
   accountName,
   currencies,
+  compact,
 }: {
   row: AssetIncomeRow
   instrument?: Instrument
   accountName: string
   currencies: readonly string[]
+  compact: boolean
 }) {
   if (!row.instrumentId) {
     return (
       <span className="flex min-w-0 items-center gap-2.5">
         <CashPill label={currencies.join('/')} />
         <b className="truncate font-display text-base font-semibold">{accountName}</b>
-        <span className="truncate text-[12.5px] text-muted-foreground">ดอกเบี้ยเงินสด</span>
+        {!compact && <span className="truncate text-[12.5px] text-muted-foreground">ดอกเบี้ยเงินสด</span>}
       </span>
     )
   }
@@ -119,7 +121,8 @@ export function IncomePage() {
       <>
         {header}
         <Card>
-          <p className="text-muted-foreground">ยังไม่มีรายได้ · บันทึกปันผลหรือดอกเบี้ยแล้วจะสรุปให้ที่นี่</p>
+          <p className="font-semibold">ยังไม่มีรายได้</p>
+          <p className="text-muted-foreground">บันทึกปันผลหรือดอกเบี้ยแล้วจะสรุปให้ที่นี่</p>
         </Card>
       </>
     )
@@ -128,9 +131,11 @@ export function IncomePage() {
   const range = periodRange(period, today, events)
   const totals = sumIncome(events, range)
   const previous = sumIncome(events, comparisonRange(period, today)).netBase
+  // "All" has no earlier twin, so it shows how this year compares with last year instead.
+  const compared = period === 'all' ? sumIncome(events, periodRange('year', today)).netBase : totals.netBase
   const twelve = sumIncome(events, periodRange('12m', today)).netBase
   const monthlyAverage = twelve.div(12)
-  const change = changePct(totals.netBase, previous)
+  const change = changePct(compared, previous)
   const buckets = incomeBuckets(events, period, today)
   const rows = incomeByAsset(events, range)
   const currenciesByAccount = cashCurrencies(inRange(events, range))
@@ -139,12 +144,13 @@ export function IncomePage() {
   const yieldOf = (row: AssetIncomeRow) =>
     row.instrumentId ? (instrumentStats(row.instrumentId, valuations, ledger, today)?.yieldOnCostPct ?? null) : null
   const symbolOf = (instrumentId: string) => instruments.get(instrumentId)?.symbol ?? instrumentId.split(':')[1]
-  const assetCell = (row: AssetIncomeRow) => (
+  const assetCell = (row: AssetIncomeRow, compact = false) => (
     <AssetCell
       row={row}
       instrument={instruments.get(row.instrumentId)}
       accountName={accountNames.get(row.accountId) ?? '—'}
       currencies={currenciesByAccount.get(row.accountId) ?? [row.currency]}
+      compact={compact}
     />
   )
 
@@ -153,7 +159,7 @@ export function IncomePage() {
       {header}
 
       <SummaryPanel
-        label={`รายได้${PERIOD_TITLE[period]} · หลังหักภาษี`}
+        label={`${PERIOD_INCOME_LABEL[period]} · หลังหักภาษี`}
         value={fmtHeadline(totals.netBase, base)}
         footer={
           <>
@@ -173,10 +179,14 @@ export function IncomePage() {
         }
       >
         <Stat
-          label="เทียบปีก่อน"
+          label={period === 'all' ? 'ปีนี้เทียบปีก่อน' : 'เทียบปีก่อน'}
           value={fmtSignedPct(change)}
           tone={plClass(change)}
-          note={`${period === '12m' ? '12 เดือนก่อนหน้า' : 'ช่วงเดียวกันปีก่อน'} ${fmtHeadline(previous, base)}`}
+          note={
+            period === 'all'
+              ? `ปีนี้ ${fmtHeadline(compared, base)} · ช่วงเดียวกันปีก่อน ${fmtHeadline(previous, base)}`
+              : `${period === '12m' ? '12 เดือนก่อนหน้า' : 'ช่วงเดียวกันปีก่อน'} ${fmtHeadline(previous, base)}`
+          }
         />
         <Stat label="เฉลี่ยต่อเดือน" value={fmtHeadline(monthlyAverage, base)} note={`12 เดือนล่าสุด ${fmtHeadline(twelve, base)}`} />
         <Stat label="ภาษีที่ถูกหัก" value={fmtHeadline(totals.taxBase, base)} note={withholdingNote(rows) || undefined} />
@@ -190,7 +200,7 @@ export function IncomePage() {
               <thead>
                 <tr>
                   <Th>สินทรัพย์</Th>
-                  <Th className="text-right">รายได้{PERIOD_TITLE[period]} ({base})</Th>
+                  <Th className="text-right">{PERIOD_INCOME_LABEL[period]} ({base})</Th>
                   <Th className="text-right">ปันผล/ทุน</Th>
                   <Th className="text-right">ภาษีที่ถูกหัก</Th>
                 </tr>
@@ -213,10 +223,10 @@ export function IncomePage() {
                   key={row.key}
                   className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2.5 gap-y-1 border-t border-muted py-3 first:border-t-0"
                 >
-                  {assetCell(row)}
+                  {assetCell(row, true)}
                   <span className="font-display font-semibold">{fmtValue(row.netBase)}</span>
                   <span className="col-span-2 text-[12.5px] text-muted-foreground">
-                    ปันผล/ทุน {fmtYield(yieldOf(row))} · หัก {fmtValue(row.taxBase)}
+                    {row.instrumentId ? `ปันผล/ทุน ${fmtYield(yieldOf(row))}` : 'ดอกเบี้ยเงินสด'} · หัก {fmtValue(row.taxBase)}
                   </span>
                 </li>
               ))}

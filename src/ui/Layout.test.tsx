@@ -22,6 +22,13 @@ describe('Layout', () => {
     expect(within(more).getAllByRole('link').map((link) => link.getAttribute('href'))).toEqual(['/income', '/settings'])
   })
 
+  it('marks เพิ่มเติม as the current page on the pages behind it', async () => {
+    renderRoute('/income')
+    const bottom = await screen.findByRole('navigation', { name: 'เมนูด้านล่าง' })
+    expect(within(bottom).getByRole('link', { name: 'เพิ่มเติม' })).toHaveAttribute('aria-current', 'page')
+    expect(within(bottom).getByRole('link', { name: 'ภาพรวม' })).not.toHaveAttribute('aria-current')
+  })
+
   it('does not mark the list as the current page while a new transaction is open', async () => {
     renderRoute('/transactions/new')
     const sidebar = await screen.findByRole('navigation', { name: 'เมนูหลัก' })

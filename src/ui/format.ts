@@ -73,9 +73,10 @@ export function fmtSignedPct(value: Value, digits = 1): string {
   return isEmpty(value) ? '—' : `${fmtSigned(value, digits)}%`
 }
 
-// No income in the last twelve months reads as "—" like in the mocks, not as a misleading "0%".
+// No income in the last twelve months reads as "—" like in the mocks, not as a misleading "0%"; the mocks
+// always show one decimal so a column of yields lines up ("3.0%", "0.9%").
 export function fmtYield(value: Value): string {
-  return isEmpty(value) || D(value).isZero() ? '—' : fmtPct(value, 1)
+  return isEmpty(value) || D(value).isZero() ? '—' : `${format(D(value), 1, 1)}%`
 }
 
 export function plClass(value: Value): string {

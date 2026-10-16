@@ -1,5 +1,5 @@
 import { Plus } from 'lucide-react'
-import { NavLink, Outlet, useLocation } from 'react-router'
+import { Link, NavLink, Outlet, useLocation } from 'react-router'
 import { buttonVariants } from '../components/ui/button'
 import { cn } from '../lib/cn'
 import { DailyValueRecorder } from './DailyValueRecorder'
@@ -32,20 +32,27 @@ function SideLink({ to, label, icon: Icon }: NavItem) {
   )
 }
 
+const TAB_CLASS = 'flex min-h-12 flex-col items-center justify-end gap-0.5 text-[11px] text-muted-foreground'
+const TAB_ACTIVE_CLASS = 'font-semibold text-primary'
+
+// NavLink only marks aria-current for its own route, so a tab that stands for several pages is a plain Link.
 function TabLink({ to, label, icon: Icon, active }: NavItem & { active?: boolean }) {
-  return (
-    <NavLink
-      to={to}
-      end={isExactLink(to)}
-      className={({ isActive }) =>
-        cn(
-          'flex min-h-12 flex-col items-center justify-end gap-0.5 text-[11px] text-muted-foreground',
-          (isActive || active) && 'font-semibold text-primary',
-        )
-      }
-    >
+  const content = (
+    <>
       <Icon className="size-[22px]" aria-hidden />
       {label}
+    </>
+  )
+  if (active) {
+    return (
+      <Link to={to} aria-current="page" className={cn(TAB_CLASS, TAB_ACTIVE_CLASS)}>
+        {content}
+      </Link>
+    )
+  }
+  return (
+    <NavLink to={to} end={isExactLink(to)} className={({ isActive }) => cn(TAB_CLASS, isActive && TAB_ACTIVE_CLASS)}>
+      {content}
     </NavLink>
   )
 }
