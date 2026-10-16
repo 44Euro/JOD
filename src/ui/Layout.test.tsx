@@ -34,4 +34,14 @@ describe('Layout', () => {
     const sidebar = await screen.findByRole('navigation', { name: 'เมนูหลัก' })
     expect(within(sidebar).getByRole('link', { name: 'รายการ' })).not.toHaveAttribute('aria-current')
   })
+
+  it('marks พอร์ต as the current page on an asset page, in the sidebar and in the bottom bar', async () => {
+    renderRoute('/assets/US%3AVOO')
+    const sidebar = await screen.findByRole('navigation', { name: 'เมนูหลัก' })
+    expect(within(sidebar).getByRole('link', { name: 'พอร์ต' })).toHaveAttribute('aria-current', 'page')
+    expect(within(sidebar).getByRole('link', { name: 'ภาพรวม' })).not.toHaveAttribute('aria-current')
+    const bottom = screen.getByRole('navigation', { name: 'เมนูด้านล่าง' })
+    expect(within(bottom).getByRole('link', { name: 'พอร์ต' })).toHaveAttribute('aria-current', 'page')
+    expect(within(bottom).getByRole('link', { name: 'เพิ่มเติม' })).not.toHaveAttribute('aria-current')
+  })
 })

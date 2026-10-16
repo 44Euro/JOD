@@ -46,7 +46,7 @@ export function MoneyRoute({ label, stations }: { label: string; stations: reado
       {stations.map((station, i) => (
         <li
           key={station.label}
-          className="relative flex items-center justify-between gap-2 text-sm text-ink-2 md:grid md:justify-items-center md:gap-px md:px-1 md:text-center md:text-[13px]"
+          className="relative flex items-center gap-2 text-sm text-ink-2 max-md:justify-between md:grid md:justify-items-center md:gap-px md:px-1 md:text-center md:text-[13px]"
         >
           <span
             aria-hidden

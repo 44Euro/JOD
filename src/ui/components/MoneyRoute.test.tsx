@@ -35,4 +35,11 @@ describe('MoneyRoute', () => {
       'linear-gradient(90deg, var(--route-neutral) 0.00% 33.33%, var(--fx) 33.33% 66.67%, var(--market-us) 66.67% 100.00%)',
     )
   })
+
+  it('keeps space-between to phones so a desktop station stays centred in its column', () => {
+    render(<MoneyRoute label="เส้นทางทดสอบ" stations={[{ value: '1', label: 'เริ่ม' }, { value: '2', label: 'จบ' }]} />)
+    const [first] = within(screen.getByRole('list', { name: 'เส้นทางทดสอบ' })).getAllByRole('listitem')
+    expect(first).toHaveClass('max-md:justify-between')
+    expect(first).not.toHaveClass('justify-between')
+  })
 })

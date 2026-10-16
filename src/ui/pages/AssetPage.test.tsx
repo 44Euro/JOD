@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '../../db/db'
@@ -23,6 +23,7 @@ beforeEach(async () => {
 
 afterEach(() => {
   vi.useRealTimers()
+  vi.unstubAllGlobals()
 })
 
 describe('AssetPage', () => {
@@ -45,7 +46,7 @@ describe('AssetPage', () => {
     const route = await screen.findByRole('list', { name: 'เส้นทางเงินของ VOO' })
     await waitFor(() => expect(within(route).getAllByRole('listitem')[4]).toHaveTextContent('33.00เรทวันนี้ · บาทแข็งขึ้น'))
     expect(within(route).getAllByRole('listitem')).toHaveLength(6)
-    expect(screen.getByText('จากหุ้น +27,944')).toBeInTheDocument()
+    expect(screen.getByText('จากหุ้น +27,944')).toHaveClass('bg-gain-soft')
     expect(screen.getByText('จากค่าเงิน −8,000')).toBeInTheDocument()
     expect(screen.getByText('ปันผล +578')).toBeInTheDocument()
   })
@@ -56,6 +57,7 @@ describe('AssetPage', () => {
     expect(await screen.findByText('ทั้งหมด 3 รายการ')).toBeInTheDocument()
     const rows = within(screen.getAllByRole('table').at(-1)!).getAllByRole('row')
     expect(rows[1]).toHaveTextContent('1 เม.ย. 2024ขาย')
+    expect(rows[2]).toHaveTextContent('20 หัก ณ ที่จ่าย 3')
     expect(rows[3]).toHaveTextContent('10 × 400.00 · DCA')
     expect(screen.getByText('กำไรที่ขายแล้ว').nextSibling).toHaveTextContent('+2,552')
     expect(screen.getByText('ค่าธรรมเนียมรวม').nextSibling).toHaveTextContent('104')
@@ -79,6 +81,48 @@ describe('AssetPage', () => {
     expect(screen.getByText('ถือยาว ทยอยซื้อทุกเดือน', { selector: 'p' })).toBeInTheDocument()
     expect(screen.getByText('ถึงวันทบทวนแล้ว')).toBeInTheDocument()
     expect(await db.instruments.get('US:VOO')).toMatchObject({ targetPrice: '1200', reviewDate: '2024-10-01' })
+  })
+
+  it('shows a falling stock price in the loss colour', async () => {
+    await db.instruments.add({ ...voo, lastPrice: '300' })
+    renderRoute('/assets/US%3AVOO', usd)
+    expect(await screen.findByText('จากหุ้น −28,056')).toHaveClass('bg-loss-soft')
+  })
+
+  it('closes the editor when another asset opens', async () => {
+    await db.instruments.bulkAdd([voo, { id: 'US:AAPL', market: 'US', symbol: 'AAPL', name: 'AAPL', assetType: 'stock', currency: 'USD' }])
+    const user = userEvent.setup()
+    const router = renderRoute('/assets/US%3AVOO', usd)
+    await user.click(await screen.findByRole('button', { name: 'แก้ไขเหตุผลที่ถือ' }))
+    expect(screen.getByLabelText('ทำไมถึงซื้อ / ถือ')).toBeInTheDocument()
+    await act(() => router.navigate('/assets/US%3AAAPL'))
+    expect(await screen.findByRole('heading', { name: 'AAPL' })).toBeInTheDocument()
+    expect(screen.queryByLabelText('ทำไมถึงซื้อ / ถือ')).not.toBeInTheDocument()
+  })
+
+  it('gives the back link a phone-sized touch target', async () => {
+    await db.instruments.add(voo)
+    renderRoute('/assets/US%3AVOO', usd)
+    await screen.findByRole('heading', { name: 'VOO' })
+    const back = within(screen.getByRole('main')).getByRole('link', { name: 'พอร์ต' })
+    expect(back).toHaveAttribute('href', '/portfolio')
+    expect(back).toHaveClass('min-h-11', 'w-fit')
+  })
+
+  it('shows the transactions as two-line rows on a phone and calls an estimated rate an estimate', async () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: false,
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    }))
+    await db.instruments.add(voo)
+    await db.transactions.add(makeTx({ instrumentId: 'US:VOO', quantity: '1', price: '410', fxRate: '34.12', fxSource: 'estimated', date: '2024-02-01' }))
+    renderRoute('/assets/US%3AVOO', usd)
+    const list = await screen.findByRole('list', { name: 'ทุกรายการของ VOO' })
+    expect(within(list).getByText('ซื้อ 1 × 410.00 · เรทประมาณ 34.12')).toBeInTheDocument()
+    expect(within(list).getByText('ซื้อ 10 × 400.00 · เรท 35.00')).toBeInTheDocument()
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
   })
 
   it('says so when the asset does not exist', async () => {

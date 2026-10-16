@@ -26,6 +26,18 @@ describe('PortfolioPage', () => {
     expect((await db.instruments.get('US:AAPL'))?.lastPrice).toBe('120')
   })
 
+  it('links the asset name to its page with a phone-sized touch target', async () => {
+    await db.instruments.add({ id: 'US:AAPL', market: 'US', symbol: 'AAPL', name: 'Apple', assetType: 'stock', currency: 'USD' })
+    await db.transactions.add(makeTx({ quantity: '10', price: '100', fxRate: '35' }))
+    const user = userEvent.setup()
+    renderRoute('/portfolio', fakeFxProvider({ 'USD|THB': '33' }).provider)
+    const link = await screen.findByRole('link', { name: /AAPL/ })
+    expect(link).toHaveAttribute('href', '/assets/US%3AAAPL')
+    expect(link).toHaveClass('min-h-11')
+    await user.click(link)
+    expect(await screen.findByRole('heading', { name: 'AAPL' })).toBeInTheDocument()
+  })
+
   it('keeps every price input of the same instrument in sync', async () => {
     await db.accounts.add({ id: 'acc-2', name: 'Dime 2', broker: 'Dime', note: '', createdAt: '2024-01-01T00:00:00.000Z' })
     await db.instruments.add({

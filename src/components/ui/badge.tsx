@@ -14,6 +14,7 @@ const badgeVariants = cva(
         warning: 'bg-warning-bg text-warning-fg',
         void: 'border-[1.5px] border-destructive text-destructive',
         ok: 'bg-gain-soft text-gain-ink',
+        loss: 'bg-loss-soft text-loss',
       },
     },
     defaultVariants: { variant: 'default' },

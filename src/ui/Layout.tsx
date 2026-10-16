@@ -14,20 +14,27 @@ const LEGEND = [
   { label: 'ผลจากค่าเงิน', className: 'bg-fx' },
 ]
 
-function SideLink({ to, label, icon: Icon }: NavItem) {
-  return (
-    <NavLink
-      to={to}
-      end={isExactLink(to)}
-      className={({ isActive }) =>
-        cn(
-          'flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[15.5px] text-ink-2 hover:bg-muted',
-          isActive && 'bg-primary-soft font-semibold text-primary-ink hover:bg-primary-soft',
-        )
-      }
-    >
+const SIDE_CLASS = 'flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[15.5px] text-ink-2 hover:bg-muted'
+const SIDE_ACTIVE_CLASS = 'bg-primary-soft font-semibold text-primary-ink hover:bg-primary-soft'
+
+// NavLink only marks aria-current for its own route, so a link that also stands for other pages is a plain Link.
+function SideLink({ to, label, icon: Icon, active }: NavItem & { active?: boolean }) {
+  const content = (
+    <>
       <Icon className="size-5" aria-hidden />
       {label}
+    </>
+  )
+  if (active) {
+    return (
+      <Link to={to} aria-current="page" className={cn(SIDE_CLASS, SIDE_ACTIVE_CLASS)}>
+        {content}
+      </Link>
+    )
+  }
+  return (
+    <NavLink to={to} end={isExactLink(to)} className={({ isActive }) => cn(SIDE_CLASS, isActive && SIDE_ACTIVE_CLASS)}>
+      {content}
     </NavLink>
   )
 }
@@ -60,6 +67,7 @@ function TabLink({ to, label, icon: Icon, active }: NavItem & { active?: boolean
 export function Layout() {
   const { pathname } = useLocation()
   const inMore = MORE_PAGES.some((page) => pathname.startsWith(page.to))
+  const inAssets = pathname.startsWith('/assets/')
   return (
     <div className="min-h-dvh md:grid md:grid-cols-[240px_minmax(0,1fr)]">
       <DailyValueRecorder />
@@ -74,7 +82,7 @@ export function Layout() {
         </NavLink>
         <nav aria-label="เมนูหลัก" className="grid gap-0.5">
           {SIDEBAR_PAGES.map((item) => (
-            <SideLink key={item.to} {...item} />
+            <SideLink key={item.to} {...item} active={item.to === PORTFOLIO.to && inAssets} />
           ))}
         </nav>
         <div className="mt-auto grid gap-[7px] border-t px-2.5 pt-3.5 text-[12.5px] text-muted-foreground">
@@ -97,7 +105,7 @@ export function Layout() {
         className="fixed inset-x-0 bottom-0 z-10 grid grid-cols-5 items-end border-t bg-card pt-1.5 pb-[max(env(safe-area-inset-bottom),12px)] md:hidden"
       >
         <TabLink {...HOME} />
-        <TabLink {...PORTFOLIO} />
+        <TabLink {...PORTFOLIO} active={inAssets} />
         <NavLink to={NEW_TRANSACTION} className="flex flex-col items-center gap-0.5 text-[11px] text-muted-foreground">
           <span className="-mt-5 grid size-[54px] place-items-center rounded-[17px] bg-primary text-primary-foreground shadow-[0_8px_18px_rgba(29,78,216,.3)]">
             <Plus className="size-6" aria-hidden />

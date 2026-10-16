@@ -4,7 +4,7 @@ import { Badge } from '../../components/ui/badge'
 import { Card } from '../../components/ui/card'
 import { Table, Td, Th } from '../../components/ui/table'
 import { todayLocal } from '../../domain/dates'
-import { D, sumBy } from '../../domain/decimal'
+import { D, sumBy, type Decimal } from '../../domain/decimal'
 import { instrumentStats } from '../../domain/holdings'
 import { feesQuote, sortTransactions } from '../../domain/ledger'
 import { cn } from '../../lib/cn'
@@ -20,6 +20,11 @@ import { assetRoute } from '../moneyRoutes'
 import { describeAmount, netOf } from '../transactionText'
 import { useIsDesktop } from '../useIsDesktop'
 
+function badgeOf(value: Decimal | null): 'ok' | 'loss' | 'default' {
+  if (!value) return 'default'
+  return value.greaterThan(0) ? 'ok' : value.lessThan(0) ? 'loss' : 'default'
+}
+
 export function AssetPage() {
   const { id = '' } = useParams()
   const data = useAppData()
@@ -32,7 +37,7 @@ export function AssetPage() {
   const instrument = data.instruments.find((i) => i.id === id)
   const stats = instrumentStats(id, valuations, ledger, today)
   const back = (
-    <Link to="/portfolio" className="inline-flex items-center gap-1 text-sm font-semibold text-primary">
+    <Link to="/portfolio" className="-my-3 inline-flex min-h-11 w-fit items-center gap-1 text-sm font-semibold text-primary md:my-0 md:min-h-0">
       <ChevronLeft className="size-4" aria-hidden />
       พอร์ต
     </Link>
@@ -80,7 +85,7 @@ export function AssetPage() {
                 <h2 className="mb-4 text-lg font-semibold">เส้นทางเงินของ {symbol}</h2>
                 <MoneyRoute label={`เส้นทางเงินของ ${symbol}`} stations={route} />
                 <p className="mt-[18px] flex flex-wrap gap-2">
-                  <Badge variant="ok">จากหุ้น {fmtSigned(stats.priceEffectBase, 0)}</Badge>
+                  <Badge variant={badgeOf(stats.priceEffectBase)}>จากหุ้น {fmtSigned(stats.priceEffectBase, 0)}</Badge>
                   {stats.currency !== base && <Badge variant="auto">จากค่าเงิน {fmtSigned(stats.fxEffectBase, 0)}</Badge>}
                   <Badge>ปันผล {fmtSigned(stats.incomeBase, 0)}</Badge>
                 </p>
@@ -160,7 +165,7 @@ export function AssetPage() {
                       <span className={cn('font-display font-semibold', net.className)}>{net.text}</span>
                       <span className="col-span-2 text-[12.5px] text-muted-foreground">
                         {TX_TYPE_LABELS[tx.type]} {describeAmount(tx)}
-                        {tx.fxSource !== 'same' && ` · เรท ${fmtPrice(tx.fxRate)}`}
+                        {tx.fxSource !== 'same' && ` · ${tx.fxSource === 'estimated' ? 'เรทประมาณ' : 'เรท'} ${fmtPrice(tx.fxRate)}`}
                       </span>
                     </Link>
                   </li>
@@ -171,7 +176,7 @@ export function AssetPage() {
         </Card>
 
         <div className="grid content-start gap-4">
-          {instrument && <ThesisCard instrument={instrument} today={today} />}
+          {instrument && <ThesisCard key={instrument.id} instrument={instrument} today={today} />}
           {stats && (
             <Card>
               <h2 className="mb-2 text-base font-semibold">สรุป</h2>

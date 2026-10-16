@@ -126,6 +126,18 @@ describe('TransactionsPage', () => {
     expect(split.cells[5]).toHaveTextContent(/^—$/)
   })
 
+  it('shows the tax withheld from a dividend next to its amount', async () => {
+    await db.transactions.bulkAdd([
+      makeTx({ id: 'div', type: 'dividend', quantity: undefined, price: undefined, amount: '1200', tax: '120', date: '2024-03-01' }),
+      makeTx({ id: 'div-free', type: 'dividend', quantity: undefined, price: undefined, amount: '300', tax: '0', date: '2024-02-01' }),
+    ])
+    renderRoute('/transactions')
+    const table = await screen.findByRole('table')
+    expect(await within(table).findByText(/^1,200 หัก ณ ที่จ่าย 120/)).toBeInTheDocument()
+    expect(within(table).queryByText(/^300 หัก/)).not.toBeInTheDocument()
+    expect(within(table).getByText(/^300/)).toBeInTheDocument()
+  })
+
   it('shows two-line rows on a phone', async () => {
     vi.stubGlobal('matchMedia', (query: string) => ({
       matches: false,

@@ -31,7 +31,10 @@ interface HoldingsTableProps {
 // The name links to the asset page; the row itself holds a price input, so it cannot be one big link.
 function AssetName({ instrumentId, instrument }: { instrumentId: string; instrument?: Instrument }) {
   return (
-    <Link to={assetPath(instrumentId)} className="flex min-w-0 items-center gap-2.5 hover:underline">
+    <Link
+      to={assetPath(instrumentId)}
+      className="-my-2.5 flex min-h-11 min-w-0 items-center gap-2.5 hover:text-primary hover:underline md:my-0 md:min-h-0"
+    >
       <MarketPill market={instrument?.market ?? marketOf(instrumentId)} assetType={instrument?.assetType} />
       <b className="font-display text-base font-semibold">{instrument?.symbol ?? instrumentId}</b>
       {instrument && instrument.name !== instrument.symbol && (

@@ -14,6 +14,9 @@ export function describeAmount(tx: Transaction): string {
       return `× ${fmtNumber(tx.splitRatio, 4)}`
     case 'fx_convert':
       return `${fmtNumber(tx.amount)} ${tx.currency} → ${fmtNumber(tx.toAmount)} ${tx.toCurrency ?? ''}`
+    case 'dividend':
+    case 'interest':
+      return D(tx.tax).greaterThan(0) ? `${fmtNumber(tx.amount)} หัก ณ ที่จ่าย ${fmtNumber(tx.tax)}` : fmtNumber(tx.amount)
     default:
       return fmtNumber(tx.amount)
   }
