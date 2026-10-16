@@ -9,7 +9,7 @@ import { parseDecimalInput } from '../../domain/decimal'
 import type { Instrument } from '../../domain/types'
 import type { PositionValuation } from '../../domain/valuation'
 import { cn } from '../../lib/cn'
-import { fmtNumber, fmtSigned, plClass } from '../format'
+import { fmtNumber, fmtPrice, fmtRate, fmtSigned, fmtValue, plClass } from '../format'
 import type { RateInfo } from '../hooks'
 import { marketOf } from '../labels'
 import { useIsDesktop } from '../useIsDesktop'
@@ -88,7 +88,7 @@ export function HoldingsTable({ valuations, instruments, accountNames, base, rat
               className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2.5 gap-y-1 border-t border-muted py-3 first:border-t-0"
             >
               <AssetName instrumentId={p.instrumentId} instrument={instrument} />
-              <span className="font-display font-semibold">{fmtNumber(v.marketValueBase)}</span>
+              <span className="font-display font-semibold">{fmtValue(v.marketValueBase)}</span>
               <span className="col-span-2 text-[12.5px] text-muted-foreground">
                 {fmtNumber(p.quantity, 8)} หน่วย · หุ้น <span className={plClass(v.priceEffectBase)}>{fmtSigned(v.priceEffectBase)}</span>
                 {p.currency !== base && (
@@ -115,7 +115,6 @@ export function HoldingsTable({ valuations, instruments, accountNames, base, rat
       <thead>
         <tr>
           <Th>สินทรัพย์</Th>
-          {accountNames && <Th>บัญชี</Th>}
           <Th className="text-right">จำนวน</Th>
           <Th className="text-right">ทุนเฉลี่ย</Th>
           {editablePrice && <Th>ราคาล่าสุด</Th>}
@@ -135,21 +134,25 @@ export function HoldingsTable({ valuations, instruments, accountNames, base, rat
             <tr key={p.key}>
               <Td className="max-w-64">
                 <AssetName instrumentId={p.instrumentId} instrument={instrument} />
+                {accountNames && (
+                  <span className="mt-0.5 block truncate text-xs text-muted-foreground">{accountNames.get(p.accountId)}</span>
+                )}
               </Td>
-              {accountNames && <Td className="text-muted-foreground">{accountNames.get(p.accountId)}</Td>}
               <Td className="text-right">{fmtNumber(p.quantity, 8)}</Td>
               <Td className="text-right">
-                {fmtNumber(v.avgCostQuote, 4)} <span className="text-muted-foreground">{p.currency}</span>
+                {fmtPrice(v.avgCostQuote)} <span className="text-muted-foreground">{p.currency}</span>
               </Td>
               {editablePrice && <Td>{instrument ? <PriceInput key={priceInputKey(instrument)} instrument={instrument} /> : '—'}</Td>}
-              <Td className="text-right text-fx">
-                {foreign ? `${fmtNumber(v.avgFxRate, 4)} → ${fmtNumber(v.currentFxRate, 4)}` : '—'}
+              <Td className={cn('text-right', foreign ? 'text-fx' : 'text-muted-foreground')}>
+                {foreign ? `${fmtRate(v.avgFxRate)} → ${fmtRate(v.currentFxRate)}` : '—'}
                 {foreign && rates[p.currency]?.note && <span className="block text-[11px]">{rates[p.currency].note}</span>}
               </Td>
-              <Td className="text-right font-display font-semibold">{fmtNumber(v.marketValueBase)}</Td>
+              <Td className="text-right font-display font-semibold">{fmtValue(v.marketValueBase)}</Td>
               <Td className={cn('text-right', plClass(v.unrealizedBase))}>{fmtSigned(v.unrealizedBase)}</Td>
               <Td className={cn('text-right', plClass(v.priceEffectBase))}>{fmtSigned(v.priceEffectBase)}</Td>
-              <Td className="text-right text-fx">{fmtSigned(v.fxEffectBase)}</Td>
+              <Td className={cn('text-right', foreign ? 'text-fx' : 'text-muted-foreground')}>
+                {foreign ? fmtSigned(v.fxEffectBase) : '—'}
+              </Td>
             </tr>
           )
         })}

@@ -1,5 +1,5 @@
 import { cn } from '../../lib/cn'
-import { fmtNumber, fmtSigned } from '../format'
+import { fmtRate, fmtSigned } from '../format'
 import type { RateBoardRow } from '../rateBoard'
 
 const COLUMNS = 'md:grid-cols-[120px_1fr_1fr_110px_170px]'
@@ -32,13 +32,13 @@ export function RateBoard({ rows, base }: { rows: readonly RateBoardRow[]; base:
             <span className="justify-self-start rounded-md bg-board-line px-2 py-0.5 font-display text-xs font-semibold text-[#dce6f7]">
               {row.currency}
             </span>
-            <span className="order-2 flex items-baseline gap-1.5 font-display text-[22px] font-semibold leading-tight md:order-none md:contents md:text-[34px]">
-              <span className="text-board-mine">{fmtNumber(row.mine, 4)}</span>
+            <span className="order-2 col-span-2 flex min-w-0 flex-wrap items-baseline gap-x-1.5 font-display text-[22px] font-semibold leading-tight md:order-none md:contents md:text-[34px]">
+              <span className="text-board-mine">{fmtRate(row.mine)}</span>
               <span aria-hidden className="text-base text-board-muted md:hidden">
                 →
               </span>
               <span>
-                {row.today ? fmtNumber(row.today, 4) : '—'}
+                {row.today ? fmtRate(row.today) : '—'}
                 {row.todayNote && (
                   <small className="block font-sans text-[11px] font-normal text-board-muted max-md:hidden">{row.todayNote}</small>
                 )}
@@ -52,7 +52,7 @@ export function RateBoard({ rows, base }: { rows: readonly RateBoardRow[]; base:
             >
               {row.diffPct ? `${fmtSigned(row.diffPct)}%` : '—'}
             </span>
-            <span className="order-3 text-right font-display text-xl font-semibold text-board-fx md:order-none md:text-left">
+            <span className="order-3 col-span-2 text-right font-display text-base font-semibold text-board-fx md:order-none md:col-span-1 md:text-left md:text-xl">
               {row.effectBase ? `${fmtSigned(row.effectBase)} ${base}` : '—'}
             </span>
           </li>
