@@ -1,4 +1,4 @@
-import { Pencil, Plus, Search, Trash2, TriangleAlert } from 'lucide-react'
+import { Download, Pencil, Plus, Search, Trash2, TriangleAlert } from 'lucide-react'
 import { Fragment, useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { Alert } from '../../components/ui/alert'
@@ -8,8 +8,10 @@ import { Card } from '../../components/ui/card'
 import { chipSelectClass } from '../../components/ui/chip'
 import { Input, NativeSelect } from '../../components/ui/input'
 import { Table, Td, Th } from '../../components/ui/table'
+import { transactionsToCsv } from '../../db/backup'
 import { db } from '../../db/db'
 import { deleteTransaction } from '../../db/repo'
+import { todayLocal } from '../../domain/dates'
 import { D } from '../../domain/decimal'
 import { fxConvertSummary } from '../../domain/fxConvert'
 import { cashDeltaQuote, sortTransactions } from '../../domain/ledger'
@@ -17,6 +19,7 @@ import { MARKETS, TX_TYPES, type Instrument, type Transaction } from '../../doma
 import { cn } from '../../lib/cn'
 import { CashPill, MarketPill } from '../components/MarketPill'
 import { PageHeader } from '../components/PageHeader'
+import { downloadText } from '../download'
 import { fmtDay, fmtNumber, fmtSigned, plClass } from '../format'
 import { useAppData, useLedger } from '../hooks'
 import { FX_SOURCE_LABELS, MARKET_LABELS, TX_TYPE_LABELS, marketOf } from '../labels'
@@ -127,6 +130,18 @@ export function TransactionsPage() {
   return (
     <>
       <PageHeader title="รายการทั้งหมด">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={rows.length === 0}
+          onClick={() =>
+            downloadText(`jod-transactions-${todayLocal()}.csv`, transactionsToCsv(rows, data.accounts, base), 'text/csv;charset=utf-8')
+          }
+        >
+          <Download aria-hidden />
+          ส่งออก CSV
+        </Button>
         <Link to="/transactions/new" className={cn(buttonVariants({ size: 'sm' }), 'max-md:hidden')}>
           <Plus aria-hidden />
           บันทึกรายการ

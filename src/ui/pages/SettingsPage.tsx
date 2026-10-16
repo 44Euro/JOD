@@ -8,6 +8,7 @@ import { Input, NativeSelect } from '../../components/ui/input'
 import { db } from '../../db/db'
 import { addAccount, deleteAccount, saveSettings } from '../../db/repo'
 import { AUTO_FX_CURRENCIES } from '../../domain/currencies'
+import { DataSection } from '../components/DataSection'
 import { PageHeader } from '../components/PageHeader'
 import { useAppData } from '../hooks'
 
@@ -110,6 +111,9 @@ export function SettingsPage() {
               </Button>
             </form>
           </Card>
+        </div>
+        <div className="grid content-start gap-3.5 md:gap-4">
+          <DataSection data={data} />
         </div>
       </div>
     </>
