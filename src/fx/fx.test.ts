@@ -28,6 +28,23 @@ describe('createFrankfurterProvider', () => {
     })
     await expect(provider.getRate('USD', 'THB', 'latest')).rejects.toThrow('เชื่อมต่อแหล่งเรทไม่ได้')
   })
+
+  it('turns an unreadable 200 response into FxUnavailableError', async () => {
+    const provider = createFrankfurterProvider(async () => new Response('<html>portal</html>', { status: 200 }))
+    await expect(provider.getRate('USD', 'THB', 'latest')).rejects.toBeInstanceOf(FxUnavailableError)
+  })
+
+  it('turns a null body into FxUnavailableError', async () => {
+    const provider = createFrankfurterProvider(async () => new Response('null', { status: 200 }))
+    await expect(provider.getRate('USD', 'THB', 'latest')).rejects.toBeInstanceOf(FxUnavailableError)
+  })
+
+  it('turns a response without the requested symbol into FxUnavailableError', async () => {
+    const provider = createFrankfurterProvider(async () =>
+      jsonResponse({ amount: 1, base: 'USD', date: '2024-01-12', rates: { EUR: 0.92 } }),
+    )
+    await expect(provider.getRate('USD', 'THB', 'latest')).rejects.toBeInstanceOf(FxUnavailableError)
+  })
 })
 
 describe('getFxQuote', () => {

@@ -25,9 +25,9 @@ export function createFrankfurterProvider(
         throw new FxUnavailableError('เชื่อมต่อแหล่งเรทไม่ได้ (ออฟไลน์อยู่หรือเปล่า?) กรุณากรอกเรทเอง')
       }
       if (!response.ok) throw new FxUnavailableError(`ไม่มีเรท ${from}/${to} ของวันที่ ${date} กรุณากรอกเรทเอง`)
-      const body = (await response.json()) as { date: string; rates?: Record<string, number> }
-      const value = body.rates?.[to]
-      if (value === undefined) throw new FxUnavailableError(`ไม่มีเรท ${from}/${to} กรุณากรอกเรทเอง`)
+      const body = (await response.json().catch(() => null)) as { date: string; rates?: Record<string, number> } | null
+      const value = body?.rates?.[to]
+      if (!body || value === undefined) throw new FxUnavailableError(`ไม่มีเรท ${from}/${to} กรุณากรอกเรทเอง`)
       return { rate: String(value), rateDate: body.date }
     },
   }
