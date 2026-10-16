@@ -13,9 +13,9 @@ export const buttonVariants = cva(
         destructive: 'bg-destructive text-white hover:bg-destructive/90',
       },
       size: {
-        default: 'h-[42px] px-4',
-        sm: 'h-[34px] rounded-[10px] px-3 text-[13.5px]',
-        icon: 'size-10',
+        default: 'h-11 px-4 md:h-[42px]',
+        sm: 'h-11 rounded-[10px] px-3 text-[13.5px] md:h-[34px]',
+        icon: 'size-11 md:size-10',
       },
     },
     defaultVariants: { variant: 'default', size: 'default' },
