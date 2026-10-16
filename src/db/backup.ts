@@ -1,18 +1,21 @@
-import { D } from '../domain/decimal'
+import { isIsoDate } from '../domain/dates'
+import { D, isDecimalString } from '../domain/decimal'
 import { cashDeltaQuote, sortTransactions } from '../domain/ledger'
 import type { Account, Instrument, Transaction } from '../domain/types'
 import { validateTransaction } from '../domain/validation'
-import type { JodDB, SettingsRecord } from './db'
+import type { DailyValueRecord, JodDB, SettingsRecord } from './db'
 
+// Version 2 adds dailyValues. Version 1 files (from before the daily value table) still restore.
 export interface BackupFile {
   app: 'jod'
-  version: 1
+  version: 1 | 2
   exportedAt: string
   data: {
     accounts: Account[]
     instruments: Instrument[]
     transactions: Transaction[]
     settings: SettingsRecord[]
+    dailyValues?: DailyValueRecord[]
   }
 }
 
@@ -21,13 +24,19 @@ export class BackupError extends Error {
 }
 
 export async function exportBackup(db: JodDB, now: Date = new Date()): Promise<BackupFile> {
-  const [accounts, instruments, transactions, settings] = await Promise.all([
+  const [accounts, instruments, transactions, settings, dailyValues] = await Promise.all([
     db.accounts.toArray(),
     db.instruments.toArray(),
     db.transactions.toArray(),
     db.settings.toArray(),
+    db.dailyValues.toArray(),
   ])
-  return { app: 'jod', version: 1, exportedAt: now.toISOString(), data: { accounts, instruments, transactions, settings } }
+  return {
+    app: 'jod',
+    version: 2,
+    exportedAt: now.toISOString(),
+    data: { accounts, instruments, transactions, settings, dailyValues },
+  }
 }
 
 export function parseBackup(text: string): BackupFile {
@@ -38,7 +47,7 @@ export function parseBackup(text: string): BackupFile {
     throw new BackupError('ไฟล์นี้ไม่ใช่ JSON')
   }
   const file = parsed as Partial<BackupFile> | null
-  if (file?.app !== 'jod' || file.version !== 1 || !file.data) {
+  if (file?.app !== 'jod' || (file.version !== 1 && file.version !== 2) || !file.data) {
     throw new BackupError('ไม่ใช่ไฟล์สำรองของ JOD หรือเป็นเวอร์ชันที่ไม่รองรับ')
   }
   const { accounts, instruments, transactions, settings } = file.data
@@ -52,17 +61,33 @@ export function parseBackup(text: string): BackupFile {
     if (errors.length > 0) throw new BackupError(`รายการ ${tx.id} ไม่ถูกต้อง: ${errors[0]}`)
     if (!accountIds.has(tx.accountId)) throw new BackupError(`รายการ ${tx.id} อ้างถึงบัญชีที่ไม่มีในไฟล์`)
   }
+  const { dailyValues = [] } = file.data
+  if (!Array.isArray(dailyValues)) throw new BackupError('ข้อมูลในไฟล์สำรองไม่ครบ')
+  for (const row of dailyValues) {
+    const valid =
+      typeof row === 'object' &&
+      row !== null &&
+      typeof row.date === 'string' &&
+      isIsoDate(row.date) &&
+      typeof row.valueBase === 'string' &&
+      isDecimalString(row.valueBase) &&
+      typeof row.netInvestedBase === 'string' &&
+      isDecimalString(row.netInvestedBase)
+    if (!valid) throw new BackupError('พบมูลค่ารายวันที่เสียหายในไฟล์')
+  }
   return file as BackupFile
 }
 
 // Runs as one transaction so a failure part-way leaves the existing data untouched.
 export async function restoreBackup(db: JodDB, backup: BackupFile): Promise<void> {
-  await db.transaction('rw', [db.accounts, db.instruments, db.transactions, db.settings], async () => {
-    await Promise.all([db.accounts.clear(), db.instruments.clear(), db.transactions.clear(), db.settings.clear()])
+  const tables = [db.accounts, db.instruments, db.transactions, db.settings, db.dailyValues]
+  await db.transaction('rw', tables, async () => {
+    await Promise.all(tables.map((table) => table.clear()))
     await db.accounts.bulkAdd(backup.data.accounts)
     await db.instruments.bulkAdd(backup.data.instruments)
     await db.transactions.bulkAdd(backup.data.transactions)
     await db.settings.bulkAdd(backup.data.settings)
+    await db.dailyValues.bulkAdd(backup.data.dailyValues ?? [])
   })
 }
 

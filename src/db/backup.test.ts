@@ -12,6 +12,8 @@ beforeEach(async () => {
   await db.transactions.add(makeTx({ id: 'keep-me' }))
 })
 
+const day = { date: '2024-06-01', valueBase: '35788.50', netInvestedBase: '34000.00', recordedAt: '2024-06-01T10:00:00.000Z' }
+
 describe('backup round trip', () => {
   it('restores exactly what was exported', async () => {
     const backup = await exportBackup(db, new Date('2024-06-01T00:00:00Z'))
@@ -19,6 +21,24 @@ describe('backup round trip', () => {
     await restoreBackup(target, parseBackup(JSON.stringify(backup)))
     expect(await target.transactions.toArray()).toEqual(await db.transactions.toArray())
     expect(await target.accounts.toArray()).toEqual([account])
+  })
+
+  it('writes version 2 with the daily values and brings them back', async () => {
+    await db.dailyValues.add(day)
+    const backup = await exportBackup(db)
+    expect(backup.version).toBe(2)
+    const target = createDb(`test-${crypto.randomUUID()}`)
+    await restoreBackup(target, parseBackup(JSON.stringify(backup)))
+    expect(await target.dailyValues.toArray()).toEqual([day])
+  })
+
+  it('still restores a version 1 file, which has no daily values', async () => {
+    const v1 = { app: 'jod', version: 1, exportedAt: '', data: { accounts: [account], instruments: [], settings: [], transactions: [makeTx({ id: 'old' })] } }
+    const target = createDb(`test-${crypto.randomUUID()}`)
+    await target.dailyValues.add(day)
+    await restoreBackup(target, parseBackup(JSON.stringify(v1)))
+    expect(await target.transactions.get('old')).toBeDefined()
+    expect(await target.dailyValues.count()).toBe(0)
   })
 })
 
@@ -38,6 +58,12 @@ describe('parseBackup', () => {
     expect(() => parseBackup(JSON.stringify(bad))).toThrow('รายการ x ไม่ถูกต้อง')
     const orphan = { ...bad, data: { ...bad.data, transactions: [makeTx({ id: 'y', accountId: 'ghost' })] } }
     expect(() => parseBackup(JSON.stringify(orphan))).toThrow('รายการ y อ้างถึงบัญชีที่ไม่มีในไฟล์')
+  })
+
+  it('rejects a damaged daily value and an unknown version', () => {
+    const file = { app: 'jod', version: 2, exportedAt: '', data: { accounts: [account], instruments: [], settings: [], transactions: [], dailyValues: [{ ...day, valueBase: 'abc' }] } }
+    expect(() => parseBackup(JSON.stringify(file))).toThrow('พบมูลค่ารายวันที่เสียหายในไฟล์')
+    expect(() => parseBackup(JSON.stringify({ ...file, version: 3 }))).toThrow('เป็นเวอร์ชันที่ไม่รองรับ')
   })
 })
 

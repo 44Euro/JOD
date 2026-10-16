@@ -186,3 +186,14 @@ export function summarizeInvestor(input: InvestorInput): InvestorSummary {
     },
   }
 }
+
+export interface DailySnapshot {
+  valueBase: string
+  netInvestedBase: string
+}
+
+// A day is only worth keeping once every currency has a rate; before that the value would be a guess.
+export function dailySnapshot(summary: InvestorSummary): DailySnapshot | null {
+  if (summary.flows.length === 0 || summary.worth.missingRates.length > 0) return null
+  return { valueBase: summary.worth.totalBase.toFixed(2), netInvestedBase: summary.invested.totalBase.toFixed(2) }
+}

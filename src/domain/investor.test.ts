@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { makeTx } from '../test/fixtures'
 import { sumBy } from './decimal'
-import { summarizeInvestor } from './investor'
+import { dailySnapshot, summarizeInvestor } from './investor'
 import { computeLedger } from './ledger'
 import type { Transaction } from './types'
 import { valuePosition } from './valuation'
@@ -166,5 +166,17 @@ describe('summarizeInvestor across accounts and edge cases', () => {
     const result = run([makeTx({ quantity: '1', price: '100', fxRate: '35' })], { 'US:AAPL': '120' }, {})
     expect(result.worth.missingRates).toEqual(['USD'])
     expect(result.worth.holdingsBase.toString()).toBe('3500')
+  })
+})
+
+describe('dailySnapshot', () => {
+  it('rounds today’s value and money invested to satang', () => {
+    const summary = run(cashAccount, { 'US:AAPL': '120' }, { USD: '33' })
+    expect(dailySnapshot(summary)).toEqual({ valueBase: '35788.50', netInvestedBase: '34000.00' })
+  })
+
+  it('waits until every currency has a rate, and skips a portfolio with no money in yet', () => {
+    expect(dailySnapshot(run([makeTx({ quantity: '1', price: '100', fxRate: '35' })], { 'US:AAPL': '120' }, {}))).toBeNull()
+    expect(dailySnapshot(run([], {}, {}))).toBeNull()
   })
 })

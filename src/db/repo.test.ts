@@ -5,6 +5,7 @@ import {
   addAccount,
   deleteAccount,
   getSettings,
+  recordDailyValue,
   saveSettings,
   saveTransaction,
   setInstrumentPrice,
@@ -63,5 +64,19 @@ describe('transactions', () => {
     const tx = makeTx()
     await saveTransaction(db, tx, new Date('2024-06-01T10:00:00Z'))
     expect((await db.transactions.get(tx.id))?.updatedAt).toBe('2024-06-01T10:00:00.000Z')
+  })
+})
+
+describe('daily values', () => {
+  it('keeps one row per day and only rewrites it when the numbers change', async () => {
+    const day = { date: '2024-07-01', valueBase: '50950.00', netInvestedBase: '50000.00' }
+    expect(await recordDailyValue(db, day, new Date('2024-07-01T02:00:00Z'))).toBe(true)
+    expect(await recordDailyValue(db, day, new Date('2024-07-01T03:00:00Z'))).toBe(false)
+    expect((await db.dailyValues.get('2024-07-01'))?.recordedAt).toBe('2024-07-01T02:00:00.000Z')
+
+    expect(await recordDailyValue(db, { ...day, valueBase: '51000.00' }, new Date('2024-07-01T09:00:00Z'))).toBe(true)
+    expect(await db.dailyValues.toArray()).toEqual([
+      { date: '2024-07-01', valueBase: '51000.00', netInvestedBase: '50000.00', recordedAt: '2024-07-01T09:00:00.000Z' },
+    ])
   })
 })

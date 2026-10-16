@@ -1,6 +1,6 @@
 import { DEFAULT_SETTINGS, type Account, type Instrument, type Settings, type Transaction } from '../domain/types'
 import { validateTransaction } from '../domain/validation'
-import type { JodDB } from './db'
+import type { DailyValueRecord, JodDB } from './db'
 
 export function newId(): string {
   return crypto.randomUUID()
@@ -48,4 +48,19 @@ export async function saveTransaction(db: JodDB, tx: Transaction, now: Date = ne
 
 export async function deleteTransaction(db: JodDB, id: string): Promise<void> {
   await db.transactions.delete(id)
+}
+
+// One row per day: later runs on the same day overwrite it, so the row ends up holding the day's last
+// known value. Returns whether anything was written.
+export async function recordDailyValue(
+  db: JodDB,
+  snapshot: Omit<DailyValueRecord, 'recordedAt'>,
+  now: Date = new Date(),
+): Promise<boolean> {
+  return db.transaction('rw', db.dailyValues, async () => {
+    const existing = await db.dailyValues.get(snapshot.date)
+    if (existing?.valueBase === snapshot.valueBase && existing.netInvestedBase === snapshot.netInvestedBase) return false
+    await db.dailyValues.put({ ...snapshot, recordedAt: now.toISOString() })
+    return true
+  })
 }

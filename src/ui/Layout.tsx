@@ -2,6 +2,7 @@ import { Briefcase, House, List, Plus, Settings, type LucideIcon } from 'lucide-
 import { NavLink, Outlet } from 'react-router'
 import { buttonVariants } from '../components/ui/button'
 import { cn } from '../lib/cn'
+import { DailyValueRecorder } from './DailyValueRecorder'
 
 interface NavItem {
   to: string
@@ -63,6 +64,7 @@ function TabLink({ to, label, icon: Icon }: NavItem) {
 export function Layout() {
   return (
     <div className="min-h-dvh md:grid md:grid-cols-[240px_minmax(0,1fr)]">
+      <DailyValueRecorder />
       <aside className="sticky top-0 hidden h-dvh flex-col gap-0.5 overflow-y-auto border-r bg-card px-4 py-[26px] md:flex">
         <p className="px-2 font-display text-[30px] font-semibold leading-none">
           JOD

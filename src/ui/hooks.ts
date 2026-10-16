@@ -2,6 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useMemo, useState } from 'react'
 import { db } from '../db/db'
 import { getSettings } from '../db/repo'
+import { summarizeInvestor } from '../domain/investor'
 import { computeLedger } from '../domain/ledger'
 import type { Transaction } from '../domain/types'
 import { latestRecordedRate, summarizePortfolio, valuePosition } from '../domain/valuation'
@@ -81,4 +82,15 @@ export function usePortfolio(data: AppData | undefined) {
   }, [ledger, data, rates])
   const summary = useMemo(() => summarizePortfolio(valuations), [valuations])
   return { ledger, valuations, summary, rates }
+}
+
+export function useInvestor(data: AppData | undefined) {
+  const portfolio = usePortfolio(data)
+  const { ledger, valuations, rates } = portfolio
+  const investor = useMemo(() => {
+    if (!data || !ledger) return null
+    const rateValues = Object.fromEntries(Object.entries(rates).map(([currency, info]) => [currency, info.rate]))
+    return summarizeInvestor({ transactions: data.transactions, ledger, valuations, rates: rateValues })
+  }, [data, ledger, valuations, rates])
+  return { ...portfolio, investor }
 }
