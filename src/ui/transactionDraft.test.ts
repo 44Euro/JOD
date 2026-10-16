@@ -168,3 +168,30 @@ describe('draft helpers', () => {
     expect(totalForDisplay(draftToTransaction(buyDraft({ type: 'split', splitRatio: '4' }), ctx).tx)).toBeNull()
   })
 })
+
+describe('looked-up names', () => {
+  const ptt: Instrument = { id: 'SET:PTT', market: 'SET', symbol: 'PTT', name: 'ปตท.', assetType: 'etf', currency: 'THB' }
+  const voo: Instrument = { id: 'US:VOO', market: 'US', symbol: 'VOO', name: 'Vanguard S&P 500 ETF', assetType: 'etf', currency: 'USD' }
+  const btc: Instrument = { id: 'CRYPTO:BTC', market: 'CRYPTO', symbol: 'BTC', name: 'Bitcoin', assetType: 'crypto', currency: 'USDT' }
+
+  it('clears the looked-up name and asset type once the symbol stops matching', () => {
+    const matched = pickSymbol(buyDraft({ market: 'SET', symbol: '', currency: 'THB', fxRate: '' }), 'PTT', [ptt])
+    expect(matched).toMatchObject({ instrumentName: 'ปตท.', assetType: 'etf' })
+    expect(pickSymbol(matched, 'PTTE', [ptt])).toMatchObject({ symbol: 'PTTE', instrumentName: '', assetType: 'stock' })
+  })
+
+  it('keeps a name typed for a symbol that was never looked up', () => {
+    const typed = buyDraft({ market: 'SET', symbol: 'ABC', instrumentName: 'กองทุนของฉัน', assetType: 'fund' })
+    expect(pickSymbol(typed, 'ABCD', [ptt])).toMatchObject({ symbol: 'ABCD', instrumentName: 'กองทุนของฉัน', assetType: 'fund' })
+  })
+
+  it('clears a name looked up in the old market when the market changes', () => {
+    const looked = buyDraft({ symbol: 'VOO', instrumentName: 'Vanguard S&P 500 ETF', assetType: 'etf' })
+    expect(changeMarket(looked, 'HK', [voo])).toMatchObject({ market: 'HK', currency: 'HKD', instrumentName: '', assetType: 'stock' })
+  })
+
+  it('picks up the name and currency of a symbol known in the new market', () => {
+    const next = changeMarket(buyDraft({ symbol: 'btc' }), 'CRYPTO', [btc])
+    expect(next).toMatchObject({ market: 'CRYPTO', instrumentName: 'Bitcoin', currency: 'USDT', assetType: 'crypto' })
+  })
+})

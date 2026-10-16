@@ -120,15 +120,33 @@ export function changeOpeningKind(draft: Draft, openingKind: OpeningKind): Draft
   return isOpeningAsset(next) !== isOpeningAsset(draft) ? restartRate(next) : next
 }
 
-export function changeMarket(draft: Draft, market: Market): Draft {
+function lookupInstrument(market: Market, symbol: string, instruments: readonly Instrument[]): Instrument | undefined {
+  return instruments.find((i) => i.id === instrumentKey(market, symbol))
+}
+
+function defaultAssetType(market: Market): AssetType {
+  return market === 'CRYPTO' ? 'crypto' : 'stock'
+}
+
+export function changeMarket(draft: Draft, market: Market, instruments: readonly Instrument[] = []): Draft {
+  const lookedUp = lookupInstrument(draft.market, draft.symbol, instruments) !== undefined
   const assetType = market === 'CRYPTO' ? 'crypto' : draft.assetType === 'crypto' ? 'stock' : draft.assetType
-  return changeCurrency({ ...draft, market, assetType }, MARKET_CURRENCY[market])
+  const switched = changeCurrency(
+    lookedUp
+      ? { ...draft, market, instrumentName: '', assetType: defaultAssetType(market) }
+      : { ...draft, market, assetType },
+    MARKET_CURRENCY[market],
+  )
+  return draft.symbol ? pickSymbol(switched, draft.symbol, instruments) : switched
 }
 
 export function pickSymbol(draft: Draft, symbol: string, instruments: readonly Instrument[]): Draft {
-  const found = instruments.find((i) => i.id === instrumentKey(draft.market, symbol))
-  if (!found) return { ...draft, symbol }
-  return changeCurrency({ ...draft, symbol, instrumentName: found.name, assetType: found.assetType }, found.currency)
+  const found = lookupInstrument(draft.market, symbol, instruments)
+  if (found) return changeCurrency({ ...draft, symbol, instrumentName: found.name, assetType: found.assetType }, found.currency)
+  if (lookupInstrument(draft.market, draft.symbol, instruments)) {
+    return { ...draft, symbol, instrumentName: '', assetType: defaultAssetType(draft.market) }
+  }
+  return { ...draft, symbol }
 }
 
 // An opening holding needs the user's own average purchase rate, so the reference rate is offered but never filled in.
