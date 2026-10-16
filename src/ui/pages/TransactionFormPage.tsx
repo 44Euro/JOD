@@ -1,5 +1,5 @@
 import { Check, Trash2 } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { Alert } from '../../components/ui/alert'
 import { Badge } from '../../components/ui/badge'
@@ -37,7 +37,9 @@ import {
   emptyDraft,
   isOpeningAsset,
   pickSymbol,
+  receivedAmount,
   showsInstrument,
+  syncReceived,
   totalForDisplay,
   type Draft,
 } from '../transactionDraft'
@@ -103,8 +105,31 @@ function clearEntry(draft: Draft): Draft {
     tax: '',
     splitRatio: '',
     toAmount: '',
+    toAmountSource: 'auto',
     note: '',
   }
+}
+
+function marketRateKey(draft: Draft): string {
+  return `${draft.toCurrency}|${draft.currency}|${draft.date}`
+}
+
+function receivedHint(draft: Draft, computed: string | null, rateMissing: boolean, restoreComputed: () => void): ReactNode {
+  if (!draft.marketRate) return rateMissing ? 'ไม่มีเรทกลางของวันนั้น กรอกจำนวนที่ได้รับเอง' : undefined
+  if (draft.toAmountSource === 'auto') {
+    return `คำนวณจากเรทกลาง ECB ${fmtDate(draft.date)} · 1 ${draft.toCurrency} = ${fmtPrice(draft.marketRate)} ${draft.currency} · แก้เป็นยอดจริงจากโบรกได้`
+  }
+  return (
+    computed && (
+      <button
+        type="button"
+        className="inline-flex min-h-11 items-center text-[13px] font-semibold text-fx underline underline-offset-[3px] md:min-h-0"
+        onClick={restoreComputed}
+      >
+        ใช้ยอดคำนวณ {computed}
+      </button>
+    )
+  )
 }
 
 function TotalPanel({ total, currency, base, rate }: { total: Decimal; currency: string; base: string; rate: string | null }) {
@@ -147,11 +172,14 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
   const provider = useFxProvider()
   const isDesktop = useIsDesktop()
   const base = data.settings.baseCurrency
-  const [draft, setDraft] = useState<Draft>(() =>
+  const [draft, setDraftState] = useState<Draft>(() =>
     existing ? draftFromTransaction(existing, data.instruments) : emptyDraft(data.accounts[0].id, todayLocal()),
   )
+  // Every change passes through here so the received amount of an exchange is recomputed in one place.
+  const setDraft = useCallback((change: (d: Draft) => Draft) => setDraftState((d) => syncReceived(change(d))), [])
   const [errors, setErrors] = useState<string[]>([])
   const [fxMessage, setFxMessage] = useState('')
+  const [noRateFor, setNoRateFor] = useState('')
   const [savedNote, setSavedNote] = useState('')
   const [saving, setSaving] = useState(false)
   const [saveFailed, setSaveFailed] = useState(false)
@@ -181,7 +209,7 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
     return () => {
       cancelled = true
     }
-  }, [needsFx, draft.currency, draft.date, base, provider])
+  }, [needsFx, draft.currency, draft.date, base, provider, setDraft])
 
   useEffect(() => {
     const { type, toCurrency, currency, date } = draft
@@ -189,15 +217,19 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
     let cancelled = false
     getFxQuote(db, provider, toCurrency, currency, date)
       .then((quote) => {
-        if (!cancelled) setDraft((d) => ({ ...d, marketRate: quote.rate }))
+        if (cancelled) return
+        setNoRateFor('')
+        setDraft((d) => ({ ...d, marketRate: quote.rate }))
       })
       .catch(() => {
-        if (!cancelled) setDraft((d) => ({ ...d, marketRate: '' }))
+        if (cancelled) return
+        setNoRateFor(marketRateKey(draft))
+        setDraft((d) => ({ ...d, marketRate: '' }))
       })
     return () => {
       cancelled = true
     }
-  }, [draft.type, draft.toCurrency, draft.currency, draft.date, provider])
+  }, [draft.type, draft.toCurrency, draft.currency, draft.date, provider, setDraft])
 
   const now = new Date()
   const preview = draftToTransaction(draft, {
@@ -215,6 +247,7 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
     draft.type === 'fx_convert' && positiveDecimal(preview.tx.amount) && positiveDecimal(preview.tx.toAmount)
       ? fxConvertSummary(preview.tx)
       : null
+  const computedReceived = receivedAmount(draft)
   const afterSave = preview.errors.length === 0 ? previewAfterSave(others, preview.tx, base, symbol, existing) : null
   const knownSymbols = data.instruments.filter((i) => i.market === draft.market)
   const knownInstrument = symbol ? data.instruments.find((i) => i.id === instrumentKey(draft.market, symbol)) : undefined
@@ -462,8 +495,17 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
                     ))}
                   </NativeSelect>
                 </Field>
-                <Field id="tx-to-amount" label="จำนวนที่ได้รับ">
-                  <Input id="tx-to-amount" inputMode="decimal" value={draft.toAmount} onChange={(e) => update({ toAmount: e.target.value })} />
+                <Field
+                  id="tx-to-amount"
+                  label="จำนวนที่ได้รับ"
+                  hint={receivedHint(draft, computedReceived, noRateFor === marketRateKey(draft), () => update({ toAmountSource: 'auto' }))}
+                >
+                  <Input
+                    id="tx-to-amount"
+                    inputMode="decimal"
+                    value={draft.toAmount}
+                    onChange={(e) => update({ toAmount: e.target.value, toAmountSource: 'manual' })}
+                  />
                 </Field>
               </>
             )}
@@ -471,7 +513,7 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
 
           {draft.type !== 'split' && draft.type !== 'opening' && (
             <div className="grid grid-cols-2 gap-3.5">
-              <Field id="tx-fees" label="ค่าธรรมเนียม">
+              <Field id="tx-fees" label={draft.type === 'fx_convert' ? 'ค่าธรรมเนียม (หักจากยอดที่แลก)' : 'ค่าธรรมเนียม'}>
                 <Input id="tx-fees" inputMode="decimal" placeholder="0" value={draft.fees} onChange={(e) => update({ fees: e.target.value })} />
               </Field>
               {draft.type !== 'fx_convert' && draft.type !== 'deposit' && (
@@ -548,8 +590,8 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
 
           {convert && (
             <p className="rounded-2xl bg-fx-soft px-[18px] py-3 text-[13px] text-fx">
-              เรทที่ได้ 1 {draft.toCurrency} = {fmtNumber(convert.effectiveRate, 4)} {draft.currency}
-              {convert.marketRate && ` · เรทตลาด ${fmtNumber(convert.marketRate, 4)}`}
+              เรทที่ได้ 1 {draft.toCurrency} = {fmtPrice(convert.effectiveRate)} {draft.currency}
+              {convert.marketRate && ` · เรทตลาด ${fmtPrice(convert.marketRate)}`}
               {convert.spreadPct &&
                 ` · ${convert.spreadPct.greaterThan(0) ? 'แพงกว่า' : 'ถูกกว่า'}ตลาด ${fmtNumber(convert.spreadPct.abs())}%`}
             </p>

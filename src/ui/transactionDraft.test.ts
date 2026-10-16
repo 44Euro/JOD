@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Instrument } from '../domain/types'
 import {
   applyReferenceRate,
+  changeCurrency,
   changeDate,
   changeMarket,
   changeOpeningKind,
@@ -10,6 +11,8 @@ import {
   draftToTransaction,
   emptyDraft,
   pickSymbol,
+  receivedAmount,
+  syncReceived,
   totalForDisplay,
   type Draft,
 } from './transactionDraft'
@@ -124,6 +127,86 @@ describe('applyReferenceRate', () => {
   })
 })
 
+function convertDraft(overrides: Partial<Draft> = {}): Draft {
+  const converting = changeType(emptyDraft('acc-1', '2024-01-15'), 'fx_convert', 'THB')
+  return { ...converting, amount: '20,000', fees: '50', marketRate: '33.5', ...overrides }
+}
+
+describe('receivedAmount', () => {
+  it('takes the fee out of the amount before converting at the market rate', () => {
+    expect(receivedAmount(convertDraft())).toBe('595.52')
+  })
+
+  it('counts an empty fee as zero and accepts thousands separators', () => {
+    expect(receivedAmount(convertDraft({ amount: '33,500', fees: '' }))).toBe('1000')
+    expect(receivedAmount(convertDraft({ amount: '20000', fees: '' }))).toBe('597.01')
+  })
+
+  it('has no value without a usable market rate, amount or fee', () => {
+    expect(receivedAmount(convertDraft({ marketRate: '' }))).toBeNull()
+    expect(receivedAmount(convertDraft({ marketRate: '0' }))).toBeNull()
+    expect(receivedAmount(convertDraft({ amount: '' }))).toBeNull()
+    expect(receivedAmount(convertDraft({ amount: '1,5' }))).toBeNull()
+    expect(receivedAmount(convertDraft({ fees: 'abc' }))).toBeNull()
+    expect(receivedAmount(convertDraft({ fees: '-5' }))).toBeNull()
+  })
+
+  it('has no value when the fee takes the whole amount', () => {
+    expect(receivedAmount(convertDraft({ amount: '50', fees: '50' }))).toBeNull()
+    expect(receivedAmount(convertDraft({ amount: '50', fees: '80' }))).toBeNull()
+  })
+
+  it('has no value for an amount too small to round to anything', () => {
+    expect(receivedAmount(convertDraft({ amount: '0.1', fees: '' }))).toBeNull()
+  })
+
+  it('only applies to a conversion', () => {
+    expect(receivedAmount(convertDraft({ type: 'deposit' }))).toBeNull()
+  })
+})
+
+describe('syncReceived', () => {
+  it('fills the received amount from the market rate', () => {
+    expect(syncReceived(convertDraft())).toMatchObject({ toAmount: '595.52', toAmountSource: 'auto' })
+  })
+
+  it('recomputes when the fee changes', () => {
+    const filled = syncReceived(convertDraft())
+    expect(syncReceived({ ...filled, fees: '100' }).toAmount).toBe('594.03')
+  })
+
+  it('empties the field when there is no market rate or the fee is too high', () => {
+    const filled = syncReceived(convertDraft())
+    expect(syncReceived({ ...filled, marketRate: '' }).toAmount).toBe('')
+    expect(syncReceived({ ...filled, fees: '20,000' }).toAmount).toBe('')
+  })
+
+  it('never overwrites an amount the user typed', () => {
+    const typed = convertDraft({ toAmount: '590', toAmountSource: 'manual' })
+    expect(syncReceived(typed)).toBe(typed)
+  })
+
+  it('leaves other types alone', () => {
+    const buy = buyDraft({ toAmount: '7' })
+    expect(syncReceived(buy)).toBe(buy)
+  })
+
+  it('returns the same draft when nothing changed', () => {
+    const filled = syncReceived(convertDraft())
+    expect(syncReceived(filled)).toBe(filled)
+  })
+})
+
+describe('stale market rates', () => {
+  it('drops the market rate when the date changes', () => {
+    expect(changeDate(convertDraft(), '2024-01-10').marketRate).toBe('')
+  })
+
+  it('drops the market rate when the source currency changes', () => {
+    expect(changeCurrency(convertDraft(), 'USD').marketRate).toBe('')
+  })
+})
+
 describe('changeDate', () => {
   it('drops the automatic rate and its reference when the date moves', () => {
     const next = changeDate(buyDraft(), '2024-01-10')
@@ -151,14 +234,27 @@ describe('draft helpers', () => {
     const instruments: Instrument[] = [
       { id: 'US:AAPL', market: 'US', symbol: 'AAPL', name: '', assetType: 'stock', currency: 'USD' },
     ]
-    expect(draftFromTransaction(tx, instruments)).toEqual(draft)
+    expect(draftFromTransaction(tx, instruments)).toEqual({ ...draft, toAmountSource: 'manual' })
+  })
+
+  it('keeps the saved received amount when an exchange is edited', () => {
+    const { tx } = draftToTransaction(convertDraft({ toAmount: '590', toAmountSource: 'manual' }), ctx)
+    const edited = draftFromTransaction(tx, [])
+    expect(edited).toMatchObject({ toAmount: '590', toAmountSource: 'manual' })
+    expect(syncReceived(edited)).toBe(edited)
   })
 
   it('switches to a base-currency conversion when the type becomes fx_convert', () => {
-    const next = changeType(buyDraft(), 'fx_convert', 'THB')
+    const next = changeType(buyDraft({ toAmount: '7', toAmountSource: 'manual' }), 'fx_convert', 'THB')
     expect(next.currency).toBe('THB')
     expect(next.toCurrency).toBe('USD')
     expect(next.fxRate).toBe('')
+    expect(next).toMatchObject({ toAmount: '', toAmountSource: 'auto' })
+  })
+
+  it('leaves a conversion alone when the type is chosen again', () => {
+    const converting = convertDraft({ toAmountSource: 'manual', toAmount: '590' })
+    expect(changeType(converting, 'fx_convert', 'THB')).toBe(converting)
   })
 
   it('starts the rate over when switching to or from an opening holding', () => {

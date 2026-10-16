@@ -13,6 +13,7 @@ import {
 import { validateTransaction } from '../domain/validation'
 
 export type OpeningKind = 'asset' | 'cash'
+export type ToAmountSource = 'auto' | 'manual'
 
 export interface Draft {
   type: TxType
@@ -33,6 +34,7 @@ export interface Draft {
   splitRatio: string
   toCurrency: string
   toAmount: string
+  toAmountSource: ToAmountSource
   marketRate: string
   fxRate: string
   fxSource: FxSource
@@ -72,6 +74,7 @@ export function emptyDraft(accountId: string, today: string): Draft {
     splitRatio: '',
     toCurrency: '',
     toAmount: '',
+    toAmountSource: 'auto',
     marketRate: '',
     fxRate: '',
     fxSource: 'auto',
@@ -94,12 +97,12 @@ export function showsInstrument(draft: Draft): boolean {
 
 export function changeCurrency(draft: Draft, currency: string): Draft {
   if (currency === draft.currency) return draft
-  return { ...draft, currency, fxRate: '', fxSource: 'auto', fxRateDate: '', referenceFxRate: '' }
+  return { ...draft, currency, fxRate: '', fxSource: 'auto', fxRateDate: '', referenceFxRate: '', marketRate: '' }
 }
 
 // A rate fetched for the old date must not survive as an "auto" rate for the new one.
 export function changeDate(draft: Draft, date: string): Draft {
-  const next = { ...draft, date, referenceFxRate: '', fxRateDate: '' }
+  const next = { ...draft, date, referenceFxRate: '', fxRateDate: '', marketRate: '' }
   return draft.fxSource === 'auto' ? { ...next, fxRate: '' } : next
 }
 
@@ -113,8 +116,15 @@ function restartRate(next: Draft): Draft {
 
 export function changeType(draft: Draft, type: TxType, baseCurrency: string): Draft {
   if (type === 'fx_convert') {
+    if (draft.type === type) return draft
     const converted = changeCurrency({ ...draft, type }, baseCurrency)
-    return { ...converted, toCurrency: baseCurrency === 'USD' ? 'THB' : 'USD', marketRate: '' }
+    return {
+      ...converted,
+      toCurrency: baseCurrency === 'USD' ? 'THB' : 'USD',
+      marketRate: '',
+      toAmount: '',
+      toAmountSource: 'auto',
+    }
   }
   const next =
     draft.type === 'fx_convert' ? changeCurrency({ ...draft, type }, MARKET_CURRENCY[draft.market]) : { ...draft, type }
@@ -164,6 +174,30 @@ export function applyReferenceRate(draft: Draft, quote: { rate: string; rateDate
   return { ...next, fxRate: quote.rate, fxSource: 'auto' }
 }
 
+function parsedDecimal(raw: string): Decimal | null {
+  const parsed = parseDecimalInput(raw)
+  return parsed === null ? null : D(parsed)
+}
+
+// The fee is taken out of the amount exchanged, so the market rate applies to what is left after it.
+export function receivedAmount(draft: Draft): string | null {
+  if (draft.type !== 'fx_convert') return null
+  const amount = parsedDecimal(draft.amount)
+  const rate = parsedDecimal(draft.marketRate)
+  const fees = draft.fees.trim() === '' ? D(0) : parsedDecimal(draft.fees)
+  if (!amount || !rate || !fees || !rate.greaterThan(0) || fees.isNegative() || fees.greaterThanOrEqualTo(amount)) return null
+  const received = amount.minus(fees).div(rate).toDecimalPlaces(2)
+  // A trivially small amount rounds to nothing, which is not a received amount.
+  return received.greaterThan(0) ? received.toString() : null
+}
+
+// Run after every draft change: an exchange whose received amount was not typed follows the amount, fee and rate.
+export function syncReceived(draft: Draft): Draft {
+  if (draft.type !== 'fx_convert' || draft.toAmountSource !== 'auto') return draft
+  const toAmount = receivedAmount(draft) ?? ''
+  return toAmount === draft.toAmount ? draft : { ...draft, toAmount }
+}
+
 export function draftFromTransaction(tx: Transaction, instruments: readonly Instrument[]): Draft {
   const instrument = instruments.find((i) => i.id === tx.instrumentId)
   const separator = tx.instrumentId?.indexOf(':') ?? -1
@@ -187,6 +221,7 @@ export function draftFromTransaction(tx: Transaction, instruments: readonly Inst
     splitRatio: tx.splitRatio ?? '',
     toCurrency: tx.toCurrency ?? '',
     toAmount: tx.toAmount ?? '',
+    toAmountSource: 'manual',
     marketRate: tx.marketRate ?? '',
     fxRate: tx.fxRate,
     fxSource: tx.fxSource,

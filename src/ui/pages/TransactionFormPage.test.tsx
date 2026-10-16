@@ -183,4 +183,141 @@ describe('TransactionFormPage', () => {
     expect(await screen.findByText('เรทแลกเปลี่ยนต้องเป็นตัวเลขมากกว่า 0')).toBeInTheDocument()
     expect(await db.transactions.count()).toBe(0)
   })
+
+  describe('currency exchange', () => {
+    const exchangeDay = { target: { value: '2024-01-15' } }
+
+    async function openExchange(provider: FxProvider) {
+      const user = userEvent.setup()
+      const router = renderRoute('/transactions/new', provider)
+      await user.click(await screen.findByRole('button', { name: 'แลกเงิน' }))
+      fireEvent.change(screen.getByLabelText('วันที่'), exchangeDay)
+      return { user, router }
+    }
+
+    it('fills the received amount from the day’s mid rate with the fee taken out of the amount', async () => {
+      const { user, router } = await openExchange(fakeFxProvider({ 'USD|THB': '33.5' }).provider)
+      await user.type(screen.getByLabelText('จำนวนเงินต้นทาง'), '20000')
+      await user.type(screen.getByLabelText('ค่าธรรมเนียม (หักจากยอดที่แลก)'), '50')
+      await waitFor(() => expect(screen.getByLabelText('จำนวนที่ได้รับ')).toHaveValue('595.52'))
+      expect(
+        screen.getByText('คำนวณจากเรทกลาง ECB 15 ม.ค. 2024 · 1 USD = 33.50 THB · แก้เป็นยอดจริงจากโบรกได้'),
+      ).toBeInTheDocument()
+      expect(screen.getByText('เรทที่ได้ 1 USD = 33.5841 THB · เรทตลาด 33.50 · แพงกว่าตลาด 0.25%')).toBeInTheDocument()
+      expect(screen.getByText('20,000.00 THB')).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+      await waitFor(() => expect(router.state.location.pathname).toBe('/transactions'))
+      expect((await db.transactions.toArray())[0]).toMatchObject({
+        type: 'fx_convert',
+        currency: 'THB',
+        toCurrency: 'USD',
+        amount: '20000',
+        fees: '50',
+        toAmount: '595.52',
+        marketRate: '33.5',
+      })
+    })
+
+    it('uses the rate of the date picked after the amount was filled in', async () => {
+      const provider: FxProvider = {
+        async getRate(_from, _to, date) {
+          return { rate: date === '2024-01-16' ? '34' : '33.5', rateDate: date }
+        },
+      }
+      const { user } = await openExchange(provider)
+      await user.type(screen.getByLabelText('จำนวนเงินต้นทาง'), '20000')
+      await user.type(screen.getByLabelText(/ค่าธรรมเนียม/), '50')
+      await waitFor(() => expect(screen.getByLabelText('จำนวนที่ได้รับ')).toHaveValue('595.52'))
+      fireEvent.change(screen.getByLabelText('วันที่'), { target: { value: '2024-01-16' } })
+      await waitFor(() => expect(screen.getByLabelText('จำนวนที่ได้รับ')).toHaveValue('586.76'))
+    })
+
+    it('keeps an amount typed by hand when the fee changes and can go back to the computed one', async () => {
+      const { user } = await openExchange(fakeFxProvider({ 'USD|THB': '33.5' }).provider)
+      const received = screen.getByLabelText('จำนวนที่ได้รับ')
+      await user.type(screen.getByLabelText('จำนวนเงินต้นทาง'), '20000')
+      await waitFor(() => expect(received).toHaveValue('597.01'))
+      await user.clear(received)
+      await user.type(received, '590')
+      await user.type(screen.getByLabelText(/ค่าธรรมเนียม/), '50')
+      expect(received).toHaveValue('590')
+      expect(screen.queryByText(/คำนวณจากเรทกลาง ECB/)).not.toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'ใช้ยอดคำนวณ 595.52' }))
+      expect(received).toHaveValue('595.52')
+      expect(screen.queryByRole('button', { name: /ใช้ยอดคำนวณ/ })).not.toBeInTheDocument()
+      await user.clear(screen.getByLabelText(/ค่าธรรมเนียม/))
+      await user.type(screen.getByLabelText(/ค่าธรรมเนียม/), '100')
+      expect(received).toHaveValue('594.03')
+    })
+
+    it('leaves the received amount to the user when the day has no mid rate', async () => {
+      const { user } = await openExchange(fakeFxProvider({}).provider)
+      await user.type(screen.getByLabelText('จำนวนเงินต้นทาง'), '20000')
+      expect(await screen.findByText('ไม่มีเรทกลางของวันนั้น กรอกจำนวนที่ได้รับเอง')).toBeInTheDocument()
+      const received = screen.getByLabelText('จำนวนที่ได้รับ')
+      expect(received).toHaveValue('')
+      await user.type(received, '600')
+      expect(received).toHaveValue('600')
+    })
+
+    it('does not claim the rate is missing while it is still loading', async () => {
+      const provider: FxProvider = { getRate: () => new Promise(() => {}) }
+      const { user } = await openExchange(provider)
+      await user.type(screen.getByLabelText('จำนวนเงินต้นทาง'), '20000')
+      expect(screen.queryByText(/ไม่มีเรทกลางของวันนั้น/)).not.toBeInTheDocument()
+    })
+
+    it('rejects a fee as large as the amount exchanged', async () => {
+      const { user } = await openExchange(fakeFxProvider({ 'USD|THB': '33.5' }).provider)
+      await user.type(screen.getByLabelText('จำนวนเงินต้นทาง'), '100')
+      await user.type(screen.getByLabelText(/ค่าธรรมเนียม/), '100')
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+      expect(await screen.findByText('ค่าธรรมเนียมต้องน้อยกว่าจำนวนเงินต้นทาง')).toBeInTheDocument()
+      expect(await db.transactions.count()).toBe(0)
+    })
+
+    it('computes the next entry again after save and add another', async () => {
+      const { user } = await openExchange(fakeFxProvider({ 'USD|THB': '33.5' }).provider)
+      const received = screen.getByLabelText('จำนวนที่ได้รับ')
+      await user.type(screen.getByLabelText('จำนวนเงินต้นทาง'), '20000')
+      await waitFor(() => expect(received).toHaveValue('597.01'))
+      await user.clear(received)
+      await user.type(received, '590')
+      await user.click(screen.getByRole('button', { name: 'บันทึกแล้วเพิ่มอีก' }))
+      expect(await screen.findByRole('status')).toHaveTextContent('บันทึกแล้ว')
+      expect((await db.transactions.toArray())[0]).toMatchObject({ amount: '20000', toAmount: '590' })
+      expect(received).toHaveValue('')
+      await user.type(screen.getByLabelText('จำนวนเงินต้นทาง'), '10000')
+      await waitFor(() => expect(received).toHaveValue('298.51'))
+    })
+
+    it('keeps the saved received amount when an exchange is edited', async () => {
+      await db.transactions.add(
+        makeTx({
+          id: 'fx-1',
+          type: 'fx_convert',
+          instrumentId: undefined,
+          quantity: undefined,
+          price: undefined,
+          currency: 'THB',
+          amount: '20000',
+          fees: '50',
+          toCurrency: 'USD',
+          toAmount: '590',
+          marketRate: '33.5',
+          fxRate: '1',
+          fxSource: 'same',
+          date: '2024-01-15',
+        }),
+      )
+      const user = userEvent.setup()
+      renderRoute('/transactions/fx-1', fakeFxProvider({ 'USD|THB': '33.5' }).provider)
+      const received = await screen.findByLabelText('จำนวนที่ได้รับ')
+      expect(received).toHaveValue('590')
+      await user.clear(screen.getByLabelText(/ค่าธรรมเนียม/))
+      await user.type(screen.getByLabelText(/ค่าธรรมเนียม/), '100')
+      expect(received).toHaveValue('590')
+      expect(await screen.findByRole('button', { name: 'ใช้ยอดคำนวณ 594.03' })).toBeInTheDocument()
+    })
+  })
 })
