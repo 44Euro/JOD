@@ -20,7 +20,7 @@ export function Alert({
     <div
       role="alert"
       className={cn(
-        'flex items-start gap-2.5 rounded-[14px] px-4 py-3 text-sm [&_a]:font-semibold [&_a]:underline [&_a]:underline-offset-[3px]',
+        'flex items-start gap-2.5 rounded-[14px] px-4 py-3 text-sm [&_a]:font-semibold [&_a]:underline [&_a]:underline-offset-[3px] max-md:[&_a]:py-3',
         TONES[tone].className,
         className,
       )}

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { Badge } from '../../components/ui/badge'
 import { Card } from '../../components/ui/card'
 import { cn } from '../../lib/cn'
 
@@ -32,11 +33,27 @@ export function SummaryPanel({
   )
 }
 
-export function Stat({ label, value, tone, note }: { label: string; value: string; tone?: string; note?: string }) {
+// flag is a short warning shown next to the number, e.g. when the prices behind it are old.
+export function Stat({
+  label,
+  value,
+  tone,
+  note,
+  flag,
+}: {
+  label: string
+  value: string
+  tone?: string
+  note?: string
+  flag?: string
+}) {
   return (
     <div className="rounded-[14px] border p-2.5 md:border-0 md:p-0">
       <p className="text-[13px] text-muted-foreground">{label}</p>
-      <p className={cn('font-display text-[19px] font-semibold leading-tight md:text-[28px]', tone)}>{value}</p>
+      <div className="flex flex-wrap items-center gap-x-2">
+        <p className={cn('font-display text-[19px] font-semibold leading-tight md:text-[28px]', tone)}>{value}</p>
+        {flag && <Badge variant="warning">{flag}</Badge>}
+      </div>
       {note && <p className="text-[12.5px] text-muted-foreground max-md:hidden">{note}</p>}
     </div>
   )
