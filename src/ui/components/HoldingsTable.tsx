@@ -38,6 +38,10 @@ function AssetName({ instrumentId, instrument }: { instrumentId: string; instrum
   )
 }
 
+function priceInputKey(instrument: Instrument) {
+  return `${instrument.id}:${instrument.lastPrice ?? ''}`
+}
+
 function PriceInput({ instrument }: { instrument: Instrument }) {
   const [value, setValue] = useState(instrument.lastPrice ?? '')
   const [invalid, setInvalid] = useState(false)
@@ -56,7 +60,7 @@ function PriceInput({ instrument }: { instrument: Instrument }) {
         aria-label={`ราคาล่าสุด ${instrument.symbol}`}
         aria-invalid={invalid}
         inputMode="decimal"
-        className="h-[34px] w-28 rounded-[10px] px-2.5 md:text-sm"
+        className="h-[46px] w-28 rounded-[10px] px-2.5 md:h-[34px]"
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onBlur={() => void commit()}
@@ -96,7 +100,7 @@ export function HoldingsTable({ valuations, instruments, accountNames, base, rat
               </span>
               {editablePrice && instrument && (
                 <span className="col-span-2 flex items-center gap-2 text-[12.5px] text-muted-foreground">
-                  ราคาล่าสุด <PriceInput instrument={instrument} />
+                  ราคาล่าสุด <PriceInput key={priceInputKey(instrument)} instrument={instrument} />
                 </span>
               )}
             </li>
@@ -137,7 +141,7 @@ export function HoldingsTable({ valuations, instruments, accountNames, base, rat
               <Td className="text-right">
                 {fmtNumber(v.avgCostQuote, 4)} <span className="text-muted-foreground">{p.currency}</span>
               </Td>
-              {editablePrice && <Td>{instrument ? <PriceInput instrument={instrument} /> : '—'}</Td>}
+              {editablePrice && <Td>{instrument ? <PriceInput key={priceInputKey(instrument)} instrument={instrument} /> : '—'}</Td>}
               <Td className="text-right text-fx">
                 {foreign ? `${fmtNumber(v.avgFxRate, 4)} → ${fmtNumber(v.currentFxRate, 4)}` : '—'}
                 {foreign && rates[p.currency]?.note && <span className="block text-[11px]">{rates[p.currency].note}</span>}
