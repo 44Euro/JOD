@@ -1,5 +1,5 @@
 import { Check, Trash2 } from 'lucide-react'
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { Alert } from '../../components/ui/alert'
 import { Badge } from '../../components/ui/badge'
@@ -22,7 +22,7 @@ import { cn } from '../../lib/cn'
 import { previewAfterSave, type AfterSavePreview } from '../afterSave'
 import { MiniRoute } from '../components/MoneyRoute'
 import { PageHeader } from '../components/PageHeader'
-import { fmtMoney, fmtNumber } from '../format'
+import { fmtDate, fmtMoney, fmtNumber, fmtPrice } from '../format'
 import { useAppData, type AppData } from '../hooks'
 import { ASSET_TYPE_LABELS, FX_SOURCE_LABELS, MARKET_LABELS, MORE_TX_TYPES, PRIMARY_TX_TYPES, TX_TYPE_LABELS } from '../labels'
 import {
@@ -116,7 +116,7 @@ function TotalPanel({ total, currency, base, rate }: { total: Decimal; currency:
       </div>
       {rate && (
         <p className="text-[12.5px] text-board-muted">
-          ≈ {fmtMoney(total.times(D(rate)), base)} ที่เรท {fmtNumber(rate, 4)}
+          ≈ {fmtMoney(total.times(D(rate)), base)} ที่เรท {fmtPrice(rate)}
         </p>
       )}
     </div>
@@ -153,6 +153,9 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
   const [errors, setErrors] = useState<string[]>([])
   const [fxMessage, setFxMessage] = useState('')
   const [savedNote, setSavedNote] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [saveFailed, setSaveFailed] = useState(false)
+  const savingRef = useRef(false)
   const update = (patch: Partial<Draft>) => setDraft((d) => ({ ...d, ...patch }))
 
   const needsFx = draft.currency !== base && draft.type !== 'split'
@@ -169,7 +172,7 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
     getFxQuote(db, provider, draft.currency, base, draft.date)
       .then((quote) => {
         if (cancelled) return
-        setFxMessage(`เรทกลาง ECB ${quote.rateDate}`)
+        setFxMessage(`เรทกลาง ECB ${fmtDate(quote.rateDate)}`)
         setDraft((d) => applyReferenceRate(d, quote))
       })
       .catch((error: Error) => {
@@ -222,6 +225,8 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
   const symbolHint = [knownInstrument?.name, held && `ถืออยู่ ${fmtNumber(held.quantity, 8)} หน่วย`].filter(Boolean).join(' · ')
 
   async function save(addAnother: boolean) {
+    if (savingRef.current) return
+    setSaveFailed(false)
     const at = new Date()
     const { tx, errors: found } = draftToTransaction(draft, {
       id: existing?.id ?? newId(),
@@ -240,21 +245,35 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
       setSavedNote('')
       return
     }
-    if (tx.instrumentId) {
-      await upsertInstrument(db, {
-        id: tx.instrumentId,
-        market: draft.market,
-        symbol,
-        name: draft.instrumentName.trim() || symbol,
-        assetType: draft.assetType,
-        currency: draft.currency,
-      })
+    savingRef.current = true
+    setSaving(true)
+    try {
+      // A dividend can be paid in another currency than the one the instrument trades in, so a known
+      // instrument keeps what is stored for it.
+      if (tx.instrumentId && !data.instruments.some((i) => i.id === tx.instrumentId)) {
+        await upsertInstrument(db, {
+          id: tx.instrumentId,
+          market: draft.market,
+          symbol,
+          name: draft.instrumentName.trim() || symbol,
+          assetType: draft.assetType,
+          currency: draft.currency,
+        })
+      }
+      await saveTransaction(db, tx, at)
+    } catch {
+      savingRef.current = false
+      setSaving(false)
+      setSaveFailed(true)
+      return
     }
-    await saveTransaction(db, tx, at)
     if (!addAnother) {
+      // The guard stays on while the page leaves, so a tap during navigation cannot save a second copy.
       navigate('/transactions')
       return
     }
+    savingRef.current = false
+    setSaving(false)
     setDraft(clearEntry)
     setErrors([])
     setSavedNote(`บันทึกแล้ว · ${TX_TYPE_LABELS[tx.type]} ${symbol}`.trim())
@@ -266,7 +285,7 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
   }
 
   async function handleDelete() {
-    if (!existing || !window.confirm(`ลบรายการ${TX_TYPE_LABELS[existing.type]} วันที่ ${existing.date}?`)) return
+    if (!existing || !window.confirm(`ลบรายการ${TX_TYPE_LABELS[existing.type]} วันที่ ${fmtDate(existing.date)}?`)) return
     await deleteTransaction(db, existing.id)
     navigate('/transactions')
   }
@@ -552,6 +571,7 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
               </ul>
             </Alert>
           )}
+          {saveFailed && <Alert tone="error">บันทึกไม่สำเร็จ ข้อมูลยังไม่ถูกบันทึก ลองอีกครั้ง</Alert>}
           {savedNote && (
             <p role="status" className="text-sm font-semibold text-gain">
               {savedNote}
@@ -559,12 +579,12 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
           )}
 
           <div className="flex flex-wrap items-center gap-2">
-            <Button type="submit">
+            <Button type="submit" disabled={saving}>
               <Check aria-hidden />
               บันทึก
             </Button>
             {!existing && (
-              <Button type="button" variant="outline" onClick={() => void save(true)}>
+              <Button type="button" variant="outline" disabled={saving} onClick={() => void save(true)}>
                 บันทึกแล้วเพิ่มอีก
               </Button>
             )}
@@ -588,7 +608,7 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
                 <h2 className="mb-4 text-base font-semibold">เส้นทางเงินของรายการนี้</h2>
                 <MiniRoute
                   from={fmtMoney(total.times(D(rate)), base)}
-                  via={`แลกที่ ${fmtNumber(rate, 4)}`}
+                  via={`แลกที่ ${fmtPrice(rate)}`}
                   to={`${symbol} ${fmtNumber(preview.tx.quantity, 8)} หน่วย`}
                 />
               </Card>
