@@ -1,3 +1,9 @@
+import { createHashRouter, RouterProvider } from 'react-router'
+import { routes } from './routes'
+
+// Hash URLs keep deep links working on any static host without rewrite rules.
+const router = createHashRouter(routes)
+
 export default function App() {
-  return <main className="p-8 font-display text-3xl font-semibold">JOD</main>
+  return <RouterProvider router={router} />
 }
