@@ -40,6 +40,8 @@ export interface IncomeEvent {
   grossQuote: Decimal
   taxQuote: Decimal
   netQuote: Decimal
+  grossBase: Decimal
+  taxBase: Decimal
   netBase: Decimal
 }
 
@@ -231,6 +233,8 @@ export function computeLedger(transactions: readonly Transaction[]): Ledger {
         grossQuote: D(tx.amount),
         taxQuote: D(tx.tax),
         netQuote,
+        grossBase: D(tx.amount).times(rate),
+        taxBase: D(tx.tax).times(rate),
         netBase: netQuote.times(rate),
       })
     }
