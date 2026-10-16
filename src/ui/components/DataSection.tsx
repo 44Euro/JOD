@@ -1,6 +1,7 @@
-import { Download, FileSpreadsheet, Upload } from 'lucide-react'
-import { useRef, useState, type ChangeEvent } from 'react'
+import { Download, FileSpreadsheet, ShieldCheck, Upload } from 'lucide-react'
+import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { Alert } from '../../components/ui/alert'
+import { Badge } from '../../components/ui/badge'
 import { Button } from '../../components/ui/button'
 import { Card } from '../../components/ui/card'
 import { BackupError, exportBackup, parseBackup, restoreBackup, transactionsToCsv } from '../../db/backup'
@@ -10,12 +11,30 @@ import { daysBetween, todayLocal } from '../../domain/dates'
 import { downloadText } from '../download'
 import { fmtDate } from '../format'
 import type { AppData } from '../hooks'
+import { ensurePersistentStorage, type StorageStatus } from '../storage'
 
 const REMIND_AFTER_DAYS = 7
+
+const STORAGE_LABELS: Record<StorageStatus, string> = {
+  persisted: 'เบราว์เซอร์จะไม่ลบข้อมูลนี้เอง',
+  'not-persisted': 'เบราว์เซอร์อาจลบข้อมูลเมื่อพื้นที่เต็ม · ควรสำรองข้อมูลเป็นประจำ',
+  unsupported: 'เบราว์เซอร์นี้ไม่รองรับการป้องกันการลบข้อมูล · ควรสำรองข้อมูลเป็นประจำ',
+}
 
 export function DataSection({ data }: { data: AppData }) {
   const [message, setMessage] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const [storage, setStorage] = useState<StorageStatus | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    void ensurePersistentStorage().then((status) => {
+      if (!cancelled) setStorage(status)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
   const lastBackup = data.settings.lastBackupAt
   const age = lastBackup ? daysBetween(lastBackup.slice(0, 10), todayLocal()) : null
   const needsBackup = data.transactions.length > 0 && (age === null || age > REMIND_AFTER_DAYS)
@@ -91,6 +110,17 @@ export function DataSection({ data }: { data: AppData }) {
           onChange={(e) => void handleImport(e)}
         />
       </div>
+      {storage === 'persisted' ? (
+        <p className="flex flex-wrap items-center gap-2 text-[12.5px] text-muted-foreground">
+          <Badge variant="ok">
+            <ShieldCheck aria-hidden />
+            ป้องกันแล้ว
+          </Badge>
+          {STORAGE_LABELS.persisted}
+        </p>
+      ) : (
+        storage && <p className="text-[12.5px] text-warning-fg">{STORAGE_LABELS[storage]}</p>
+      )}
     </Card>
   )
 }
