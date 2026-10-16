@@ -9,6 +9,15 @@ describe('parseDecimalInput', () => {
     expect(parseDecimalInput(' 1,234.50 ')).toBe('1234.5')
   })
 
+  it('accepts commas only as thousand separators', () => {
+    expect(parseDecimalInput('1,234.50')).toBe('1234.5')
+    expect(parseDecimalInput('25,000')).toBe('25000')
+    expect(parseDecimalInput('1,234,567')).toBe('1234567')
+    expect(parseDecimalInput('1,5')).toBeNull()
+    expect(parseDecimalInput('12,34')).toBeNull()
+    expect(parseDecimalInput('1234,567')).toBeNull()
+  })
+
   it('keeps tiny values out of exponential notation', () => {
     expect(parseDecimalInput('0.00000001')).toBe('0.00000001')
   })

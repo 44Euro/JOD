@@ -17,9 +17,13 @@ export function isDecimalString(value: string): boolean {
   return DECIMAL_PATTERN.test(value)
 }
 
-// Broker statements are usually copied with thousand separators, e.g. "1,234.50".
+const GROUPED_PATTERN = /^-?\d{1,3}(,\d{3})+(\.\d+)?$/
+
+// Broker statements are usually copied with thousand separators, e.g. "1,234.50". Any other comma is
+// rejected, because a decimal comma such as "1,5" would otherwise silently become 15.
 export function parseDecimalInput(raw: string): string | null {
-  const cleaned = raw.replace(/[,\s]/g, '')
+  const compact = raw.replace(/\s/g, '')
+  const cleaned = GROUPED_PATTERN.test(compact) ? compact.replace(/,/g, '') : compact
   if (!isDecimalString(cleaned)) return null
   return new Decimal(cleaned).toString()
 }
