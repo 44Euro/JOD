@@ -22,8 +22,10 @@ describe('fxConvertSummary', () => {
     expect(summary.spreadPct?.toFixed(2)).toBe('1.49')
   })
 
-  it('includes conversion fees in the rate actually paid', () => {
-    expect(fxConvertSummary({ ...convert('33900', '1000'), fees: '100' }).effectiveRate.toString()).toBe('34')
+  it('divides the whole amount paid, fee included, by what was received', () => {
+    const summary = fxConvertSummary({ ...convert('20000', '595.52', '33.5'), fees: '50' })
+    expect(summary.effectiveRate.toFixed(2)).toBe('33.58')
+    expect(summary.spreadPct?.toFixed(2)).toBe('0.25')
   })
 
   it('leaves the spread empty when the market rate is unknown', () => {

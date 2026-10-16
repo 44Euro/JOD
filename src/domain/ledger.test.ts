@@ -108,6 +108,15 @@ describe('computeLedger cash, income and fees', () => {
     expect(ledger.feesBase.toString()).toBe('102')
   })
 
+  it('takes an exchange fee out of the amount exchanged instead of adding it on top', () => {
+    const ledger = computeLedger([
+      makeTx({ type: 'opening', instrumentId: undefined, quantity: undefined, price: undefined, currency: 'THB', amount: '30000', fxRate: '1', fxSource: 'same', date: '2024-01-01' }),
+      makeTx({ type: 'fx_convert', currency: 'THB', amount: '20000', fees: '50', toCurrency: 'USD', toAmount: '595.52', fxRate: '1', fxSource: 'same', instrumentId: undefined, date: '2024-01-02' }),
+    ])
+    expect(Object.fromEntries(ledger.cash.map((row) => [row.currency, row.amount.toString()]))).toEqual({ THB: '10000', USD: '595.52' })
+    expect(ledger.feesBase.toString()).toBe('50')
+  })
+
   it('treats opening holdings as existing positions and opening cash as a balance', () => {
     const txs = [
       makeTx({ type: 'opening', instrumentId: 'US:VOO', quantity: '10', price: '400', fxRate: '34.5', fxSource: 'estimated', date: '2024-01-01' }),

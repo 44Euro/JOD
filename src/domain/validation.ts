@@ -44,6 +44,15 @@ export function validateTransaction(tx: Transaction, today: string = todayLocal(
     case 'fx_convert':
       positive(tx.amount, 'จำนวนเงินต้นทาง')
       positive(tx.toAmount, 'จำนวนเงินที่ได้รับ')
+      if (
+        tx.amount &&
+        isDecimalString(tx.amount) &&
+        isDecimalString(tx.fees) &&
+        D(tx.amount).greaterThan(0) &&
+        D(tx.fees).greaterThanOrEqualTo(D(tx.amount))
+      ) {
+        errors.push('ค่าธรรมเนียมต้องน้อยกว่าจำนวนเงินต้นทาง')
+      }
       if (!tx.toCurrency || tx.toCurrency === tx.currency) errors.push('สกุลเงินปลายทางต้องต่างจากต้นทาง')
       break
     default:

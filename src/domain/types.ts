@@ -45,6 +45,7 @@ export interface Instrument {
 // opening with instrumentId = a holding carried in at average cost (price) and average purchase rate (fxRate);
 // opening without instrumentId = a cash balance carried in (amount).
 // marketRate (fx_convert only) = market price of 1 toCurrency in `currency` on that date.
+// fx_convert: amount is everything that leaves `currency`, fees included; toAmount is what arrives in toCurrency.
 export interface Transaction {
   id: string
   accountId: string

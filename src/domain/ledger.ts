@@ -90,7 +90,8 @@ export function accountTracksCash(transactions: readonly Transaction[], accountI
   )
 }
 
-// Signed cash movement in the transaction's own currency (the source side for fx_convert).
+// Signed cash movement in the transaction's own currency (the source side for fx_convert, whose fee is
+// taken out of the amount exchanged, so it is already inside `amount`).
 export function cashDeltaQuote(tx: Transaction): Decimal {
   const fees = D(tx.fees)
   const tax = D(tx.tax)
@@ -108,7 +109,7 @@ export function cashDeltaQuote(tx: Transaction): Decimal {
     case 'fee':
       return D(tx.amount).plus(fees).plus(tax).negated()
     case 'fx_convert':
-      return D(tx.amount).plus(fees).negated()
+      return D(tx.amount).negated()
     // An opening holding was paid for before the app existed, so only opening cash moves cash.
     case 'opening':
       return tx.instrumentId ? D(0) : D(tx.amount)

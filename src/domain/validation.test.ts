@@ -32,6 +32,15 @@ describe('validateTransaction', () => {
     expect(validateTransaction(tx, TODAY)).toContain('สกุลเงินปลายทางต้องต่างจากต้นทาง')
   })
 
+  it('rejects an exchange fee that takes the whole amount exchanged', () => {
+    const tx = makeTx({ type: 'fx_convert', currency: 'THB', amount: '100', fees: '100', toCurrency: 'USD', toAmount: '3' })
+    expect(validateTransaction(tx, TODAY)).toEqual(['ค่าธรรมเนียมต้องน้อยกว่าจำนวนเงินต้นทาง'])
+    expect(validateTransaction({ ...tx, fees: '99.99' }, TODAY)).toEqual([])
+    expect(validateTransaction({ ...tx, amount: undefined, fees: '100' }, TODAY)).not.toContain(
+      'ค่าธรรมเนียมต้องน้อยกว่าจำนวนเงินต้นทาง',
+    )
+  })
+
   it('requires an amount for deposits', () => {
     const tx = makeTx({ type: 'deposit', amount: undefined, instrumentId: undefined })
     expect(validateTransaction(tx, TODAY)).toEqual(['จำนวนเงินต้องเป็นตัวเลขมากกว่า 0'])

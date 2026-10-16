@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { makeTx } from '../test/fixtures'
+import { sumBy } from './decimal'
 import { summarizeInvestor } from './investor'
 import { computeLedger } from './ledger'
 import type { Transaction } from './types'
@@ -126,6 +127,24 @@ describe('summarizeInvestor across accounts and edge cases', () => {
     expect(result.worth.totalBase.toString()).toBe('7963')
     expect(result.gain.otherFeesBase.toString()).toBe('37')
     expect(result.gain.cashFxBase.toString()).toBe('0')
+  })
+
+  it('counts an exchange fee once, as an other fee, because it comes out of the amount exchanged', () => {
+    const result = run(
+      [
+        makeTx({ ...thb, type: 'deposit', amount: '20000', date: '2024-01-01' }),
+        makeTx({ ...thb, type: 'fx_convert', amount: '20000', fees: '50', toCurrency: 'USD', toAmount: '595.52', marketRate: '33.5', date: '2024-01-02' }),
+      ],
+      {},
+      { THB: '1', USD: '33.5' },
+    )
+    const { gain } = result
+    expect(result.worth.totalBase.toString()).toBe('19949.92')
+    expect(gain.totalBase.toString()).toBe('-50.08')
+    expect(gain.otherFeesBase.toString()).toBe('50')
+    expect(gain.cashFxBase.toString()).toBe('-0.08')
+    const parts = [gain.unrealizedPriceBase, gain.unrealizedFxBase, gain.realizedBase, gain.incomeBase, gain.otherFeesBase.negated(), gain.cashFxBase]
+    expect(sumBy(parts, (part) => part).toString()).toBe(gain.totalBase.toString())
   })
 
   it('values a holding without a price at its cost instead of zero', () => {

@@ -15,8 +15,9 @@ export interface FxConvertSummary {
 }
 
 // Rates are "source currency per 1 unit of target currency", so a positive spread means you paid more than mid-market.
+// The fee is taken out of `amount`, so amount ÷ toAmount is the rate after the fee.
 export function fxConvertSummary(tx: Transaction): FxConvertSummary {
-  const effectiveRate = D(tx.amount).plus(D(tx.fees)).div(D(tx.toAmount))
+  const effectiveRate = D(tx.amount).div(D(tx.toAmount))
   return {
     effectiveRate,
     marketRate: tx.marketRate ? D(tx.marketRate) : null,
