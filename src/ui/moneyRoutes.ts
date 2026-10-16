@@ -10,20 +10,27 @@ export function toneOf(value: Decimal | null): Station['tone'] {
 }
 
 // Spec S1: money invested → unrealized by price → unrealized by currency → realized → income →
-// fees and the currency effect on cash → value today. Every station is rounded to whole units and the
-// fees/cash station is the remainder by definition, so it also absorbs the rounding and the stations add up
-// to the end value exactly.
+// fees and the currency effect on cash → value today. Every station is rounded to whole units. The
+// fees/cash station is the exact remainder rounded like the others, and whatever the rounding leaves over
+// goes on the stock station, so the stations add up to the end value and an account without fees never
+// shows a phantom fee.
 export function investorRoute({ invested, worth, gain }: InvestorSummary): Station[] {
   const start = invested.totalBase.toDecimalPlaces(0)
   const end = worth.totalBase.toDecimalPlaces(0)
-  const price = gain.unrealizedPriceBase.toDecimalPlaces(0)
   const fx = gain.unrealizedFxBase.toDecimalPlaces(0)
   const realized = gain.realizedBase.toDecimalPlaces(0)
   const income = gain.incomeBase.toDecimalPlaces(0)
-  const rest = end.minus(start).minus(price).minus(fx).minus(realized).minus(income)
+  const rest = worth.totalBase
+    .minus(invested.totalBase)
+    .minus(gain.unrealizedPriceBase)
+    .minus(gain.unrealizedFxBase)
+    .minus(gain.realizedBase)
+    .minus(gain.incomeBase)
+    .toDecimalPlaces(0)
+  const price = end.minus(start).minus(fx).minus(realized).minus(income).minus(rest)
   return [
     { value: fmtNumber(start, 0), label: 'เงินลงทุน' },
-    { value: fmtSigned(price, 0), label: price.isNegative() ? 'หุ้นลง · ยังไม่ขาย' : 'หุ้นขึ้น · ยังไม่ขาย', tone: toneOf(price) },
+    { value: fmtSigned(price, 0), label: price.lessThan(0) ? 'หุ้นลง · ยังไม่ขาย' : 'หุ้นขึ้น · ยังไม่ขาย', tone: toneOf(price) },
     { value: fmtSigned(fx, 0), label: 'ค่าเงิน · ยังไม่ขาย', tone: 'fx', fx: true },
     { value: fmtSigned(realized, 0), label: 'ขายแล้ว', tone: toneOf(realized) },
     { value: fmtSigned(income, 0), label: 'ปันผล ดอกเบี้ย', tone: toneOf(income), neutral: true },

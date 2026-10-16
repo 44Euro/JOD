@@ -63,6 +63,7 @@ export function DashboardPage() {
   const rateNote = board.find((row) => row.todayNote)?.todayNote
   const instruments = new Map(data.instruments.map((i) => [i.id, i]))
   const held = new Set(ledger.positions.map((p) => p.instrumentId))
+  const unpriced = valuations.filter((v) => v.lastPrice === null).length
   const stale = staleInstruments(ledger.positions, data.instruments, today)
   const dueReviews = data.instruments.filter((i) => held.has(i.id) && i.reviewDate !== undefined && i.reviewDate <= today)
   const top = [...valuations].sort(byValue).slice(0, 5)
@@ -106,7 +107,7 @@ export function DashboardPage() {
           label="กำไรรวม"
           value={fmtSigned(gain.totalBase, 0)}
           tone={plClass(gain.totalBase)}
-          note={ret.annualized ? `${fmtSignedPct(gainPct)} ตั้งแต่เริ่ม` : ret.startDate ? `ตั้งแต่ ${fmtDate(ret.startDate)}` : undefined}
+          note={ret.annualized && gainPct !== null ? `${fmtSignedPct(gainPct)} ตั้งแต่เริ่ม` : ret.startDate ? `ตั้งแต่ ${fmtDate(ret.startDate)}` : undefined}
         />
         {ret.annualized ? (
           <Stat
@@ -127,9 +128,9 @@ export function DashboardPage() {
         )}
       </SummaryPanel>
 
-      <div className="grid items-start gap-3.5 md:gap-[22px] xl:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-3.5 md:gap-[22px] xl:grid-cols-[minmax(0,1fr)_340px]">
         {board.length > 0 && <RateBoard rows={board} base={base} />}
-        <div className="grid content-start gap-4">
+        <div className="grid min-w-0 content-start gap-4">
           {largest && largestId && !largest.quantity.isZero() && (
             <Link to={assetPath(largestId)} className="block rounded-[18px] border bg-card p-4 hover:bg-muted md:rounded-[20px] md:px-[26px] md:py-[22px]">
               <h2 className="mb-4 text-lg font-semibold">เส้นทางเงิน · {largestSymbol}</h2>
@@ -144,9 +145,9 @@ export function DashboardPage() {
               />
             </Link>
           )}
-          {worth.unpricedCount > 0 && (
+          {unpriced > 0 && (
             <Alert role="note">
-              ยังไม่มีราคาล่าสุด {worth.unpricedCount} ตัว (นับที่ทุนไปก่อน) · <Link to="/portfolio">กรอกราคา</Link>
+              ยังไม่มีราคาล่าสุด {unpriced} ตัว (นับที่ทุนไปก่อน) · <Link to="/portfolio">กรอกราคา</Link>
             </Alert>
           )}
           {stale.length > 0 && (

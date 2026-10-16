@@ -73,11 +73,11 @@ describe('DashboardPage', () => {
     await waitFor(() =>
       expect(within(route).getAllByRole('listitem').map((item) => item.textContent)).toEqual([
         '34,000เงินลงทุน',
-        '+2,020หุ้นขึ้น · ยังไม่ขาย',
+        '+2,021หุ้นขึ้น · ยังไม่ขาย',
         '−360ค่าเงิน · ยังไม่ขาย',
         '+413ขายแล้ว',
         '+289ปันผล ดอกเบี้ย',
-        '−573ค่าธรรมเนียม · ค่าเงินเงินสด',
+        '−574ค่าธรรมเนียม · ค่าเงินเงินสด',
         '35,789วันนี้',
       ]),
     )
@@ -106,6 +106,32 @@ describe('DashboardPage', () => {
     expect(await screen.findByText(/ยังไม่มีราคาล่าสุด 1 ตัว \(นับที่ทุนไปก่อน\)/)).toBeInTheDocument()
   })
 
+  it('asks for the rate, not the price, when a priced holding only lacks today’s rate', async () => {
+    setToday(2024, 6, 1)
+    await db.accounts.add(account)
+    await db.instruments.add({ id: 'OTHER:PHO', market: 'OTHER', symbol: 'PHO', name: 'Pho', assetType: 'stock', currency: 'VND', lastPrice: '120000' })
+    await db.transactions.bulkAdd([
+      makeTx({ ...thb, type: 'deposit', amount: '3500', date: '2024-01-02' }),
+      makeTx({ instrumentId: 'OTHER:PHO', currency: 'VND', quantity: '1', price: '100000', fxRate: '0.0014', fxSource: 'same', date: '2024-01-04' }),
+    ])
+    renderRoute('/', usd())
+    expect(await screen.findByText(/ยังไม่มีเรทวันนี้ของ VND/)).toBeInTheDocument()
+    expect(screen.queryByText(/ยังไม่มีราคาล่าสุด/)).not.toBeInTheDocument()
+  })
+
+  it('falls back to the first date when the return since the start cannot be worked out', async () => {
+    setToday(2025, 6, 1)
+    await db.accounts.add(account)
+    await db.transactions.bulkAdd([
+      makeTx({ ...thb, type: 'deposit', amount: '1000', date: '2024-01-02' }),
+      makeTx({ ...thb, type: 'withdraw', amount: '1000', date: '2024-01-02' }),
+    ])
+    renderRoute('/', usd())
+    expect(await screen.findByText('ผลตอบแทนต่อปี')).toBeInTheDocument()
+    expect(screen.getByText('ตั้งแต่ 2 ม.ค. 2024')).toBeInTheDocument()
+    expect(screen.queryByText(/ตั้งแต่เริ่ม/)).not.toBeInTheDocument()
+  })
+
   describe('phone touch targets', () => {
     it('gives the link to the whole portfolio the standalone link pattern', async () => {
       setToday(2024, 6, 1)
@@ -122,7 +148,12 @@ describe('DashboardPage', () => {
       await db.transactions.add(makeTx({ type: 'sell', quantity: '1', price: '100', fxRate: '34', date: '2024-01-05' }))
       renderRoute('/', usd())
       const link = await screen.findByRole('link', { name: 'ไปตรวจสอบ' })
-      expect(link.closest('[role="alert"]')).toHaveClass('max-md:[&_a]:py-3')
+      expect(link.closest('[role="alert"]')).toHaveClass(
+        'max-md:[&_a]:py-3',
+        'max-md:[&_a]:-mx-2',
+        'max-md:[&_a]:px-2',
+        '[&_a]:whitespace-nowrap',
+      )
     })
 
     it('does the same for the links inside the price and review notes', async () => {
@@ -131,8 +162,31 @@ describe('DashboardPage', () => {
       renderRoute('/', usd())
       for (const name of ['กรอกราคา', 'เปิดดู']) {
         const link = await screen.findByRole('link', { name })
-        expect(link.closest('[role="note"]')).toHaveClass('max-md:[&_a]:py-3')
+        expect(link.closest('[role="note"]')).toHaveClass('max-md:[&_a]:py-3', 'max-md:[&_a]:-mx-2', 'max-md:[&_a]:px-2')
       }
+    })
+  })
+
+  describe('layout by container width', () => {
+    it('lets the next row shrink below the two-column breakpoint', async () => {
+      setToday(2024, 6, 1)
+      await seedDime()
+      renderRoute('/', usd())
+      const board = await screen.findByRole('region', { name: 'กระดานเรทของคุณ' })
+      expect(board.parentElement).toHaveClass('grid-cols-[minmax(0,1fr)]', 'xl:grid-cols-[minmax(0,1fr)_340px]')
+    })
+
+    it('switches the route and the rate board on their own width, not the screen’s', async () => {
+      setToday(2024, 6, 1)
+      await seedDime()
+      renderRoute('/', usd())
+      const route = await screen.findByRole('list', { name: 'จากเงินลงทุนถึงวันนี้' })
+      expect(route.parentElement).toHaveClass('@container')
+      expect(route).toHaveClass('@min-[768px]:grid-cols-[repeat(var(--n),minmax(0,1fr))]')
+      const board = screen.getByRole('region', { name: 'กระดานเรทของคุณ' })
+      expect(board).toHaveClass('@container')
+      const [row] = within(board).getAllByRole('listitem')
+      expect(row).toHaveClass('@min-[680px]:grid-cols-[120px_1fr_1fr_110px_170px]')
     })
   })
 })

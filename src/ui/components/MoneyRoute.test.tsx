@@ -36,10 +36,21 @@ describe('MoneyRoute', () => {
     )
   })
 
-  it('keeps space-between to phones so a desktop station stays centred in its column', () => {
+  it('keeps space-between to the narrow layout so a wide station stays centred in its column', () => {
     render(<MoneyRoute label="เส้นทางทดสอบ" stations={[{ value: '1', label: 'เริ่ม' }, { value: '2', label: 'จบ' }]} />)
     const [first] = within(screen.getByRole('list', { name: 'เส้นทางทดสอบ' })).getAllByRole('listitem')
-    expect(first).toHaveClass('max-md:justify-between')
+    expect(first).toHaveClass('@max-[768px]:justify-between')
     expect(first).not.toHaveClass('justify-between')
+  })
+
+  it('picks the horizontal layout by its own width and keeps a wrapped label from pushing the dots off the line', () => {
+    render(<MoneyRoute label="เส้นทางทดสอบ" stations={[{ value: '1', label: 'เริ่ม' }, { value: '2', label: 'จบ' }]} />)
+    const list = screen.getByRole('list', { name: 'เส้นทางทดสอบ' })
+    expect(list.parentElement).toHaveClass('@container')
+    expect(list).toHaveClass('@min-[768px]:grid-cols-[repeat(var(--n),minmax(0,1fr))]')
+    const [first, last] = within(list).getAllByRole('listitem')
+    expect(first).toHaveClass('@min-[768px]:content-start')
+    expect(first.querySelector('span[aria-hidden]')).toHaveClass('@min-[768px]:mb-1.5')
+    expect(last.querySelector('span[aria-hidden]')).toHaveClass('@min-[768px]:mb-0.5', '@min-[768px]:size-10')
   })
 })

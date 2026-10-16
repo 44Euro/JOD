@@ -27,6 +27,8 @@ function routeGradient(stations: readonly Station[], direction: string): string 
   return `linear-gradient(${direction}, ${stops.join(', ')})`
 }
 
+// The horizontal layout is chosen by the route's own width (container query), not the screen's: seven stations
+// need about 768px of it, and a tablet next to a sidebar has less than that to give.
 export function MoneyRoute({ label, stations }: { label: string; stations: readonly Station[] }) {
   const style = {
     '--n': stations.length,
@@ -34,40 +36,44 @@ export function MoneyRoute({ label, stations }: { label: string; stations: reado
     '--route-v': routeGradient(stations, '180deg'),
   } as CSSProperties
   return (
-    <ol
-      aria-label={label}
-      style={style}
-      className="relative grid gap-3 pl-9 md:grid-cols-[repeat(var(--n),minmax(0,1fr))] md:gap-0 md:pl-0"
-    >
-      <span
-        aria-hidden
-        className="absolute top-2.5 bottom-2.5 left-2 w-1.5 rounded-full [background:var(--route-v)] md:inset-x-[calc(50%/var(--n))] md:top-3 md:bottom-auto md:h-2 md:w-auto md:[background:var(--route-h)]"
-      />
-      {stations.map((station, i) => (
-        <li
-          key={station.label}
-          className="relative flex items-center gap-2 text-sm text-ink-2 max-md:justify-between md:grid md:justify-items-center md:gap-px md:px-1 md:text-center md:text-[13px]"
-        >
-          <span
-            aria-hidden
-            className={cn(
-              'absolute top-0.5 -left-9 size-[22px] rounded-full border-[5px] bg-card md:static md:mb-1.5 md:size-8 md:border-[6px]',
-              station.fx ? 'border-fx' : 'border-foreground',
-              i === stations.length - 1 && 'md:-mt-1 md:size-10',
-            )}
-          />
-          <b
-            className={cn(
-              'order-2 font-display text-base font-semibold text-foreground md:order-none md:text-[19px]',
-              station.tone && TONE[station.tone],
-            )}
+    <div className="@container">
+      <ol
+        aria-label={label}
+        style={style}
+        className="relative grid gap-3 pl-9 @min-[768px]:grid-cols-[repeat(var(--n),minmax(0,1fr))] @min-[768px]:gap-0 @min-[768px]:pl-0"
+      >
+        <span
+          aria-hidden
+          className="absolute top-2.5 bottom-2.5 left-2 w-1.5 rounded-full [background:var(--route-v)] @min-[768px]:inset-x-[calc(50%/var(--n))] @min-[768px]:top-3 @min-[768px]:bottom-auto @min-[768px]:h-2 @min-[768px]:w-auto @min-[768px]:[background:var(--route-h)]"
+        />
+        {stations.map((station, i) => (
+          <li
+            key={station.label}
+            className="relative flex items-center gap-2 text-sm text-ink-2 @max-[768px]:justify-between @min-[768px]:grid @min-[768px]:content-start @min-[768px]:justify-items-center @min-[768px]:gap-px @min-[768px]:px-1 @min-[768px]:text-center @min-[768px]:text-[13px]"
           >
-            {station.value}
-          </b>
-          <span className="order-1 md:order-none">{station.label}</span>
-        </li>
-      ))}
-    </ol>
+            <span
+              aria-hidden
+              className={cn(
+                'absolute top-0.5 -left-9 size-[22px] rounded-full border-[5px] bg-card @min-[768px]:static @min-[768px]:size-8 @min-[768px]:border-[6px]',
+                i === stations.length - 1
+                  ? '@min-[768px]:-mt-1 @min-[768px]:mb-0.5 @min-[768px]:size-10'
+                  : '@min-[768px]:mb-1.5',
+                station.fx ? 'border-fx' : 'border-foreground',
+              )}
+            />
+            <b
+              className={cn(
+                'order-2 font-display text-base font-semibold text-foreground @min-[768px]:order-none @min-[768px]:text-[19px]',
+                station.tone && TONE[station.tone],
+              )}
+            >
+              {station.value}
+            </b>
+            <span className="order-1 @min-[768px]:order-none">{station.label}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
   )
 }
 
