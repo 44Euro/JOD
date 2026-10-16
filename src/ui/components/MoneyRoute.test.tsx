@@ -18,4 +18,21 @@ describe('MoneyRoute', () => {
     const items = within(screen.getByRole('list', { name: 'เส้นทางทดสอบ' })).getAllByRole('listitem')
     expect(items.map((item) => item.textContent)).toEqual(['35,000ทุน', '+7,000จากหุ้น', '−2,400จากค่าเงิน', '39,600วันนี้'])
   })
+
+  it('colours each leg after the station it leaves: grey for plain money, purple after a currency station', () => {
+    render(
+      <MoneyRoute
+        label="เส้นทางสินทรัพย์"
+        stations={[
+          { value: '฿112,056', label: 'บาทที่ลงไป', neutral: true },
+          { value: '35.00', label: 'แลกเป็น USD', fx: true },
+          { value: '400.20', label: 'ทุนเฉลี่ย' },
+          { value: '฿132,000', label: 'วันนี้' },
+        ]}
+      />,
+    )
+    expect(screen.getByRole('list', { name: 'เส้นทางสินทรัพย์' }).style.getPropertyValue('--route-h')).toBe(
+      'linear-gradient(90deg, var(--route-neutral) 0.00% 33.33%, var(--fx) 33.33% 66.67%, var(--market-us) 66.67% 100.00%)',
+    )
+  })
 })

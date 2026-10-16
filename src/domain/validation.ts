@@ -1,6 +1,6 @@
 import { isIsoDate, todayLocal } from './dates'
 import { D, isDecimalString } from './decimal'
-import { TX_TYPES, type Transaction } from './types'
+import { TX_TYPES, type Thesis, type Transaction } from './types'
 
 const INSTRUMENT_REQUIRED: readonly string[] = ['buy', 'sell', 'dividend', 'split']
 
@@ -63,5 +63,15 @@ export function validateTransaction(tx: Transaction, today: string = todayLocal(
     const year = tx.taxYear
     if (year === undefined || !Number.isInteger(year) || year < 2000 || year > 2200) errors.push('ปีภาษีไม่ถูกต้อง')
   }
+  return errors
+}
+
+// Every field may be left empty; whatever is filled in has to make sense.
+export function validateThesis(thesis: Thesis): string[] {
+  const errors: string[] = []
+  if (thesis.targetPrice && (!isDecimalString(thesis.targetPrice) || D(thesis.targetPrice).isNegative())) {
+    errors.push('ราคาเป้าหมายต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป')
+  }
+  if (thesis.reviewDate && !isIsoDate(thesis.reviewDate)) errors.push('วันทบทวนไม่ถูกต้อง')
   return errors
 }

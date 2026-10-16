@@ -1,5 +1,5 @@
-import { DEFAULT_SETTINGS, type Account, type Instrument, type Settings, type Transaction } from '../domain/types'
-import { validateTransaction } from '../domain/validation'
+import { DEFAULT_SETTINGS, type Account, type Instrument, type Settings, type Thesis, type Transaction } from '../domain/types'
+import { validateThesis, validateTransaction } from '../domain/validation'
 import type { DailyValueRecord, JodDB } from './db'
 
 export function newId(): string {
@@ -31,13 +31,29 @@ export async function deleteAccount(db: JodDB, id: string): Promise<void> {
   await db.accounts.delete(id)
 }
 
-export async function upsertInstrument(db: JodDB, input: Omit<Instrument, 'lastPrice' | 'lastPriceAt'>): Promise<void> {
+// Price and thesis are edited elsewhere, so the form's instrument details never carry (or wipe) them.
+export async function upsertInstrument(
+  db: JodDB,
+  input: Omit<Instrument, 'lastPrice' | 'lastPriceAt' | keyof Thesis>,
+): Promise<void> {
   const existing = await db.instruments.get(input.id)
   await db.instruments.put({ ...existing, ...input })
 }
 
 export async function setInstrumentPrice(db: JodDB, id: string, price: string, now: Date = new Date()): Promise<void> {
   await db.instruments.update(id, { lastPrice: price, lastPriceAt: now.toISOString() })
+}
+
+// Empty fields are removed from the record rather than stored as empty strings.
+export async function saveInstrumentThesis(db: JodDB, id: string, thesis: Thesis): Promise<void> {
+  const errors = validateThesis(thesis)
+  if (errors.length > 0) throw new Error(errors.join(', '))
+  const updated = await db.instruments.update(id, {
+    holdReason: thesis.holdReason.trim() || undefined,
+    targetPrice: thesis.targetPrice || undefined,
+    reviewDate: thesis.reviewDate || undefined,
+  })
+  if (updated === 0) throw new Error('ไม่พบสินทรัพย์นี้')
 }
 
 export async function saveTransaction(db: JodDB, tx: Transaction, now: Date = new Date()): Promise<void> {

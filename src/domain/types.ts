@@ -39,6 +39,15 @@ export interface Instrument {
   currency: string
   lastPrice?: string
   lastPriceAt?: string
+  holdReason?: string
+  targetPrice?: string
+  reviewDate?: string
+}
+
+export interface Thesis {
+  holdReason: string
+  targetPrice: string
+  reviewDate: string
 }
 
 // Amounts are decimal strings in `currency`; fxRate is the value of 1 `currency` in the base currency.

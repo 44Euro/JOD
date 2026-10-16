@@ -12,34 +12,18 @@ import { transactionsToCsv } from '../../db/backup'
 import { db } from '../../db/db'
 import { deleteTransaction } from '../../db/repo'
 import { todayLocal } from '../../domain/dates'
-import { D } from '../../domain/decimal'
-import { fxConvertSummary } from '../../domain/fxConvert'
-import { acquisitionCostQuote, cashDeltaQuote, sortTransactions } from '../../domain/ledger'
+import { sortTransactions } from '../../domain/ledger'
 import { MARKETS, TX_TYPES, type Instrument, type Transaction } from '../../domain/types'
 import { cn } from '../../lib/cn'
 import { CashPill, MarketPill } from '../components/MarketPill'
 import { PageHeader } from '../components/PageHeader'
+import { RateCell } from '../components/RateCell'
 import { downloadText } from '../download'
-import { fmtDate, fmtDay, fmtNumber, fmtPrice, fmtSigned, fmtValue, plClass } from '../format'
+import { fmtDate, fmtDay } from '../format'
 import { useAppData, useLedger } from '../hooks'
-import { FX_SOURCE_LABELS, MARKET_LABELS, TX_TYPE_LABELS, marketOf } from '../labels'
+import { MARKET_LABELS, TX_TYPE_LABELS, marketOf } from '../labels'
+import { describeAmount, netOf } from '../transactionText'
 import { useIsDesktop } from '../useIsDesktop'
-
-function describeAmount(tx: Transaction): string {
-  switch (tx.type) {
-    case 'buy':
-    case 'sell':
-      return `${fmtNumber(tx.quantity, 8)} × ${fmtPrice(tx.price)}`
-    case 'opening':
-      return tx.instrumentId ? `${fmtNumber(tx.quantity, 8)} × ${fmtPrice(tx.price)}` : fmtNumber(tx.amount)
-    case 'split':
-      return `× ${fmtNumber(tx.splitRatio, 4)}`
-    case 'fx_convert':
-      return `${fmtNumber(tx.amount)} ${tx.currency} → ${fmtNumber(tx.toAmount)} ${tx.toCurrency ?? ''}`
-    default:
-      return fmtNumber(tx.amount)
-  }
-}
 
 function AssetLabel({ tx, instrument, accountName }: { tx: Transaction; instrument?: Instrument; accountName: string }) {
   if (!tx.instrumentId) {
@@ -57,40 +41,6 @@ function AssetLabel({ tx, instrument, accountName }: { tx: Transaction; instrume
       <span className="truncate text-[12.5px] text-muted-foreground">{accountName}</span>
     </span>
   )
-}
-
-function RateCell({ tx }: { tx: Transaction }) {
-  if (tx.type === 'fx_convert') {
-    const { effectiveRate, spreadPct } = fxConvertSummary(tx)
-    return (
-      <span className="inline-flex flex-wrap items-center gap-1.5">
-        {fmtPrice(effectiveRate)}
-        {spreadPct && !spreadPct.isZero() && (
-          <Badge variant={spreadPct.abs().greaterThanOrEqualTo(1) ? 'warning' : 'default'}>
-            {spreadPct.greaterThan(0) ? 'แพงกว่า' : 'ถูกกว่า'}ตลาด {fmtNumber(spreadPct.abs())}%
-          </Badge>
-        )}
-      </span>
-    )
-  }
-  if (tx.fxSource === 'same') return <span className="text-muted-foreground">—</span>
-  return (
-    <span className="inline-flex items-center gap-1.5">
-      {fmtPrice(tx.fxRate)}
-      <Badge variant={tx.fxSource}>{FX_SOURCE_LABELS[tx.fxSource]}</Badge>
-    </span>
-  )
-}
-
-// A transaction the ledger skipped moves no cash, so showing its amount would mislead. An opening holding was
-// paid for before the app existed, so its row shows what it cost instead; a split moves nothing at all.
-function netOf(tx: Transaction, skipped: boolean): { text: string; className: string } {
-  if (skipped || tx.type === 'split') return { text: '—', className: 'text-muted-foreground' }
-  if (tx.type === 'opening' && tx.instrumentId) {
-    return { text: `ทุน ${fmtValue(acquisitionCostQuote(tx).times(D(tx.fxRate)))}`, className: 'text-muted-foreground' }
-  }
-  const net = cashDeltaQuote(tx).times(D(tx.fxRate))
-  return { text: fmtSigned(net), className: plClass(net) }
 }
 
 export function TransactionsPage() {

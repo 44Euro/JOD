@@ -6,6 +6,7 @@ import {
   deleteAccount,
   getSettings,
   recordDailyValue,
+  saveInstrumentThesis,
   saveSettings,
   saveTransaction,
   setInstrumentPrice,
@@ -51,6 +52,39 @@ describe('instruments', () => {
     expect(stored?.name).toBe('Apple Inc.')
     expect(stored?.lastPrice).toBe('190.5')
     expect(stored?.lastPriceAt).toBe('2024-05-01T00:00:00.000Z')
+  })
+})
+
+describe('instrument thesis', () => {
+  const base = { id: 'US:VOO', market: 'US', symbol: 'VOO', name: 'Vanguard', assetType: 'etf', currency: 'USD' } as const
+
+  it('stores the reason, target and review date, and removes fields that are cleared', async () => {
+    await upsertInstrument(db, base)
+    await saveInstrumentThesis(db, 'US:VOO', { holdReason: ' ถือยาว ', targetPrice: '600', reviewDate: '2027-01-01' })
+    expect(await db.instruments.get('US:VOO')).toMatchObject({ holdReason: 'ถือยาว', targetPrice: '600', reviewDate: '2027-01-01' })
+
+    await saveInstrumentThesis(db, 'US:VOO', { holdReason: 'ถือยาว', targetPrice: '', reviewDate: '' })
+    const stored = await db.instruments.get('US:VOO')
+    expect(stored).not.toHaveProperty('targetPrice')
+    expect(stored).not.toHaveProperty('reviewDate')
+  })
+
+  it('keeps the thesis when the form updates the instrument details', async () => {
+    await upsertInstrument(db, base)
+    await saveInstrumentThesis(db, 'US:VOO', { holdReason: 'ถือยาว', targetPrice: '600', reviewDate: '' })
+    await upsertInstrument(db, { ...base, name: 'Vanguard S&P 500 ETF' })
+    expect((await db.instruments.get('US:VOO'))?.holdReason).toBe('ถือยาว')
+  })
+
+  it('refuses a bad target price or date, and an unknown instrument', async () => {
+    await upsertInstrument(db, base)
+    await expect(saveInstrumentThesis(db, 'US:VOO', { holdReason: '', targetPrice: '-1', reviewDate: '' })).rejects.toThrow(
+      'ราคาเป้าหมายต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป',
+    )
+    await expect(saveInstrumentThesis(db, 'US:VOO', { holdReason: '', targetPrice: '', reviewDate: '2027-02-30' })).rejects.toThrow(
+      'วันทบทวนไม่ถูกต้อง',
+    )
+    await expect(saveInstrumentThesis(db, 'US:NOPE', { holdReason: 'x', targetPrice: '', reviewDate: '' })).rejects.toThrow('ไม่พบสินทรัพย์นี้')
   })
 })
 

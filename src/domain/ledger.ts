@@ -121,7 +121,7 @@ export function cashDeltaQuote(tx: Transaction): Decimal {
 }
 
 // Tax on dividends and interest is withholding tax, so it is reported under income instead.
-function feesQuote(tx: Transaction): Decimal {
+export function feesQuote(tx: Transaction): Decimal {
   const fees = D(tx.fees)
   if (tx.type === 'buy' || tx.type === 'sell') return fees.plus(D(tx.tax))
   if (tx.type === 'fee') return fees.plus(D(tx.amount)).plus(D(tx.tax))

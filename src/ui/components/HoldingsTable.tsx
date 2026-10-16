@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router'
 import { Badge } from '../../components/ui/badge'
 import { Input } from '../../components/ui/input'
 import { Table, Td, Th } from '../../components/ui/table'
@@ -12,6 +13,7 @@ import { cn } from '../../lib/cn'
 import { fmtNumber, fmtPrice, fmtRate, fmtSigned, fmtValue, plClass } from '../format'
 import type { RateInfo } from '../hooks'
 import { marketOf } from '../labels'
+import { assetPath } from '../nav'
 import { useIsDesktop } from '../useIsDesktop'
 import { MarketPill } from './MarketPill'
 
@@ -26,15 +28,16 @@ interface HoldingsTableProps {
   editablePrice?: boolean
 }
 
+// The name links to the asset page; the row itself holds a price input, so it cannot be one big link.
 function AssetName({ instrumentId, instrument }: { instrumentId: string; instrument?: Instrument }) {
   return (
-    <span className="flex min-w-0 items-center gap-2.5">
+    <Link to={assetPath(instrumentId)} className="flex min-w-0 items-center gap-2.5 hover:underline">
       <MarketPill market={instrument?.market ?? marketOf(instrumentId)} assetType={instrument?.assetType} />
       <b className="font-display text-base font-semibold">{instrument?.symbol ?? instrumentId}</b>
       {instrument && instrument.name !== instrument.symbol && (
         <span className="truncate text-[12.5px] text-muted-foreground">{instrument.name}</span>
       )}
-    </span>
+    </Link>
   )
 }
 

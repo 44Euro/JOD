@@ -23,3 +23,8 @@ export const MORE_PAGES: readonly NavItem[] = [INCOME, SETTINGS]
 export function isExactLink(to: string): boolean {
   return to === '/' || to === '/transactions'
 }
+
+// Instrument ids contain ":" and fund symbols can contain "&", so the id is encoded into one path segment.
+export function assetPath(instrumentId: string): string {
+  return `/assets/${encodeURIComponent(instrumentId)}`
+}

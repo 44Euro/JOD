@@ -1,20 +1,28 @@
 import type { CSSProperties } from 'react'
 import { cn } from '../../lib/cn'
 
+// fx = a currency station (purple ring); neutral = plain money with no market yet, so its leg is grey.
 export interface Station {
   value: string
   label: string
   tone?: 'gain' | 'loss' | 'fx'
   fx?: boolean
+  neutral?: boolean
 }
 
 const TONE: Record<NonNullable<Station['tone']>, string> = { gain: 'text-gain', loss: 'text-loss', fx: 'text-fx' }
 
+function legColor(station: Station): string {
+  if (station.fx) return 'var(--fx)'
+  return station.neutral ? 'var(--route-neutral)' : 'var(--market-us)'
+}
+
+// Each leg takes the colour of the station it leaves, as in the mocks: the stretch after a currency
+// station is purple.
 function routeGradient(stations: readonly Station[], direction: string): string {
   const legs = stations.length - 1
-  const stops = stations.slice(1).map((station, i) => {
-    const color = station.fx ? 'var(--fx)' : 'var(--market-us)'
-    return `${color} ${((i / legs) * 100).toFixed(2)}% ${(((i + 1) / legs) * 100).toFixed(2)}%`
+  const stops = stations.slice(0, -1).map((station, i) => {
+    return `${legColor(station)} ${((i / legs) * 100).toFixed(2)}% ${(((i + 1) / legs) * 100).toFixed(2)}%`
   })
   return `linear-gradient(${direction}, ${stops.join(', ')})`
 }
