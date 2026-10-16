@@ -30,3 +30,12 @@ export function priceAgeDays(updatedAt: string | undefined, today: string): numb
   if (!updatedAt) return null
   return daysBetween(todayLocal(new Date(updatedAt)), today)
 }
+
+// The current month and the eleven before it, oldest first, as YYYY-MM keys.
+export function lastTwelveMonths(today: string): string[] {
+  const [y, m] = today.split('-').map(Number)
+  return Array.from({ length: 12 }, (_, i) => {
+    const date = new Date(Date.UTC(y, m - 12 + i, 1))
+    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`
+  })
+}

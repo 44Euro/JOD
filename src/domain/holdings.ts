@@ -1,0 +1,138 @@
+import { lastTwelveMonths, monthKey } from './dates'
+import { D, Decimal, sumBy } from './decimal'
+import { positionValueBase, type CashValue } from './investor'
+import { positionKey, type IncomeEvent, type Ledger, type RealizedEvent } from './ledger'
+import type { PositionValuation } from './valuation'
+
+export interface HoldingStats {
+  key: string
+  accountId: string
+  instrumentId: string
+  currency: string
+  quantity: Decimal
+  costQuote: Decimal
+  costBase: Decimal
+  valueBase: Decimal | null
+  unrealizedBase: Decimal | null
+  priceEffectBase: Decimal | null
+  fxEffectBase: Decimal | null
+  realizedBase: Decimal
+  incomeBase: Decimal
+  income12mBase: Decimal
+  totalReturnBase: Decimal | null
+  totalReturnPct: Decimal | null
+  yieldOnCostPct: Decimal | null
+}
+
+function pctOf(part: Decimal | null, whole: Decimal): Decimal | null {
+  return part && whole.greaterThan(0) ? part.div(whole).times(100) : null
+}
+
+// Every position of an instrument shares one price and one rate, so they are either all valued or none.
+function sumValued(valuations: readonly PositionValuation[], pick: (v: PositionValuation) => Decimal | null): Decimal | null {
+  if (valuations.some((v) => pick(v) === null)) return null
+  return sumBy(valuations, (v) => pick(v) ?? D(0))
+}
+
+function stats(
+  key: string,
+  accountId: string,
+  instrumentId: string,
+  currency: string,
+  valuations: readonly PositionValuation[],
+  realized: readonly RealizedEvent[],
+  income: readonly IncomeEvent[],
+  months: ReadonlySet<string>,
+): HoldingStats {
+  const costBase = sumBy(valuations, (v) => v.position.costBase)
+  const unrealizedBase = sumValued(valuations, (v) => v.unrealizedBase)
+  const realizedBase = sumBy(realized, (e) => e.realizedBase)
+  const incomeBase = sumBy(income, (e) => e.netBase)
+  const income12mBase = sumBy(
+    income.filter((e) => months.has(monthKey(e.date))),
+    (e) => e.netBase,
+  )
+  const totalReturnBase = unrealizedBase ? unrealizedBase.plus(realizedBase).plus(incomeBase) : null
+  return {
+    key,
+    accountId,
+    instrumentId,
+    currency,
+    quantity: sumBy(valuations, (v) => v.position.quantity),
+    costQuote: sumBy(valuations, (v) => v.position.costQuote),
+    costBase,
+    valueBase: sumValued(valuations, (v) => v.marketValueBase),
+    unrealizedBase,
+    priceEffectBase: sumValued(valuations, (v) => v.priceEffectBase),
+    fxEffectBase: sumValued(valuations, (v) => v.fxEffectBase),
+    realizedBase,
+    incomeBase,
+    income12mBase,
+    totalReturnBase,
+    totalReturnPct: pctOf(totalReturnBase, costBase),
+    yieldOnCostPct: pctOf(income12mBase, costBase),
+  }
+}
+
+// Spec 5.3: total return of a holding = unrealized + realized + income of that holding in that account.
+export function holdingStats(valuations: readonly PositionValuation[], ledger: Ledger, today: string): HoldingStats[] {
+  const months = new Set(lastTwelveMonths(today))
+  return valuations.map((v) => {
+    const { key, accountId, instrumentId, currency } = v.position
+    const mine = (e: { accountId: string; instrumentId: string }) => positionKey(e.accountId, e.instrumentId) === key
+    return stats(key, accountId, instrumentId, currency, [v], ledger.realized.filter(mine), ledger.income.filter(mine), months)
+  })
+}
+
+// One instrument across every account, including one that has been sold out (quantity 0, value 0).
+export function instrumentStats(
+  instrumentId: string,
+  valuations: readonly PositionValuation[],
+  ledger: Ledger,
+  today: string,
+): HoldingStats | null {
+  const held = valuations.filter((v) => v.position.instrumentId === instrumentId)
+  const realized = ledger.realized.filter((e) => e.instrumentId === instrumentId)
+  const income = ledger.income.filter((e) => e.instrumentId === instrumentId)
+  const currency = held[0]?.position.currency ?? realized[0]?.currency ?? income[0]?.currency
+  if (!currency) return null
+  return stats(instrumentId, '', instrumentId, currency, held, realized, income, new Set(lastTwelveMonths(today)))
+}
+
+export interface AllocationItem {
+  key: string
+  assetsBase?: Decimal
+  cashBase?: Decimal
+}
+
+export interface AllocationRow {
+  key: string
+  assetsBase: Decimal
+  cashBase: Decimal
+  totalBase: Decimal
+  pct: Decimal | null
+}
+
+export function allocate(items: readonly AllocationItem[]): AllocationRow[] {
+  const rows = new Map<string, AllocationRow>()
+  for (const item of items) {
+    const row = rows.get(item.key) ?? { key: item.key, assetsBase: D(0), cashBase: D(0), totalBase: D(0), pct: null }
+    row.assetsBase = row.assetsBase.plus(item.assetsBase ?? D(0))
+    row.cashBase = row.cashBase.plus(item.cashBase ?? D(0))
+    row.totalBase = row.assetsBase.plus(row.cashBase)
+    rows.set(item.key, row)
+  }
+  const list = [...rows.values()]
+  const total = sumBy(list, (row) => row.totalBase)
+  return list
+    .map((row) => ({ ...row, pct: pctOf(row.totalBase, total) }))
+    .sort((a, b) => b.totalBase.comparedTo(a.totalBase) || a.key.localeCompare(b.key))
+}
+
+// Spec 7.4: assets count in the currency they trade in, cash in its own currency.
+export function currencyAllocation(valuations: readonly PositionValuation[], cash: readonly CashValue[]): AllocationRow[] {
+  return allocate([
+    ...valuations.map((v) => ({ key: v.position.currency, assetsBase: positionValueBase(v) })),
+    ...cash.filter((row) => row.base !== null).map((row) => ({ key: row.currency, cashBase: row.base ?? D(0) })),
+  ])
+}
