@@ -1,0 +1,151 @@
+import { describe, expect, it } from 'vitest'
+import { makeTx } from '../test/fixtures'
+import { summarizeInvestor } from './investor'
+import { computeLedger } from './ledger'
+import type { Transaction } from './types'
+import { valuePosition } from './valuation'
+
+function run(transactions: Transaction[], prices: Record<string, string>, rates: Record<string, string>) {
+  const ledger = computeLedger(transactions)
+  const valuations = ledger.positions.map((p) => valuePosition(p, prices[p.instrumentId], rates[p.currency]))
+  return summarizeInvestor({ transactions, ledger, valuations, rates })
+}
+
+const thb = { currency: 'THB', fxRate: '1', fxSource: 'same' as const, instrumentId: undefined, quantity: undefined, price: undefined }
+
+// Dime US: deposits baht, converts to USD, trades, gets a dividend, pays an account fee, withdraws baht.
+const cashAccount = [
+  makeTx({ ...thb, type: 'deposit', amount: '35000', date: '2024-01-02' }),
+  makeTx({ ...thb, type: 'fx_convert', amount: '34000', toCurrency: 'USD', toAmount: '1000', marketRate: '33.5', date: '2024-01-03' }),
+  makeTx({ type: 'buy', quantity: '5', price: '100', fees: '1', fxRate: '34', date: '2024-01-04' }),
+  makeTx({ type: 'dividend', quantity: undefined, price: undefined, amount: '10', tax: '1.5', fxRate: '34', date: '2024-02-01' }),
+  makeTx({ type: 'sell', quantity: '2', price: '110', fees: '1', fxRate: '33', date: '2024-02-02' }),
+  makeTx({ type: 'fee', instrumentId: undefined, quantity: undefined, price: undefined, amount: '2', fxRate: '33', date: '2024-02-03' }),
+  makeTx({ ...thb, type: 'withdraw', amount: '1000', date: '2024-02-04' }),
+]
+
+// Webull: only trades are recorded, so its computed cash (−512.50 USD) is not a real balance.
+const tradeOnly = [
+  makeTx({ accountId: 'acc-2', instrumentId: 'US:MSFT', quantity: '10', price: '100', fees: '1', fxRate: '35', date: '2024-01-10' }),
+  makeTx({ accountId: 'acc-2', instrumentId: 'US:MSFT', type: 'dividend', quantity: undefined, price: undefined, amount: '10', tax: '1.5', fxRate: '34', date: '2024-02-01' }),
+  makeTx({ accountId: 'acc-2', instrumentId: 'US:MSFT', type: 'sell', quantity: '4', price: '120', fxRate: '33', date: '2024-03-10' }),
+]
+
+describe('summarizeInvestor for an account that records cash', () => {
+  const result = run(cashAccount, { 'US:AAPL': '120' }, { USD: '33' })
+
+  it('counts deposits minus withdrawals as money invested', () => {
+    expect(result.invested.totalBase.toString()).toBe('34000')
+    expect(result.invested.inBase.toString()).toBe('35000')
+    expect(result.invested.outBase.toString()).toBe('1000')
+  })
+
+  it('values holdings and the cash of the account at today’s rate', () => {
+    expect(result.worth.holdingsBase.toString()).toBe('11880')
+    expect(result.worth.cashBase.toString()).toBe('23908.5')
+    expect(result.worth.totalBase.toString()).toBe('35788.5')
+  })
+
+  it('splits the total gain into parts that add up exactly', () => {
+    const { gain } = result
+    expect(gain.totalBase.toString()).toBe('1788.5')
+    expect(gain.unrealizedPriceBase.toString()).toBe('2019.6')
+    expect(gain.unrealizedFxBase.toString()).toBe('-360')
+    expect(gain.realizedBase.toString()).toBe('413.4')
+    expect(gain.incomeBase.toString()).toBe('289')
+    expect(gain.otherFeesBase.toString()).toBe('66')
+    expect(gain.cashFxBase.toString()).toBe('-507.5')
+  })
+})
+
+describe('summarizeInvestor for an account that only records trades', () => {
+  const result = run(tradeOnly, { 'US:MSFT': '130' }, { USD: '33' })
+
+  it('treats payments as money in and receipts as money out', () => {
+    expect(result.invested.totalBase.toString()).toBe('18906')
+    expect(result.invested.inBase.toString()).toBe('35035')
+    expect(result.invested.outBase.toString()).toBe('16129')
+  })
+
+  it('leaves its computed cash out of the value', () => {
+    expect(result.worth.cash).toEqual([])
+    expect(result.worth.cashBase.toString()).toBe('0')
+    expect(result.worth.totalBase.toString()).toBe('25740')
+  })
+
+  it('has no cash currency effect', () => {
+    expect(result.gain.totalBase.toString()).toBe('6834')
+    expect(result.gain.realizedBase.toString()).toBe('1826')
+    expect(result.gain.incomeBase.toString()).toBe('289')
+    expect(result.gain.unrealizedPriceBase.toString()).toBe('6279')
+    expect(result.gain.unrealizedFxBase.toString()).toBe('-1560')
+    expect(result.gain.cashFxBase.toString()).toBe('0')
+  })
+})
+
+describe('summarizeInvestor across accounts and edge cases', () => {
+  it('adds both kinds of accounts and keeps the parts adding up', () => {
+    const { gain, invested, worth } = run([...cashAccount, ...tradeOnly], { 'US:AAPL': '120', 'US:MSFT': '130' }, { USD: '33' })
+    expect(invested.totalBase.toString()).toBe('52906')
+    expect(worth.totalBase.toString()).toBe('61528.5')
+    expect(gain.totalBase.toString()).toBe('8622.5')
+    const parts = gain.unrealizedPriceBase
+      .plus(gain.unrealizedFxBase)
+      .plus(gain.realizedBase)
+      .plus(gain.incomeBase)
+      .minus(gain.otherFeesBase)
+      .plus(gain.cashFxBase)
+    expect(parts.toString()).toBe('8622.5')
+  })
+
+  it('counts an opening holding and opening cash as money put in', () => {
+    const result = run(
+      [
+        makeTx({ type: 'opening', instrumentId: 'US:VOO', quantity: '10', price: '400', fxRate: '34.5', fxSource: 'estimated', date: '2024-01-01' }),
+        makeTx({ type: 'opening', instrumentId: undefined, quantity: undefined, price: undefined, amount: '100', fxRate: '34', date: '2024-01-01' }),
+      ],
+      { 'US:VOO': '400' },
+      { USD: '34.5' },
+    )
+    expect(result.invested.totalBase.toString()).toBe('141400')
+    expect(result.worth.totalBase.toString()).toBe('141450')
+    expect(result.gain.cashFxBase.toString()).toBe('50')
+  })
+
+  it('counts fees on deposits, withdrawals and account fees as other fees', () => {
+    const result = run(
+      [
+        makeTx({ ...thb, type: 'deposit', amount: '10000', fees: '10', date: '2024-01-01' }),
+        makeTx({ ...thb, type: 'withdraw', amount: '2000', fees: '5', tax: '2', date: '2024-01-02' }),
+        makeTx({ ...thb, type: 'fee', amount: '20', date: '2024-01-03' }),
+      ],
+      {},
+      { THB: '1' },
+    )
+    expect(result.invested.totalBase.toString()).toBe('8000')
+    expect(result.worth.totalBase.toString()).toBe('7963')
+    expect(result.gain.otherFeesBase.toString()).toBe('37')
+    expect(result.gain.cashFxBase.toString()).toBe('0')
+  })
+
+  it('values a holding without a price at its cost instead of zero', () => {
+    const result = run([makeTx({ quantity: '2', price: '100', fxRate: '35' })], {}, { USD: '33' })
+    expect(result.worth.holdingsBase.toString()).toBe('7000')
+    expect(result.worth.unpricedCount).toBe(1)
+    expect(result.gain.totalBase.toString()).toBe('0')
+  })
+
+  it('leaves out a sell the ledger could not count', () => {
+    const buy = makeTx({ quantity: '2', price: '100', fxRate: '35', date: '2024-01-10' })
+    const oversell = makeTx({ type: 'sell', quantity: '5', price: '100', fxRate: '35', date: '2024-01-20' })
+    const result = run([buy, oversell], { 'US:AAPL': '100' }, { USD: '35' })
+    expect(result.flows.map((f) => f.txId)).toEqual([buy.id])
+    expect(result.gain.totalBase.toString()).toBe('0')
+  })
+
+  it('lists currencies that have no rate today and counts those holdings at cost', () => {
+    const result = run([makeTx({ quantity: '1', price: '100', fxRate: '35' })], { 'US:AAPL': '120' }, {})
+    expect(result.worth.missingRates).toEqual(['USD'])
+    expect(result.worth.holdingsBase.toString()).toBe('3500')
+  })
+})
