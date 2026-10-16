@@ -34,8 +34,10 @@ export function previewAfterSave(
   tx: Transaction,
   baseCurrency: string,
   symbol: string,
+  previous?: Transaction,
 ): AfterSavePreview {
-  const before = computeLedger(others)
+  const saved = previous ? [...others, previous] : others
+  const before = computeLedger(saved)
   const after = computeLedger([...others, tx])
   const rows: AfterSaveRow[] = []
 
@@ -54,7 +56,7 @@ export function previewAfterSave(
   }
 
   let warning: string | null = null
-  if (tracksCash([...others, tx], tx.accountId)) {
+  if (tracksCash([...saved, tx], tx.accountId)) {
     const currencies = tx.type === 'fx_convert' && tx.toCurrency ? [tx.currency, tx.toCurrency] : [tx.currency]
     for (const currency of currencies) {
       const was = cashOf(before, tx.accountId, currency)

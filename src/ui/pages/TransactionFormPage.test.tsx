@@ -1,7 +1,8 @@
-import { screen, waitFor } from '@testing-library/react'
+import { fireEvent, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '../../db/db'
+import { FxUnavailableError, type FxProvider } from '../../fx/frankfurter'
 import { fakeFxProvider } from '../../test/fakeFx'
 import { makeTx } from '../../test/fixtures'
 import { renderRoute, resetDb } from '../../test/render'
@@ -112,6 +113,27 @@ describe('TransactionFormPage', () => {
     const router = renderRoute('/transactions/buy-1', fakeFxProvider({ 'USD|THB': '35' }).provider)
     await user.click(await screen.findByRole('button', { name: 'ลบรายการนี้' }))
     await waitFor(() => expect(router.state.location.pathname).toBe('/transactions'))
+    expect(await db.transactions.count()).toBe(0)
+  })
+
+  it('drops an automatic rate when the date changes to one without a quote', async () => {
+    const provider: FxProvider = {
+      async getRate(_from, _to, date) {
+        if (date !== 'latest') throw new FxUnavailableError('ไม่มีเรทของวันนั้น')
+        return { rate: '35', rateDate: '2024-01-15' }
+      },
+    }
+    const user = userEvent.setup()
+    renderRoute('/transactions/new', provider)
+    await user.type(await screen.findByLabelText('สัญลักษณ์'), 'AAPL')
+    await user.type(screen.getByLabelText('จำนวนหน่วย'), '1')
+    await user.type(screen.getByLabelText('ราคาต่อหน่วย'), '100')
+    await waitFor(() => expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('35'))
+    fireEvent.change(screen.getByLabelText('วันที่'), { target: { value: '2024-03-01' } })
+    await waitFor(() => expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue(''))
+    expect(await screen.findByText(/ไม่มีเรทของวันนั้น/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+    expect(await screen.findByText('เรทแลกเปลี่ยนต้องเป็นตัวเลขมากกว่า 0')).toBeInTheDocument()
     expect(await db.transactions.count()).toBe(0)
   })
 })

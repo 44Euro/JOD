@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Instrument } from '../domain/types'
 import {
   applyReferenceRate,
+  changeDate,
   changeMarket,
   changeOpeningKind,
   changeType,
@@ -120,6 +121,26 @@ describe('applyReferenceRate', () => {
   it('moves an estimated rate to the new date', () => {
     const draft = buyDraft({ type: 'opening', symbol: 'VOO', fxRate: '34', fxSource: 'estimated' })
     expect(applyReferenceRate(draft, quote)).toMatchObject({ fxRate: '35.2', fxSource: 'estimated' })
+  })
+})
+
+describe('changeDate', () => {
+  it('drops the automatic rate and its reference when the date moves', () => {
+    const next = changeDate(buyDraft(), '2024-01-10')
+    expect(next).toMatchObject({ date: '2024-01-10', fxRate: '', fxSource: 'auto', fxRateDate: '', referenceFxRate: '' })
+  })
+
+  it('keeps a rate the user typed or estimated', () => {
+    expect(changeDate(buyDraft({ fxRate: '35.6', fxSource: 'manual' }), '2024-01-10')).toMatchObject({
+      date: '2024-01-10',
+      fxRate: '35.6',
+      fxSource: 'manual',
+      referenceFxRate: '',
+    })
+    expect(changeDate(buyDraft({ type: 'opening', fxRate: '34', fxSource: 'estimated' }), '2024-01-10')).toMatchObject({
+      fxRate: '34',
+      fxSource: 'estimated',
+    })
   })
 })
 

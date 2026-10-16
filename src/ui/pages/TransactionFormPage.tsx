@@ -28,6 +28,7 @@ import { ASSET_TYPE_LABELS, FX_SOURCE_LABELS, MARKET_LABELS, MORE_TX_TYPES, PRIM
 import {
   applyReferenceRate,
   changeCurrency,
+  changeDate,
   changeMarket,
   changeOpeningKind,
   changeType,
@@ -211,7 +212,7 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
     draft.type === 'fx_convert' && positiveDecimal(preview.tx.amount) && positiveDecimal(preview.tx.toAmount)
       ? fxConvertSummary(preview.tx)
       : null
-  const afterSave = preview.errors.length === 0 ? previewAfterSave(others, preview.tx, base, symbol) : null
+  const afterSave = preview.errors.length === 0 ? previewAfterSave(others, preview.tx, base, symbol, existing) : null
   const knownSymbols = data.instruments.filter((i) => i.market === draft.market)
   const knownInstrument = symbol ? data.instruments.find((i) => i.id === instrumentKey(draft.market, symbol)) : undefined
   const held =
@@ -312,7 +313,17 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
               </NativeSelect>
             </Field>
             <Field id="tx-date" label="วันที่">
-              <Input id="tx-date" type="date" value={draft.date} max={todayLocal()} onChange={(e) => update({ date: e.target.value })} />
+              <Input
+                id="tx-date"
+                type="date"
+                value={draft.date}
+                max={todayLocal()}
+                onChange={(e) => {
+                  const date = e.target.value
+                  setDraft((d) => changeDate(d, date))
+                  setFxMessage('')
+                }}
+              />
             </Field>
             <Field id="tx-time" label="เวลา (ไม่บังคับ)">
               <Input id="tx-time" type="time" value={draft.time} onChange={(e) => update({ time: e.target.value })} />

@@ -36,4 +36,26 @@ describe('previewAfterSave', () => {
     expect(rows.map((row) => row.label)).not.toContain('เงินสด USD')
     expect(warning).toBeNull()
   })
+
+  it('compares an edited transaction against its saved version', () => {
+    const saved = makeTx({ id: 'buy-1', quantity: '10', price: '100', fxRate: '35', date: '2024-01-10' })
+    const edited = { ...saved, quantity: '12' }
+    const { rows } = previewAfterSave([], edited, 'THB', 'AAPL', saved)
+    expect(rows[0]).toEqual({ label: 'AAPL ที่ถือ', before: '10', after: '12' })
+  })
+
+  it('does not warn about cash that the saved version already pushed below zero', () => {
+    const deposit = makeTx({
+      type: 'deposit',
+      instrumentId: undefined,
+      quantity: undefined,
+      price: undefined,
+      amount: '500',
+      date: '2024-01-05',
+    })
+    const saved = makeTx({ id: 'buy-1', quantity: '10', price: '100', date: '2024-01-10' })
+    const { rows, warning } = previewAfterSave([deposit], { ...saved, note: 'edited' }, 'THB', 'AAPL', saved)
+    expect(rows.map((row) => row.label)).not.toContain('เงินสด USD')
+    expect(warning).toBeNull()
+  })
 })
