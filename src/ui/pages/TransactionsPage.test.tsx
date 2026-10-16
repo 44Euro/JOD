@@ -71,6 +71,30 @@ describe('TransactionsPage', () => {
     expect(await screen.findByText('จันทร์ 15 ม.ค. 2024')).toBeInTheDocument()
   })
 
+  it('shows an exchange as source to target with the spread against the market rate', async () => {
+    await db.transactions.add(
+      makeTx({
+        id: 'fx',
+        type: 'fx_convert',
+        instrumentId: undefined,
+        quantity: undefined,
+        price: undefined,
+        currency: 'THB',
+        amount: '34000',
+        toCurrency: 'USD',
+        toAmount: '1000',
+        marketRate: '33.5',
+        fxRate: '1',
+        fxSource: 'same',
+        date: '2024-01-10',
+      }),
+    )
+    renderRoute('/transactions')
+    const table = await screen.findByRole('table')
+    expect(await within(table).findByText('34,000 THB → 1,000 USD')).toBeInTheDocument()
+    expect(within(table).getByText('แพงกว่าตลาด 1.49%')).toBeInTheDocument()
+  })
+
   it('shows two-line rows on a phone', async () => {
     vi.stubGlobal('matchMedia', (query: string) => ({
       matches: false,
@@ -81,7 +105,8 @@ describe('TransactionsPage', () => {
     await db.transactions.add(makeTx({ id: 'b', date: '2024-01-10', fxRate: '35' }))
     renderRoute('/transactions')
     const list = await screen.findByRole('list', { name: 'รายการทั้งหมด' })
-    expect(within(list).getByText('1 × 100 USD · เรท 35')).toBeInTheDocument()
+    expect(within(list).getByText('1 × 100 USD')).toBeInTheDocument()
+    expect(within(list).getByText('กรอกเอง')).toBeInTheDocument()
     expect(within(list).getByRole('link', { name: /AAPL/ })).toHaveAttribute('href', '/transactions/b')
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
   })

@@ -32,7 +32,7 @@ function describeAmount(tx: Transaction): string {
     case 'split':
       return `× ${fmtNumber(tx.splitRatio, 4)}`
     case 'fx_convert':
-      return `${fmtNumber(tx.amount)} → ${fmtNumber(tx.toAmount)} ${tx.toCurrency ?? ''}`
+      return `${fmtNumber(tx.amount)} ${tx.currency} → ${fmtNumber(tx.toAmount)} ${tx.toCurrency ?? ''}`
     default:
       return fmtNumber(tx.amount)
   }
@@ -227,7 +227,8 @@ export function TransactionsPage() {
                         </span>
                       </Td>
                       <Td>
-                        {describeAmount(tx)} <span className="text-muted-foreground">{tx.currency}</span>
+                        {describeAmount(tx)}
+                        {tx.type !== 'fx_convert' && <span className="text-muted-foreground"> {tx.currency}</span>}
                       </Td>
                       <Td>
                         <RateCell tx={tx} />
@@ -284,9 +285,17 @@ export function TransactionsPage() {
                         <span className="shrink-0 text-[13px] text-muted-foreground">{TX_TYPE_LABELS[tx.type]}</span>
                       </span>
                       <span className={cn('font-display font-semibold', plClass(net))}>{net ? fmtSigned(net) : '—'}</span>
-                      <span className="col-span-2 text-[12.5px] text-muted-foreground">
-                        {describeAmount(tx)} {tx.currency}
-                        {tx.fxSource !== 'same' && ` · เรท ${fmtNumber(tx.fxRate, 4)}`}
+                      <span className="col-span-2 flex flex-wrap items-center gap-x-1.5 text-[12.5px] text-muted-foreground">
+                        <span>
+                          {describeAmount(tx)}
+                          {tx.type !== 'fx_convert' && ` ${tx.currency}`}
+                        </span>
+                        {(tx.type === 'fx_convert' || tx.fxSource !== 'same') && (
+                          <>
+                            <span>· เรท</span>
+                            <RateCell tx={tx} />
+                          </>
+                        )}
                       </span>
                       {issue && <span className="col-span-2 text-[12.5px] text-warning-fg">{issue}</span>}
                     </Link>
