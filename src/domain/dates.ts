@@ -23,3 +23,10 @@ export function monthKey(date: string): string {
 export function daysBetween(from: string, to: string): number {
   return Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000)
 }
+
+// lastPriceAt is a UTC timestamp; comparing its UTC date with the local today would count a price typed
+// at 06:00 in Bangkok as a day older than it is.
+export function priceAgeDays(updatedAt: string | undefined, today: string): number | null {
+  if (!updatedAt) return null
+  return daysBetween(todayLocal(new Date(updatedAt)), today)
+}
