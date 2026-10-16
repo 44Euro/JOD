@@ -1,5 +1,5 @@
 import { D, type Decimal } from '../domain/decimal'
-import { computeLedger, positionKey, type Ledger, type Position } from '../domain/ledger'
+import { accountTracksCash, computeLedger, positionKey, type Ledger, type Position } from '../domain/ledger'
 import type { Transaction } from '../domain/types'
 import { fmtMoney, fmtNumber } from './format'
 
@@ -17,16 +17,6 @@ export interface AfterSavePreview {
 
 function cashOf(ledger: Ledger, accountId: string, currency: string): Decimal {
   return ledger.cash.find((row) => row.accountId === accountId && row.currency === currency)?.amount ?? D(0)
-}
-
-// An account that only ever records trades has no cash history, so its balance is always negative and
-// warning about it would be noise (spec 7.4).
-function tracksCash(transactions: readonly Transaction[], accountId: string): boolean {
-  return transactions.some(
-    (t) =>
-      t.accountId === accountId &&
-      (t.type === 'deposit' || t.type === 'withdraw' || t.type === 'fx_convert' || (t.type === 'opening' && !t.instrumentId)),
-  )
 }
 
 export function previewAfterSave(
@@ -56,7 +46,7 @@ export function previewAfterSave(
   }
 
   let warning: string | null = null
-  if (tracksCash([...saved, tx], tx.accountId)) {
+  if (accountTracksCash([...saved, tx], tx.accountId)) {
     const currencies = tx.type === 'fx_convert' && tx.toCurrency ? [tx.currency, tx.toCurrency] : [tx.currency]
     for (const currency of currencies) {
       const was = cashOf(before, tx.accountId, currency)

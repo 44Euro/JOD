@@ -2,11 +2,12 @@ import { Alert } from '../../components/ui/alert'
 import { Card } from '../../components/ui/card'
 import { Table, Td, Th } from '../../components/ui/table'
 import { D, sumBy } from '../../domain/decimal'
+import { accountTracksCash } from '../../domain/ledger'
 import { cn } from '../../lib/cn'
 import { HoldingsTable } from '../components/HoldingsTable'
 import { PageHeader } from '../components/PageHeader'
 import { Stat, SummaryPanel } from '../components/Summary'
-import { fmtHeadline, fmtMoney, fmtNumber, fmtSigned, plClass } from '../format'
+import { fmtHeadline, fmtMoney, fmtSigned, fmtValue, plClass } from '../format'
 import { useAppData, usePortfolio } from '../hooks'
 
 export function PortfolioPage() {
@@ -17,10 +18,14 @@ export function PortfolioPage() {
   const base = data.settings.baseCurrency
   const instruments = new Map(data.instruments.map((i) => [i.id, i]))
   const accountNames = new Map(data.accounts.map((a) => [a.id, a.name]))
-  const cash = ledger.cash.map((row) => ({
-    ...row,
-    base: rates[row.currency] ? row.amount.times(D(rates[row.currency].rate)) : null,
-  }))
+  const usedAccounts = [...new Set(data.transactions.map((t) => t.accountId))]
+  const cashAccounts = new Set(usedAccounts.filter((id) => accountTracksCash(data.transactions, id)))
+  const cash = ledger.cash
+    .filter((row) => cashAccounts.has(row.accountId))
+    .map((row) => ({
+      ...row,
+      base: rates[row.currency] ? row.amount.times(D(rates[row.currency].rate)) : null,
+    }))
   const cashTotal = sumBy(cash, (row) => row.base ?? D(0))
 
   return (
@@ -75,11 +80,16 @@ export function PortfolioPage() {
                   <Td className={cn('text-right font-display font-semibold', row.amount.lessThan(0) && 'text-loss')}>
                     {fmtMoney(row.amount, row.currency)}
                   </Td>
-                  <Td className="text-right text-muted-foreground">{fmtNumber(row.base, 0)}</Td>
+                  <Td className="text-right text-muted-foreground">{fmtValue(row.base)}</Td>
                 </tr>
               ))}
             </tbody>
           </Table>
+        )}
+        {cashAccounts.size < usedAccounts.length && (
+          <p className="mt-3 text-[12.5px] text-muted-foreground">
+            บัญชีที่จดแค่ซื้อขาย ไม่นับเงินสด (ไม่มีรายการฝาก ถอน หรือแลกเงิน)
+          </p>
         )}
       </Card>
     </>

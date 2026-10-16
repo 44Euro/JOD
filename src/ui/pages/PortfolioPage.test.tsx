@@ -73,6 +73,26 @@ describe('PortfolioPage', () => {
     expect(await screen.findByText(/วันก่อน$/)).toBeInTheDocument()
   })
 
+  it('shows the account under the asset and no currency effect for a baht holding', async () => {
+    await db.instruments.add({
+      id: 'SET:PTT',
+      market: 'SET',
+      symbol: 'PTT',
+      name: 'ปตท.',
+      assetType: 'stock',
+      currency: 'THB',
+      lastPrice: '35',
+    })
+    await db.transactions.add(
+      makeTx({ instrumentId: 'SET:PTT', currency: 'THB', quantity: '100', price: '33', fxRate: '1', fxSource: 'same' }),
+    )
+    renderRoute('/portfolio')
+    const row = (await screen.findByText('ปตท.')).closest('tr')!
+    expect(within(row).getByText('Dime US')).toBeInTheDocument()
+    expect(row.cells[row.cells.length - 1]).toHaveTextContent(/^—$/)
+    expect(within(row.closest('table')!).queryByRole('columnheader', { name: 'บัญชี' })).not.toBeInTheDocument()
+  })
+
   it('shows cash left in each account with its value in baht', async () => {
     await db.transactions.add(
       makeTx({ type: 'deposit', instrumentId: undefined, quantity: undefined, price: undefined, amount: '1000', fxRate: '35' }),
@@ -80,5 +100,15 @@ describe('PortfolioPage', () => {
     renderRoute('/portfolio', fakeFxProvider({ 'USD|THB': '33' }).provider)
     expect(await screen.findByText('1,000.00 USD')).toBeInTheDocument()
     expect(await screen.findByText('33,000')).toBeInTheDocument()
+  })
+
+  it('leaves out cash for an account that only records trades', async () => {
+    await db.transactions.add(makeTx({ quantity: '1', price: '100', fxRate: '35' }))
+    renderRoute('/portfolio', fakeFxProvider({ 'USD|THB': '33' }).provider)
+    expect(
+      await screen.findByText('บัญชีที่จดแค่ซื้อขาย ไม่นับเงินสด (ไม่มีรายการฝาก ถอน หรือแลกเงิน)'),
+    ).toBeInTheDocument()
+    expect(screen.getByText('ยังไม่มีเงินสดที่บันทึกไว้')).toBeInTheDocument()
+    expect(screen.queryByText('−100.00 USD')).not.toBeInTheDocument()
   })
 })

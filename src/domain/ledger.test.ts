@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { makeTx } from '../test/fixtures'
-import { computeLedger } from './ledger'
+import { accountTracksCash, computeLedger } from './ledger'
 
 describe('computeLedger positions and realized P/L', () => {
   const buy1 = makeTx({ type: 'buy', quantity: '10', price: '100', fees: '1', fxRate: '35', date: '2024-01-10' })
@@ -122,5 +122,29 @@ describe('computeLedger cash, income and fees', () => {
     expect(ledger.income).toHaveLength(1)
     expect(ledger.income[0]).toMatchObject({ kind: 'interest', instrumentId: '' })
     expect(ledger.income[0].netBase.toString()).toBe('57.8')
+  })
+})
+
+describe('accountTracksCash', () => {
+  const cashless = { instrumentId: undefined, quantity: undefined, price: undefined, amount: '100' }
+
+  it('is false for an account that only records trades and income', () => {
+    const txs = [makeTx({ accountId: 'a' }), makeTx({ accountId: 'a', type: 'dividend', ...cashless, instrumentId: 'US:AAPL' })]
+    expect(accountTracksCash(txs, 'a')).toBe(false)
+  })
+
+  it('is true once the account has a deposit, withdrawal, exchange or opening cash', () => {
+    for (const type of ['deposit', 'withdraw', 'fx_convert', 'opening'] as const) {
+      expect(accountTracksCash([makeTx({ accountId: 'a' }), makeTx({ accountId: 'a', type, ...cashless })], 'a')).toBe(true)
+    }
+  })
+
+  it('ignores an opening holding and other accounts', () => {
+    const txs = [
+      makeTx({ accountId: 'a', type: 'opening', quantity: '1', price: '100' }),
+      makeTx({ accountId: 'b', type: 'deposit', ...cashless }),
+    ]
+    expect(accountTracksCash(txs, 'a')).toBe(false)
+    expect(accountTracksCash(txs, 'b')).toBe(true)
   })
 })

@@ -76,8 +76,18 @@ export function sortTransactions(transactions: readonly Transaction[]): Transact
   )
 }
 
-function acquisitionCostQuote(tx: Transaction): Decimal {
+export function acquisitionCostQuote(tx: Transaction): Decimal {
   return D(tx.quantity).times(D(tx.price)).plus(D(tx.fees)).plus(D(tx.tax))
+}
+
+// An account that only ever records trades has no cash history, so the cash computed for it only reflects
+// the trades and is not a real balance.
+export function accountTracksCash(transactions: readonly Transaction[], accountId: string): boolean {
+  return transactions.some(
+    (t) =>
+      t.accountId === accountId &&
+      (t.type === 'deposit' || t.type === 'withdraw' || t.type === 'fx_convert' || (t.type === 'opening' && !t.instrumentId)),
+  )
 }
 
 // Signed cash movement in the transaction's own currency (the source side for fx_convert).
