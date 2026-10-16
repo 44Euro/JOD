@@ -2,18 +2,32 @@ import type { ReactNode } from 'react'
 import { Card } from '../../components/ui/card'
 import { cn } from '../../lib/cn'
 
-export function SummaryPanel({ label, value, children }: { label: string; value: string; children?: ReactNode }) {
+// footer sits inside the same panel under the numbers, as the route and the income chart do in the mocks.
+export function SummaryPanel({
+  label,
+  value,
+  children,
+  footer,
+}: {
+  label: string
+  value: string
+  children?: ReactNode
+  footer?: ReactNode
+}) {
   return (
-    <Card className="flex flex-wrap items-end justify-between gap-6">
-      <div>
-        <p className="text-[13px] text-muted-foreground">{label}</p>
-        <p className="font-display text-[42px] font-semibold leading-[1.05] tracking-[-0.01em] md:text-[64px]">{value}</p>
-      </div>
-      {children && (
-        <div className="grid w-full grid-cols-2 gap-2 md:flex md:w-auto md:flex-wrap md:gap-10 [&>*:first-child:nth-last-child(3)]:col-span-2">
-          {children}
+    <Card>
+      <div className="flex flex-wrap items-end justify-between gap-6">
+        <div>
+          <p className="text-[13px] text-muted-foreground">{label}</p>
+          <p className="font-display text-[42px] font-semibold leading-[1.05] tracking-[-0.01em] md:text-[64px]">{value}</p>
         </div>
-      )}
+        {children && (
+          <div className="grid w-full grid-cols-2 gap-2 md:flex md:w-auto md:flex-wrap md:gap-10 [&>*:first-child:nth-last-child(3)]:col-span-2">
+            {children}
+          </div>
+        )}
+      </div>
+      {footer && <div className="mt-6 md:mt-[26px]">{footer}</div>}
     </Card>
   )
 }

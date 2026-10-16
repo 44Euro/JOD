@@ -42,6 +42,7 @@
   --market-intl: #44506a;
   --market-cash: #64748b;
   --route-neutral: #9aa3b5;
+  --income-interest: #7aa2f7;
 }
 
 @theme inline {
@@ -85,6 +86,7 @@
   --color-market-intl: var(--market-intl);
   --color-market-cash: var(--market-cash);
   --color-route-neutral: var(--route-neutral);
+  --color-income-interest: var(--income-interest);
   --font-sans: "Noto Sans Thai", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Anuphan", "Noto Sans Thai", ui-sans-serif, sans-serif;
 }

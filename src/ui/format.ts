@@ -65,8 +65,17 @@ export function fmtValue(value: Value): string {
   return isEmpty(value) ? '—' : format(D(value), 0, 0)
 }
 
-export function fmtPct(value: Value): string {
-  return isEmpty(value) ? '—' : `${fmtNumber(value, 2)}%`
+export function fmtPct(value: Value, digits = 2): string {
+  return isEmpty(value) ? '—' : `${fmtNumber(value, digits)}%`
+}
+
+export function fmtSignedPct(value: Value, digits = 1): string {
+  return isEmpty(value) ? '—' : `${fmtSigned(value, digits)}%`
+}
+
+// No income in the last twelve months reads as "—" like in the mocks, not as a misleading "0%".
+export function fmtYield(value: Value): string {
+  return isEmpty(value) || D(value).isZero() ? '—' : fmtPct(value, 1)
 }
 
 export function plClass(value: Value): string {
@@ -86,6 +95,12 @@ export function fmtDate(iso: string | undefined): string {
   if (!iso) return '—'
   const [y, m, d] = iso.slice(0, 10).split('-').map(Number)
   return `${d} ${MONTHS[m - 1]} ${y}`
+}
+
+// Month keys are YYYY-MM.
+export function fmtMonth(key: string, withYear = false): string {
+  const [y, m] = key.split('-').map(Number)
+  return withYear ? `${MONTHS[m - 1]} ${y}` : MONTHS[m - 1]
 }
 
 export function fmtDay(iso: string): string {

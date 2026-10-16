@@ -1,3 +1,4 @@
+import type { IncomeKind } from '../domain/ledger'
 import { MARKETS, type AssetType, type FxSource, type Market, type TxType } from '../domain/types'
 
 export const TX_TYPE_LABELS: Record<TxType, string> = {
@@ -47,4 +48,9 @@ export const FX_SOURCE_LABELS: Record<FxSource, string> = {
 export function marketOf(instrumentId: string): Market {
   const prefix = instrumentId.slice(0, instrumentId.indexOf(':'))
   return (MARKETS as readonly string[]).includes(prefix) ? (prefix as Market) : 'OTHER'
+}
+
+export const INCOME_SERIES: Record<IncomeKind, { label: string; className: string }> = {
+  dividend: { label: 'ปันผล', className: 'bg-primary' },
+  interest: { label: 'ดอกเบี้ย/คูปอง', className: 'bg-income-interest' },
 }

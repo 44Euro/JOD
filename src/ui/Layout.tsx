@@ -1,20 +1,9 @@
-import { Briefcase, House, List, Plus, Settings, type LucideIcon } from 'lucide-react'
-import { NavLink, Outlet } from 'react-router'
+import { Plus } from 'lucide-react'
+import { NavLink, Outlet, useLocation } from 'react-router'
 import { buttonVariants } from '../components/ui/button'
 import { cn } from '../lib/cn'
 import { DailyValueRecorder } from './DailyValueRecorder'
-
-interface NavItem {
-  to: string
-  label: string
-  icon: LucideIcon
-}
-
-const HOME: NavItem = { to: '/', label: 'ภาพรวม', icon: House }
-const PORTFOLIO: NavItem = { to: '/portfolio', label: 'พอร์ต', icon: Briefcase }
-const TRANSACTIONS: NavItem = { to: '/transactions', label: 'รายการ', icon: List }
-const SETTINGS: NavItem = { to: '/settings', label: 'ตั้งค่า', icon: Settings }
-const NEW_TRANSACTION = '/transactions/new'
+import { HOME, MORE, MORE_PAGES, NEW_TRANSACTION, PORTFOLIO, SIDEBAR_PAGES, TRANSACTIONS, isExactLink, type NavItem } from './nav'
 
 const LEGEND = [
   { label: 'หุ้นสหรัฐ', className: 'bg-market-us' },
@@ -29,7 +18,7 @@ function SideLink({ to, label, icon: Icon }: NavItem) {
   return (
     <NavLink
       to={to}
-      end={to === '/'}
+      end={isExactLink(to)}
       className={({ isActive }) =>
         cn(
           'flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[15.5px] text-ink-2 hover:bg-muted',
@@ -43,15 +32,15 @@ function SideLink({ to, label, icon: Icon }: NavItem) {
   )
 }
 
-function TabLink({ to, label, icon: Icon }: NavItem) {
+function TabLink({ to, label, icon: Icon, active }: NavItem & { active?: boolean }) {
   return (
     <NavLink
       to={to}
-      end={to === '/'}
+      end={isExactLink(to)}
       className={({ isActive }) =>
         cn(
           'flex min-h-12 flex-col items-center justify-end gap-0.5 text-[11px] text-muted-foreground',
-          isActive && 'font-semibold text-primary',
+          (isActive || active) && 'font-semibold text-primary',
         )
       }
     >
@@ -62,6 +51,8 @@ function TabLink({ to, label, icon: Icon }: NavItem) {
 }
 
 export function Layout() {
+  const { pathname } = useLocation()
+  const inMore = MORE_PAGES.some((page) => pathname.startsWith(page.to))
   return (
     <div className="min-h-dvh md:grid md:grid-cols-[240px_minmax(0,1fr)]">
       <DailyValueRecorder />
@@ -75,7 +66,7 @@ export function Layout() {
           บันทึกรายการ
         </NavLink>
         <nav aria-label="เมนูหลัก" className="grid gap-0.5">
-          {[HOME, PORTFOLIO, TRANSACTIONS, SETTINGS].map((item) => (
+          {SIDEBAR_PAGES.map((item) => (
             <SideLink key={item.to} {...item} />
           ))}
         </nav>
@@ -107,7 +98,7 @@ export function Layout() {
           บันทึก
         </NavLink>
         <TabLink {...TRANSACTIONS} />
-        <TabLink {...SETTINGS} />
+        <TabLink {...MORE} active={inMore} />
       </nav>
     </div>
   )

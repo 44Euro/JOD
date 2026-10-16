@@ -1,5 +1,20 @@
 import { describe, expect, it } from 'vitest'
-import { fmtDate, fmtDay, fmtHeadline, fmtMoney, fmtNumber, fmtPct, fmtPrice, fmtRate, fmtSigned, fmtValue, plClass } from './format'
+import {
+  fmtDate,
+  fmtDay,
+  fmtHeadline,
+  fmtMoney,
+  fmtMonth,
+  fmtNumber,
+  fmtPct,
+  fmtPrice,
+  fmtRate,
+  fmtSigned,
+  fmtSignedPct,
+  fmtValue,
+  fmtYield,
+  plClass,
+} from './format'
 
 describe('format', () => {
   it('formats money with two decimals, Thai grouping and a real minus sign', () => {
@@ -76,5 +91,16 @@ describe('format', () => {
   it('shows dates in the Gregorian year with a Thai weekday', () => {
     expect(fmtDate('2026-10-16')).toBe('16 ต.ค. 2026')
     expect(fmtDay('2024-01-15')).toBe('จันทร์ 15 ม.ค. 2024')
+  })
+
+  it('shows months and signed percentages', () => {
+    expect(fmtMonth('2025-02')).toBe('ก.พ.')
+    expect(fmtMonth('2025-02', true)).toBe('ก.พ. 2025')
+    expect(fmtSignedPct('11.44')).toBe('+11.4%')
+    expect(fmtSignedPct('-5.71', 2)).toBe('−5.71%')
+    expect(fmtSignedPct(null)).toBe('—')
+    expect(fmtPct('6.6', 1)).toBe('6.6%')
+    expect(fmtYield('0.516')).toBe('0.5%')
+    expect(fmtYield('0')).toBe('—')
   })
 })

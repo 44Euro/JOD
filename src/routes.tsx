@@ -1,6 +1,8 @@
 import type { RouteObject } from 'react-router'
 import { Layout } from './ui/Layout'
 import { DashboardPage } from './ui/pages/DashboardPage'
+import { IncomePage } from './ui/pages/IncomePage'
+import { MorePage } from './ui/pages/MorePage'
 import { PortfolioPage } from './ui/pages/PortfolioPage'
 import { SettingsPage } from './ui/pages/SettingsPage'
 import { TransactionFormPage } from './ui/pages/TransactionFormPage'
@@ -13,6 +15,8 @@ export const routes: RouteObject[] = [
     children: [
       { index: true, element: <DashboardPage /> },
       { path: 'portfolio', element: <PortfolioPage /> },
+      { path: 'income', element: <IncomePage /> },
+      { path: 'more', element: <MorePage /> },
       { path: 'settings', element: <SettingsPage /> },
       { path: 'transactions', element: <TransactionsPage /> },
       { path: 'transactions/new', element: <TransactionFormPage /> },
