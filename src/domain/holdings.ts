@@ -143,15 +143,16 @@ export interface HoldingGroup extends AllocationRow {
   count: number
 }
 
-// Holdings without a price count at cost and add nothing to the gains, as they do in the totals.
+// A holding without a price counts at cost and adds no unrealized gain, as in the totals, but what it
+// already sold or paid out is known, so that still counts in its total return.
 export function groupHoldings(stats: readonly HoldingStats[], keyOf: (s: HoldingStats) => string): HoldingGroup[] {
   return allocate(stats.map((s) => ({ key: keyOf(s), assetsBase: s.valueBase ?? s.costBase }))).map((row) => {
     const members = stats.filter((s) => keyOf(s) === row.key)
     return {
       ...row,
       unrealizedBase: sumBy(members, (s) => s.unrealizedBase ?? D(0)),
-      totalReturnBase: sumBy(members, (s) => s.totalReturnBase ?? D(0)),
-      count: members.length,
+      totalReturnBase: sumBy(members, (s) => s.totalReturnBase ?? s.realizedBase.plus(s.incomeBase)),
+      count: new Set(members.map((s) => s.instrumentId)).size,
     }
   })
 }

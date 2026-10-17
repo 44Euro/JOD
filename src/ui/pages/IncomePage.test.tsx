@@ -42,6 +42,14 @@ describe('IncomePage', () => {
     expect(screen.getByText('บันทึกปันผลหรือดอกเบี้ยแล้วจะสรุปให้ที่นี่')).toBeInTheDocument()
   })
 
+  it('lets the three period segments share a phone row without the 2 by 2 grid', async () => {
+    renderRoute('/income')
+    const group = await screen.findByRole('group', { name: 'ช่วงเวลา' })
+    expect(group).toHaveClass('max-md:w-full')
+    expect(group).not.toHaveClass('max-[380px]:grid')
+    for (const button of within(group).getAllByRole('button')) expect(button).toHaveClass('h-11', 'max-md:flex-1', 'max-md:px-2')
+  })
+
   it('sums this year after tax and compares it with the same days last year', async () => {
     await seedIncome()
     renderRoute('/income')

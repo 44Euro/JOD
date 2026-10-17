@@ -92,6 +92,7 @@ export function HoldingsTable({ valuations, instruments, accountNames, base, rat
         {valuations.map((v) => {
           const p = v.position
           const instrument = instruments.get(p.instrumentId)
+          const own = stats?.get(p.key)
           return (
             <li
               key={p.key}
@@ -103,7 +104,7 @@ export function HoldingsTable({ valuations, instruments, accountNames, base, rat
                 {stats ? (
                   <>
                     ยังไม่ขาย <span className={plClass(v.unrealizedBase)}>{fmtSigned(v.unrealizedBase, 0)}</span> · รวมปันผล{' '}
-                    <span className={plClass(stats.get(p.key)?.totalReturnBase)}>{fmtSigned(stats.get(p.key)?.totalReturnBase, 0)}</span>
+                    <span className={plClass(own?.totalReturnBase)}>{fmtSigned(own?.totalReturnBase, 0)}</span>
                   </>
                 ) : (
                   <>
@@ -137,7 +138,7 @@ export function HoldingsTable({ valuations, instruments, accountNames, base, rat
           <Th>สินทรัพย์</Th>
           <Th className="text-right">จำนวน</Th>
           <Th className="text-right">ทุนเฉลี่ย</Th>
-          {editablePrice && <Th>ราคาล่าสุด</Th>}
+          {editablePrice && <Th className="text-right">ราคาล่าสุด</Th>}
           <Th className="text-right">เรทซื้อ → วันนี้</Th>
           <Th className="text-right">มูลค่า ({base})</Th>
           <Th className="text-right">ยังไม่ขาย</Th>
@@ -172,7 +173,9 @@ export function HoldingsTable({ valuations, instruments, accountNames, base, rat
               <Td className="text-right">
                 {fmtPrice(v.avgCostQuote)} <span className="text-muted-foreground">{p.currency}</span>
               </Td>
-              {editablePrice && <Td>{instrument ? <PriceInput key={priceInputKey(instrument)} instrument={instrument} /> : '—'}</Td>}
+              {editablePrice && (
+                <Td className="text-right">{instrument ? <PriceInput key={priceInputKey(instrument)} instrument={instrument} /> : '—'}</Td>
+              )}
               <Td className={cn('text-right', foreign ? 'text-fx' : 'text-muted-foreground')}>
                 {foreign ? `${fmtRate(v.avgFxRate)} → ${fmtRate(v.currentFxRate)}` : '—'}
                 {foreign && rates[p.currency]?.note && <span className="block text-[11px]">{rates[p.currency].note}</span>}

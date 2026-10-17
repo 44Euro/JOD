@@ -16,6 +16,7 @@ import { Stat, SummaryPanel } from '../components/Summary'
 import { fmtHeadline, fmtMoney, fmtSigned, fmtValue, plClass } from '../format'
 import { useAppData, useInvestor } from '../hooks'
 import { marketOf } from '../labels'
+import { useIsDesktop } from '../useIsDesktop'
 
 type View = 'asset' | 'account' | 'market' | 'currency'
 
@@ -26,9 +27,14 @@ const VIEWS = [
   { value: 'currency', label: 'ตามสกุลเงิน' },
 ] as const satisfies readonly { value: View; label: string }[]
 
+function UnpricedNote({ className }: { className?: string }) {
+  return <p className={cn('text-[12.5px] text-muted-foreground', className)}>ตัวที่ยังไม่มีราคานับตามต้นทุน</p>
+}
+
 export function PortfolioPage() {
   const data = useAppData()
   const { ledger, valuations, summary, rates, investor } = useInvestor(data)
+  const isDesktop = useIsDesktop()
   const [view, setView] = useState<View>('asset')
   if (!data || !ledger || !investor) return <p className="text-muted-foreground">กำลังโหลด…</p>
 
@@ -42,15 +48,20 @@ export function PortfolioPage() {
   const unrated = [...new Set(cash.filter((row) => row.base === null).map((row) => row.currency))]
   const usedAccounts = [...new Set(data.transactions.map((t) => t.accountId))]
   const tradeOnly = usedAccounts.some((id) => !accountTracksCash(data.transactions, id))
+  const currencyRows = currencyAllocation(valuations, cash)
+  const hasUnpriced = valuations.some((v) => v.lastPrice === null)
+  // Spec 7.4 counts cash in the currency view, so cash alone still has something to show there.
+  const nothingToShow = valuations.length === 0 && !(view === 'currency' && currencyRows.length > 0)
+  const hasPriceInput = valuations.length > 0 && (view === 'asset' || view === 'account')
 
   return (
     <>
       <PageHeader title="พอร์ต" />
 
       <SummaryPanel label="มูลค่าสินทรัพย์ · ไม่รวมเงินสด" value={fmtHeadline(summary.marketValueBase, base)}>
-        <Stat label="ยังไม่ขาย" value={fmtSigned(summary.unrealizedBase)} tone={plClass(summary.unrealizedBase)} />
-        <Stat label="จากหุ้น" value={fmtSigned(summary.priceEffectBase)} tone={plClass(summary.priceEffectBase)} />
-        <Stat label="จากค่าเงิน" value={fmtSigned(summary.fxEffectBase)} tone="text-fx" />
+        <Stat label="ยังไม่ขาย" value={fmtSigned(summary.unrealizedBase, 0)} tone={plClass(summary.unrealizedBase)} />
+        <Stat label="จากหุ้น" value={fmtSigned(summary.priceEffectBase, 0)} tone={plClass(summary.priceEffectBase)} />
+        <Stat label="จากค่าเงิน" value={fmtSigned(summary.fxEffectBase, 0)} tone="text-fx" />
       </SummaryPanel>
 
       {summary.unvaluedCount > 0 && (
@@ -59,10 +70,12 @@ export function PortfolioPage() {
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Segmented label="มุมมอง" options={VIEWS} value={view} onChange={setView} />
-        <span className="text-[13px] text-muted-foreground max-md:hidden">ราคาที่เก่ากว่า 7 วันมีป้ายเตือน · แตะราคาเพื่อแก้</span>
+        {hasPriceInput && (
+          <span className="text-[13px] text-muted-foreground max-md:hidden">ราคาที่เก่ากว่า 7 วันมีป้ายเตือน · แตะราคาเพื่อแก้</span>
+        )}
       </div>
 
-      {valuations.length === 0 ? (
+      {nothingToShow ? (
         <Card>
           <p className="text-muted-foreground">ยังไม่มีสินทรัพย์ที่ถืออยู่</p>
         </Card>
@@ -79,39 +92,60 @@ export function PortfolioPage() {
           />
         </Card>
       ) : view === 'account' ? (
-        data.accounts
-          .filter((account) => valuations.some((v) => v.position.accountId === account.id))
-          .map((account) => {
-            const mine = valuations.filter((v) => v.position.accountId === account.id)
-            return (
-              <Card key={account.id}>
-                <div className="mb-3.5 flex flex-wrap items-baseline justify-between gap-3">
-                  <h2 className="text-lg font-semibold">{account.name}</h2>
-                  <span className="text-[13px] text-muted-foreground">
-                    มูลค่า {fmtHeadline(sumBy(mine, positionValueBase), base)} · {mine.length} ตัว
-                  </span>
-                </div>
-                <HoldingsTable valuations={mine} instruments={instruments} base={base} rates={rates} stats={statsByKey} editablePrice />
-              </Card>
-            )
-          })
+        <>
+          {data.accounts
+            .filter((account) => valuations.some((v) => v.position.accountId === account.id))
+            .map((account) => {
+              const mine = valuations.filter((v) => v.position.accountId === account.id)
+              return (
+                <Card key={account.id}>
+                  <div className="mb-3.5 flex flex-wrap items-baseline justify-between gap-3">
+                    <h2 className="text-lg font-semibold">{account.name}</h2>
+                    <span className="text-[13px] text-muted-foreground">
+                      มูลค่า {fmtHeadline(sumBy(mine, positionValueBase), base)} · {mine.length} ตัว
+                    </span>
+                  </div>
+                  <HoldingsTable valuations={mine} instruments={instruments} base={base} rates={rates} stats={statsByKey} editablePrice />
+                </Card>
+              )
+            })}
+          {hasUnpriced && <UnpricedNote />}
+        </>
       ) : (
         <Card>
           {view === 'market' ? (
             <MarketView groups={groupHoldings(stats, (s) => instruments.get(s.instrumentId)?.market ?? marketOf(s.instrumentId))} base={base} />
           ) : (
-            <CurrencyView rows={currencyAllocation(valuations, cash)} base={base} />
+            <CurrencyView rows={currencyRows} base={base} />
           )}
+          {hasUnpriced && <UnpricedNote className="mt-1" />}
         </Card>
       )}
 
       <Card>
         <div className="mb-3.5 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold">เงินสดคงเหลือ</h2>
-          {cash.length > 0 && <span className="text-[13px] text-muted-foreground">รวม ≈ {fmtMoney(investor.worth.cashBase, base)}</span>}
+          {cash.length > 0 && <span className="text-[13px] text-muted-foreground">รวม ≈ {fmtHeadline(investor.worth.cashBase, base)}</span>}
         </div>
         {cash.length === 0 ? (
           <p className="text-sm text-muted-foreground">ยังไม่มีเงินสดที่บันทึกไว้</p>
+        ) : !isDesktop ? (
+          <ul aria-label="เงินสดคงเหลือ">
+            {cash.map((row) => (
+              <li
+                key={`${row.accountId}|${row.currency}`}
+                className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2.5 gap-y-1 border-t border-muted py-3 first:border-t-0"
+              >
+                <span className="min-w-0 truncate">{accountNames.get(row.accountId) ?? '—'}</span>
+                <span className={cn('font-display font-semibold', row.amount.lessThan(0) && 'text-loss')}>
+                  {fmtMoney(row.amount, row.currency)}
+                </span>
+                {row.base !== null && row.currency !== base && (
+                  <span className="col-span-2 text-[12.5px] text-muted-foreground">≈ {fmtHeadline(row.base, base)}</span>
+                )}
+              </li>
+            ))}
+          </ul>
         ) : (
           <Table>
             <thead>

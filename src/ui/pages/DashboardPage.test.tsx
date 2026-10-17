@@ -97,6 +97,17 @@ describe('DashboardPage', () => {
     expect(within(row).getByText('+1,660')).toBeInTheDocument()
   })
 
+  it('shows no currency effect for a baht holding', async () => {
+    setToday(2024, 6, 1)
+    await db.accounts.add(account)
+    await db.instruments.add({ id: 'SET:PTT', market: 'SET', symbol: 'PTT', name: 'ปตท.', assetType: 'stock', currency: 'THB', lastPrice: '35' })
+    await db.transactions.add(makeTx({ instrumentId: 'SET:PTT', currency: 'THB', quantity: '100', price: '33', fxRate: '1', fxSource: 'same', date: '2024-01-04' }))
+    renderRoute('/', usd())
+    const row = (await screen.findByText('ปตท.')).closest('tr')!
+    await waitFor(() => expect(within(row).getAllByText('+200')).toHaveLength(2))
+    expect(row.cells[row.cells.length - 1]).toHaveTextContent(/^—$/)
+  })
+
   it('links the largest asset’s short route and warns about old prices and review dates', async () => {
     setToday(2024, 6, 1)
     await seedDime({ lastPriceAt: new Date(2024, 5, 20, 12).toISOString(), reviewDate: '2024-06-30' })

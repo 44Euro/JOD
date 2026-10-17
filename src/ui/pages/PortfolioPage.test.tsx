@@ -106,7 +106,7 @@ describe('PortfolioPage', () => {
     expect(await screen.findByText(/วันก่อน$/)).toBeInTheDocument()
   })
 
-  it('shows the account under the asset and no currency effect for a baht holding', async () => {
+  it('shows the account under the asset and no exchange rate for a baht holding', async () => {
     await db.instruments.add({
       id: 'SET:PTT',
       market: 'SET',
@@ -134,6 +134,77 @@ describe('PortfolioPage', () => {
     renderRoute('/portfolio', fakeFxProvider({ 'USD|THB': '33' }).provider)
     expect(await screen.findByText('1,000.00 USD')).toBeInTheDocument()
     expect(await screen.findByText('33,000')).toBeInTheDocument()
+    expect(screen.getByText('รวม ≈ ฿33,000')).toBeInTheDocument()
+  })
+
+  it('names a currency that has no rate yet under the cash', async () => {
+    await db.transactions.add(
+      makeTx({
+        type: 'deposit',
+        instrumentId: undefined,
+        quantity: undefined,
+        price: undefined,
+        amount: '1000000',
+        currency: 'VND',
+        fxRate: '0.0014',
+        fxSource: 'same',
+      }),
+    )
+    renderRoute('/portfolio', fakeFxProvider({ 'USD|THB': '33' }).provider)
+    expect(await screen.findByText('ยังไม่มีเรทวันนี้ของ VND จึงยังไม่รวมในยอดรวม')).toBeInTheDocument()
+  })
+
+  it('lists the cash as two-line rows on a phone', async () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: false,
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    }))
+    await db.transactions.add(
+      makeTx({ type: 'deposit', instrumentId: undefined, quantity: undefined, price: undefined, amount: '1000', fxRate: '35' }),
+    )
+    renderRoute('/portfolio', fakeFxProvider({ 'USD|THB': '33' }).provider)
+    const cash = await screen.findByRole('list', { name: 'เงินสดคงเหลือ' })
+    await waitFor(() => expect(within(cash).getAllByRole('listitem')[0]).toHaveTextContent('Dime US1,000.00 USD≈ ฿33,000'))
+    expect(screen.queryByRole('columnheader', { name: /≈/ })).not.toBeInTheDocument()
+  })
+
+  it('shows no price hint when nothing is held', async () => {
+    await db.transactions.add(
+      makeTx({ type: 'deposit', instrumentId: undefined, quantity: undefined, price: undefined, amount: '1000', fxRate: '35' }),
+    )
+    renderRoute('/portfolio', fakeFxProvider({ 'USD|THB': '33' }).provider)
+    expect(await screen.findByText('1,000.00 USD')).toBeInTheDocument()
+    expect(screen.queryByText(/แตะราคาเพื่อแก้/)).not.toBeInTheDocument()
+  })
+
+  it('shows the strip above the views in whole baht', async () => {
+    await db.instruments.add({ id: 'US:AAPL', market: 'US', symbol: 'AAPL', name: 'Apple', assetType: 'stock', currency: 'USD', lastPrice: '120.55' })
+    await db.transactions.add(makeTx({ quantity: '10', price: '100', fxRate: '35' }))
+    renderRoute('/portfolio', fakeFxProvider({ 'USD|THB': '33' }).provider)
+    expect(await screen.findByText('+7,193')).toBeInTheDocument()
+    expect(screen.getByText('−2,411')).toBeInTheDocument()
+    expect(screen.getAllByText('+4,782')).toHaveLength(3)
+    expect(screen.queryByText('+4,781.50')).not.toBeInTheDocument()
+  })
+
+  it('right-aligns the price column under its header', async () => {
+    await db.instruments.add({ id: 'US:AAPL', market: 'US', symbol: 'AAPL', name: 'Apple', assetType: 'stock', currency: 'USD', lastPrice: '120' })
+    await db.transactions.add(makeTx({ quantity: '10', price: '100', fxRate: '35' }))
+    renderRoute('/portfolio', fakeFxProvider({ 'USD|THB': '33' }).provider)
+    const input = await screen.findByLabelText('ราคาล่าสุด AAPL')
+    expect(screen.getByRole('columnheader', { name: 'ราคาล่าสุด' })).toHaveClass('text-right')
+    expect(input.closest('td')).toHaveClass('text-right')
+  })
+
+  it('keeps the segmented control inside a phone screen, in a 2 by 2 grid on the narrowest', async () => {
+    renderRoute('/portfolio', fakeFxProvider({}).provider)
+    const group = await screen.findByRole('group', { name: 'มุมมอง' })
+    expect(group).toHaveClass('max-md:w-full', 'max-[380px]:grid', 'max-[380px]:grid-cols-2')
+    for (const button of within(group).getAllByRole('button')) {
+      expect(button).toHaveClass('h-11', 'max-md:flex-1', 'max-md:px-2')
+    }
   })
 
   it('leaves out cash for an account that only records trades', async () => {
@@ -168,7 +239,7 @@ describe('PortfolioPage', () => {
       const set = screen.getByRole('heading', { name: 'Streaming SET' }).closest('div')!.parentElement!
       expect(within(set).getByText('ปตท.')).toBeInTheDocument()
       expect(within(set).queryByText('Apple')).not.toBeInTheDocument()
-      expect(within(set).getByText('มูลค่า ฿3,500 · 1 ตัว')).toBeInTheDocument()
+      expect(await within(set).findByText('มูลค่า ฿3,500 · 1 ตัว')).toBeInTheDocument()
     })
 
     it('shares the assets out by market', async () => {
@@ -178,7 +249,61 @@ describe('PortfolioPage', () => {
       const us = (await screen.findByText('สหรัฐ (US)')).closest('tr')!
       await waitFor(() => expect(within(us).getByText('91.9%')).toBeInTheDocument())
       expect(within(us).getByText('39,600')).toBeInTheDocument()
+      expect(within(us).getAllByText('+4,600')).toHaveLength(2)
       expect(within(screen.getByText('ไทย (SET)').closest('tr')!).getByText('8.1%')).toBeInTheDocument()
+    })
+
+    it('counts an instrument held in two accounts once in the market view', async () => {
+      await db.transactions.add(makeTx({ accountId: 'acc-2', quantity: '5', price: '100', fxRate: '35', date: '2024-01-13' }))
+      const user = userEvent.setup()
+      renderRoute('/portfolio', fakeFxProvider({ 'USD|THB': '33' }).provider)
+      await user.click(await screen.findByRole('button', { name: 'ตามตลาด' }))
+      const us = (await screen.findByText('สหรัฐ (US)')).closest('tr')!
+      expect(within(us).getByText('1 ตัว')).toBeInTheDocument()
+    })
+
+    it('always gives a share one decimal and a fixed-width slot so the bars line up', async () => {
+      await db.transactions.clear()
+      await db.transactions.add(makeTx({ quantity: '10', price: '100', fxRate: '35', date: '2024-01-10' }))
+      const user = userEvent.setup()
+      renderRoute('/portfolio', fakeFxProvider({ 'USD|THB': '33' }).provider)
+      await user.click(await screen.findByRole('button', { name: 'ตามตลาด' }))
+      const share = await screen.findByText('100.0%')
+      expect(share).toHaveClass('w-14', 'text-right', 'tabular-nums')
+    })
+
+    it('says that holdings without a price count at cost, in the views that add them up', async () => {
+      await db.instruments.update('US:AAPL', { lastPrice: '' })
+      const user = userEvent.setup()
+      renderRoute('/portfolio', fakeFxProvider({ 'USD|THB': '33' }).provider)
+      const note = 'ตัวที่ยังไม่มีราคานับตามต้นทุน'
+      await screen.findByText('Apple')
+      expect(screen.queryByText(note)).not.toBeInTheDocument()
+      for (const view of ['ตามบัญชี', 'ตามตลาด', 'ตามสกุลเงิน']) {
+        await user.click(screen.getByRole('button', { name: view }))
+        expect(await screen.findByText(note)).toBeInTheDocument()
+      }
+    })
+
+    it('does not say it when every holding has a price', async () => {
+      const user = userEvent.setup()
+      renderRoute('/portfolio', fakeFxProvider({ 'USD|THB': '33' }).provider)
+      await user.click(await screen.findByRole('button', { name: 'ตามตลาด' }))
+      await screen.findByText('สหรัฐ (US)')
+      expect(screen.queryByText('ตัวที่ยังไม่มีราคานับตามต้นทุน')).not.toBeInTheDocument()
+    })
+
+    it('shows the price hint only in the views that have a price input', async () => {
+      const user = userEvent.setup()
+      renderRoute('/portfolio', fakeFxProvider({ 'USD|THB': '33' }).provider)
+      const hint = /แตะราคาเพื่อแก้/
+      expect(await screen.findByText(hint)).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'ตามบัญชี' }))
+      expect(screen.getByText(hint)).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'ตามตลาด' }))
+      expect(screen.queryByText(hint)).not.toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'ตามสกุลเงิน' }))
+      expect(screen.queryByText(hint)).not.toBeInTheDocument()
     })
 
     it('shows the total return and the market share as two-line rows on a phone', async () => {
@@ -194,7 +319,33 @@ describe('PortfolioPage', () => {
       await waitFor(() => expect(within(holdings).getAllByRole('listitem')[0]).toHaveTextContent('ยังไม่ขาย +4,600 · รวมปันผล +4,600 · ค่าเงิน −2,400'))
       await user.click(screen.getByRole('button', { name: 'ตามตลาด' }))
       const markets = screen.getByRole('list', { name: 'สัดส่วนตามตลาด' })
-      expect(within(markets).getAllByRole('listitem')[0]).toHaveTextContent('สหรัฐ (US)1 ตัว91.9%39,600 · ยังไม่ขาย +4,600.00')
+      expect(within(markets).getAllByRole('listitem')[0]).toHaveTextContent('สหรัฐ (US)1 ตัว91.9%39,600 · ยังไม่ขาย +4,600')
+      expect(within(markets).getAllByRole('listitem')[0]).not.toHaveTextContent('+4,600.00')
+    })
+
+    it('keeps the currency pill at its own size on a phone', async () => {
+      vi.stubGlobal('matchMedia', (query: string) => ({
+        matches: false,
+        media: query,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      }))
+      const user = userEvent.setup()
+      renderRoute('/portfolio', fakeFxProvider({ 'USD|THB': '33' }).provider)
+      await user.click(await screen.findByRole('button', { name: 'ตามสกุลเงิน' }))
+      const currencies = await screen.findByRole('list', { name: 'สัดส่วนตามสกุลเงิน' })
+      const row = within(currencies).getAllByRole('listitem')[0]
+      const pill = within(row).getByText('USD')
+      expect(pill.parentElement).not.toBe(row)
+      expect(pill.parentElement).toHaveClass('flex')
+      await waitFor(() => expect(row).toHaveTextContent('USD79.5%'))
+    })
+
+    it('adds the strip above the views up in whole baht', async () => {
+      renderRoute('/portfolio', fakeFxProvider({ 'USD|THB': '33' }).provider)
+      expect(await screen.findByText('+4,800')).toBeInTheDocument()
+      expect(screen.getByText('+7,200')).toBeInTheDocument()
+      expect(screen.getByText('−2,400')).toBeInTheDocument()
     })
 
     it('shows the gains of a holding in whole baht', async () => {
@@ -213,6 +364,22 @@ describe('PortfolioPage', () => {
       const rows = within(allocation).getAllByRole('row')
       await waitFor(() => expect(rows[1]).toHaveTextContent('USD39,600039,60079.5%'))
       expect(rows[2]).toHaveTextContent('THB3,5006,70010,20020.5%')
+    })
+
+    it('shows the cash alone under the currency view when nothing is held', async () => {
+      await db.transactions.clear()
+      await db.transactions.add(
+        makeTx({ type: 'deposit', instrumentId: undefined, quantity: undefined, price: undefined, amount: '1000', fxRate: '35' }),
+      )
+      const user = userEvent.setup()
+      renderRoute('/portfolio', fakeFxProvider({ 'USD|THB': '33' }).provider)
+      expect(await screen.findByText('ยังไม่มีสินทรัพย์ที่ถืออยู่')).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'ตามสกุลเงิน' }))
+      const allocation = (await screen.findByRole('columnheader', { name: 'สกุลเงิน' })).closest('table')!
+      expect(within(allocation).getAllByRole('row')[1]).toHaveTextContent('USD033,00033,000100.0%')
+      expect(screen.queryByText('ยังไม่มีสินทรัพย์ที่ถืออยู่')).not.toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'ตามตลาด' }))
+      expect(screen.getByText('ยังไม่มีสินทรัพย์ที่ถืออยู่')).toBeInTheDocument()
     })
   })
 })

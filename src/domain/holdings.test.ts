@@ -113,7 +113,7 @@ describe('allocation', () => {
 })
 
 describe('groupHoldings', () => {
-  it('adds value, gains and count per group with each group’s share', () => {
+  it('adds value, gains and count per group with each group’s share, one instrument counting once', () => {
     const txs = [
       ...transactions,
       makeTx({ instrumentId: 'SET:PTT', currency: 'THB', quantity: '1000', price: '35', fxRate: '1', fxSource: 'same', date: '2024-05-01' }),
@@ -123,8 +123,23 @@ describe('groupHoldings', () => {
     const valuations = ledger.positions.map((p) => valuePosition(p, prices[p.instrumentId], p.currency === 'THB' ? '1' : '33'))
     const groups = groupHoldings(holdingStats(valuations, ledger, '2024-10-16'), (s) => s.instrumentId.split(':')[0])
     expect(groups.map((g) => [g.key, g.totalBase.toString(), g.unrealizedBase.toString(), g.totalReturnBase.toString(), g.count, g.pct?.toFixed(1)])).toEqual([
-      ['US', '165000', '25000', '28178', 2, '82.1'],
+      ['US', '165000', '25000', '28178', 1, '82.1'],
       ['SET', '36000', '1000', '1000', 1, '17.9'],
+    ])
+  })
+
+  it('counts a holding without a price at cost and still keeps its realized gain and income', () => {
+    const txs = [
+      ...transactions,
+      makeTx({ instrumentId: 'SET:PTT', currency: 'THB', quantity: '1000', price: '35', fxRate: '1', fxSource: 'same', date: '2024-05-01' }),
+    ]
+    const ledger = computeLedger(txs)
+    const prices: Record<string, string | undefined> = { 'SET:PTT': '36' }
+    const valuations = ledger.positions.map((p) => valuePosition(p, prices[p.instrumentId], p.currency === 'THB' ? '1' : '33'))
+    const groups = groupHoldings(holdingStats(valuations, ledger, '2024-10-16'), (s) => s.instrumentId.split(':')[0])
+    expect(groups.map((g) => [g.key, g.totalBase.toString(), g.unrealizedBase.toString(), g.totalReturnBase.toString(), g.count, g.pct?.toFixed(1)])).toEqual([
+      ['US', '140000', '0', '3178', 1, '79.5'],
+      ['SET', '36000', '1000', '1000', 1, '20.5'],
     ])
   })
 })

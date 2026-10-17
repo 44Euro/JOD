@@ -65,8 +65,8 @@ export function fmtValue(value: Value): string {
   return isEmpty(value) ? '—' : format(D(value), 0, 0)
 }
 
-export function fmtPct(value: Value, digits = 2): string {
-  return isEmpty(value) ? '—' : `${fmtNumber(value, digits)}%`
+export function fmtPct(value: Value, digits = 2, minDigits = 0): string {
+  return isEmpty(value) ? '—' : `${format(D(value), minDigits, digits)}%`
 }
 
 export function fmtSignedPct(value: Value, digits = 1): string {
