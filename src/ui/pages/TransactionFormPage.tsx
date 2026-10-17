@@ -75,9 +75,10 @@ function positiveDecimal(value: string | undefined): boolean {
   return value !== undefined && isDecimalString(value) && D(value).greaterThan(0)
 }
 
-function currencyLabel(type: Draft['type']): string {
-  if (type === 'fx_convert') return 'สกุลเงินต้นทาง'
-  return type === 'transfer' ? 'สกุลเงินของค่าธรรมเนียม' : 'สกุลเงิน'
+// Units moved between accounts have no currency of their own here, so the field only says what the fee is paid in.
+function currencyLabel(draft: Draft): string {
+  if (draft.type === 'fx_convert') return 'สกุลเงินต้นทาง'
+  return draft.type === 'transfer' && draft.transferKind === 'asset' ? 'สกุลเงินของค่าธรรมเนียม' : 'สกุลเงิน'
 }
 
 function amountLabel(draft: Draft): string {
@@ -350,7 +351,7 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
 
           <div className={cn('grid gap-3.5', isTrade || openingAsset ? 'grid-cols-3' : 'sm:grid-cols-2')}>
             {draft.type !== 'split' && (
-              <Field id="tx-currency" label={currencyLabel(draft.type)}>
+              <Field id="tx-currency" label={currencyLabel(draft)}>
                 <NativeSelect id="tx-currency" value={draft.currency} onChange={(e) => setDraft((d) => changeCurrency(d, e.target.value))}>
                   {CURRENCY_OPTIONS.map((c) => (
                     <option key={c}>{c}</option>

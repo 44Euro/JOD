@@ -56,7 +56,6 @@ export interface DraftContext {
   today: string
 }
 
-const AMOUNT_REQUIRED = 'จำนวนเงินต้องเป็นตัวเลขมากกว่า 0'
 const INSTRUMENT_TYPES: readonly TxType[] = ['buy', 'sell', 'dividend', 'interest', 'split']
 
 export function emptyDraft(accountId: string, today: string): Draft {
@@ -293,10 +292,13 @@ export function draftToTransaction(draft: Draft, ctx: DraftContext): { tx: Trans
     createdAt: ctx.createdAt,
     updatedAt: ctx.createdAt,
   }
-  const errors = validateTransaction(tx, ctx.today)
-  if (!sendsUnits || tx.instrumentId) return { tx, errors }
-  // With no symbol, validation takes the transfer for cash and asks for an amount this form does not show.
-  return { tx, errors: errors.map((e) => (e === AMOUNT_REQUIRED ? 'กรุณาระบุหุ้น/สินทรัพย์' : e)) }
+  // Without a symbol, validation would take a transfer of units for a transfer of cash and ask for an amount this
+  // form does not show. It checks the rest as if an instrument were there, and the missing symbol is reported once.
+  if (sendsUnits && !tx.instrumentId) {
+    const checked = { ...tx, instrumentId: instrumentKey(draft.market, 'X') }
+    return { tx, errors: ['กรุณาระบุหุ้น/สินทรัพย์', ...validateTransaction(checked, ctx.today)] }
+  }
+  return { tx, errors: validateTransaction(tx, ctx.today) }
 }
 
 export function totalForDisplay(tx: Transaction): Decimal | null {

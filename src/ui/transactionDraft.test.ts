@@ -363,6 +363,10 @@ describe('transfers', () => {
   it('asks for the asset, not an amount, when a share transfer has no symbol', () => {
     const noSymbol = { ...transferDraft, symbol: '', quantity: '4', fxRate: '35' }
     expect(draftToTransaction(noSymbol, ctx).errors).toEqual(['กรุณาระบุหุ้น/สินทรัพย์'])
+    expect(draftToTransaction({ ...noSymbol, quantity: '' }, ctx).errors).toEqual([
+      'กรุณาระบุหุ้น/สินทรัพย์',
+      'จำนวนหน่วยต้องเป็นตัวเลขมากกว่า 0',
+    ])
     const cash = { ...noSymbol, transferKind: 'cash' as const, currency: 'THB' }
     expect(draftToTransaction(cash, ctx).errors).toEqual(['จำนวนเงินต้องเป็นตัวเลขมากกว่า 0'])
   })

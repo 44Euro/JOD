@@ -414,7 +414,7 @@ describe('TransactionFormPage', () => {
       await db.accounts.add(ibkr)
       const { user, router } = await openTransfer()
       await user.click(screen.getByRole('button', { name: 'เงินสด' }))
-      await user.selectOptions(screen.getByLabelText('สกุลเงินของค่าธรรมเนียม'), 'THB')
+      await user.selectOptions(screen.getByLabelText('สกุลเงิน'), 'THB')
       expect(screen.queryByLabelText('สัญลักษณ์')).not.toBeInTheDocument()
       expect(screen.queryByLabelText('จำนวนหน่วยที่โอน')).not.toBeInTheDocument()
       expect(screen.queryByLabelText('ภาษี / VAT')).not.toBeInTheDocument()
@@ -429,7 +429,7 @@ describe('TransactionFormPage', () => {
       expect(saved?.instrumentId).toBeUndefined()
     })
 
-    it('says the currency and rate of a transfer are only for its fee', async () => {
+    it('says the currency and rate of a transfer of units are only for its fee', async () => {
       await db.accounts.add(ibkr)
       const { user } = await openTransfer()
       expect(screen.getByLabelText('สกุลเงินของค่าธรรมเนียม')).toHaveValue('USD')
@@ -437,7 +437,17 @@ describe('TransactionFormPage', () => {
       expect(await screen.findByText('ใช้คิดค่าธรรมเนียมการโอนเป็นบาทเท่านั้น')).toBeInTheDocument()
       await user.click(screen.getByRole('button', { name: 'ซื้อ' }))
       expect(screen.getByLabelText('สกุลเงิน')).toBeInTheDocument()
+      expect(screen.queryByLabelText('สกุลเงินของค่าธรรมเนียม')).not.toBeInTheDocument()
       expect(screen.queryByText(/ใช้คิดค่าธรรมเนียมการโอน/)).not.toBeInTheDocument()
+    })
+
+    it('keeps the plain currency label for cash but still says the rate is only for the fee', async () => {
+      await db.accounts.add(ibkr)
+      const { user } = await openTransfer()
+      await user.click(screen.getByRole('button', { name: 'เงินสด' }))
+      expect(screen.getByLabelText('สกุลเงิน')).toHaveValue('USD')
+      expect(screen.queryByLabelText('สกุลเงินของค่าธรรมเนียม')).not.toBeInTheDocument()
+      expect(await screen.findByText('ใช้คิดค่าธรรมเนียมการโอนเป็นบาทเท่านั้น')).toBeInTheDocument()
     })
 
     it('names the base currency in that hint when it is not baht', async () => {
