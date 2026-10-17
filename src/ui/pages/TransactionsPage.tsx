@@ -12,6 +12,7 @@ import { transactionsToCsv } from '../../db/backup'
 import { db } from '../../db/db'
 import { deleteTransaction } from '../../db/repo'
 import { todayLocal } from '../../domain/dates'
+import { D } from '../../domain/decimal'
 import { sortTransactions } from '../../domain/ledger'
 import { MARKETS, TX_TYPES, type Instrument, type Transaction } from '../../domain/types'
 import { cn } from '../../lib/cn'
@@ -46,6 +47,11 @@ function AssetLabel({ tx, instrument, accountName }: { tx: Transaction; instrume
 // An exchange and a transfer of cash spell out their currency; on a transfer of units it only belongs to the fee.
 function namesCurrency(tx: Transaction): boolean {
   return tx.type === 'fx_convert' || tx.type === 'transfer'
+}
+
+// Only the fee of a transfer is valued at its rate, so without a fee the rate would suggest a value that is not there.
+function feeFreeTransfer(tx: Transaction): boolean {
+  return tx.type === 'transfer' && D(tx.fees).isZero()
 }
 
 export function TransactionsPage() {
@@ -209,9 +215,7 @@ export function TransactionsPage() {
                         {describeAmount(tx, accountNames)}
                         {!namesCurrency(tx) && <span className="text-muted-foreground"> {tx.currency}</span>}
                       </Td>
-                      <Td>
-                        <RateCell tx={tx} />
-                      </Td>
+                      <Td>{feeFreeTransfer(tx) ? <span className="text-muted-foreground">—</span> : <RateCell tx={tx} />}</Td>
                       <Td className={cn('text-right font-display font-semibold', net.className)}>{net.text}</Td>
                       <Td className="text-right">
                         <span className="inline-flex items-center gap-1">
@@ -269,7 +273,7 @@ export function TransactionsPage() {
                           {describeAmount(tx, accountNames)}
                           {!namesCurrency(tx) && ` ${tx.currency}`}
                         </span>
-                        {(tx.type === 'fx_convert' || tx.fxSource !== 'same') && (
+                        {(tx.type === 'fx_convert' || tx.fxSource !== 'same') && !feeFreeTransfer(tx) && (
                           <>
                             <span>· เรท</span>
                             <RateCell tx={tx} />

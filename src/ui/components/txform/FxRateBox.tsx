@@ -20,9 +20,14 @@ export function FxRateBox({
   update(patch: Partial<Draft>): void
 }) {
   const openingAsset = isOpeningAsset(draft)
+  const baseWord = base === 'THB' ? 'บาท' : ` ${base} `
   return (
     <div className="grid gap-2 rounded-2xl bg-fx-soft px-[18px] py-4">
-      <Field id="tx-fx" label={`${openingAsset ? 'เรทเฉลี่ยตอนซื้อ' : 'เรทแลกเปลี่ยน'} (1 ${draft.currency} = ? ${base})`}>
+      <Field
+        id="tx-fx"
+        label={`${openingAsset ? 'เรทเฉลี่ยตอนซื้อ' : 'เรทแลกเปลี่ยน'} (1 ${draft.currency} = ? ${base})`}
+        hint={draft.type === 'transfer' ? `ใช้คิดค่าธรรมเนียมการโอนเป็น${baseWord}เท่านั้น` : undefined}
+      >
         <Input
           id="tx-fx"
           inputMode="decimal"
@@ -45,7 +50,7 @@ export function FxRateBox({
       {draft.referenceFxRate && draft.fxRate !== draft.referenceFxRate && (
         <button
           type="button"
-          className="-my-3 inline-flex min-h-11 items-center justify-self-start text-[13px] font-semibold text-fx underline underline-offset-[3px] md:my-0 md:min-h-0"
+          className="-my-3 inline-flex min-h-11 items-center justify-self-start text-[13px] leading-5 font-semibold text-fx underline underline-offset-[3px] md:my-0 md:min-h-0"
           onClick={() => update({ fxRate: draft.referenceFxRate, fxSource: openingAsset ? 'estimated' : 'auto' })}
         >
           {openingAsset ? `ใช้เรทกลาง ${draft.referenceFxRate} เป็นค่าประมาณ` : `กลับไปใช้เรทกลาง ${draft.referenceFxRate}`}

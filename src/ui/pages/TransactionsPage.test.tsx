@@ -197,6 +197,17 @@ describe('TransactionsPage', () => {
       expect(cash.cells[5]).toHaveClass('text-loss')
     })
 
+    it('shows a rate only for a transfer that charges a fee', async () => {
+      await db.transactions.add({ ...sendShares, id: 'send-fee', fees: '2', date: '2024-01-22' })
+      renderRoute('/transactions')
+      const table = await screen.findByRole('table')
+      const rows = await within(table).findAllByText('4 หน่วย → IBKR')
+      const [withFee, free] = rows.map((cell) => cell.closest('tr')!)
+      expect(withFee.cells[4]).toHaveTextContent('35.00กรอกเอง')
+      expect(free.cells[4]).toHaveTextContent(/^—$/)
+      expect(within(table).getByText('20,000 THB → IBKR').closest('tr')!.cells[4]).toHaveTextContent(/^—$/)
+    })
+
     it('shows a transfer received by the account that is filtered on', async () => {
       const user = userEvent.setup()
       renderRoute('/transactions')
@@ -223,6 +234,10 @@ describe('TransactionsPage', () => {
       expect(within(list).getByText('4 หน่วย → IBKR')).toBeInTheDocument()
       expect(within(list).getByText('20,000 THB → IBKR')).toBeInTheDocument()
       expect(within(list).getByText('−25.00')).toHaveClass('text-loss')
+      const shares = within(list).getByText('4 หน่วย → IBKR').closest('li')!
+      expect(within(shares).queryByText('· เรท')).not.toBeInTheDocument()
+      const buy = within(list).getByText('10 × 100.00 USD').closest('li')!
+      expect(within(buy).getByText('· เรท')).toBeInTheDocument()
     })
   })
 })

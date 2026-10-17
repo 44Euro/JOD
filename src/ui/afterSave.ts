@@ -45,7 +45,7 @@ export function previewAfterSave(
   if (tx.instrumentId && transfer) {
     for (const accountId of [tx.accountId, toAccountId]) {
       rows.push({
-        label: `${symbol} ใน ${nameOf(accountId)}`,
+        label: `${symbol} · ${nameOf(accountId)}`,
         before: quantity(positionOf(before, accountId, tx.instrumentId)),
         after: quantity(positionOf(after, accountId, tx.instrumentId)),
       })
@@ -63,7 +63,7 @@ export function previewAfterSave(
   }
 
   const cashRow = (accountId: string, currency: string): AfterSaveRow => ({
-    label: transfer ? `เงินสด ${currency} ใน ${nameOf(accountId)}` : `เงินสด ${currency}`,
+    label: transfer ? `เงินสด ${currency} · ${nameOf(accountId)}` : `เงินสด ${currency}`,
     before: fmtMoney(cashOf(before, accountId, currency)),
     after: fmtMoney(cashOf(after, accountId, currency)),
   })

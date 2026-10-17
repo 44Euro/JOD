@@ -360,6 +360,13 @@ describe('transfers', () => {
     expect(draftToTransaction(lonely, ctx).errors).toEqual(['กรุณาเลือกบัญชีปลายทาง'])
   })
 
+  it('asks for the asset, not an amount, when a share transfer has no symbol', () => {
+    const noSymbol = { ...transferDraft, symbol: '', quantity: '4', fxRate: '35' }
+    expect(draftToTransaction(noSymbol, ctx).errors).toEqual(['กรุณาระบุหุ้น/สินทรัพย์'])
+    const cash = { ...noSymbol, transferKind: 'cash' as const, currency: 'THB' }
+    expect(draftToTransaction(cash, ctx).errors).toEqual(['จำนวนเงินต้องเป็นตัวเลขมากกว่า 0'])
+  })
+
   it('reads a saved transfer back with its kind and receiving account', () => {
     const shares = draftToTransaction({ ...transferDraft, symbol: 'AAPL', quantity: '4', fxRate: '35' }, ctx).tx
     expect(draftFromTransaction(shares, [])).toMatchObject({ type: 'transfer', transferKind: 'asset', toAccountId: 'acc-2', symbol: 'AAPL' })

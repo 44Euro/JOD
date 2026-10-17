@@ -156,6 +156,28 @@ describe('computeLedger transfers', () => {
     expect(rows(computeLedger([buy, send('10')]))).toEqual([['acc-2|US:AAPL', '10', '1001', '34034']])
   })
 
+  it('adds the units and both costs to what the other account already holds', () => {
+    const already = makeTx({ accountId: 'acc-2', quantity: '2', price: '110', fxRate: '33', date: '2024-01-05' })
+    expect(rows(computeLedger([already, buy, send('4')]))).toEqual([
+      ['acc-1|US:AAPL', '6', '600.6', '20420.4'],
+      ['acc-2|US:AAPL', '6', '620.4', '20873.6'],
+    ])
+  })
+
+  it('refuses a transfer to an account that holds the asset in another currency', () => {
+    const inBaht = makeTx({ accountId: 'acc-2', currency: 'THB', quantity: '2', price: '110', fxRate: '1', fxSource: 'same', date: '2024-01-05' })
+    const move = { ...send('4'), fees: '2' }
+    const ledger = computeLedger([inBaht, buy, move])
+    expect(ledger.issues).toEqual([{ txId: move.id, message: 'สกุลเงิน USD ไม่ตรงกับที่ถืออยู่ในบัญชีปลายทาง (THB)' }])
+    expect(rows(ledger)).toEqual([
+      ['acc-1|US:AAPL', '10', '1001', '34034'],
+      ['acc-2|US:AAPL', '2', '220', '220'],
+    ])
+    const without = computeLedger([inBaht, buy])
+    expect(ledger.cash).toEqual(without.cash)
+    expect(ledger.feesBase.toString()).toBe(without.feesBase.toString())
+  })
+
   it('refuses a transfer larger than the holding and leaves both accounts alone', () => {
     const tooMany = send('12')
     const ledger = computeLedger([buy, tooMany])

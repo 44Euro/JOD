@@ -28,8 +28,8 @@ export function AfterSavePanel({ preview }: { preview: AfterSavePreview }) {
       <dl className="grid text-sm">
         {preview.rows.map((row) => (
           <div key={row.label} className="flex justify-between gap-3 border-t border-muted py-2.5 first:border-t-0">
-            <dt className="text-muted-foreground">{row.label}</dt>
-            <dd className={cn('text-right', row.fx && 'text-fx')}>
+            <dt className="min-w-0 text-muted-foreground">{row.label}</dt>
+            <dd className={cn('shrink-0 whitespace-nowrap text-right', row.fx && 'text-fx')}>
               {row.before} → <b className="font-semibold">{row.after}</b>
             </dd>
           </div>

@@ -349,6 +349,7 @@ describe('TransactionFormPage', () => {
       'inline-flex',
       'min-h-11',
       'items-center',
+      'leading-5',
       'justify-self-start',
       'md:my-0',
       'md:min-h-0',
@@ -375,8 +376,11 @@ describe('TransactionFormPage', () => {
       expect(screen.getByLabelText('บัญชีปลายทาง')).toHaveDisplayValue('IBKR')
       await user.type(screen.getByLabelText('จำนวนหน่วยที่โอน'), '4')
       await waitFor(() => expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('35'))
-      expect(screen.getByText('AAPL ใน Dime US').nextSibling).toHaveTextContent('10 → 6')
-      expect(screen.getByText('AAPL ใน IBKR').nextSibling).toHaveTextContent('0 → 4')
+      const row = screen.getByText('AAPL · Dime US')
+      expect(row).toHaveClass('min-w-0')
+      expect(row.nextSibling).toHaveClass('shrink-0', 'whitespace-nowrap')
+      expect(screen.getByText('AAPL · Dime US').nextSibling).toHaveTextContent('10 → 6')
+      expect(screen.getByText('AAPL · IBKR').nextSibling).toHaveTextContent('0 → 4')
       await user.click(screen.getByRole('button', { name: 'บันทึก' }))
       await waitFor(() => expect(router.state.location.pathname).toBe('/transactions'))
       const saved = (await db.transactions.toArray()).find((t) => t.type === 'transfer')
@@ -386,7 +390,9 @@ describe('TransactionFormPage', () => {
 
     it('says a transfer needs two accounts', async () => {
       const { user } = await openTransfer()
-      expect(await screen.findByRole('note')).toHaveTextContent('ต้องมีอย่างน้อย 2 บัญชีจึงจะโอนได้ · เพิ่มบัญชีในหน้าตั้งค่า')
+      const note = await screen.findByRole('note')
+      expect(note).toHaveTextContent('ต้องมีอย่างน้อย 2 บัญชีจึงจะโอนได้ · เพิ่มบัญชีในหน้าตั้งค่า')
+      expect(within(note).getByRole('link', { name: 'เพิ่มบัญชีในหน้าตั้งค่า' })).toHaveAttribute('href', '/settings')
       expect(screen.queryByLabelText('บัญชีปลายทาง')).not.toBeInTheDocument()
       await user.click(screen.getByRole('button', { name: 'บันทึก' }))
       expect(await screen.findByText('กรุณาเลือกบัญชีปลายทาง')).toBeInTheDocument()
@@ -408,19 +414,38 @@ describe('TransactionFormPage', () => {
       await db.accounts.add(ibkr)
       const { user, router } = await openTransfer()
       await user.click(screen.getByRole('button', { name: 'เงินสด' }))
-      await user.selectOptions(screen.getByLabelText('สกุลเงิน'), 'THB')
+      await user.selectOptions(screen.getByLabelText('สกุลเงินของค่าธรรมเนียม'), 'THB')
       expect(screen.queryByLabelText('สัญลักษณ์')).not.toBeInTheDocument()
       expect(screen.queryByLabelText('จำนวนหน่วยที่โอน')).not.toBeInTheDocument()
       expect(screen.queryByLabelText('ภาษี / VAT')).not.toBeInTheDocument()
       await user.type(screen.getByLabelText('จำนวนเงินที่โอน'), '20000')
       await user.type(screen.getByLabelText('ค่าธรรมเนียมการโอน'), '25')
       expect(screen.getByText('20,000.00 THB')).toBeInTheDocument()
-      expect(screen.getByText('เงินสด THB ใน IBKR').nextSibling).toHaveTextContent('0.00 → 20,000.00')
+      expect(screen.getByText('เงินสด THB · IBKR').nextSibling).toHaveTextContent('0.00 → 20,000.00')
       await user.click(screen.getByRole('button', { name: 'บันทึก' }))
       await waitFor(() => expect(router.state.location.pathname).toBe('/transactions'))
       const saved = (await db.transactions.toArray()).find((t) => t.type === 'transfer')
       expect(saved).toMatchObject({ toAccountId: 'acc-2', currency: 'THB', amount: '20000', fees: '25', fxRate: '1' })
       expect(saved?.instrumentId).toBeUndefined()
+    })
+
+    it('says the currency and rate of a transfer are only for its fee', async () => {
+      await db.accounts.add(ibkr)
+      const { user } = await openTransfer()
+      expect(screen.getByLabelText('สกุลเงินของค่าธรรมเนียม')).toHaveValue('USD')
+      expect(screen.queryByLabelText('สกุลเงิน')).not.toBeInTheDocument()
+      expect(await screen.findByText('ใช้คิดค่าธรรมเนียมการโอนเป็นบาทเท่านั้น')).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'ซื้อ' }))
+      expect(screen.getByLabelText('สกุลเงิน')).toBeInTheDocument()
+      expect(screen.queryByText(/ใช้คิดค่าธรรมเนียมการโอน/)).not.toBeInTheDocument()
+    })
+
+    it('names the base currency in that hint when it is not baht', async () => {
+      await db.accounts.add(ibkr)
+      await db.settings.put({ key: 'app', baseCurrency: 'USD' })
+      const { user } = await openTransfer()
+      await user.selectOptions(screen.getByLabelText('สกุลเงินของค่าธรรมเนียม'), 'THB')
+      expect(await screen.findByText('ใช้คิดค่าธรรมเนียมการโอนเป็น USD เท่านั้น')).toBeInTheDocument()
     })
 
     it('moves the receiving account off the account it is sent from', async () => {

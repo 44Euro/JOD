@@ -56,6 +56,7 @@ export interface DraftContext {
   today: string
 }
 
+const AMOUNT_REQUIRED = 'จำนวนเงินต้องเป็นตัวเลขมากกว่า 0'
 const INSTRUMENT_TYPES: readonly TxType[] = ['buy', 'sell', 'dividend', 'interest', 'split']
 
 export function emptyDraft(accountId: string, today: string): Draft {
@@ -292,7 +293,10 @@ export function draftToTransaction(draft: Draft, ctx: DraftContext): { tx: Trans
     createdAt: ctx.createdAt,
     updatedAt: ctx.createdAt,
   }
-  return { tx, errors: validateTransaction(tx, ctx.today) }
+  const errors = validateTransaction(tx, ctx.today)
+  if (!sendsUnits || tx.instrumentId) return { tx, errors }
+  // With no symbol, validation takes the transfer for cash and asks for an amount this form does not show.
+  return { tx, errors: errors.map((e) => (e === AMOUNT_REQUIRED ? 'กรุณาระบุหุ้น/สินทรัพย์' : e)) }
 }
 
 export function totalForDisplay(tx: Transaction): Decimal | null {

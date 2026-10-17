@@ -1,3 +1,4 @@
+import { Link } from 'react-router'
 import { Alert } from '../../../components/ui/alert'
 import { Chip } from '../../../components/ui/chip'
 import { Field } from '../../../components/ui/field'
@@ -18,7 +19,9 @@ export function TransferFields({
   return (
     <>
       {targets.length === 0 ? (
-        <Alert role="note">ต้องมีอย่างน้อย 2 บัญชีจึงจะโอนได้ · เพิ่มบัญชีในหน้าตั้งค่า</Alert>
+        <Alert role="note">
+          ต้องมีอย่างน้อย 2 บัญชีจึงจะโอนได้ · <Link to="/settings">เพิ่มบัญชีในหน้าตั้งค่า</Link>
+        </Alert>
       ) : (
         <div className="grid gap-3.5 sm:grid-cols-3">
           <Field id="tx-to-account" label="บัญชีปลายทาง">

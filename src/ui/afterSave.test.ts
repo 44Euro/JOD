@@ -75,8 +75,8 @@ describe('previewAfterSave for a transfer', () => {
     const tx = makeTx({ type: 'transfer', toAccountId: 'acc-2', quantity: '4', price: undefined, date: '2024-02-01' })
     const { rows, warning } = previewAfterSave([buy], tx, 'THB', 'AAPL', undefined, names)
     expect(rows).toEqual([
-      { label: 'AAPL ใน Dime US', before: '10', after: '6' },
-      { label: 'AAPL ใน IBKR', before: '0', after: '4' },
+      { label: 'AAPL · Dime US', before: '10', after: '6' },
+      { label: 'AAPL · IBKR', before: '0', after: '4' },
     ])
     expect(warning).toBeNull()
   })
@@ -85,29 +85,29 @@ describe('previewAfterSave for a transfer', () => {
     const usd = makeTx({ ...cash, type: 'deposit', amount: '2000', date: '2024-01-05' })
     const tx = makeTx({ type: 'transfer', toAccountId: 'acc-2', quantity: '4', price: undefined, fees: '2', date: '2024-02-01' })
     const { rows } = previewAfterSave([usd, buy], tx, 'THB', 'AAPL', undefined, names)
-    expect(rows.map((row) => row.label)).toEqual(['AAPL ใน Dime US', 'AAPL ใน IBKR', 'เงินสด USD ใน Dime US'])
+    expect(rows.map((row) => row.label)).toEqual(['AAPL · Dime US', 'AAPL · IBKR', 'เงินสด USD · Dime US'])
     expect(rows[2]).toMatchObject({ before: '1,000.00', after: '998.00' })
   })
 
   it('shows the cash of both accounts for a cash transfer and warns when the sender would go negative', () => {
     const { rows, warning } = previewAfterSave([deposit], sendCash('800'), 'THB', '', undefined, names)
     expect(rows).toEqual([
-      { label: 'เงินสด THB ใน Dime US', before: '500.00', after: '−300.00' },
-      { label: 'เงินสด THB ใน IBKR', before: '0.00', after: '800.00' },
+      { label: 'เงินสด THB · Dime US', before: '500.00', after: '−300.00' },
+      { label: 'เงินสด THB · IBKR', before: '0.00', after: '800.00' },
     ])
     expect(warning).toBe('เงินสด THB จะติดลบ · ลืมบันทึกการแลกเงินหรือฝากเงินหรือเปล่า?')
   })
 
   it('still shows both sides when the sender only records trades, without a warning', () => {
     const { rows, warning } = previewAfterSave([], sendCash('800'), 'THB', '', undefined, names)
-    expect(rows.map((row) => row.label)).toEqual(['เงินสด THB ใน Dime US', 'เงินสด THB ใน IBKR'])
+    expect(rows.map((row) => row.label)).toEqual(['เงินสด THB · Dime US', 'เงินสด THB · IBKR'])
     expect(warning).toBeNull()
   })
 
   it('compares an edited transfer against its saved version', () => {
     const saved = { ...sendCash('300'), id: 'move-1' }
     const { rows } = previewAfterSave([deposit], { ...saved, amount: '400' }, 'THB', '', saved, names)
-    expect(rows[1]).toEqual({ label: 'เงินสด THB ใน IBKR', before: '300.00', after: '400.00' })
+    expect(rows[1]).toEqual({ label: 'เงินสด THB · IBKR', before: '300.00', after: '400.00' })
   })
 })
 
