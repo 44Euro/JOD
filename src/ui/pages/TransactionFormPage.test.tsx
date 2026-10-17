@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '../../db/db'
@@ -334,6 +334,127 @@ describe('TransactionFormPage', () => {
       await user.type(screen.getByLabelText(/ค่าธรรมเนียม/), '100')
       expect(received).toHaveValue('590')
       expect(await screen.findByRole('button', { name: 'ใช้ยอดคำนวณ 594.03' })).toBeInTheDocument()
+    })
+  })
+
+  it('gives the way back to the reference rate a phone-sized target', async () => {
+    const user = userEvent.setup()
+    renderRoute('/transactions/new', fakeFxProvider({ 'USD|THB': '35' }).provider)
+    await user.type(await screen.findByLabelText('สัญลักษณ์'), 'AAPL')
+    await waitFor(() => expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('35'))
+    await user.clear(screen.getByLabelText(/เรทแลกเปลี่ยน/))
+    await user.type(screen.getByLabelText(/เรทแลกเปลี่ยน/), '36')
+    expect(await screen.findByRole('button', { name: 'กลับไปใช้เรทกลาง 35' })).toHaveClass(
+      '-my-3',
+      'inline-flex',
+      'min-h-11',
+      'items-center',
+      'justify-self-start',
+      'md:my-0',
+      'md:min-h-0',
+    )
+  })
+
+  describe('transfers between accounts', () => {
+    const ibkr = { id: 'acc-2', name: 'IBKR', broker: 'IBKR', note: '', createdAt: '2024-01-01T00:00:00.000Z' }
+    const provider = () => fakeFxProvider({ 'USD|THB': '35' }).provider
+
+    async function openTransfer() {
+      await db.transactions.add(makeTx({ id: 'buy-1', quantity: '10', date: '2024-01-15' }))
+      const user = userEvent.setup()
+      const router = renderRoute('/transactions/new', provider())
+      await user.selectOptions(await screen.findByLabelText('ประเภทอื่นๆ'), 'โอนระหว่างบัญชี')
+      return { user, router }
+    }
+
+    it('records a transfer of shares to another account', async () => {
+      await db.accounts.add(ibkr)
+      const { user, router } = await openTransfer()
+      await user.type(screen.getByLabelText('สัญลักษณ์'), 'aapl')
+      expect(await screen.findByText('ถืออยู่ 10 หน่วย')).toBeInTheDocument()
+      expect(screen.getByLabelText('บัญชีปลายทาง')).toHaveDisplayValue('IBKR')
+      await user.type(screen.getByLabelText('จำนวนหน่วยที่โอน'), '4')
+      await waitFor(() => expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('35'))
+      expect(screen.getByText('AAPL ใน Dime US').nextSibling).toHaveTextContent('10 → 6')
+      expect(screen.getByText('AAPL ใน IBKR').nextSibling).toHaveTextContent('0 → 4')
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+      await waitFor(() => expect(router.state.location.pathname).toBe('/transactions'))
+      const saved = (await db.transactions.toArray()).find((t) => t.type === 'transfer')
+      expect(saved).toMatchObject({ accountId: 'acc-1', toAccountId: 'acc-2', instrumentId: 'US:AAPL', quantity: '4', fees: '0' })
+      expect(saved?.price).toBeUndefined()
+    })
+
+    it('says a transfer needs two accounts', async () => {
+      const { user } = await openTransfer()
+      expect(await screen.findByRole('note')).toHaveTextContent('ต้องมีอย่างน้อย 2 บัญชีจึงจะโอนได้ · เพิ่มบัญชีในหน้าตั้งค่า')
+      expect(screen.queryByLabelText('บัญชีปลายทาง')).not.toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+      expect(await screen.findByText('กรุณาเลือกบัญชีปลายทาง')).toBeInTheDocument()
+      expect(await db.transactions.count()).toBe(1)
+    })
+
+    it('refuses to transfer more than is held', async () => {
+      await db.accounts.add(ibkr)
+      const { user } = await openTransfer()
+      await user.type(screen.getByLabelText('สัญลักษณ์'), 'AAPL')
+      await user.type(screen.getByLabelText('จำนวนหน่วยที่โอน'), '12')
+      await waitFor(() => expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('35'))
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+      expect(await screen.findByText('โอน 12 หน่วย แต่ถืออยู่ 10 หน่วย')).toBeInTheDocument()
+      expect(await db.transactions.count()).toBe(1)
+    })
+
+    it('moves cash with a transfer fee and no tax field', async () => {
+      await db.accounts.add(ibkr)
+      const { user, router } = await openTransfer()
+      await user.click(screen.getByRole('button', { name: 'เงินสด' }))
+      await user.selectOptions(screen.getByLabelText('สกุลเงิน'), 'THB')
+      expect(screen.queryByLabelText('สัญลักษณ์')).not.toBeInTheDocument()
+      expect(screen.queryByLabelText('จำนวนหน่วยที่โอน')).not.toBeInTheDocument()
+      expect(screen.queryByLabelText('ภาษี / VAT')).not.toBeInTheDocument()
+      await user.type(screen.getByLabelText('จำนวนเงินที่โอน'), '20000')
+      await user.type(screen.getByLabelText('ค่าธรรมเนียมการโอน'), '25')
+      expect(screen.getByText('20,000.00 THB')).toBeInTheDocument()
+      expect(screen.getByText('เงินสด THB ใน IBKR').nextSibling).toHaveTextContent('0.00 → 20,000.00')
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+      await waitFor(() => expect(router.state.location.pathname).toBe('/transactions'))
+      const saved = (await db.transactions.toArray()).find((t) => t.type === 'transfer')
+      expect(saved).toMatchObject({ toAccountId: 'acc-2', currency: 'THB', amount: '20000', fees: '25', fxRate: '1' })
+      expect(saved?.instrumentId).toBeUndefined()
+    })
+
+    it('moves the receiving account off the account it is sent from', async () => {
+      await db.accounts.add(ibkr)
+      const { user } = await openTransfer()
+      expect(screen.getByLabelText('บัญชีปลายทาง')).toHaveDisplayValue('IBKR')
+      await user.selectOptions(screen.getByLabelText('บัญชี'), 'IBKR')
+      expect(screen.getByLabelText('บัญชีปลายทาง')).toHaveDisplayValue('Dime US')
+      expect(within(screen.getByLabelText('บัญชีปลายทาง')).queryByRole('option', { name: 'IBKR' })).not.toBeInTheDocument()
+    })
+
+    it('opens a saved cash transfer with its receiving account and kind', async () => {
+      await db.accounts.add(ibkr)
+      await db.transactions.add(
+        makeTx({
+          id: 'move-1',
+          type: 'transfer',
+          toAccountId: 'acc-2',
+          instrumentId: undefined,
+          quantity: undefined,
+          price: undefined,
+          amount: '20000',
+          currency: 'THB',
+          fees: '25',
+          fxRate: '1',
+          fxSource: 'same',
+          date: '2024-01-15',
+        }),
+      )
+      renderRoute('/transactions/move-1', provider())
+      expect(await screen.findByLabelText('บัญชีปลายทาง')).toHaveDisplayValue('IBKR')
+      expect(screen.getByRole('button', { name: 'เงินสด' })).toHaveAttribute('aria-pressed', 'true')
+      expect(screen.getByLabelText('จำนวนเงินที่โอน')).toHaveValue('20000')
+      expect(screen.getByLabelText('ค่าธรรมเนียมการโอน')).toHaveValue('25')
     })
   })
 })

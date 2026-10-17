@@ -35,6 +35,11 @@ describe('accounts', () => {
     expect(await db.accounts.count()).toBe(1)
   })
 
+  it('keeps an account that only receives transfers', async () => {
+    await db.transactions.add(makeTx({ type: 'transfer', accountId: 'acc-1', toAccountId: 'acc-2', quantity: '1', price: undefined }))
+    await expect(deleteAccount(db, 'acc-2')).rejects.toThrow('ลบไม่ได้ บัญชีนี้ยังมี 1 รายการ')
+  })
+
   it('deletes an unused account', async () => {
     const account = await addAccount(db, { name: 'Empty', broker: '', note: '' })
     await deleteAccount(db, account.id)

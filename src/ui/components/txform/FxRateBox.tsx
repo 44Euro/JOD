@@ -45,7 +45,7 @@ export function FxRateBox({
       {draft.referenceFxRate && draft.fxRate !== draft.referenceFxRate && (
         <button
           type="button"
-          className="justify-self-start text-[13px] font-semibold text-fx underline underline-offset-[3px]"
+          className="-my-3 inline-flex min-h-11 items-center justify-self-start text-[13px] font-semibold text-fx underline underline-offset-[3px] md:my-0 md:min-h-0"
           onClick={() => update({ fxRate: draft.referenceFxRate, fxSource: openingAsset ? 'estimated' : 'auto' })}
         >
           {openingAsset ? `ใช้เรทกลาง ${draft.referenceFxRate} เป็นค่าประมาณ` : `กลับไปใช้เรทกลาง ${draft.referenceFxRate}`}

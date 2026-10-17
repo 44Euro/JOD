@@ -63,4 +63,15 @@ describe('validateTransaction', () => {
   it('accepts interest without an instrument', () => {
     expect(validateTransaction(makeTx({ type: 'interest', instrumentId: undefined, amount: '2' }), TODAY)).toEqual([])
   })
+
+  it('needs a different receiving account for a transfer', () => {
+    const base = makeTx({ type: 'transfer', quantity: '4', price: undefined })
+    expect(validateTransaction(base, TODAY)).toContain('กรุณาเลือกบัญชีปลายทาง')
+    expect(validateTransaction({ ...base, toAccountId: 'acc-1' }, TODAY)).toContain('บัญชีปลายทางต้องต่างจากบัญชีต้นทาง')
+    expect(validateTransaction({ ...base, toAccountId: 'acc-2', quantity: '0' }, TODAY)).toContain('จำนวนหน่วยต้องเป็นตัวเลขมากกว่า 0')
+    expect(validateTransaction({ ...base, toAccountId: 'acc-2', instrumentId: undefined, quantity: undefined }, TODAY)).toContain(
+      'จำนวนเงินต้องเป็นตัวเลขมากกว่า 0',
+    )
+    expect(validateTransaction({ ...base, toAccountId: 'acc-2' }, TODAY)).toEqual([])
+  })
 })

@@ -41,6 +41,12 @@ export function validateTransaction(tx: Transaction, today: string = todayLocal(
     case 'split':
       positive(tx.splitRatio, 'อัตราแตกพาร์')
       break
+    case 'transfer':
+      if (!tx.toAccountId) errors.push('กรุณาเลือกบัญชีปลายทาง')
+      else if (tx.toAccountId === tx.accountId) errors.push('บัญชีปลายทางต้องต่างจากบัญชีต้นทาง')
+      if (tx.instrumentId) positive(tx.quantity, 'จำนวนหน่วย')
+      else positive(tx.amount, 'จำนวนเงิน')
+      break
     case 'fx_convert':
       positive(tx.amount, 'จำนวนเงินต้นทาง')
       positive(tx.toAmount, 'จำนวนเงินที่ได้รับ')

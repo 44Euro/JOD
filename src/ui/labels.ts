@@ -10,12 +10,13 @@ export const TX_TYPE_LABELS: Record<TxType, string> = {
   deposit: 'ฝากเงิน',
   withdraw: 'ถอนเงิน',
   fx_convert: 'แลกเงิน',
+  transfer: 'โอนระหว่างบัญชี',
   fee: 'ค่าธรรมเนียม',
   opening: 'ยอดยกมา',
 }
 
 export const PRIMARY_TX_TYPES: readonly TxType[] = ['buy', 'sell', 'dividend', 'interest', 'fx_convert', 'deposit', 'withdraw']
-export const MORE_TX_TYPES: readonly TxType[] = ['opening', 'split', 'fee']
+export const MORE_TX_TYPES: readonly TxType[] = ['transfer', 'split', 'fee', 'opening']
 
 export const MARKET_LABELS: Record<Market, string> = {
   US: 'สหรัฐ (US)',

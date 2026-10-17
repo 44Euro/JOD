@@ -26,6 +26,7 @@ import { FeeTaxFields } from '../components/txform/FeeTaxFields'
 import { AfterSavePanel, TotalPanel } from '../components/txform/FormSidePanels'
 import { FxRateBox } from '../components/txform/FxRateBox'
 import { InstrumentFields } from '../components/txform/InstrumentFields'
+import { TransferAmountField, TransferFields } from '../components/txform/TransferFields'
 import { TypePicker } from '../components/txform/TypePicker'
 import { WithdrawFields } from '../components/txform/WithdrawFields'
 import { fmtDate, fmtMoney, fmtNumber, fmtPrice } from '../format'
@@ -46,6 +47,7 @@ import {
   showsInstrument,
   syncReceived,
   totalForDisplay,
+  withTransferTarget,
   type Draft,
 } from '../transactionDraft'
 import { useIsDesktop } from '../useIsDesktop'
@@ -133,7 +135,7 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
   const needsFx = draft.currency !== base && draft.type !== 'split'
   const openingAsset = isOpeningAsset(draft)
   const isTrade = draft.type === 'buy' || draft.type === 'sell'
-  const usesAmountField = !isTrade && !openingAsset && draft.type !== 'split'
+  const usesAmountField = !isTrade && !openingAsset && draft.type !== 'split' && draft.type !== 'transfer'
 
   const others = useMemo(() => data.transactions.filter((t) => t.id !== existing?.id), [data.transactions, existing?.id])
   const heldLedger = useMemo(() => computeLedger(others), [others])
@@ -191,7 +193,9 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
     draft.type === 'fx_convert' && positiveDecimal(preview.tx.amount) && positiveDecimal(preview.tx.toAmount)
       ? fxConvertSummary(preview.tx)
       : null
-  const afterSave = preview.errors.length === 0 ? previewAfterSave(others, preview.tx, base, symbol, existing) : null
+  const accountNames = new Map(data.accounts.map((a) => [a.id, a.name]))
+  const afterSave =
+    preview.errors.length === 0 ? previewAfterSave(others, preview.tx, base, symbol, existing, accountNames) : null
   const knownInstrument = symbol ? data.instruments.find((i) => i.id === instrumentKey(draft.market, symbol)) : undefined
   const held =
     showsInstrument(draft) && symbol
@@ -272,11 +276,18 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
       <PageHeader title={existing ? 'แก้ไขรายการ' : 'บันทึกรายการ'} />
       <div className="grid items-start gap-3.5 md:grid-cols-[minmax(0,1fr)_340px] md:gap-[22px]">
         <Card className="grid gap-[18px]">
-          <TypePicker type={draft.type} onChange={(type) => setDraft((d) => changeType(d, type, base))} />
+          <TypePicker type={draft.type} onChange={(type) => setDraft((d) => withTransferTarget(changeType(d, type, base), data.accounts))} />
 
           <div className="grid gap-3.5 sm:grid-cols-3">
             <Field id="tx-account" label="บัญชี">
-              <NativeSelect id="tx-account" value={draft.accountId} onChange={(e) => update({ accountId: e.target.value })}>
+              <NativeSelect
+                id="tx-account"
+                value={draft.accountId}
+                onChange={(e) => {
+                  const accountId = e.target.value
+                  setDraft((d) => withTransferTarget({ ...d, accountId }, data.accounts))
+                }}
+              >
                 {data.accounts.map((a) => (
                   <option key={a.id} value={a.id}>
                     {a.name}
@@ -312,6 +323,8 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
               </Chip>
             </div>
           )}
+
+          {draft.type === 'transfer' && <TransferFields draft={draft} accounts={data.accounts} update={update} />}
 
           {showsInstrument(draft) && (
             <InstrumentFields
@@ -355,6 +368,7 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
                 <Input id="tx-split" inputMode="decimal" value={draft.splitRatio} onChange={(e) => update({ splitRatio: e.target.value })} />
               </Field>
             )}
+            {draft.type === 'transfer' && <TransferAmountField draft={draft} update={update} />}
             {usesAmountField && (
               <Field id="tx-amount" label={amountLabel(draft)}>
                 <Input id="tx-amount" inputMode="decimal" value={draft.amount} onChange={(e) => update({ amount: e.target.value })} />

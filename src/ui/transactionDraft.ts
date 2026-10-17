@@ -3,6 +3,7 @@ import { D, Decimal, parseDecimalInput } from '../domain/decimal'
 import { cashDeltaQuote } from '../domain/ledger'
 import {
   instrumentKey,
+  type Account,
   type AssetType,
   type FxSource,
   type Instrument,
@@ -25,6 +26,8 @@ export interface Draft {
   instrumentName: string
   assetType: AssetType
   openingKind: OpeningKind
+  toAccountId: string
+  transferKind: OpeningKind
   currency: string
   quantity: string
   price: string
@@ -66,6 +69,8 @@ export function emptyDraft(accountId: string, today: string): Draft {
     instrumentName: '',
     assetType: 'stock',
     openingKind: 'asset',
+    toAccountId: '',
+    transferKind: 'asset',
     currency: MARKET_CURRENCY.US,
     quantity: '',
     price: '',
@@ -94,7 +99,15 @@ export function isOpeningAsset(draft: Draft): boolean {
 
 export function showsInstrument(draft: Draft): boolean {
   if (draft.type === 'opening') return draft.openingKind === 'asset'
+  if (draft.type === 'transfer') return draft.transferKind === 'asset'
   return INSTRUMENT_TYPES.includes(draft.type)
+}
+
+// A transfer needs a receiving account other than the sending one, so one is picked until the user chooses.
+export function withTransferTarget(draft: Draft, accounts: readonly Account[]): Draft {
+  if (draft.type !== 'transfer' || (draft.toAccountId !== '' && draft.toAccountId !== draft.accountId)) return draft
+  const toAccountId = accounts.find((a) => a.id !== draft.accountId)?.id ?? ''
+  return toAccountId === draft.toAccountId ? draft : { ...draft, toAccountId }
 }
 
 export function changeCurrency(draft: Draft, currency: string): Draft {
@@ -215,6 +228,8 @@ export function draftFromTransaction(tx: Transaction, instruments: readonly Inst
     instrumentName: instrument?.name ?? '',
     assetType: instrument?.assetType ?? 'stock',
     openingKind: tx.type === 'opening' && !tx.instrumentId ? 'cash' : 'asset',
+    toAccountId: tx.toAccountId ?? '',
+    transferKind: tx.type === 'transfer' && !tx.instrumentId ? 'cash' : 'asset',
     currency: tx.currency,
     quantity: tx.quantity ?? '',
     price: tx.price ?? '',
@@ -241,7 +256,9 @@ export function draftToTransaction(draft: Draft, ctx: DraftContext): { tx: Trans
   // Unparseable input is passed through unchanged so validateTransaction reports it once.
   const num = (raw: string) => (raw.trim() === '' ? undefined : (parseDecimalInput(raw) ?? raw.trim()))
   const holding = draft.type === 'buy' || draft.type === 'sell' || isOpeningAsset(draft)
-  const usesAmount = !holding && draft.type !== 'split'
+  const isTransfer = draft.type === 'transfer'
+  const sendsUnits = isTransfer && draft.transferKind === 'asset'
+  const usesAmount = !holding && !sendsUnits && draft.type !== 'split'
   const isConvert = draft.type === 'fx_convert'
   const remit = draft.type === 'withdraw' && draft.remitToThailand
   // A split moves no money, so it never needs an exchange rate.
@@ -250,11 +267,12 @@ export function draftToTransaction(draft: Draft, ctx: DraftContext): { tx: Trans
   const tx: Transaction = {
     id: ctx.id,
     accountId: draft.accountId,
+    toAccountId: isTransfer ? draft.toAccountId || undefined : undefined,
     type: draft.type,
     date: draft.date,
     time: draft.time || undefined,
     instrumentId: showsInstrument(draft) && draft.symbol.trim() ? instrumentKey(draft.market, draft.symbol) : undefined,
-    quantity: holding ? num(draft.quantity) : undefined,
+    quantity: holding || sendsUnits ? num(draft.quantity) : undefined,
     price: holding ? num(draft.price) : undefined,
     amount: usesAmount ? num(draft.amount) : undefined,
     currency: draft.currency,
@@ -279,6 +297,7 @@ export function draftToTransaction(draft: Draft, ctx: DraftContext): { tx: Trans
 
 export function totalForDisplay(tx: Transaction): Decimal | null {
   if (tx.type === 'split') return null
+  if (tx.type === 'transfer') return tx.instrumentId ? null : D(tx.amount)
   if (tx.type === 'opening' && tx.instrumentId) {
     return D(tx.quantity).times(D(tx.price)).plus(D(tx.fees)).plus(D(tx.tax))
   }

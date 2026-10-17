@@ -3,7 +3,7 @@ import { acquisitionCostQuote, cashDeltaQuote } from '../domain/ledger'
 import type { Transaction } from '../domain/types'
 import { fmtNumber, fmtPrice, fmtSigned, fmtValue, plClass } from './format'
 
-export function describeAmount(tx: Transaction): string {
+export function describeAmount(tx: Transaction, accountNames?: ReadonlyMap<string, string>): string {
   switch (tx.type) {
     case 'buy':
     case 'sell':
@@ -14,6 +14,10 @@ export function describeAmount(tx: Transaction): string {
       return `× ${fmtNumber(tx.splitRatio, 4)}`
     case 'fx_convert':
       return `${fmtNumber(tx.amount)} ${tx.currency} → ${fmtNumber(tx.toAmount)} ${tx.toCurrency ?? ''}`
+    case 'transfer': {
+      const to = accountNames?.get(tx.toAccountId ?? '') ?? '—'
+      return tx.instrumentId ? `${fmtNumber(tx.quantity, 8)} หน่วย → ${to}` : `${fmtNumber(tx.amount)} ${tx.currency} → ${to}`
+    }
     case 'dividend':
     case 'interest':
       return D(tx.tax).greaterThan(0) ? `${fmtNumber(tx.amount)} หัก ณ ที่จ่าย ${fmtNumber(tx.tax)}` : fmtNumber(tx.amount)
@@ -28,6 +32,11 @@ export function netOf(tx: Transaction, skipped: boolean): { text: string; classN
   if (skipped || tx.type === 'split') return { text: '—', className: 'text-muted-foreground' }
   if (tx.type === 'opening' && tx.instrumentId) {
     return { text: `ทุน ${fmtValue(acquisitionCostQuote(tx).times(D(tx.fxRate)))}`, className: 'text-muted-foreground' }
+  }
+  if (tx.type === 'transfer') {
+    // Moving something to another account of your own costs nothing but the fee.
+    const cost = D(tx.fees).times(D(tx.fxRate)).negated()
+    return cost.isZero() ? { text: '—', className: 'text-muted-foreground' } : { text: fmtSigned(cost), className: plClass(cost) }
   }
   const net = cashDeltaQuote(tx).times(D(tx.fxRate))
   return { text: fmtSigned(net), className: plClass(net) }

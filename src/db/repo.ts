@@ -26,7 +26,11 @@ export async function addAccount(
 }
 
 export async function deleteAccount(db: JodDB, id: string): Promise<void> {
-  const used = await db.transactions.where('accountId').equals(id).count()
+  const [sent, received] = await Promise.all([
+    db.transactions.where('accountId').equals(id).count(),
+    db.transactions.filter((tx) => tx.toAccountId === id).count(),
+  ])
+  const used = sent + received
   if (used > 0) throw new Error(`ลบไม่ได้ บัญชีนี้ยังมี ${used} รายการ`)
   await db.accounts.delete(id)
 }

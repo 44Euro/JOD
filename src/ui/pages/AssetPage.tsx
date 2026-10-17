@@ -53,6 +53,7 @@ export function AssetPage() {
 
   const symbol = instrument?.symbol ?? id.split(':')[1] ?? id
   const issues = new Map(ledger.issues.map((i) => [i.txId, i.message]))
+  const accountNames = new Map(data.accounts.map((a) => [a.id, a.name]))
   const transactions = sortTransactions(data.transactions.filter((t) => t.instrumentId === id)).reverse()
   const fees = sumBy(
     transactions.filter((t) => !issues.has(t.id)),
@@ -142,7 +143,7 @@ export function AssetPage() {
                       </Td>
                       <Td>{TX_TYPE_LABELS[tx.type]}</Td>
                       <Td className="max-w-64 truncate">
-                        {describeAmount(tx)}
+                        {describeAmount(tx, accountNames)}
                         {tx.note && <span className="text-muted-foreground"> · {tx.note}</span>}
                       </Td>
                       <Td>
@@ -164,7 +165,7 @@ export function AssetPage() {
                       <span>{fmtDate(tx.date)}</span>
                       <span className={cn('font-display font-semibold', net.className)}>{net.text}</span>
                       <span className="col-span-2 text-[12.5px] text-muted-foreground">
-                        {TX_TYPE_LABELS[tx.type]} {describeAmount(tx)}
+                        {TX_TYPE_LABELS[tx.type]} {describeAmount(tx, accountNames)}
                         {tx.fxSource !== 'same' && ` · ${tx.fxSource === 'estimated' ? 'เรทประมาณ' : 'เรท'} ${fmtPrice(tx.fxRate)}`}
                       </span>
                     </Link>

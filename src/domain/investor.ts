@@ -1,5 +1,12 @@
 import { D, Decimal, sumBy } from './decimal'
-import { accountTracksCash, acquisitionCostQuote, cashDeltaQuote, sortTransactions, type Ledger } from './ledger'
+import {
+  accountTracksCash,
+  acquisitionCostQuote,
+  cashDeltaQuote,
+  sortTransactions,
+  transferInQuote,
+  type Ledger,
+} from './ledger'
 import type { Transaction } from './types'
 import { summarizePortfolio, type PositionValuation } from './valuation'
 
@@ -81,6 +88,18 @@ function flowQuote(tx: Transaction, tracksCash: boolean): Decimal {
   return cashDeltaQuote(tx).negated()
 }
 
+// A transfer touches two accounts and each side is judged on its own: an account that records cash simply
+// moves its balance, while one that only records trades treats what it pays out as money in and what it
+// receives as money out.
+function flowParts(tx: Transaction, tracks: (accountId: string) => boolean): { accountId: string; amount: Decimal }[] {
+  if (tx.type !== 'transfer') return [{ accountId: tx.accountId, amount: flowQuote(tx, tracks(tx.accountId)) }]
+  const toAccountId = tx.toAccountId ?? ''
+  return [
+    { accountId: tx.accountId, amount: tracks(tx.accountId) ? D(0) : cashDeltaQuote(tx).negated() },
+    { accountId: toAccountId, amount: tracks(toAccountId) ? D(0) : transferInQuote(tx).negated() },
+  ]
+}
+
 // Transactions the ledger skipped moved nothing, so they must not move money in or out either.
 export function investorFlows(transactions: readonly Transaction[], ledger: Ledger): InvestorFlow[] {
   const skipped = new Set(ledger.issues.map((issue) => issue.txId))
@@ -88,9 +107,10 @@ export function investorFlows(transactions: readonly Transaction[], ledger: Ledg
   const flows: InvestorFlow[] = []
   for (const tx of sortTransactions(transactions)) {
     if (skipped.has(tx.id)) continue
-    const amount = flowQuote(tx, tracks(tx.accountId))
-    if (amount.isZero()) continue
-    flows.push({ txId: tx.id, date: tx.date, accountId: tx.accountId, amountBase: amount.times(D(tx.fxRate)) })
+    for (const { accountId, amount } of flowParts(tx, tracks)) {
+      if (amount.isZero()) continue
+      flows.push({ txId: tx.id, date: tx.date, accountId, amountBase: amount.times(D(tx.fxRate)) })
+    }
   }
   return flows
 }
@@ -145,6 +165,7 @@ function otherCostQuote(tx: Transaction): Decimal {
       return D(tx.fees).plus(D(tx.tax))
     case 'deposit':
     case 'fx_convert':
+    case 'transfer':
       return D(tx.fees)
     default:
       return D(0)

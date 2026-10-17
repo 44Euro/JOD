@@ -43,6 +43,11 @@ function AssetLabel({ tx, instrument, accountName }: { tx: Transaction; instrume
   )
 }
 
+// An exchange and a transfer of cash spell out their currency; on a transfer of units it only belongs to the fee.
+function namesCurrency(tx: Transaction): boolean {
+  return tx.type === 'fx_convert' || tx.type === 'transfer'
+}
+
 export function TransactionsPage() {
   const data = useAppData()
   const ledger = useLedger(data)
@@ -59,7 +64,7 @@ export function TransactionsPage() {
       .reverse()
       .filter(
         (tx) =>
-          (!accountId || tx.accountId === accountId) &&
+          (!accountId || tx.accountId === accountId || tx.toAccountId === accountId) &&
           (!type || tx.type === type) &&
           (!market || (tx.instrumentId !== undefined && marketOf(tx.instrumentId) === market)) &&
           (!q || (tx.instrumentId ?? '').includes(q) || tx.note.toUpperCase().includes(q)),
@@ -201,8 +206,8 @@ export function TransactionsPage() {
                         </span>
                       </Td>
                       <Td>
-                        {describeAmount(tx)}
-                        {tx.type !== 'fx_convert' && <span className="text-muted-foreground"> {tx.currency}</span>}
+                        {describeAmount(tx, accountNames)}
+                        {!namesCurrency(tx) && <span className="text-muted-foreground"> {tx.currency}</span>}
                       </Td>
                       <Td>
                         <RateCell tx={tx} />
@@ -261,8 +266,8 @@ export function TransactionsPage() {
                       <span className={cn('font-display font-semibold', net.className)}>{net.text}</span>
                       <span className="col-span-2 flex flex-wrap items-center gap-x-1.5 text-[12.5px] text-muted-foreground">
                         <span>
-                          {describeAmount(tx)}
-                          {tx.type !== 'fx_convert' && ` ${tx.currency}`}
+                          {describeAmount(tx, accountNames)}
+                          {!namesCurrency(tx) && ` ${tx.currency}`}
                         </span>
                         {(tx.type === 'fx_convert' || tx.fxSource !== 'same') && (
                           <>

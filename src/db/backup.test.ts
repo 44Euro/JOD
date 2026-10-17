@@ -60,6 +60,12 @@ describe('parseBackup', () => {
     expect(() => parseBackup(JSON.stringify(orphan))).toThrow('รายการ y อ้างถึงบัญชีที่ไม่มีในไฟล์')
   })
 
+  it('rejects a transfer to an account that is not in the file', () => {
+    const lost = makeTx({ id: 'z', type: 'transfer', toAccountId: 'ghost', quantity: '1', price: undefined })
+    const file = { app: 'jod', version: 2, exportedAt: '', data: { accounts: [account], instruments: [], settings: [], transactions: [lost] } }
+    expect(() => parseBackup(JSON.stringify(file))).toThrow('รายการ z อ้างถึงบัญชีที่ไม่มีในไฟล์')
+  })
+
   it('rejects a damaged daily value and an unknown version', () => {
     const file = { app: 'jod', version: 2, exportedAt: '', data: { accounts: [account], instruments: [], settings: [], transactions: [], dailyValues: [{ ...day, valueBase: 'abc' }] } }
     expect(() => parseBackup(JSON.stringify(file))).toThrow('พบมูลค่ารายวันที่เสียหายในไฟล์')
@@ -88,5 +94,17 @@ describe('transactionsToCsv', () => {
     expect(csv).toContain('"ซื้อเพิ่ม, ""ลองดู"""')
     expect(csv).toContain('Dime US')
     expect(csv).toContain(',-100,-3500,')
+  })
+
+  it('names the receiving account of a transfer just before the note', () => {
+    const other = { ...account, id: 'acc-2', name: 'IBKR' }
+    const transfer = makeTx({ type: 'transfer', accountId: 'acc-1', toAccountId: 'acc-2', quantity: '4', price: undefined, note: 'move' })
+    const [header, row, plain] = transactionsToCsv([transfer, makeTx({ date: '2024-02-01' })], [account, other], 'THB')
+      .replace('\uFEFF', '')
+      .trimEnd()
+      .split('\r\n')
+    expect(header.endsWith(',tax_year,to_account,note')).toBe(true)
+    expect(row.endsWith(',,IBKR,move')).toBe(true)
+    expect(plain.endsWith(',,,')).toBe(true)
   })
 })

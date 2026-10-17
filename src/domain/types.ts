@@ -7,6 +7,7 @@ export const TX_TYPES = [
   'deposit',
   'withdraw',
   'fx_convert',
+  'transfer',
   'fee',
   'opening',
 ] as const
@@ -55,9 +56,12 @@ export interface Thesis {
 // opening without instrumentId = a cash balance carried in (amount).
 // marketRate (fx_convert only) = market price of 1 toCurrency in `currency` on that date.
 // fx_convert: amount is everything that leaves `currency`, fees included; toAmount is what arrives in toCurrency.
+// transfer moves a holding (instrumentId, quantity) or cash (amount) from accountId to toAccountId; fees are paid
+// from the cash of accountId in `currency`.
 export interface Transaction {
   id: string
   accountId: string
+  toAccountId?: string
   type: TxType
   date: string
   time?: string

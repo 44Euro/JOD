@@ -76,6 +76,18 @@ describe('AssetPage', () => {
     expect(screen.getByText('ค่าธรรมเนียมรวม').nextSibling).toHaveTextContent('104')
   })
 
+  it('names the receiving account on a transfer row', async () => {
+    await db.instruments.add(voo)
+    await db.accounts.add({ id: 'acc-2', name: 'IBKR', broker: 'IBKR', note: '', createdAt: '2024-01-01T00:00:00.000Z' })
+    await db.transactions.add(
+      makeTx({ instrumentId: 'US:VOO', type: 'transfer', toAccountId: 'acc-2', quantity: '3', price: undefined, fxRate: '34', date: '2024-05-01' }),
+    )
+    renderRoute('/assets/US%3AVOO', usd)
+    expect(await screen.findByText('ทั้งหมด 4 รายการ')).toBeInTheDocument()
+    const rows = within(screen.getAllByRole('table').at(-1)!).getAllByRole('row')
+    expect(rows[1]).toHaveTextContent('1 พ.ค. 2024โอนระหว่างบัญชี3 หน่วย → IBKR')
+  })
+
   it('saves the reason for holding, the target price and the review date', async () => {
     await db.instruments.add(voo)
     const user = userEvent.setup()

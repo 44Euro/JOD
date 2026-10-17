@@ -169,6 +169,37 @@ describe('summarizeInvestor across accounts and edge cases', () => {
   })
 })
 
+describe('summarizeInvestor with transfers', () => {
+  it('a transfer between own accounts changes neither the value nor the gain', () => {
+    // KBank records cash; Streaming only records trades, so its cash is not part of the value.
+    const txs = [
+      makeTx({ ...thb, accountId: 'kbank', type: 'deposit', amount: '50000', date: '2024-01-02' }),
+      makeTx({ ...thb, accountId: 'kbank', type: 'transfer', toAccountId: 'streaming', amount: '20000', date: '2024-01-03' }),
+      makeTx({ ...thb, accountId: 'streaming', type: 'buy', instrumentId: 'SET:PTT', quantity: '500', price: '36', date: '2024-01-04' }),
+    ]
+    const result = run(txs, { 'SET:PTT': '38' }, { THB: '1' })
+    expect(result.invested.totalBase.toString()).toBe('48000')
+    expect(result.worth.totalBase.toString()).toBe('49000')
+    expect(result.gain.totalBase.toString()).toBe('1000')
+    expect(result.gain.unrealizedPriceBase.toString()).toBe('1000')
+    expect(result.gain.cashFxBase.toString()).toBe('0')
+  })
+
+  it('counts a transfer fee between two cash accounts as another fee', () => {
+    const txs = [
+      makeTx({ ...thb, accountId: 'acc-2', type: 'deposit', amount: '1', date: '2024-01-01' }),
+      makeTx({ ...thb, type: 'deposit', amount: '50000', date: '2024-01-02' }),
+      makeTx({ ...thb, type: 'transfer', toAccountId: 'acc-2', amount: '20000', fees: '25', date: '2024-01-03' }),
+    ]
+    const result = run(txs, {}, { THB: '1' })
+    expect(result.invested.totalBase.toString()).toBe('50001')
+    expect(result.worth.totalBase.toString()).toBe('49976')
+    expect(result.gain.totalBase.toString()).toBe('-25')
+    expect(result.gain.otherFeesBase.toString()).toBe('25')
+    expect(result.gain.cashFxBase.toString()).toBe('0')
+  })
+})
+
 describe('dailySnapshot', () => {
   it('rounds today’s value and money invested to satang', () => {
     const summary = run(cashAccount, { 'US:AAPL': '120' }, { USD: '33' })

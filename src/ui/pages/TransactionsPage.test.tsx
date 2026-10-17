@@ -153,4 +153,76 @@ describe('TransactionsPage', () => {
     expect(within(list).getByRole('link', { name: /AAPL/ })).toHaveAttribute('href', '/transactions/b')
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
   })
+
+  describe('transfers', () => {
+    const ibkr = { id: 'acc-2', name: 'IBKR', broker: 'IBKR', note: '', createdAt: '2024-01-01T00:00:00.000Z' }
+    const sendShares = makeTx({
+      id: 'send-shares',
+      type: 'transfer',
+      toAccountId: 'acc-2',
+      quantity: '4',
+      price: undefined,
+      date: '2024-01-20',
+    })
+    const sendCash = makeTx({
+      id: 'send-cash',
+      type: 'transfer',
+      toAccountId: 'acc-2',
+      instrumentId: undefined,
+      quantity: undefined,
+      price: undefined,
+      amount: '20000',
+      currency: 'THB',
+      fees: '25',
+      fxRate: '1',
+      fxSource: 'same',
+      date: '2024-01-21',
+    })
+
+    beforeEach(async () => {
+      await db.accounts.add(ibkr)
+      await db.transactions.bulkAdd([makeTx({ id: 'buy-1', quantity: '10', date: '2024-01-10' }), deposit, sendShares, sendCash])
+    })
+
+    it('shows where a transfer goes and charges only its fee', async () => {
+      renderRoute('/transactions')
+      const table = await screen.findByRole('table')
+      const shares = (await within(table).findByText('4 หน่วย → IBKR')).closest('tr')!
+      expect(shares.cells[3]).toHaveTextContent(/^4 หน่วย → IBKR$/)
+      expect(shares.cells[5]).toHaveTextContent(/^—$/)
+      expect(shares.cells[5]).toHaveClass('text-muted-foreground')
+      const cash = within(table).getByText('20,000 THB → IBKR').closest('tr')!
+      expect(cash.cells[3]).toHaveTextContent(/^20,000 THB → IBKR$/)
+      expect(cash.cells[5]).toHaveTextContent(/^−25\.00$/)
+      expect(cash.cells[5]).toHaveClass('text-loss')
+    })
+
+    it('shows a transfer received by the account that is filtered on', async () => {
+      const user = userEvent.setup()
+      renderRoute('/transactions')
+      const table = await screen.findByRole('table')
+      await user.selectOptions(screen.getByLabelText('กรองตามบัญชี'), 'IBKR')
+      expect(within(table).getByText('4 หน่วย → IBKR')).toBeInTheDocument()
+      expect(within(table).getByText('20,000 THB → IBKR')).toBeInTheDocument()
+      expect(within(table).queryByText('ฝากเงิน')).not.toBeInTheDocument()
+      expect(within(table).queryByText('ซื้อ')).not.toBeInTheDocument()
+      await user.selectOptions(screen.getByLabelText('กรองตามบัญชี'), 'Dime US')
+      expect(within(table).getByText('4 หน่วย → IBKR')).toBeInTheDocument()
+      expect(within(table).getByText('ฝากเงิน')).toBeInTheDocument()
+    })
+
+    it('reads the same on a phone', async () => {
+      vi.stubGlobal('matchMedia', (query: string) => ({
+        matches: false,
+        media: query,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      }))
+      renderRoute('/transactions')
+      const list = await screen.findByRole('list', { name: 'รายการทั้งหมด' })
+      expect(within(list).getByText('4 หน่วย → IBKR')).toBeInTheDocument()
+      expect(within(list).getByText('20,000 THB → IBKR')).toBeInTheDocument()
+      expect(within(list).getByText('−25.00')).toHaveClass('text-loss')
+    })
+  })
 })

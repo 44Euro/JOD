@@ -82,6 +82,17 @@ export function acquisitionCostQuote(tx: Transaction): Decimal {
   return D(tx.quantity).times(D(tx.price)).plus(D(tx.fees)).plus(D(tx.tax))
 }
 
+// The cost that leaves a position with `quantity` units: the average cost per unit times the units, or
+// everything when the whole holding goes so no rounding residue is left behind.
+export function takeCost(position: Position, quantity: Decimal): { costQuote: Decimal; costBase: Decimal; closesAll: boolean } {
+  const closesAll = quantity.equals(position.quantity)
+  return {
+    costQuote: closesAll ? position.costQuote : position.costQuote.div(position.quantity).times(quantity),
+    costBase: closesAll ? position.costBase : position.costBase.div(position.quantity).times(quantity),
+    closesAll,
+  }
+}
+
 // An account that only ever records trades has no cash history, so the cash computed for it only reflects
 // the trades and is not a real balance.
 export function accountTracksCash(transactions: readonly Transaction[], accountId: string): boolean {
@@ -112,12 +123,19 @@ export function cashDeltaQuote(tx: Transaction): Decimal {
       return D(tx.amount).plus(fees).plus(tax).negated()
     case 'fx_convert':
       return D(tx.amount).negated()
+    case 'transfer':
+      return tx.instrumentId ? fees.negated() : D(tx.amount).plus(fees).negated()
     // An opening holding was paid for before the app existed, so only opening cash moves cash.
     case 'opening':
       return tx.instrumentId ? D(0) : D(tx.amount)
     case 'split':
       return D(0)
   }
+}
+
+// Cash the receiving account gets from a transfer; a transfer of units brings none.
+export function transferInQuote(tx: Transaction): Decimal {
+  return tx.type === 'transfer' && !tx.instrumentId ? D(tx.amount) : D(0)
 }
 
 // Tax on dividends and interest is withholding tax, so it is reported under income instead.
@@ -178,9 +196,7 @@ export function computeLedger(transactions: readonly Transaction[]): Ledger {
         issues.push({ txId: tx.id, message: `ขาย ${quantity} หน่วย แต่ถืออยู่ ${held?.quantity ?? 0} หน่วย` })
         continue
       }
-      const closesAll = quantity.equals(held.quantity)
-      const costQuote = closesAll ? held.costQuote : held.costQuote.div(held.quantity).times(quantity)
-      const costBase = closesAll ? held.costBase : held.costBase.div(held.quantity).times(quantity)
+      const { costQuote, costBase, closesAll } = takeCost(held, quantity)
       const proceedsQuote = cashDeltaQuote(tx)
       const proceedsBase = proceedsQuote.times(rate)
       const realizedQuote = proceedsQuote.minus(costQuote)
@@ -213,6 +229,46 @@ export function computeLedger(transactions: readonly Transaction[]): Ledger {
       }
     }
 
+    if (tx.type === 'transfer' && tx.instrumentId) {
+      const toAccountId = tx.toAccountId ?? ''
+      const quantity = D(tx.quantity)
+      if (!held || held.quantity.lessThan(quantity)) {
+        issues.push({ txId: tx.id, message: `โอน ${quantity} หน่วย แต่ถืออยู่ ${held?.quantity ?? 0} หน่วย` })
+        continue
+      }
+      const toKey = positionKey(toAccountId, instrumentId)
+      const target = positions.get(toKey)
+      if (target && target.currency !== held.currency) {
+        issues.push({
+          txId: tx.id,
+          message: `สกุลเงิน ${held.currency} ไม่ตรงกับที่ถืออยู่ในบัญชีปลายทาง (${target.currency})`,
+        })
+        continue
+      }
+      const { costQuote, costBase, closesAll } = takeCost(held, quantity)
+      if (closesAll) {
+        positions.delete(key)
+      } else {
+        held.quantity = held.quantity.minus(quantity)
+        held.costQuote = held.costQuote.minus(costQuote)
+        held.costBase = held.costBase.minus(costBase)
+      }
+      // Read after the sending side was updated, so a transfer to the same account cannot count twice.
+      const received = positions.get(toKey) ?? {
+        key: toKey,
+        accountId: toAccountId,
+        instrumentId,
+        currency: held.currency,
+        quantity: D(0),
+        costQuote: D(0),
+        costBase: D(0),
+      }
+      received.quantity = received.quantity.plus(quantity)
+      received.costQuote = received.costQuote.plus(costQuote)
+      received.costBase = received.costBase.plus(costBase)
+      positions.set(toKey, received)
+    }
+
     if (tx.type === 'split') {
       if (!held) {
         issues.push({ txId: tx.id, message: 'ไม่มีสินทรัพย์นี้ในพอร์ต ณ วันที่แตกพาร์' })
@@ -240,6 +296,8 @@ export function computeLedger(transactions: readonly Transaction[]): Ledger {
     }
 
     addCash(tx.accountId, tx.currency, cashDeltaQuote(tx))
+    const cashIn = transferInQuote(tx)
+    if (!cashIn.isZero()) addCash(tx.toAccountId ?? '', tx.currency, cashIn)
     if (tx.type === 'fx_convert' && tx.toCurrency) addCash(tx.accountId, tx.toCurrency, D(tx.toAmount))
     feesBase = feesBase.plus(feesQuote(tx).times(rate))
   }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { makeTx } from '../test/fixtures'
-import { accountTracksCash, computeLedger } from './ledger'
+import { accountTracksCash, computeLedger, type Ledger } from './ledger'
 
 describe('computeLedger positions and realized P/L', () => {
   const buy1 = makeTx({ type: 'buy', quantity: '10', price: '100', fees: '1', fxRate: '35', date: '2024-01-10' })
@@ -131,6 +131,52 @@ describe('computeLedger cash, income and fees', () => {
     expect(ledger.income).toHaveLength(1)
     expect(ledger.income[0]).toMatchObject({ kind: 'interest', instrumentId: '' })
     expect(ledger.income[0].netBase.toString()).toBe('57.8')
+  })
+})
+
+describe('computeLedger transfers', () => {
+  const thb = { currency: 'THB', fxRate: '1', fxSource: 'same' as const, instrumentId: undefined, quantity: undefined, price: undefined }
+  const buy = makeTx({ quantity: '10', price: '100', fees: '1', fxRate: '34', date: '2024-01-10' })
+  const send = (quantity: string) =>
+    makeTx({ type: 'transfer', toAccountId: 'acc-2', quantity, price: undefined, fxRate: '35', date: '2024-02-01' })
+  const rows = (ledger: Ledger) =>
+    ledger.positions.map((p) => [p.key, p.quantity.toString(), p.costQuote.toString(), p.costBase.toString()])
+
+  it('moves units with their cost and purchase rate to the other account, with no gain', () => {
+    const ledger = computeLedger([buy, send('4')])
+    expect(ledger.issues).toEqual([])
+    expect(ledger.realized).toEqual([])
+    expect(rows(ledger)).toEqual([
+      ['acc-1|US:AAPL', '6', '600.6', '20420.4'],
+      ['acc-2|US:AAPL', '4', '400.4', '13613.6'],
+    ])
+  })
+
+  it('moves the whole cost when the whole holding goes', () => {
+    expect(rows(computeLedger([buy, send('10')]))).toEqual([['acc-2|US:AAPL', '10', '1001', '34034']])
+  })
+
+  it('refuses a transfer larger than the holding and leaves both accounts alone', () => {
+    const tooMany = send('12')
+    const ledger = computeLedger([buy, tooMany])
+    expect(ledger.issues).toEqual([{ txId: tooMany.id, message: 'โอน 12 หน่วย แต่ถืออยู่ 10 หน่วย' }])
+    expect(rows(ledger)).toEqual([['acc-1|US:AAPL', '10', '1001', '34034']])
+  })
+
+  it('turns a transfer into an issue when the buy before it is gone', () => {
+    expect(computeLedger([send('4')]).issues[0].message).toBe('โอน 4 หน่วย แต่ถืออยู่ 0 หน่วย')
+  })
+
+  it('moves cash and charges the transfer fee to the sending account', () => {
+    const { cash, feesBase } = computeLedger([
+      makeTx({ ...thb, type: 'deposit', amount: '50000', date: '2024-01-02' }),
+      makeTx({ ...thb, type: 'transfer', toAccountId: 'acc-2', amount: '20000', fees: '25', date: '2024-01-03' }),
+    ])
+    expect(cash.map((c) => [c.accountId, c.currency, c.amount.toString()])).toEqual([
+      ['acc-1', 'THB', '29975'],
+      ['acc-2', 'THB', '20000'],
+    ])
+    expect(feesBase.toString()).toBe('25')
   })
 })
 

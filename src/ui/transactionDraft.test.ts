@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { Instrument } from '../domain/types'
+import type { Account, Instrument } from '../domain/types'
 import {
   applyReferenceRate,
   changeCurrency,
@@ -14,6 +14,7 @@ import {
   receivedAmount,
   syncReceived,
   totalForDisplay,
+  withTransferTarget,
   type Draft,
 } from './transactionDraft'
 
@@ -310,5 +311,66 @@ describe('looked-up names', () => {
   it('picks up the name and currency of a symbol known in the new market', () => {
     const next = changeMarket(buyDraft({ symbol: 'btc' }), 'CRYPTO', [btc])
     expect(next).toMatchObject({ market: 'CRYPTO', instrumentName: 'Bitcoin', currency: 'USDT', assetType: 'crypto' })
+  })
+})
+
+describe('transfers', () => {
+  const account = (id: string): Account => ({ id, name: id, broker: '', note: '', createdAt: '2024-01-01T00:00:00.000Z' })
+  const transferDraft = withTransferTarget(
+    changeType(emptyDraft('acc-1', '2024-06-01'), 'transfer', 'THB'),
+    [account('acc-1'), account('acc-2')],
+  )
+
+  it('points a new transfer at the first other account', () => {
+    const draft = changeType(emptyDraft('acc-1', '2024-06-01'), 'transfer', 'THB')
+    expect(withTransferTarget(draft, [account('acc-1'), account('acc-2')]).toAccountId).toBe('acc-2')
+    expect(withTransferTarget(draft, [account('acc-1')]).toAccountId).toBe('')
+  })
+
+  it('moves the target away from the sending account and keeps a valid target', () => {
+    const [a1, a2, a3] = [account('acc-1'), account('acc-2'), account('acc-3')]
+    expect(withTransferTarget({ ...transferDraft, accountId: 'acc-2' }, [a1, a2, a3]).toAccountId).toBe('acc-1')
+    const chosen = { ...transferDraft, toAccountId: 'acc-3' }
+    expect(withTransferTarget(chosen, [a1, a2, a3])).toBe(chosen)
+    expect(withTransferTarget(buyDraft(), [a1, a2])).toEqual(buyDraft())
+  })
+
+  it('builds a share transfer and a cash transfer', () => {
+    const shares = { ...transferDraft, symbol: 'AAPL', quantity: '4' }
+    expect(draftToTransaction(shares, ctx).tx).toMatchObject({ type: 'transfer', instrumentId: 'US:AAPL', quantity: '4', toAccountId: 'acc-2' })
+    const cash = { ...transferDraft, transferKind: 'cash' as const, currency: 'THB', amount: '20,000' }
+    const built = draftToTransaction(cash, ctx).tx
+    expect(built).toMatchObject({ instrumentId: undefined, quantity: undefined, amount: '20000', fxRate: '1', fxSource: 'same' })
+  })
+
+  it('sends no price or amount with a share transfer and no quantity with a cash transfer', () => {
+    const shares = { ...transferDraft, symbol: 'AAPL', quantity: '4', price: '100', amount: '5', fxRate: '35' }
+    const sent = draftToTransaction(shares, ctx)
+    expect(sent.errors).toEqual([])
+    expect(sent.tx.price).toBeUndefined()
+    expect(sent.tx.amount).toBeUndefined()
+    const cash = draftToTransaction({ ...shares, transferKind: 'cash', symbol: 'AAPL' }, ctx).tx
+    expect(cash.quantity).toBeUndefined()
+    expect(cash.instrumentId).toBeUndefined()
+    expect(cash.amount).toBe('5')
+  })
+
+  it('asks for a receiving account when there is none', () => {
+    const lonely = { ...transferDraft, toAccountId: '', symbol: 'AAPL', quantity: '4', fxRate: '35' }
+    expect(draftToTransaction(lonely, ctx).errors).toEqual(['กรุณาเลือกบัญชีปลายทาง'])
+  })
+
+  it('reads a saved transfer back with its kind and receiving account', () => {
+    const shares = draftToTransaction({ ...transferDraft, symbol: 'AAPL', quantity: '4', fxRate: '35' }, ctx).tx
+    expect(draftFromTransaction(shares, [])).toMatchObject({ type: 'transfer', transferKind: 'asset', toAccountId: 'acc-2', symbol: 'AAPL' })
+    const cash = draftToTransaction({ ...transferDraft, transferKind: 'cash', currency: 'THB', amount: '20,000' }, ctx).tx
+    expect(draftFromTransaction(cash, [])).toMatchObject({ transferKind: 'cash', toAccountId: 'acc-2', amount: '20000' })
+  })
+
+  it('shows no total for a share transfer and the amount for a cash transfer', () => {
+    const shares = draftToTransaction({ ...transferDraft, symbol: 'AAPL', quantity: '4', fees: '5', fxRate: '35' }, ctx).tx
+    expect(totalForDisplay(shares)).toBeNull()
+    const cash = draftToTransaction({ ...transferDraft, transferKind: 'cash', currency: 'THB', amount: '20,000', fees: '25' }, ctx).tx
+    expect(totalForDisplay(cash)?.toString()).toBe('20000')
   })
 })
