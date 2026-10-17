@@ -1,30 +1,36 @@
 import { Check, Trash2 } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { Alert } from '../../components/ui/alert'
-import { Badge } from '../../components/ui/badge'
 import { Button, buttonVariants } from '../../components/ui/button'
 import { Card } from '../../components/ui/card'
-import { Chip, chipSelectClass } from '../../components/ui/chip'
+import { Chip } from '../../components/ui/chip'
 import { Field } from '../../components/ui/field'
 import { Input, NativeSelect, Textarea } from '../../components/ui/input'
 import { db } from '../../db/db'
 import { deleteTransaction, newId, saveTransaction, upsertInstrument } from '../../db/repo'
 import { CURRENCY_OPTIONS } from '../../domain/currencies'
 import { isIsoDate, todayLocal } from '../../domain/dates'
-import { D, isDecimalString, type Decimal } from '../../domain/decimal'
+import { D, isDecimalString } from '../../domain/decimal'
 import { fxConvertSummary, spreadPct } from '../../domain/fxConvert'
 import { computeLedger, positionKey } from '../../domain/ledger'
-import { ASSET_TYPES, MARKETS, instrumentKey, type AssetType, type Market, type Transaction, type TxType } from '../../domain/types'
+import { instrumentKey, type Transaction } from '../../domain/types'
 import { useFxProvider } from '../../fx/context'
 import { getFxQuote } from '../../fx/fxService'
 import { cn } from '../../lib/cn'
-import { previewAfterSave, type AfterSavePreview } from '../afterSave'
+import { previewAfterSave } from '../afterSave'
 import { MiniRoute } from '../components/MoneyRoute'
 import { PageHeader } from '../components/PageHeader'
+import { ConvertFields, ConvertSummary } from '../components/txform/ConvertFields'
+import { FeeTaxFields } from '../components/txform/FeeTaxFields'
+import { AfterSavePanel, TotalPanel } from '../components/txform/FormSidePanels'
+import { FxRateBox } from '../components/txform/FxRateBox'
+import { InstrumentFields } from '../components/txform/InstrumentFields'
+import { TypePicker } from '../components/txform/TypePicker'
+import { WithdrawFields } from '../components/txform/WithdrawFields'
 import { fmtDate, fmtMoney, fmtNumber, fmtPrice } from '../format'
 import { useAppData, type AppData } from '../hooks'
-import { ASSET_TYPE_LABELS, FX_SOURCE_LABELS, MARKET_LABELS, MORE_TX_TYPES, PRIMARY_TX_TYPES, TX_TYPE_LABELS } from '../labels'
+import { TX_TYPE_LABELS } from '../labels'
 import {
   applyReferenceRate,
   changeCurrency,
@@ -37,7 +43,6 @@ import {
   emptyDraft,
   isOpeningAsset,
   pickSymbol,
-  receivedAmount,
   showsInstrument,
   syncReceived,
   totalForDisplay,
@@ -83,14 +88,6 @@ function amountLabel(draft: Draft): string {
   }
 }
 
-function taxYearOptions(selected: string): number[] {
-  const current = new Date().getFullYear()
-  const years = new Set([current, current - 1, current - 2])
-  const chosen = Number.parseInt(selected, 10)
-  if (Number.isInteger(chosen)) years.add(chosen)
-  return [...years].sort((a, b) => b - a)
-}
-
 // Keeps account, date, type, market, currency and rate so several lines from one statement go in quickly.
 function clearEntry(draft: Draft): Draft {
   return {
@@ -112,59 +109,6 @@ function clearEntry(draft: Draft): Draft {
 
 function marketRateKey(draft: Draft): string {
   return `${draft.toCurrency}|${draft.currency}|${draft.date}`
-}
-
-function receivedHint(draft: Draft, computed: string | null, rateMissing: boolean, restoreComputed: () => void): ReactNode {
-  if (!draft.marketRate) return rateMissing ? 'ไม่มีเรทกลางของวันนั้น กรอกจำนวนที่ได้รับเอง' : undefined
-  if (draft.toAmountSource === 'auto') {
-    return `คำนวณจากเรทกลาง ECB ${fmtDate(draft.marketRateDate)} · 1 ${draft.toCurrency} = ${fmtPrice(draft.marketRate)} ${draft.currency} · แก้เป็นยอดจริงจากโบรกได้`
-  }
-  return (
-    computed && (
-      <button
-        type="button"
-        className="inline-flex min-h-11 items-center text-[13px] font-semibold text-fx underline underline-offset-[3px] md:min-h-0"
-        onClick={restoreComputed}
-      >
-        ใช้ยอดคำนวณ {computed}
-      </button>
-    )
-  )
-}
-
-function TotalPanel({ total, currency, base, rate }: { total: Decimal; currency: string; base: string; rate: string | null }) {
-  return (
-    <div className="flex flex-wrap items-baseline justify-between gap-3 rounded-2xl bg-board px-[18px] py-4 text-white">
-      <div>
-        <p className="text-[12.5px] text-board-muted">รวม</p>
-        <p className="font-display text-[28px] font-semibold leading-tight">{fmtMoney(total, currency)}</p>
-      </div>
-      {rate && (
-        <p className="text-[12.5px] text-board-muted">
-          ≈ {fmtMoney(total.times(D(rate)), base)} ที่เรท {fmtPrice(rate)}
-        </p>
-      )}
-    </div>
-  )
-}
-
-function AfterSavePanel({ preview }: { preview: AfterSavePreview }) {
-  return (
-    <Card className="grid gap-2.5">
-      <h2 className="text-base font-semibold">หลังบันทึก</h2>
-      <dl className="grid text-sm">
-        {preview.rows.map((row) => (
-          <div key={row.label} className="flex justify-between gap-3 border-t border-muted py-2.5 first:border-t-0">
-            <dt className="text-muted-foreground">{row.label}</dt>
-            <dd className={cn('text-right', row.fx && 'text-fx')}>
-              {row.before} → <b className="font-semibold">{row.after}</b>
-            </dd>
-          </div>
-        ))}
-      </dl>
-      {preview.warning && <Alert role="note">{preview.warning}</Alert>}
-    </Card>
-  )
 }
 
 function TransactionForm({ data, existing }: { data: AppData; existing?: Transaction }) {
@@ -247,9 +191,7 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
     draft.type === 'fx_convert' && positiveDecimal(preview.tx.amount) && positiveDecimal(preview.tx.toAmount)
       ? fxConvertSummary(preview.tx)
       : null
-  const computedReceived = receivedAmount(draft)
   const afterSave = preview.errors.length === 0 ? previewAfterSave(others, preview.tx, base, symbol, existing) : null
-  const knownSymbols = data.instruments.filter((i) => i.market === draft.market)
   const knownInstrument = symbol ? data.instruments.find((i) => i.id === instrumentKey(draft.market, symbol)) : undefined
   const held =
     showsInstrument(draft) && symbol
@@ -330,29 +272,7 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
       <PageHeader title={existing ? 'แก้ไขรายการ' : 'บันทึกรายการ'} />
       <div className="grid items-start gap-3.5 md:grid-cols-[minmax(0,1fr)_340px] md:gap-[22px]">
         <Card className="grid gap-[18px]">
-          <div className="flex flex-wrap items-center gap-2" role="group" aria-label="ประเภทรายการ">
-            {PRIMARY_TX_TYPES.map((type) => (
-              <Chip key={type} active={draft.type === type} onClick={() => setDraft((d) => changeType(d, type, base))}>
-                {TX_TYPE_LABELS[type]}
-              </Chip>
-            ))}
-            <NativeSelect
-              aria-label="ประเภทอื่นๆ"
-              className={cn(chipSelectClass, MORE_TX_TYPES.includes(draft.type) && 'border-foreground bg-foreground text-white')}
-              value={MORE_TX_TYPES.includes(draft.type) ? draft.type : ''}
-              onChange={(e) => {
-                const type = e.target.value as TxType
-                if (type) setDraft((d) => changeType(d, type, base))
-              }}
-            >
-              <option value="">เพิ่มเติม…</option>
-              {MORE_TX_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {TX_TYPE_LABELS[type]}
-                </option>
-              ))}
-            </NativeSelect>
-          </div>
+          <TypePicker type={draft.type} onChange={(type) => setDraft((d) => changeType(d, type, base))} />
 
           <div className="grid gap-3.5 sm:grid-cols-3">
             <Field id="tx-account" label="บัญชี">
@@ -394,62 +314,20 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
           )}
 
           {showsInstrument(draft) && (
-            <div className="grid gap-3.5 sm:grid-cols-2">
-              <Field id="tx-market" label="ตลาด">
-                <NativeSelect
-                  id="tx-market"
-                  value={draft.market}
-                  onChange={(e) => setDraft((d) => changeMarket(d, e.target.value as Market, data.instruments))}
-                >
-                  {MARKETS.map((m) => (
-                    <option key={m} value={m}>
-                      {MARKET_LABELS[m]}
-                    </option>
-                  ))}
-                </NativeSelect>
-              </Field>
-              <Field
-                id="tx-symbol"
-                label={draft.type === 'interest' ? 'สัญลักษณ์ (ถ้าเป็นคูปองหุ้นกู้)' : 'สัญลักษณ์'}
-                hint={symbolHint || undefined}
-              >
-                <Input
-                  id="tx-symbol"
-                  list="known-symbols"
-                  autoCapitalize="characters"
-                  placeholder="AAPL, PTT, BTC"
-                  value={draft.symbol}
-                  onChange={(e) => setDraft((d) => pickSymbol(d, e.target.value, data.instruments))}
-                />
-                <datalist id="known-symbols">
-                  {knownSymbols.map((i) => (
-                    <option key={i.id} value={i.symbol}>
-                      {i.name}
-                    </option>
-                  ))}
-                </datalist>
-              </Field>
-              {!knownInstrument && (
-                <>
-                  <Field id="tx-name" label="ชื่อ (ไม่บังคับ)">
-                    <Input id="tx-name" value={draft.instrumentName} onChange={(e) => update({ instrumentName: e.target.value })} />
-                  </Field>
-                  <Field id="tx-asset-type" label="ประเภทสินทรัพย์">
-                    <NativeSelect
-                      id="tx-asset-type"
-                      value={draft.assetType}
-                      onChange={(e) => update({ assetType: e.target.value as AssetType })}
-                    >
-                      {ASSET_TYPES.map((t) => (
-                        <option key={t} value={t}>
-                          {ASSET_TYPE_LABELS[t]}
-                        </option>
-                      ))}
-                    </NativeSelect>
-                  </Field>
-                </>
-              )}
-            </div>
+            <InstrumentFields
+              idPrefix="tx"
+              symbolLabel={draft.type === 'interest' ? 'สัญลักษณ์ (ถ้าเป็นคูปองหุ้นกู้)' : 'สัญลักษณ์'}
+              market={draft.market}
+              symbol={draft.symbol}
+              name={draft.instrumentName}
+              assetType={draft.assetType}
+              instruments={data.instruments}
+              hint={symbolHint || undefined}
+              onMarket={(market) => setDraft((d) => changeMarket(d, market, data.instruments))}
+              onSymbol={(value) => setDraft((d) => pickSymbol(d, value, data.instruments))}
+              onName={(instrumentName) => update({ instrumentName })}
+              onAssetType={(assetType) => update({ assetType })}
+            />
           )}
 
           <div className={cn('grid gap-3.5', isTrade || openingAsset ? 'grid-cols-3' : 'sm:grid-cols-2')}>
@@ -483,119 +361,17 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
               </Field>
             )}
             {draft.type === 'fx_convert' && (
-              <>
-                <Field id="tx-to-currency" label="สกุลเงินปลายทาง">
-                  <NativeSelect
-                    id="tx-to-currency"
-                    value={draft.toCurrency}
-                    onChange={(e) => update({ toCurrency: e.target.value, marketRate: '', marketRateDate: '' })}
-                  >
-                    {CURRENCY_OPTIONS.map((c) => (
-                      <option key={c}>{c}</option>
-                    ))}
-                  </NativeSelect>
-                </Field>
-                <Field
-                  id="tx-to-amount"
-                  label="จำนวนที่ได้รับ"
-                  hint={receivedHint(draft, computedReceived, noRateFor === marketRateKey(draft), () => update({ toAmountSource: 'auto' }))}
-                >
-                  <Input
-                    id="tx-to-amount"
-                    inputMode="decimal"
-                    value={draft.toAmount}
-                    onChange={(e) => update({ toAmount: e.target.value, toAmountSource: 'manual' })}
-                  />
-                </Field>
-              </>
+              <ConvertFields draft={draft} rateMissing={noRateFor === marketRateKey(draft)} update={update} />
             )}
           </div>
 
-          {draft.type !== 'split' && draft.type !== 'opening' && (
-            <div className="grid grid-cols-2 gap-3.5">
-              <Field id="tx-fees" label={draft.type === 'fx_convert' ? 'ค่าธรรมเนียม (หักจากยอดที่แลก)' : 'ค่าธรรมเนียม'}>
-                <Input id="tx-fees" inputMode="decimal" placeholder="0" value={draft.fees} onChange={(e) => update({ fees: e.target.value })} />
-              </Field>
-              {draft.type !== 'fx_convert' && draft.type !== 'deposit' && (
-                <Field id="tx-tax" label={draft.type === 'dividend' || draft.type === 'interest' ? 'ภาษีหัก ณ ที่จ่าย' : 'ภาษี / VAT'}>
-                  <Input id="tx-tax" inputMode="decimal" placeholder="0" value={draft.tax} onChange={(e) => update({ tax: e.target.value })} />
-                </Field>
-              )}
-            </div>
-          )}
+          {draft.type !== 'split' && draft.type !== 'opening' && <FeeTaxFields draft={draft} update={update} />}
 
-          {draft.type === 'withdraw' && (
-            <div className="grid gap-3 rounded-2xl border p-4">
-              <label className="flex min-h-11 items-center gap-2.5 text-sm">
-                <input
-                  type="checkbox"
-                  className="size-5 accent-primary"
-                  checked={draft.remitToThailand}
-                  onChange={(e) => update({ remitToThailand: e.target.checked })}
-                />
-                โอนกลับเข้าไทย (ใช้คิดภาษีเงินได้จากต่างประเทศ)
-              </label>
-              {draft.remitToThailand && (
-                <Field id="tx-tax-year" label="ปีภาษี">
-                  <NativeSelect id="tx-tax-year" className="max-w-56" value={draft.taxYear} onChange={(e) => update({ taxYear: e.target.value })}>
-                    {taxYearOptions(draft.taxYear).map((year) => (
-                      <option key={year} value={year}>{`พ.ศ. ${year + 543} (${year})`}</option>
-                    ))}
-                  </NativeSelect>
-                </Field>
-              )}
-            </div>
-          )}
+          {draft.type === 'withdraw' && <WithdrawFields draft={draft} update={update} />}
 
-          {needsFx && (
-            <div className="grid gap-2 rounded-2xl bg-fx-soft px-[18px] py-4">
-              <Field
-                id="tx-fx"
-                label={`${openingAsset ? 'เรทเฉลี่ยตอนซื้อ' : 'เรทแลกเปลี่ยน'} (1 ${draft.currency} = ? ${base})`}
-              >
-                <Input
-                  id="tx-fx"
-                  inputMode="decimal"
-                  className="border-fx-line"
-                  value={draft.fxRate}
-                  onChange={(e) => update({ fxRate: e.target.value, fxSource: 'manual' })}
-                />
-              </Field>
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-fx">
-                {draft.fxRate && draft.fxSource !== 'same' && <Badge variant={draft.fxSource}>{FX_SOURCE_LABELS[draft.fxSource]}</Badge>}
-                <p>
-                  {[
-                    fxMessage,
-                    rateSpread && !rateSpread.isZero()
-                      ? `${rateSpread.greaterThan(0) ? 'สูงกว่า' : 'ต่ำกว่า'}เรทกลาง ${fmtNumber(rateSpread.abs())}%`
-                      : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')}
-                </p>
-              </div>
-              {draft.referenceFxRate && draft.fxRate !== draft.referenceFxRate && (
-                <button
-                  type="button"
-                  className="justify-self-start text-[13px] font-semibold text-fx underline underline-offset-[3px]"
-                  onClick={() => update({ fxRate: draft.referenceFxRate, fxSource: openingAsset ? 'estimated' : 'auto' })}
-                >
-                  {openingAsset
-                    ? `ใช้เรทกลาง ${draft.referenceFxRate} เป็นค่าประมาณ`
-                    : `กลับไปใช้เรทกลาง ${draft.referenceFxRate}`}
-                </button>
-              )}
-            </div>
-          )}
+          {needsFx && <FxRateBox draft={draft} base={base} fxMessage={fxMessage} rateSpread={rateSpread} update={update} />}
 
-          {convert && (
-            <p className="rounded-2xl bg-fx-soft px-[18px] py-3 text-[13px] text-fx">
-              เรทที่ได้ 1 {draft.toCurrency} = {fmtPrice(convert.effectiveRate)} {draft.currency}
-              {convert.marketRate && ` · เรทตลาด ${fmtPrice(convert.marketRate)}`}
-              {convert.spreadPct &&
-                ` · ${convert.spreadPct.greaterThan(0) ? 'แพงกว่า' : 'ถูกกว่า'}ตลาด ${fmtNumber(convert.spreadPct.abs())}%`}
-            </p>
-          )}
+          {convert && <ConvertSummary draft={draft} summary={convert} />}
 
           <Field id="tx-note" label="หมายเหตุ">
             <Textarea id="tx-note" value={draft.note} onChange={(e) => update({ note: e.target.value })} />
