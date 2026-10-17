@@ -136,3 +136,22 @@ export function currencyAllocation(valuations: readonly PositionValuation[], cas
     ...cash.filter((row) => row.base !== null).map((row) => ({ key: row.currency, cashBase: row.base ?? D(0) })),
   ])
 }
+
+export interface HoldingGroup extends AllocationRow {
+  unrealizedBase: Decimal
+  totalReturnBase: Decimal
+  count: number
+}
+
+// Holdings without a price count at cost and add nothing to the gains, as they do in the totals.
+export function groupHoldings(stats: readonly HoldingStats[], keyOf: (s: HoldingStats) => string): HoldingGroup[] {
+  return allocate(stats.map((s) => ({ key: keyOf(s), assetsBase: s.valueBase ?? s.costBase }))).map((row) => {
+    const members = stats.filter((s) => keyOf(s) === row.key)
+    return {
+      ...row,
+      unrealizedBase: sumBy(members, (s) => s.unrealizedBase ?? D(0)),
+      totalReturnBase: sumBy(members, (s) => s.totalReturnBase ?? D(0)),
+      count: members.length,
+    }
+  })
+}

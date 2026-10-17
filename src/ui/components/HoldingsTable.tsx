@@ -5,20 +5,22 @@ import { Input } from '../../components/ui/input'
 import { Table, Td, Th } from '../../components/ui/table'
 import { db } from '../../db/db'
 import { setInstrumentPrice } from '../../db/repo'
-import { daysBetween, todayLocal } from '../../domain/dates'
+import { priceAgeDays, todayLocal } from '../../domain/dates'
 import { parseDecimalInput } from '../../domain/decimal'
+import type { HoldingStats } from '../../domain/holdings'
+import { STALE_PRICE_DAYS } from '../../domain/returns'
 import type { Instrument } from '../../domain/types'
 import type { PositionValuation } from '../../domain/valuation'
 import { cn } from '../../lib/cn'
-import { fmtNumber, fmtPrice, fmtRate, fmtSigned, fmtValue, plClass } from '../format'
+import { fmtNumber, fmtPrice, fmtRate, fmtSigned, fmtSignedPct, fmtValue, fmtYield, plClass } from '../format'
 import type { RateInfo } from '../hooks'
 import { marketOf } from '../labels'
 import { assetPath } from '../nav'
 import { useIsDesktop } from '../useIsDesktop'
 import { MarketPill } from './MarketPill'
 
-const STALE_AFTER_DAYS = 7
-
+// With stats (the portfolio page, spec S4) the gain columns become total return and yield on cost;
+// without them (the overview, spec S1) they show the stock and currency parts of the unrealized gain.
 interface HoldingsTableProps {
   valuations: readonly PositionValuation[]
   instruments: ReadonlyMap<string, Instrument>
@@ -26,14 +28,16 @@ interface HoldingsTableProps {
   base: string
   rates: Record<string, RateInfo>
   editablePrice?: boolean
+  stats?: ReadonlyMap<string, HoldingStats>
 }
 
 // The name links to the asset page; the row itself holds a price input, so it cannot be one big link.
+// On a phone the line under the name comes later in the DOM and would paint over the link's last pixels.
 function AssetName({ instrumentId, instrument }: { instrumentId: string; instrument?: Instrument }) {
   return (
     <Link
       to={assetPath(instrumentId)}
-      className="-my-2.5 flex min-h-11 min-w-0 items-center gap-2.5 hover:text-primary hover:underline md:my-0 md:min-h-0"
+      className="-my-2.5 flex min-h-11 min-w-0 items-center gap-2.5 hover:text-primary hover:underline max-md:relative max-md:z-[1] md:my-0 md:min-h-0"
     >
       <MarketPill market={instrument?.market ?? marketOf(instrumentId)} assetType={instrument?.assetType} />
       <b className="font-display text-base font-semibold">{instrument?.symbol ?? instrumentId}</b>
@@ -51,7 +55,7 @@ function priceInputKey(instrument: Instrument) {
 function PriceInput({ instrument }: { instrument: Instrument }) {
   const [value, setValue] = useState(instrument.lastPrice ?? '')
   const [invalid, setInvalid] = useState(false)
-  const age = instrument.lastPriceAt ? daysBetween(instrument.lastPriceAt.slice(0, 10), todayLocal()) : null
+  const age = priceAgeDays(instrument.lastPriceAt, todayLocal())
 
   async function commit() {
     if (value.trim() === '') return
@@ -74,12 +78,12 @@ function PriceInput({ instrument }: { instrument: Instrument }) {
           if (e.key === 'Enter') void commit()
         }}
       />
-      {age !== null && age > STALE_AFTER_DAYS && <Badge variant="warning">{age} วันก่อน</Badge>}
+      {age !== null && age > STALE_PRICE_DAYS && <Badge variant="warning">{age} วันก่อน</Badge>}
     </span>
   )
 }
 
-export function HoldingsTable({ valuations, instruments, accountNames, base, rates, editablePrice }: HoldingsTableProps) {
+export function HoldingsTable({ valuations, instruments, accountNames, base, rates, editablePrice, stats }: HoldingsTableProps) {
   const isDesktop = useIsDesktop()
 
   if (!isDesktop) {
@@ -96,11 +100,21 @@ export function HoldingsTable({ valuations, instruments, accountNames, base, rat
               <AssetName instrumentId={p.instrumentId} instrument={instrument} />
               <span className="font-display font-semibold">{fmtValue(v.marketValueBase)}</span>
               <span className="col-span-2 text-[12.5px] text-muted-foreground">
-                {fmtNumber(p.quantity, 8)} หน่วย · หุ้น <span className={plClass(v.priceEffectBase)}>{fmtSigned(v.priceEffectBase)}</span>
+                {stats ? (
+                  <>
+                    ยังไม่ขาย <span className={plClass(v.unrealizedBase)}>{fmtSigned(v.unrealizedBase, 0)}</span> · รวมปันผล{' '}
+                    <span className={plClass(stats.get(p.key)?.totalReturnBase)}>{fmtSigned(stats.get(p.key)?.totalReturnBase, 0)}</span>
+                  </>
+                ) : (
+                  <>
+                    {fmtNumber(p.quantity, 8)} หน่วย · หุ้น{' '}
+                    <span className={plClass(v.priceEffectBase)}>{fmtSigned(v.priceEffectBase, 0)}</span>
+                  </>
+                )}
                 {p.currency !== base && (
                   <>
                     {' '}
-                    · ค่าเงิน <span className="text-fx">{fmtSigned(v.fxEffectBase)}</span>
+                    · ค่าเงิน <span className="text-fx">{fmtSigned(v.fxEffectBase, 0)}</span>
                   </>
                 )}
               </span>
@@ -127,8 +141,17 @@ export function HoldingsTable({ valuations, instruments, accountNames, base, rat
           <Th className="text-right">เรทซื้อ → วันนี้</Th>
           <Th className="text-right">มูลค่า ({base})</Th>
           <Th className="text-right">ยังไม่ขาย</Th>
-          <Th className="text-right">จากหุ้น</Th>
-          <Th className="text-right">จากค่าเงิน</Th>
+          {stats ? (
+            <>
+              <Th className="text-right">ผลตอบแทนรวม</Th>
+              <Th className="text-right">ปันผล/ทุน</Th>
+            </>
+          ) : (
+            <>
+              <Th className="text-right">จากหุ้น</Th>
+              <Th className="text-right">จากค่าเงิน</Th>
+            </>
+          )}
         </tr>
       </thead>
       <tbody>
@@ -136,6 +159,7 @@ export function HoldingsTable({ valuations, instruments, accountNames, base, rat
           const p = v.position
           const instrument = instruments.get(p.instrumentId)
           const foreign = p.currency !== base
+          const own = stats?.get(p.key)
           return (
             <tr key={p.key}>
               <Td className="max-w-64">
@@ -154,11 +178,25 @@ export function HoldingsTable({ valuations, instruments, accountNames, base, rat
                 {foreign && rates[p.currency]?.note && <span className="block text-[11px]">{rates[p.currency].note}</span>}
               </Td>
               <Td className="text-right font-display font-semibold">{fmtValue(v.marketValueBase)}</Td>
-              <Td className={cn('text-right', plClass(v.unrealizedBase))}>{fmtSigned(v.unrealizedBase)}</Td>
-              <Td className={cn('text-right', plClass(v.priceEffectBase))}>{fmtSigned(v.priceEffectBase)}</Td>
-              <Td className={cn('text-right', foreign ? 'text-fx' : 'text-muted-foreground')}>
-                {foreign ? fmtSigned(v.fxEffectBase) : '—'}
-              </Td>
+              <Td className={cn('text-right', plClass(v.unrealizedBase))}>{fmtSigned(v.unrealizedBase, 0)}</Td>
+              {stats ? (
+                <>
+                  <Td className={cn('text-right', plClass(own?.totalReturnBase))}>
+                    {fmtSigned(own?.totalReturnBase, 0)}
+                    {own?.totalReturnPct && (
+                      <span className="block text-[11px] text-muted-foreground">{fmtSignedPct(own.totalReturnPct)}</span>
+                    )}
+                  </Td>
+                  <Td className="text-right">{fmtYield(own?.yieldOnCostPct)}</Td>
+                </>
+              ) : (
+                <>
+                  <Td className={cn('text-right', plClass(v.priceEffectBase))}>{fmtSigned(v.priceEffectBase, 0)}</Td>
+                  <Td className={cn('text-right', foreign ? 'text-fx' : 'text-muted-foreground')}>
+                    {foreign ? fmtSigned(v.fxEffectBase, 0) : '—'}
+                  </Td>
+                </>
+              )}
             </tr>
           )
         })}

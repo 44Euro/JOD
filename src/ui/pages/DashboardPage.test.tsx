@@ -86,6 +86,17 @@ describe('DashboardPage', () => {
     expect(within(board).getByText('−360.00 THB')).toBeInTheDocument()
   })
 
+  it('splits the gain of each holding into stock and currency in whole baht', async () => {
+    setToday(2024, 6, 1)
+    await seedDime()
+    renderRoute('/', usd())
+    const row = (await screen.findByText('Apple')).closest('tr')!
+    expect(within(row.closest('table')!).getByRole('columnheader', { name: 'จากหุ้น' })).toBeInTheDocument()
+    await waitFor(() => expect(within(row).getByText('+2,020')).toBeInTheDocument())
+    expect(within(row).getByText('−360')).toBeInTheDocument()
+    expect(within(row).getByText('+1,660')).toBeInTheDocument()
+  })
+
   it('links the largest asset’s short route and warns about old prices and review dates', async () => {
     setToday(2024, 6, 1)
     await seedDime({ lastPriceAt: new Date(2024, 5, 20, 12).toISOString(), reviewDate: '2024-06-30' })

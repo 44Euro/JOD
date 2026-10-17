@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { makeTx } from '../test/fixtures'
 import { lastTwelveMonths } from './dates'
 import { D } from './decimal'
-import { allocate, currencyAllocation, holdingStats, instrumentStats } from './holdings'
+import { allocate, currencyAllocation, groupHoldings, holdingStats, instrumentStats } from './holdings'
 import { computeLedger } from './ledger'
 import type { Transaction } from './types'
 import { valuePosition } from './valuation'
@@ -109,5 +109,22 @@ describe('allocation', () => {
       { accountId: 'acc-1', currency: 'JPY', amount: D(1000), base: null },
     ])
     expect(rows.map((r) => [r.key, r.totalBase.toString(), r.pct?.toString()])).toEqual([['USD', '168300', '100']])
+  })
+})
+
+describe('groupHoldings', () => {
+  it('adds value, gains and count per group with each group’s share', () => {
+    const txs = [
+      ...transactions,
+      makeTx({ instrumentId: 'SET:PTT', currency: 'THB', quantity: '1000', price: '35', fxRate: '1', fxSource: 'same', date: '2024-05-01' }),
+    ]
+    const ledger = computeLedger(txs)
+    const prices: Record<string, string> = { 'US:VOO': '500', 'SET:PTT': '36' }
+    const valuations = ledger.positions.map((p) => valuePosition(p, prices[p.instrumentId], p.currency === 'THB' ? '1' : '33'))
+    const groups = groupHoldings(holdingStats(valuations, ledger, '2024-10-16'), (s) => s.instrumentId.split(':')[0])
+    expect(groups.map((g) => [g.key, g.totalBase.toString(), g.unrealizedBase.toString(), g.totalReturnBase.toString(), g.count, g.pct?.toFixed(1)])).toEqual([
+      ['US', '165000', '25000', '28178', 2, '82.1'],
+      ['SET', '36000', '1000', '1000', 1, '17.9'],
+    ])
   })
 })

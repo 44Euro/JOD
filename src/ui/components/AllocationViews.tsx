@@ -1,0 +1,132 @@
+import { Table, Td, Th } from '../../components/ui/table'
+import type { AllocationRow, HoldingGroup } from '../../domain/holdings'
+import type { Market } from '../../domain/types'
+import { cn } from '../../lib/cn'
+import { fmtPct, fmtSigned, fmtValue, plClass } from '../format'
+import { MARKET_LABELS } from '../labels'
+import { useIsDesktop } from '../useIsDesktop'
+import { CashPill, MarketPill } from './MarketPill'
+
+function ShareBar({ row }: { row: AllocationRow }) {
+  return (
+    <span className="flex items-center justify-end gap-2">
+      <span aria-hidden className="h-1.5 w-20 overflow-hidden rounded-full bg-muted">
+        <span className="block h-full rounded-full bg-primary" style={{ width: `${row.pct?.toFixed(2) ?? 0}%` }} />
+      </span>
+      {fmtPct(row.pct, 1)}
+    </span>
+  )
+}
+
+function MarketName({ row }: { row: HoldingGroup }) {
+  const market = row.key as Market
+  return (
+    <span className="flex min-w-0 items-center gap-2.5">
+      <MarketPill market={market} />
+      <span className="truncate">{MARKET_LABELS[market]}</span>
+      <span className="shrink-0 text-[12.5px] text-muted-foreground">{row.count} ตัว</span>
+    </span>
+  )
+}
+
+const phoneRow = 'grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2.5 gap-y-1 border-t border-muted py-3 first:border-t-0'
+
+// Spec S4: the market view shares out the assets only; cash has no market.
+export function MarketView({ groups, base }: { groups: readonly HoldingGroup[]; base: string }) {
+  const isDesktop = useIsDesktop()
+  return (
+    <>
+      {isDesktop ? (
+        <Table>
+          <thead>
+            <tr>
+              <Th>ตลาด</Th>
+              <Th className="text-right">มูลค่า ({base})</Th>
+              <Th className="text-right">สัดส่วน</Th>
+              <Th className="text-right">ยังไม่ขาย</Th>
+              <Th className="text-right">ผลตอบแทนรวม</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {groups.map((row) => (
+              <tr key={row.key}>
+                <Td>
+                  <MarketName row={row} />
+                </Td>
+                <Td className="text-right font-display font-semibold">{fmtValue(row.totalBase)}</Td>
+                <Td className="text-right">
+                  <ShareBar row={row} />
+                </Td>
+                <Td className={cn('text-right', plClass(row.unrealizedBase))}>{fmtSigned(row.unrealizedBase)}</Td>
+                <Td className={cn('text-right', plClass(row.totalReturnBase))}>{fmtSigned(row.totalReturnBase)}</Td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      ) : (
+        <ul aria-label="สัดส่วนตามตลาด">
+          {groups.map((row) => (
+            <li key={row.key} className={phoneRow}>
+              <MarketName row={row} />
+              <span className="font-display font-semibold">{fmtPct(row.pct, 1)}</span>
+              <span className="col-span-2 text-[12.5px] text-muted-foreground">
+                {fmtValue(row.totalBase)} · ยังไม่ขาย <span className={plClass(row.unrealizedBase)}>{fmtSigned(row.unrealizedBase)}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="mt-3 text-[12.5px] text-muted-foreground">สัดส่วนจากมูลค่าสินทรัพย์ ไม่รวมเงินสด</p>
+    </>
+  )
+}
+
+// Spec 7.4: assets count in the currency they trade in, cash in its own currency.
+export function CurrencyView({ rows, base }: { rows: readonly AllocationRow[]; base: string }) {
+  const isDesktop = useIsDesktop()
+  return (
+    <>
+      {isDesktop ? (
+        <Table>
+          <thead>
+            <tr>
+              <Th>สกุลเงิน</Th>
+              <Th className="text-right">สินทรัพย์</Th>
+              <Th className="text-right">เงินสด</Th>
+              <Th className="text-right">รวม ({base})</Th>
+              <Th className="text-right">สัดส่วน</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.key}>
+                <Td>
+                  <CashPill label={row.key} />
+                </Td>
+                <Td className="text-right">{fmtValue(row.assetsBase)}</Td>
+                <Td className="text-right">{fmtValue(row.cashBase)}</Td>
+                <Td className="text-right font-display font-semibold">{fmtValue(row.totalBase)}</Td>
+                <Td className="text-right">
+                  <ShareBar row={row} />
+                </Td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      ) : (
+        <ul aria-label="สัดส่วนตามสกุลเงิน">
+          {rows.map((row) => (
+            <li key={row.key} className={phoneRow}>
+              <CashPill label={row.key} />
+              <span className="font-display font-semibold">{fmtPct(row.pct, 1)}</span>
+              <span className="col-span-2 text-[12.5px] text-muted-foreground">
+                สินทรัพย์ {fmtValue(row.assetsBase)} · เงินสด {fmtValue(row.cashBase)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="mt-3 text-[12.5px] text-muted-foreground">สินทรัพย์นับตามสกุลที่ซื้อขาย รวมเงินสดตามสกุล</p>
+    </>
+  )
+}
