@@ -8,9 +8,10 @@ import { sumBy } from '../../domain/decimal'
 import { currencyAllocation, groupHoldings, holdingStats } from '../../domain/holdings'
 import { positionValueBase } from '../../domain/investor'
 import { accountTracksCash } from '../../domain/ledger'
+import { unpricedInstrumentCount } from '../../domain/valuation'
 import { cn } from '../../lib/cn'
 import { CurrencyView, MarketView } from '../components/AllocationViews'
-import { HoldingsTable } from '../components/HoldingsTable'
+import { HoldingsTable, MissingRatesNote } from '../components/HoldingsTable'
 import { PageHeader } from '../components/PageHeader'
 import { Stat, SummaryPanel } from '../components/Summary'
 import { fmtHeadline, fmtMoney, fmtSigned, fmtValue, plClass } from '../format'
@@ -49,7 +50,7 @@ export function PortfolioPage() {
   const usedAccounts = [...new Set(data.transactions.map((t) => t.accountId))]
   const tradeOnly = usedAccounts.some((id) => !accountTracksCash(data.transactions, id))
   const currencyRows = currencyAllocation(valuations, cash)
-  const hasUnpriced = valuations.some((v) => v.lastPrice === null)
+  const unpriced = unpricedInstrumentCount(valuations)
   // Spec 7.4 counts cash in the currency view, so cash alone still has something to show there.
   const nothingToShow = valuations.length === 0 && !(view === 'currency' && currencyRows.length > 0)
   const hasPriceInput = valuations.length > 0 && (view === 'asset' || view === 'account')
@@ -64,9 +65,10 @@ export function PortfolioPage() {
         <Stat label="จากค่าเงิน" value={fmtSigned(summary.fxEffectBase, 0)} tone="text-fx" />
       </SummaryPanel>
 
-      {summary.unvaluedCount > 0 && (
-        <Alert role="note">ยังไม่มีราคาล่าสุด {summary.unvaluedCount} ตัว กรอกในช่องราคาด้านล่าง แล้วตัวเลขด้านบนจะรวมให้</Alert>
+      {unpriced > 0 && (
+        <Alert role="note">ยังไม่มีราคาล่าสุด {unpriced} ตัว กรอกในช่องราคาด้านล่าง แล้วตัวเลขด้านบนจะรวมให้</Alert>
       )}
+      <MissingRatesNote currencies={investor.worth.missingRates} />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Segmented label="มุมมอง" options={VIEWS} value={view} onChange={setView} />
@@ -109,7 +111,7 @@ export function PortfolioPage() {
                 </Card>
               )
             })}
-          {hasUnpriced && <UnpricedNote />}
+          {unpriced > 0 && <UnpricedNote />}
         </>
       ) : (
         <Card>
@@ -118,7 +120,7 @@ export function PortfolioPage() {
           ) : (
             <CurrencyView rows={currencyRows} base={base} />
           )}
-          {hasUnpriced && <UnpricedNote className="mt-1" />}
+          {unpriced > 0 && <UnpricedNote className="mt-1" />}
         </Card>
       )}
 

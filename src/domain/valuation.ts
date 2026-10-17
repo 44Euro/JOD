@@ -62,6 +62,12 @@ export function summarizePortfolio(valuations: readonly PositionValuation[]): Po
   }
 }
 
+// An instrument held in two accounts is still one instrument that needs a price. A holding that has a price
+// but lacks a rate is not counted: its price is already there.
+export function unpricedInstrumentCount(valuations: readonly PositionValuation[]): number {
+  return new Set(valuations.filter((v) => v.lastPrice === null).map((v) => v.position.instrumentId)).size
+}
+
 export interface CurrencyCost {
   currency: string
   costQuote: Decimal

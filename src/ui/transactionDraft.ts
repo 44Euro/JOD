@@ -36,6 +36,7 @@ export interface Draft {
   toAmount: string
   toAmountSource: ToAmountSource
   marketRate: string
+  marketRateDate: string
   fxRate: string
   fxSource: FxSource
   fxRateDate: string
@@ -76,6 +77,7 @@ export function emptyDraft(accountId: string, today: string): Draft {
     toAmount: '',
     toAmountSource: 'auto',
     marketRate: '',
+    marketRateDate: '',
     fxRate: '',
     fxSource: 'auto',
     fxRateDate: '',
@@ -97,12 +99,12 @@ export function showsInstrument(draft: Draft): boolean {
 
 export function changeCurrency(draft: Draft, currency: string): Draft {
   if (currency === draft.currency) return draft
-  return { ...draft, currency, fxRate: '', fxSource: 'auto', fxRateDate: '', referenceFxRate: '', marketRate: '' }
+  return { ...draft, currency, fxRate: '', fxSource: 'auto', fxRateDate: '', referenceFxRate: '', marketRate: '', marketRateDate: '' }
 }
 
 // A rate fetched for the old date must not survive as an "auto" rate for the new one.
 export function changeDate(draft: Draft, date: string): Draft {
-  const next = { ...draft, date, referenceFxRate: '', fxRateDate: '', marketRate: '' }
+  const next = { ...draft, date, referenceFxRate: '', fxRateDate: '', marketRate: '', marketRateDate: '' }
   return draft.fxSource === 'auto' ? { ...next, fxRate: '' } : next
 }
 
@@ -122,6 +124,7 @@ export function changeType(draft: Draft, type: TxType, baseCurrency: string): Dr
       ...converted,
       toCurrency: baseCurrency === 'USD' ? 'THB' : 'USD',
       marketRate: '',
+      marketRateDate: '',
       toAmount: '',
       toAmountSource: 'auto',
     }
@@ -223,6 +226,7 @@ export function draftFromTransaction(tx: Transaction, instruments: readonly Inst
     toAmount: tx.toAmount ?? '',
     toAmountSource: 'manual',
     marketRate: tx.marketRate ?? '',
+    marketRateDate: '',
     fxRate: tx.fxRate,
     fxSource: tx.fxSource,
     fxRateDate: tx.fxRateDate ?? '',

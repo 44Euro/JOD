@@ -28,9 +28,9 @@ function badgeOf(value: Decimal | null): 'ok' | 'loss' | 'default' {
 export function AssetPage() {
   const { id = '' } = useParams()
   const data = useAppData()
-  const { ledger, valuations, rates } = usePortfolio(data)
+  const { ledger, valuations, rates, ready } = usePortfolio(data)
   const isDesktop = useIsDesktop()
-  if (!data || !ledger) return <p className="text-muted-foreground">กำลังโหลด…</p>
+  if (!data || !ledger || !ready) return <p className="text-muted-foreground">กำลังโหลด…</p>
 
   const base = data.settings.baseCurrency
   const today = todayLocal()

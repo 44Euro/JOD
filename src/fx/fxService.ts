@@ -11,6 +11,12 @@ export interface FxQuote {
 
 const LATEST_TTL_MS = 6 * 60 * 60 * 1000
 
+// The newest cached rate for a pair whatever its age, so a screen can start from it while a refresh is on its way.
+export async function peekCachedQuote(db: JodDB, from: string, to: string): Promise<FxQuote | null> {
+  const cached = await db.fxRates.get(`${from}|${to}|latest`)
+  return cached ? { rate: cached.rate, rateDate: cached.rateDate, source: 'auto' } : null
+}
+
 export async function getFxQuote(
   db: JodDB,
   provider: FxProvider,
@@ -18,6 +24,7 @@ export async function getFxQuote(
   to: string,
   date: string | 'latest',
   now: Date = new Date(),
+  signal?: AbortSignal,
 ): Promise<FxQuote> {
   const today = todayLocal(now)
   if (from === to) return { rate: '1', rateDate: date === 'latest' ? today : date, source: 'same' }
@@ -34,11 +41,13 @@ export async function getFxQuote(
   if (cached && fresh) return { rate: cached.rate, rateDate: cached.rateDate, source: 'auto' }
 
   try {
-    const result = await provider.getRate(from, to, requested)
+    const result = await provider.getRate(from, to, requested, signal)
+    // A caller that has gone away must not leave behind a row that the next reader takes for a fresh rate.
+    signal?.throwIfAborted()
     await db.fxRates.put({ key, ...result, fetchedAt: now.toISOString() })
     return { ...result, source: 'auto' }
   } catch (error) {
-    if (cached) return { rate: cached.rate, rateDate: cached.rateDate, source: 'auto' }
+    if (cached && !signal?.aborted) return { rate: cached.rate, rateDate: cached.rateDate, source: 'auto' }
     throw error
   }
 }

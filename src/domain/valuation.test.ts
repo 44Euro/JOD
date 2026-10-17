@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { makeTx } from '../test/fixtures'
 import { D } from './decimal'
 import type { Position } from './ledger'
-import { avgFxByCurrency, latestRecordedRate, summarizePortfolio, valuePosition } from './valuation'
+import { avgFxByCurrency, latestRecordedRate, summarizePortfolio, unpricedInstrumentCount, valuePosition } from './valuation'
 
 function position(overrides: Partial<Position> = {}): Position {
   return {
@@ -54,6 +54,18 @@ describe('summarizePortfolio', () => {
     expect(summary.unrealizedBase.toString()).toBe('4700')
     expect(summary.fxEffectBase.toString()).toBe('-2400')
     expect(summary.unvaluedCount).toBe(1)
+  })
+})
+
+describe('unpricedInstrumentCount', () => {
+  it('counts an instrument once however many accounts hold it, and ignores priced ones that only lack a rate', () => {
+    const count = unpricedInstrumentCount([
+      valuePosition(position(), undefined, '33'),
+      valuePosition(position({ key: 'acc-2|US:AAPL', accountId: 'acc-2' }), undefined, '33'),
+      valuePosition(position({ key: 'acc-1|US:MSFT', instrumentId: 'US:MSFT' }), undefined, '33'),
+      valuePosition(position({ key: 'acc-1|OTHER:PHO', instrumentId: 'OTHER:PHO', currency: 'VND' }), '120000', undefined),
+    ])
+    expect(count).toBe(2)
   })
 })
 

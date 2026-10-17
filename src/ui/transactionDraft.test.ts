@@ -129,7 +129,7 @@ describe('applyReferenceRate', () => {
 
 function convertDraft(overrides: Partial<Draft> = {}): Draft {
   const converting = changeType(emptyDraft('acc-1', '2024-01-15'), 'fx_convert', 'THB')
-  return { ...converting, amount: '20,000', fees: '50', marketRate: '33.5', ...overrides }
+  return { ...converting, amount: '20,000', fees: '50', marketRate: '33.5', marketRateDate: '2024-01-12', ...overrides }
 }
 
 describe('receivedAmount', () => {
@@ -198,12 +198,12 @@ describe('syncReceived', () => {
 })
 
 describe('stale market rates', () => {
-  it('drops the market rate when the date changes', () => {
-    expect(changeDate(convertDraft(), '2024-01-10').marketRate).toBe('')
+  it('drops the market rate and the day it belongs to when the date changes', () => {
+    expect(changeDate(convertDraft(), '2024-01-10')).toMatchObject({ marketRate: '', marketRateDate: '' })
   })
 
-  it('drops the market rate when the source currency changes', () => {
-    expect(changeCurrency(convertDraft(), 'USD').marketRate).toBe('')
+  it('drops the market rate and the day it belongs to when the source currency changes', () => {
+    expect(changeCurrency(convertDraft(), 'USD')).toMatchObject({ marketRate: '', marketRateDate: '' })
   })
 })
 

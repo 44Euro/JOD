@@ -218,6 +218,22 @@ describe('TransactionFormPage', () => {
       })
     })
 
+    it('names the day the rate belongs to when the picked day has none of its own', async () => {
+      const provider: FxProvider = {
+        async getRate(_from, _to, date) {
+          return { rate: '33.5', rateDate: date === '2024-06-15' ? '2024-06-14' : date }
+        },
+      }
+      const user = userEvent.setup()
+      renderRoute('/transactions/new', provider)
+      await user.click(await screen.findByRole('button', { name: 'แลกเงิน' }))
+      fireEvent.change(screen.getByLabelText('วันที่'), { target: { value: '2024-06-15' } })
+      await user.type(screen.getByLabelText('จำนวนเงินต้นทาง'), '20000')
+      expect(
+        await screen.findByText('คำนวณจากเรทกลาง ECB 14 มิ.ย. 2024 · 1 USD = 33.50 THB · แก้เป็นยอดจริงจากโบรกได้'),
+      ).toBeInTheDocument()
+    })
+
     it('uses the rate of the date picked after the amount was filled in', async () => {
       const provider: FxProvider = {
         async getRate(_from, _to, date) {

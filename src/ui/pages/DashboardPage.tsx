@@ -8,9 +8,9 @@ import { D, type Decimal } from '../../domain/decimal'
 import { instrumentStats } from '../../domain/holdings'
 import { positionValueBase } from '../../domain/investor'
 import { portfolioReturn, staleInstruments } from '../../domain/returns'
-import type { PositionValuation } from '../../domain/valuation'
+import { unpricedInstrumentCount, type PositionValuation } from '../../domain/valuation'
 import { cn } from '../../lib/cn'
-import { HoldingsTable } from '../components/HoldingsTable'
+import { HoldingsTable, MissingRatesNote } from '../components/HoldingsTable'
 import { MiniRoute, MoneyRoute } from '../components/MoneyRoute'
 import { PageHeader } from '../components/PageHeader'
 import { RateBoard } from '../components/RateBoard'
@@ -63,7 +63,7 @@ export function DashboardPage() {
   const rateNote = board.find((row) => row.todayNote)?.todayNote
   const instruments = new Map(data.instruments.map((i) => [i.id, i]))
   const held = new Set(ledger.positions.map((p) => p.instrumentId))
-  const unpriced = valuations.filter((v) => v.lastPrice === null).length
+  const unpriced = unpricedInstrumentCount(valuations)
   const stale = staleInstruments(ledger.positions, data.instruments, today)
   const dueReviews = data.instruments.filter((i) => held.has(i.id) && i.reviewDate !== undefined && i.reviewDate <= today)
   const top = [...valuations].sort(byValue).slice(0, 5)
@@ -155,11 +155,7 @@ export function DashboardPage() {
               ราคา {stale.length} ตัวไม่ได้อัปเดตเกิน 7 วัน · <Link to="/portfolio">อัปเดตราคา</Link>
             </Alert>
           )}
-          {worth.missingRates.length > 0 && (
-            <Alert role="note">
-              ยังไม่มีเรทวันนี้ของ {worth.missingRates.join(', ')} · สินทรัพย์สกุลนี้นับที่ทุน และยังไม่รวมเงินสดสกุลนี้
-            </Alert>
-          )}
+          <MissingRatesNote currencies={worth.missingRates} />
           {dueReviews.map((instrument) => (
             <Alert key={instrument.id} role="note" icon={CalendarClock}>
               ถึงวันทบทวนเหตุผลที่ถือ {instrument.symbol} · <Link to={assetPath(instrument.id)}>เปิดดู</Link>

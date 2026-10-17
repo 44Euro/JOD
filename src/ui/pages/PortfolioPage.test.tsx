@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '../../db/db'
-import { fakeFxProvider } from '../../test/fakeFx'
+import { fakeFxProvider, lateFxProvider } from '../../test/fakeFx'
 import { makeTx } from '../../test/fixtures'
 import { renderRoute, resetDb } from '../../test/render'
 
@@ -17,6 +17,21 @@ afterEach(() => {
 })
 
 describe('PortfolioPage', () => {
+  it('shows no value and no missing-price alert until the rates arrive', async () => {
+    await db.instruments.add({ id: 'US:AAPL', market: 'US', symbol: 'AAPL', name: 'Apple', assetType: 'stock', currency: 'USD', lastPrice: '120' })
+    await db.transactions.add(makeTx({ quantity: '10', price: '100', fxRate: '35' }))
+    const { provider, release, requested } = lateFxProvider({ 'USD|THB': '33' })
+    renderRoute('/portfolio', provider)
+    await waitFor(() => expect(requested()).toBeGreaterThan(0))
+    expect(screen.getByText('กำลังโหลด…')).toBeInTheDocument()
+    expect(screen.queryByText('มูลค่าสินทรัพย์ · ไม่รวมเงินสด')).not.toBeInTheDocument()
+    expect(screen.queryByText(/ยังไม่มีราคาล่าสุด/)).not.toBeInTheDocument()
+
+    release()
+    expect(await screen.findByText('฿39,600')).toBeInTheDocument()
+    expect(screen.queryByText(/ยังไม่มีราคาล่าสุด/)).not.toBeInTheDocument()
+  })
+
   it('values a holding from the typed price with its total return including dividends', async () => {
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date(2024, 9, 16, 9, 0))
@@ -106,6 +121,119 @@ describe('PortfolioPage', () => {
     expect(await screen.findByText(/วันก่อน$/)).toBeInTheDocument()
   })
 
+  it('gives up the long name and the rate date line, and tightens the cells, below 1366px so every column fits', async () => {
+    await db.instruments.add({ id: 'US:AAPL', market: 'US', symbol: 'AAPL', name: 'Apple', assetType: 'stock', currency: 'USD', lastPrice: '120' })
+    await db.transactions.add(makeTx({ quantity: '10', price: '100', fxRate: '35' }))
+    renderRoute('/portfolio', fakeFxProvider({ 'USD|THB': '33' }).provider)
+    const name = await screen.findByText('Apple')
+    expect(name).toHaveClass('md:max-[1366px]:hidden')
+    expect(name.closest('table')).toHaveClass('max-[1366px]:[&_td]:px-1.5', 'max-[1366px]:[&_th]:px-1.5')
+    expect(await screen.findByText('ECB 15 ม.ค. 2024')).toHaveClass('max-[1366px]:hidden')
+  })
+
+  it('stacks the old-price badge under the input so every price input ends at the same edge', async () => {
+    await db.instruments.add({
+      id: 'US:AAPL',
+      market: 'US',
+      symbol: 'AAPL',
+      name: 'Apple',
+      assetType: 'stock',
+      currency: 'USD',
+      lastPrice: '120',
+      lastPriceAt: '2020-01-01T00:00:00.000Z',
+    })
+    await db.transactions.add(makeTx({ quantity: '10', price: '100', fxRate: '35' }))
+    renderRoute('/portfolio', fakeFxProvider({ 'USD|THB': '33' }).provider)
+    const badge = await screen.findByText(/วันก่อน$/)
+    expect(badge.parentElement).toContainElement(screen.getByLabelText('ราคาล่าสุด AAPL'))
+    expect(badge.parentElement).toHaveClass('md:flex-col', 'md:items-end')
+  })
+
+  describe('typing a price', () => {
+    const OLD = '2020-01-01T00:00:00.000Z'
+
+    beforeEach(async () => {
+      await db.instruments.add({
+        id: 'US:AAPL',
+        market: 'US',
+        symbol: 'AAPL',
+        name: 'Apple',
+        assetType: 'stock',
+        currency: 'USD',
+        lastPrice: '120',
+        lastPriceAt: OLD,
+      })
+      await db.transactions.add(makeTx({ quantity: '10', price: '100', fxRate: '35' }))
+    })
+
+    it('refreshes the date when the same price is typed again, which clears the old-price badge', async () => {
+      const user = userEvent.setup()
+      renderRoute('/portfolio', fakeFxProvider({ 'USD|THB': '33' }).provider)
+      const input = await screen.findByLabelText('ราคาล่าสุด AAPL')
+      expect(await screen.findByText(/วันก่อน$/)).toBeInTheDocument()
+      await user.clear(input)
+      await user.type(input, '120')
+      await user.tab()
+      await waitFor(async () => expect((await db.instruments.get('US:AAPL'))?.lastPriceAt).not.toBe(OLD))
+      expect((await db.instruments.get('US:AAPL'))?.lastPrice).toBe('120')
+      await waitFor(() => expect(screen.queryByText(/วันก่อน$/)).not.toBeInTheDocument())
+    })
+
+    it('saves the same price on Enter too', async () => {
+      const user = userEvent.setup()
+      renderRoute('/portfolio', fakeFxProvider({ 'USD|THB': '33' }).provider)
+      const input = await screen.findByLabelText('ราคาล่าสุด AAPL')
+      await user.clear(input)
+      await user.type(input, '120{Enter}')
+      await waitFor(async () => expect((await db.instruments.get('US:AAPL'))?.lastPriceAt).not.toBe(OLD))
+    })
+
+    it('does not touch the date when the field is only tabbed through', async () => {
+      const user = userEvent.setup()
+      renderRoute('/portfolio', fakeFxProvider({ 'USD|THB': '33' }).provider)
+      const input = await screen.findByLabelText('ราคาล่าสุด AAPL')
+      await user.click(input)
+      await user.tab()
+      await user.click(input)
+      await user.keyboard('{Enter}')
+      await user.tab()
+      await new Promise((resolve) => setTimeout(resolve, 50))
+      expect((await db.instruments.get('US:AAPL'))?.lastPriceAt).toBe(OLD)
+    })
+
+    it('forgets the edit once it is saved, so tabbing through the same price later saves nothing', async () => {
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(new Date(2024, 9, 16, 9, 0))
+      const user = userEvent.setup()
+      renderRoute('/portfolio', fakeFxProvider({ 'USD|THB': '33' }).provider)
+      const input = await screen.findByLabelText('ราคาล่าสุด AAPL')
+      await user.clear(input)
+      await user.type(input, '120{Enter}')
+      const savedAt = new Date(2024, 9, 16, 9, 0).toISOString()
+      await waitFor(async () => expect((await db.instruments.get('US:AAPL'))?.lastPriceAt).toBe(savedAt))
+
+      vi.setSystemTime(new Date(2024, 9, 16, 10, 0))
+      await user.tab()
+      await user.click(input)
+      await user.tab()
+      await new Promise((resolve) => setTimeout(resolve, 50))
+      expect((await db.instruments.get('US:AAPL'))?.lastPriceAt).toBe(savedAt)
+    })
+
+    it('saves once when Enter is followed by leaving the field', async () => {
+      const user = userEvent.setup()
+      renderRoute('/portfolio', fakeFxProvider({ 'USD|THB': '33' }).provider)
+      const input = await screen.findByLabelText('ราคาล่าสุด AAPL')
+      await user.clear(input)
+      await user.type(input, '125{Enter}')
+      await waitFor(async () => expect((await db.instruments.get('US:AAPL'))?.lastPrice).toBe('125'))
+      const savedAt = (await db.instruments.get('US:AAPL'))?.lastPriceAt
+      await user.tab()
+      await new Promise((resolve) => setTimeout(resolve, 50))
+      expect((await db.instruments.get('US:AAPL'))?.lastPriceAt).toBe(savedAt)
+    })
+  })
+
   it('shows the account under the asset and no exchange rate for a baht holding', async () => {
     await db.instruments.add({
       id: 'SET:PTT',
@@ -152,6 +280,26 @@ describe('PortfolioPage', () => {
     )
     renderRoute('/portfolio', fakeFxProvider({ 'USD|THB': '33' }).provider)
     expect(await screen.findByText('ยังไม่มีเรทวันนี้ของ VND จึงยังไม่รวมในยอดรวม')).toBeInTheDocument()
+  })
+
+  it('asks for the rate, not the price, when a priced holding only lacks today’s rate', async () => {
+    await db.instruments.add({ id: 'OTHER:PHO', market: 'OTHER', symbol: 'PHO', name: 'Pho', assetType: 'stock', currency: 'VND', lastPrice: '120000' })
+    await db.transactions.add(makeTx({ instrumentId: 'OTHER:PHO', currency: 'VND', quantity: '1', price: '100000', fxRate: '0.0014', fxSource: 'same' }))
+    renderRoute('/portfolio', fakeFxProvider({ 'USD|THB': '33' }).provider)
+    const note = await screen.findByText('ยังไม่มีเรทวันนี้ของ VND · สินทรัพย์สกุลนี้นับที่ทุน และยังไม่รวมเงินสดสกุลนี้')
+    expect(note.closest('[role="note"]')).toBeInTheDocument()
+    expect(screen.queryByText(/ยังไม่มีราคาล่าสุด/)).not.toBeInTheDocument()
+  })
+
+  it('counts an instrument held in two accounts as one without a price', async () => {
+    await db.accounts.add({ id: 'acc-2', name: 'Dime 2', broker: 'Dime', note: '', createdAt: '2024-01-01T00:00:00.000Z' })
+    await db.instruments.add({ id: 'US:AAPL', market: 'US', symbol: 'AAPL', name: 'Apple', assetType: 'stock', currency: 'USD' })
+    await db.transactions.bulkAdd([
+      makeTx({ accountId: 'acc-1', quantity: '10', price: '100', fxRate: '35' }),
+      makeTx({ accountId: 'acc-2', quantity: '5', price: '100', fxRate: '35' }),
+    ])
+    renderRoute('/portfolio', fakeFxProvider({ 'USD|THB': '33' }).provider)
+    expect(await screen.findByText(/ยังไม่มีราคาล่าสุด 1 ตัว/)).toBeInTheDocument()
   })
 
   it('lists the cash as two-line rows on a phone', async () => {
@@ -321,6 +469,30 @@ describe('PortfolioPage', () => {
       const markets = screen.getByRole('list', { name: 'สัดส่วนตามตลาด' })
       expect(within(markets).getAllByRole('listitem')[0]).toHaveTextContent('สหรัฐ (US)1 ตัว91.9%39,600 · ยังไม่ขาย +4,600')
       expect(within(markets).getAllByRole('listitem')[0]).not.toHaveTextContent('+4,600.00')
+    })
+
+    it('keeps each label with its value, and the dot before it, on the phone sub-line, so a wrap falls between the pairs', async () => {
+      vi.stubGlobal('matchMedia', (query: string) => ({
+        matches: false,
+        media: query,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      }))
+      renderRoute('/portfolio', fakeFxProvider({ 'USD|THB': '33' }).provider)
+      const holdings = await screen.findByRole('list', { name: 'สินทรัพย์ที่ถืออยู่' })
+      const item = within(holdings).getAllByRole('listitem')[0]
+      await waitFor(() => expect(item).toHaveTextContent('ค่าเงิน −2,400'))
+      const pairs = [
+        ['ยังไม่ขาย', 'ยังไม่ขาย +4,600'],
+        ['รวมปันผล', '· รวมปันผล +4,600'],
+        ['ค่าเงิน', '· ค่าเงิน −2,400'],
+      ]
+      for (const [label, text] of pairs) {
+        const wrapper = within(item).getByText(new RegExp(label))
+        expect(wrapper).toHaveTextContent(text)
+        expect(wrapper).toHaveClass('whitespace-nowrap')
+      }
+      expect(within(item).getByText(/ยังไม่ขาย/)).not.toHaveTextContent(/·/)
     })
 
     it('keeps the currency pill at its own size on a phone', async () => {

@@ -1,20 +1,70 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createDb, type JodDB } from '../db/db'
 import { fakeFxProvider } from '../test/fakeFx'
 import { createFrankfurterProvider, FxUnavailableError } from './frankfurter'
-import { getFxQuote } from './fxService'
+import { getFxQuote, peekCachedQuote } from './fxService'
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
 }
+
+const hangingFetch: typeof fetch = (_input, init) =>
+  new Promise((_resolve, reject) => {
+    init?.signal?.addEventListener('abort', () => reject(init.signal?.reason))
+  })
 
 describe('createFrankfurterProvider', () => {
   it('requests the dated endpoint and returns the date the rate belongs to', async () => {
     const fetchFn = vi.fn(async () => jsonResponse({ amount: 1, base: 'USD', date: '2024-01-12', rates: { THB: 35.1 } }))
     const provider = createFrankfurterProvider(fetchFn)
     const result = await provider.getRate('USD', 'THB', '2024-01-13')
-    expect(fetchFn).toHaveBeenCalledWith('https://api.frankfurter.dev/v1/2024-01-13?base=USD&symbols=THB')
+    expect(fetchFn).toHaveBeenCalledWith('https://api.frankfurter.dev/v1/2024-01-13?base=USD&symbols=THB', {
+      signal: expect.any(AbortSignal),
+    })
     expect(result).toEqual({ rate: '35.1', rateDate: '2024-01-12' })
+  })
+
+  it('gives up on a connection that never answers, so the offline fallback can run', async () => {
+    const provider = createFrankfurterProvider(hangingFetch, undefined, 20)
+    await expect(provider.getRate('USD', 'THB', 'latest')).rejects.toThrow('เชื่อมต่อแหล่งเรทไม่ได้')
+  })
+
+  describe('on a browser without AbortSignal.timeout', () => {
+    const original = Object.getOwnPropertyDescriptor(AbortSignal, 'timeout')!
+
+    beforeEach(() => {
+      Object.defineProperty(AbortSignal, 'timeout', { value: undefined, configurable: true })
+    })
+
+    afterEach(() => {
+      Object.defineProperty(AbortSignal, 'timeout', original)
+    })
+
+    it('still fetches the rate', async () => {
+      const provider = createFrankfurterProvider(async () => jsonResponse({ amount: 1, base: 'USD', date: '2024-01-12', rates: { THB: 35.1 } }))
+      expect(await provider.getRate('USD', 'THB', 'latest')).toEqual({ rate: '35.1', rateDate: '2024-01-12' })
+    })
+
+    it('still gives up on a connection that never answers', async () => {
+      const provider = createFrankfurterProvider(hangingFetch, undefined, 20)
+      await expect(provider.getRate('USD', 'THB', 'latest')).rejects.toThrow('เชื่อมต่อแหล่งเรทไม่ได้')
+    })
+  })
+
+  it('clears its timer once the answer is in, so nothing fires later', async () => {
+    const clear = vi.spyOn(globalThis, 'clearTimeout')
+    const provider = createFrankfurterProvider(async () => jsonResponse({ amount: 1, base: 'USD', date: '2024-01-12', rates: { THB: 35.1 } }))
+    await provider.getRate('USD', 'THB', 'latest')
+    expect(clear).toHaveBeenCalled()
+    clear.mockRestore()
+  })
+
+  it('stops waiting as soon as the caller aborts', async () => {
+    const provider = createFrankfurterProvider(hangingFetch, undefined, 60_000)
+    const controller = new AbortController()
+    const pending = provider.getRate('USD', 'THB', 'latest', controller.signal)
+    controller.abort()
+    await expect(pending).rejects.toBeInstanceOf(FxUnavailableError)
   })
 
   it('turns a 404 into FxUnavailableError', async () => {
@@ -95,5 +145,44 @@ describe('getFxQuote', () => {
     const offline = fakeFxProvider({})
     const quote = await getFxQuote(db, offline.provider, 'USD', 'THB', 'latest', new Date(2024, 6, 5))
     expect(quote.rate).toBe('33.5')
+  })
+
+  it('falls back to the cached rate when the connection hangs past the timeout', async () => {
+    const online = fakeFxProvider({ 'USD|THB': '33.5' })
+    await getFxQuote(db, online.provider, 'USD', 'THB', 'latest', now)
+    const hung = createFrankfurterProvider(hangingFetch, undefined, 20)
+    const quote = await getFxQuote(db, hung, 'USD', 'THB', 'latest', new Date(2024, 6, 5))
+    expect(quote.rate).toBe('33.5')
+  })
+
+  it('leaves the cache alone when the caller aborted while the rate was on its way', async () => {
+    const controller = new AbortController()
+    const provider = {
+      async getRate() {
+        controller.abort()
+        return { rate: '33.5', rateDate: '2024-06-28' }
+      },
+    }
+    await expect(getFxQuote(db, provider, 'USD', 'THB', 'latest', now, controller.signal)).rejects.toThrow()
+    expect(await db.fxRates.count()).toBe(0)
+  })
+})
+
+describe('peekCachedQuote', () => {
+  let db: JodDB
+
+  beforeEach(() => {
+    db = createDb(`test-${crypto.randomUUID()}`)
+  })
+
+  it('returns the cached latest rate whatever its age, without touching the network', async () => {
+    const { provider, calls } = fakeFxProvider({ 'USD|THB': '33.5' }, '2024-06-28')
+    await getFxQuote(db, provider, 'USD', 'THB', 'latest', new Date(2024, 5, 30, 12, 0))
+    expect(await peekCachedQuote(db, 'USD', 'THB')).toEqual({ rate: '33.5', rateDate: '2024-06-28', source: 'auto' })
+    expect(calls).toEqual(['USD|THB|latest'])
+  })
+
+  it('returns null when nothing is cached for the pair', async () => {
+    expect(await peekCachedQuote(db, 'USD', 'THB')).toBeNull()
   })
 })

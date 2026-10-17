@@ -117,7 +117,7 @@ function marketRateKey(draft: Draft): string {
 function receivedHint(draft: Draft, computed: string | null, rateMissing: boolean, restoreComputed: () => void): ReactNode {
   if (!draft.marketRate) return rateMissing ? 'ไม่มีเรทกลางของวันนั้น กรอกจำนวนที่ได้รับเอง' : undefined
   if (draft.toAmountSource === 'auto') {
-    return `คำนวณจากเรทกลาง ECB ${fmtDate(draft.date)} · 1 ${draft.toCurrency} = ${fmtPrice(draft.marketRate)} ${draft.currency} · แก้เป็นยอดจริงจากโบรกได้`
+    return `คำนวณจากเรทกลาง ECB ${fmtDate(draft.marketRateDate)} · 1 ${draft.toCurrency} = ${fmtPrice(draft.marketRate)} ${draft.currency} · แก้เป็นยอดจริงจากโบรกได้`
   }
   return (
     computed && (
@@ -219,12 +219,12 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
       .then((quote) => {
         if (cancelled) return
         setNoRateFor('')
-        setDraft((d) => ({ ...d, marketRate: quote.rate }))
+        setDraft((d) => ({ ...d, marketRate: quote.rate, marketRateDate: quote.rateDate }))
       })
       .catch(() => {
         if (cancelled) return
         setNoRateFor(marketRateKey(draft))
-        setDraft((d) => ({ ...d, marketRate: '' }))
+        setDraft((d) => ({ ...d, marketRate: '', marketRateDate: '' }))
       })
     return () => {
       cancelled = true
@@ -488,7 +488,7 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
                   <NativeSelect
                     id="tx-to-currency"
                     value={draft.toCurrency}
-                    onChange={(e) => update({ toCurrency: e.target.value, marketRate: '' })}
+                    onChange={(e) => update({ toCurrency: e.target.value, marketRate: '', marketRateDate: '' })}
                   >
                     {CURRENCY_OPTIONS.map((c) => (
                       <option key={c}>{c}</option>

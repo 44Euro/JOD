@@ -13,3 +13,23 @@ export function fakeFxProvider(rates: Record<string, string>, latestDate = '2024
   }
   return { provider, calls }
 }
+
+// Answers only after release() is called, to look at a screen while the network is still out.
+export function lateFxProvider(rates: Record<string, string>, latestDate = '2024-01-15') {
+  const inner = fakeFxProvider(rates, latestDate).provider
+  const signals: (AbortSignal | undefined)[] = []
+  let requests = 0
+  let release = () => {}
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  const provider: FxProvider = {
+    async getRate(from, to, date, signal) {
+      requests += 1
+      signals.push(signal)
+      await gate
+      return inner.getRate(from, to, date, signal)
+    },
+  }
+  return { provider, release, signals, requested: () => requests }
+}

@@ -2,7 +2,7 @@ import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '../../db/db'
-import { fakeFxProvider } from '../../test/fakeFx'
+import { fakeFxProvider, lateFxProvider } from '../../test/fakeFx'
 import { makeTx } from '../../test/fixtures'
 import { renderRoute, resetDb } from '../../test/render'
 
@@ -27,6 +27,19 @@ afterEach(() => {
 })
 
 describe('AssetPage', () => {
+  it('shows nothing about the asset’s value until the rates arrive', async () => {
+    await db.instruments.add(voo)
+    const { provider, release, requested } = lateFxProvider({ 'USD|THB': '33' })
+    renderRoute('/assets/US%3AVOO', provider)
+    await waitFor(() => expect(requested()).toBeGreaterThan(0))
+    expect(screen.getByText('กำลังโหลด…')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'VOO' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('list', { name: 'เส้นทางเงินของ VOO' })).not.toBeInTheDocument()
+
+    release()
+    expect(await screen.findByText('฿132,000', { selector: 'p' })).toBeInTheDocument()
+  })
+
   it('sums the asset up with its total return including dividends', async () => {
     await db.instruments.add(voo)
     renderRoute('/assets/US%3AVOO', usd)

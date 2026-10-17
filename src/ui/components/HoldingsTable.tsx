@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link } from 'react-router'
+import { Alert } from '../../components/ui/alert'
 import { Badge } from '../../components/ui/badge'
 import { Input } from '../../components/ui/input'
 import { Table, Td, Th } from '../../components/ui/table'
@@ -19,6 +20,15 @@ import { assetPath } from '../nav'
 import { useIsDesktop } from '../useIsDesktop'
 import { MarketPill } from './MarketPill'
 
+export function MissingRatesNote({ currencies }: { currencies: readonly string[] }) {
+  if (currencies.length === 0) return null
+  return (
+    <Alert role="note">
+      ยังไม่มีเรทวันนี้ของ {currencies.join(', ')} · สินทรัพย์สกุลนี้นับที่ทุน และยังไม่รวมเงินสดสกุลนี้
+    </Alert>
+  )
+}
+
 // With stats (the portfolio page, spec S4) the gain columns become total return and yield on cost;
 // without them (the overview, spec S1) they show the stock and currency parts of the unrealized gain.
 interface HoldingsTableProps {
@@ -33,7 +43,7 @@ interface HoldingsTableProps {
 
 // The name links to the asset page; the row itself holds a price input, so it cannot be one big link.
 // On a phone the line under the name comes later in the DOM and would paint over the link's last pixels.
-function AssetName({ instrumentId, instrument }: { instrumentId: string; instrument?: Instrument }) {
+function AssetName({ instrumentId, instrument, tight }: { instrumentId: string; instrument?: Instrument; tight?: boolean }) {
   return (
     <Link
       to={assetPath(instrumentId)}
@@ -42,7 +52,7 @@ function AssetName({ instrumentId, instrument }: { instrumentId: string; instrum
       <MarketPill market={instrument?.market ?? marketOf(instrumentId)} assetType={instrument?.assetType} />
       <b className="font-display text-base font-semibold">{instrument?.symbol ?? instrumentId}</b>
       {instrument && instrument.name !== instrument.symbol && (
-        <span className="truncate text-[12.5px] text-muted-foreground">{instrument.name}</span>
+        <span className={cn('truncate text-[12.5px] text-muted-foreground', tight && 'md:max-[1366px]:hidden')}>{instrument.name}</span>
       )}
     </Link>
   )
@@ -55,24 +65,32 @@ function priceInputKey(instrument: Instrument) {
 function PriceInput({ instrument }: { instrument: Instrument }) {
   const [value, setValue] = useState(instrument.lastPrice ?? '')
   const [invalid, setInvalid] = useState(false)
+  // Typing the same price again is how someone says it has not moved, and that is what clears the old-price warning;
+  // tabbing past the field says nothing.
+  const edited = useRef(false)
   const age = priceAgeDays(instrument.lastPriceAt, todayLocal())
 
   async function commit() {
+    if (!edited.current) return
+    edited.current = false
     if (value.trim() === '') return
     const parsed = parseDecimalInput(value)
     setInvalid(parsed === null)
-    if (parsed !== null && parsed !== instrument.lastPrice) await setInstrumentPrice(db, instrument.id, parsed)
+    if (parsed !== null) await setInstrumentPrice(db, instrument.id, parsed)
   }
 
   return (
-    <span className="inline-flex flex-wrap items-center gap-1.5">
+    <span className="inline-flex flex-wrap items-center gap-1.5 md:flex-col md:items-end">
       <Input
         aria-label={`ราคาล่าสุด ${instrument.symbol}`}
         aria-invalid={invalid}
         inputMode="decimal"
         className="h-[46px] w-28 rounded-[10px] px-2.5 md:h-[34px]"
         value={value}
-        onChange={(e) => setValue(e.target.value)}
+        onChange={(e) => {
+          edited.current = true
+          setValue(e.target.value)
+        }}
         onBlur={() => void commit()}
         onKeyDown={(e) => {
           if (e.key === 'Enter') void commit()
@@ -103,19 +121,27 @@ export function HoldingsTable({ valuations, instruments, accountNames, base, rat
               <span className="col-span-2 text-[12.5px] text-muted-foreground">
                 {stats ? (
                   <>
-                    ยังไม่ขาย <span className={plClass(v.unrealizedBase)}>{fmtSigned(v.unrealizedBase, 0)}</span> · รวมปันผล{' '}
-                    <span className={plClass(own?.totalReturnBase)}>{fmtSigned(own?.totalReturnBase, 0)}</span>
+                    <span className="whitespace-nowrap">
+                      ยังไม่ขาย <span className={plClass(v.unrealizedBase)}>{fmtSigned(v.unrealizedBase, 0)}</span>
+                    </span>{' '}
+                    <span className="whitespace-nowrap">
+                      · รวมปันผล <span className={plClass(own?.totalReturnBase)}>{fmtSigned(own?.totalReturnBase, 0)}</span>
+                    </span>
                   </>
                 ) : (
                   <>
-                    {fmtNumber(p.quantity, 8)} หน่วย · หุ้น{' '}
-                    <span className={plClass(v.priceEffectBase)}>{fmtSigned(v.priceEffectBase, 0)}</span>
+                    <span className="whitespace-nowrap">{fmtNumber(p.quantity, 8)} หน่วย</span>{' '}
+                    <span className="whitespace-nowrap">
+                      · หุ้น <span className={plClass(v.priceEffectBase)}>{fmtSigned(v.priceEffectBase, 0)}</span>
+                    </span>
                   </>
                 )}
                 {p.currency !== base && (
                   <>
                     {' '}
-                    · ค่าเงิน <span className="text-fx">{fmtSigned(v.fxEffectBase, 0)}</span>
+                    <span className="whitespace-nowrap">
+                      · ค่าเงิน <span className="text-fx">{fmtSigned(v.fxEffectBase, 0)}</span>
+                    </span>
                   </>
                 )}
               </span>
@@ -131,8 +157,11 @@ export function HoldingsTable({ valuations, instruments, accountNames, base, rat
     )
   }
 
+  // The portfolio's nine columns together with the long name only fit from about 1366px, so below it the name and the
+  // rate's date line are dropped and the cells tightened rather than letting the right-hand columns scroll away.
+  // The overview's table has fewer columns and fits without that.
   return (
-    <Table>
+    <Table className={stats ? 'max-[1366px]:[&_td]:px-1.5 max-[1366px]:[&_th]:px-1.5' : undefined}>
       <thead>
         <tr>
           <Th>สินทรัพย์</Th>
@@ -164,7 +193,7 @@ export function HoldingsTable({ valuations, instruments, accountNames, base, rat
           return (
             <tr key={p.key}>
               <Td className="max-w-64">
-                <AssetName instrumentId={p.instrumentId} instrument={instrument} />
+                <AssetName instrumentId={p.instrumentId} instrument={instrument} tight={stats !== undefined} />
                 {accountNames && (
                   <span className="mt-0.5 block truncate text-xs text-muted-foreground">{accountNames.get(p.accountId)}</span>
                 )}
@@ -178,7 +207,9 @@ export function HoldingsTable({ valuations, instruments, accountNames, base, rat
               )}
               <Td className={cn('text-right', foreign ? 'text-fx' : 'text-muted-foreground')}>
                 {foreign ? `${fmtRate(v.avgFxRate)} → ${fmtRate(v.currentFxRate)}` : '—'}
-                {foreign && rates[p.currency]?.note && <span className="block text-[11px]">{rates[p.currency].note}</span>}
+                {foreign && rates[p.currency]?.note && (
+                  <span className={cn('block text-[11px]', stats && 'max-[1366px]:hidden')}>{rates[p.currency].note}</span>
+                )}
               </Td>
               <Td className="text-right font-display font-semibold">{fmtValue(v.marketValueBase)}</Td>
               <Td className={cn('text-right', plClass(v.unrealizedBase))}>{fmtSigned(v.unrealizedBase, 0)}</Td>
