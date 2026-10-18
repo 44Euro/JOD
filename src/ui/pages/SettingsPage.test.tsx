@@ -55,7 +55,9 @@ describe('SettingsPage', () => {
       await user.type(editor.getByLabelText('ขั้นต่ำต่อคำสั่ง'), '50')
       await user.type(editor.getByLabelText('VAT (%)'), '7')
       await user.click(editor.getByRole('button', { name: 'บันทึก' }))
-      expect(await screen.findByText('THB · 0.157% + VAT 7% · ขั้นต่ำ 50 บาท')).toBeInTheDocument()
+      const summary = await screen.findByText(/^THB · 0\.157% \+ VAT 7%/)
+      expect(summary).toHaveTextContent('THB · 0.157% + VAT 7% · ขั้นต่ำ 50 บาท')
+      expect(within(summary).getByText('· ขั้นต่ำ 50 บาท')).toHaveClass('whitespace-nowrap')
       expect(screen.queryByRole('form', { name: 'แก้ไข Streaming SET' })).not.toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'แก้ไข Streaming SET' })).toBeInTheDocument()
       expect((await db.accounts.get('acc-2'))?.feeTemplate).toEqual({
@@ -71,7 +73,7 @@ describe('SettingsPage', () => {
       await db.accounts.bulkAdd([streaming, { ...account, feeTemplate: formula }])
       renderRoute('/settings')
       expect(await screen.findByText('Streaming')).toBeInTheDocument()
-      expect(screen.getByText('THB · 0.157% + VAT 7% · ขั้นต่ำ 50 บาท')).toBeInTheDocument()
+      expect(screen.getByText(/^THB · 0\.157% \+ VAT 7%/)).toHaveTextContent('THB · 0.157% + VAT 7% · ขั้นต่ำ 50 บาท')
       expect(screen.queryByText('Dime')).not.toBeInTheDocument()
     })
 
@@ -135,6 +137,35 @@ describe('SettingsPage', () => {
       expect(screen.queryByRole('form', { name: 'แก้ไข Streaming SET' })).not.toBeInTheDocument()
       expect(screen.getByText('Streaming SET')).toBeInTheDocument()
       expect((await db.accounts.get('acc-2'))?.name).toBe('Streaming SET')
+    })
+
+    it('keeps the summary of a formula without a minimum as plain text', async () => {
+      await db.accounts.add({ ...streaming, feeTemplate: { currency: 'THB', commissionPct: '0.25', minimum: '', vatPct: '', perOrder: '5' } })
+      renderRoute('/settings')
+      expect(await screen.findByText('THB · 0.25% + 5 ต่อคำสั่ง')).toBeInTheDocument()
+    })
+
+    it('puts the focus in the name field when the editor opens', async () => {
+      await db.accounts.add(streaming)
+      const user = userEvent.setup()
+      renderRoute('/settings')
+      await user.click(await screen.findByRole('button', { name: 'แก้ไข Streaming SET' }))
+      expect(editorOf('Streaming SET').getByLabelText('ชื่อบัญชี')).toHaveFocus()
+    })
+
+    it('gives the focus back to the edit button of the row when the editor closes', async () => {
+      await db.accounts.bulkAdd([account, streaming])
+      const user = userEvent.setup()
+      renderRoute('/settings')
+      await user.click(await screen.findByRole('button', { name: 'แก้ไข Streaming SET' }))
+      await user.click(editorOf('Streaming SET').getByRole('button', { name: 'ยกเลิก' }))
+      expect(screen.getByRole('button', { name: 'แก้ไข Streaming SET' })).toHaveFocus()
+
+      await user.click(screen.getByRole('button', { name: 'แก้ไข Dime US' }))
+      await user.type(editorOf('Dime US').getByLabelText('โบรกเกอร์'), ' US')
+      await user.click(editorOf('Dime US').getByRole('button', { name: 'บันทึก' }))
+      expect(await screen.findByText('Dime US')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'แก้ไข Dime US' })).toHaveFocus()
     })
 
     it('gives the edit button a phone-sized target', async () => {

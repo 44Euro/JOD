@@ -34,7 +34,8 @@ export async function updateAccount(
   if (!name) throw new Error('กรุณาตั้งชื่อบัญชี')
   const errors = patch.feeTemplate ? validateFeeTemplate(patch.feeTemplate) : []
   if (errors.length > 0) throw new Error(errors[0])
-  await db.accounts.update(id, { name, broker: patch.broker.trim(), note: patch.note, feeTemplate: patch.feeTemplate })
+  const updated = await db.accounts.update(id, { name, broker: patch.broker.trim(), note: patch.note, feeTemplate: patch.feeTemplate })
+  if (updated === 0) throw new Error('ไม่พบบัญชีนี้')
 }
 
 export async function deleteAccount(db: JodDB, id: string): Promise<void> {

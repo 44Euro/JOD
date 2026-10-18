@@ -4,6 +4,8 @@ import { FEE_PAID_IN, RECEIVE_KINDS, TX_TYPES, type FeeTemplate, type Thesis, ty
 
 const INSTRUMENT_REQUIRED: readonly string[] = ['buy', 'sell', 'dividend', 'split', 'receive_asset']
 
+const CURRENCY_PATTERN = /^[A-Z0-9]{2,10}$/
+
 export function validateTransaction(tx: Transaction, today: string = todayLocal()): string[] {
   const errors: string[] = []
   const positive = (value: string | undefined, label: string) => {
@@ -18,7 +20,7 @@ export function validateTransaction(tx: Transaction, today: string = todayLocal(
   if (!isIsoDate(tx.date)) errors.push('วันที่ไม่ถูกต้อง')
   else if (tx.date > today) errors.push('วันที่ต้องไม่เกินวันนี้')
   if (tx.time && !/^([01]\d|2[0-3]):[0-5]\d$/.test(tx.time)) errors.push('เวลาไม่ถูกต้อง')
-  if (!/^[A-Z0-9]{2,10}$/.test(tx.currency)) errors.push('สกุลเงินไม่ถูกต้อง')
+  if (!CURRENCY_PATTERN.test(tx.currency)) errors.push('สกุลเงินไม่ถูกต้อง')
   positive(tx.fxRate, 'เรทแลกเปลี่ยน')
   nonNegative(tx.fees, 'ค่าธรรมเนียม')
   nonNegative(tx.tax, 'ภาษี')
@@ -132,7 +134,7 @@ export function validateThesis(thesis: Thesis): string[] {
 // A number field may be left empty, which reads as 0.
 export function validateFeeTemplate(template: FeeTemplate): string[] {
   const errors: string[] = []
-  if (!/^[A-Z0-9]{2,10}$/.test(template.currency)) errors.push('สกุลเงินของสูตรไม่ถูกต้อง')
+  if (!CURRENCY_PATTERN.test(template.currency)) errors.push('สกุลเงินของสูตรไม่ถูกต้อง')
   const number = (value: string, label: string, overLimit?: string) => {
     if (value === '') return
     if (!isDecimalString(value) || D(value).isNegative()) errors.push(`${label}ต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป`)
@@ -140,7 +142,7 @@ export function validateFeeTemplate(template: FeeTemplate): string[] {
   }
   number(template.commissionPct, 'ค่าคอม', 'ค่าคอมต้องไม่เกิน 100%')
   number(template.minimum, 'ขั้นต่ำต่อคำสั่ง')
-  number(template.vatPct, 'VAT', 'VAT ต้องไม่เกิน 100%')
+  number(template.vatPct, 'VAT ', 'VAT ต้องไม่เกิน 100%')
   number(template.perOrder, 'ค่าธรรมเนียมต่อคำสั่ง')
   return errors
 }

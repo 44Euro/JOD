@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react'
 import { Field } from '../../../components/ui/field'
 import { Input, NativeSelect } from '../../../components/ui/input'
-import { feeTemplateSummary } from '../../../domain/fees'
 import type { Account, FeePaidIn, Instrument, TxType } from '../../../domain/types'
 import { cn } from '../../../lib/cn'
+import { feeTemplateParts } from '../../feeTemplateText'
 import { fmtNumber } from '../../format'
 import { FEE_PAID_IN_LABELS } from '../../labels'
 import {
@@ -28,11 +28,24 @@ function formulaHint(draft: Draft, account: Account | undefined, restoreFormula:
   if (template.currency !== draft.currency) return `สูตรของ ${account.name} ใช้กับรายการสกุล ${template.currency}`
   const computed = templateFee(draft, account)
   if (computed === null) return undefined
-  if (draft.feesSource === 'auto') return `คำนวณจากสูตรของ ${account.name} · ${feeTemplateSummary(template)}`
+  if (draft.feesSource === 'auto') {
+    const { body, minimum } = feeTemplateParts(template)
+    return (
+      <>
+        คำนวณจากสูตรของ {account.name} · {body}
+        {minimum && (
+          <>
+            {' '}
+            <span className="whitespace-nowrap">{minimum}</span>
+          </>
+        )}
+      </>
+    )
+  }
   return (
     <button
       type="button"
-      className="inline-flex min-h-11 items-center text-[13px] font-semibold text-primary underline underline-offset-[3px] md:min-h-0"
+      className="inline-flex min-h-11 items-center text-left text-[13px] font-semibold text-primary underline underline-offset-[3px] md:min-h-0"
       onClick={restoreFormula}
     >
       ใช้สูตรของบัญชี ({computed})
@@ -62,6 +75,7 @@ export function FeeTaxFields({
   const cells = Number(showsSelect) + Number(paidIn !== 'asset') + Number(showsTax)
   const receivedSymbol = (draft.type === 'swap' ? draft.toSymbol : draft.symbol).trim().toUpperCase()
   const arrives = receivedAfterFee(draft)
+  const formula = paidIn === 'cash' ? formulaHint(draft, account, () => update({ feesSource: 'auto' })) : undefined
   return (
     <div className="grid gap-3.5">
       <div className={cn('grid grid-cols-2 gap-3.5', cells === 3 && 'sm:grid-cols-3')}>
@@ -77,7 +91,7 @@ export function FeeTaxFields({
           </Field>
         )}
         {paidIn === 'cash' && (
-          <Field id="tx-fees" label={feeLabel(draft.type)} hint={formulaHint(draft, account, () => update({ feesSource: 'auto' }))}>
+          <Field id="tx-fees" label={feeLabel(draft.type)}>
             <Input
               id="tx-fees"
               inputMode="decimal"
@@ -107,6 +121,18 @@ export function FeeTaxFields({
           <Field id="tx-tax" label={draft.type === 'dividend' || draft.type === 'interest' ? 'ภาษีหัก ณ ที่จ่าย' : 'ภาษี / VAT'}>
             <Input id="tx-tax" inputMode="decimal" placeholder="0" value={draft.tax} onChange={(e) => update({ tax: e.target.value })} />
           </Field>
+        )}
+        {formula && (
+          // Last in the grid, so on a phone it is a line of its own under the fee and tax; from sm up it sits right under
+          // the fee, where a hint of the field would be.
+          <p
+            className={cn(
+              'col-span-2 text-[12.5px] text-muted-foreground sm:col-span-1 sm:row-start-2 sm:-mt-2',
+              showsSelect ? 'sm:col-start-2' : 'sm:col-start-1',
+            )}
+          >
+            {formula}
+          </p>
         )}
       </div>
       {paidIn === 'asset' && (

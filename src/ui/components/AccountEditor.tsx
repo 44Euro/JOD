@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Alert } from '../../components/ui/alert'
 import { Button } from '../../components/ui/button'
 import { Field } from '../../components/ui/field'
@@ -24,7 +24,12 @@ export function AccountEditor({ account, onDone }: { account: Account; onDone():
   const [perOrder, setPerOrder] = useState(stored?.perOrder ?? '')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+  const nameInput = useRef<HTMLInputElement>(null)
   const currencies = CURRENCY_OPTIONS.includes(currency) ? CURRENCY_OPTIONS : [currency, ...CURRENCY_OPTIONS]
+
+  useEffect(() => {
+    nameInput.current?.focus()
+  }, [])
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
@@ -55,7 +60,7 @@ export function AccountEditor({ account, onDone }: { account: Account; onDone():
     <form onSubmit={handleSubmit} noValidate aria-label={`แก้ไข ${account.name}`} className="grid gap-3">
       <div className="grid gap-3 sm:grid-cols-2">
         <Field id="edit-account-name" label="ชื่อบัญชี">
-          <Input id="edit-account-name" value={name} onChange={(e) => setName(e.target.value)} />
+          <Input id="edit-account-name" ref={nameInput} value={name} onChange={(e) => setName(e.target.value)} />
         </Field>
         <Field id="edit-account-broker" label="โบรกเกอร์">
           <Input id="edit-account-broker" value={broker} onChange={(e) => setBroker(e.target.value)} />

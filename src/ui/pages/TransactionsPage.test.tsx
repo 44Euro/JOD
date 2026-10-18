@@ -537,14 +537,26 @@ describe('TransactionsPage', () => {
         removeEventListener: () => {},
       }))
 
-    it('puts the currency before the fee note, not after it', async () => {
+    it('puts the fee note on its own line under the amount, after the currency', async () => {
       await db.transactions.bulkAdd([buyBnb, paidInBnb, taken])
       renderRoute('/transactions')
       const table = await screen.findByRole('table')
-      const paid = (await within(table).findByText(/ค่าธรรมเนียม 0\.001 BNB/)).closest('td')!
-      expect(paid).toHaveTextContent(/^0\.5 × 2,600\.00 USD · ค่าธรรมเนียม 0\.001 BNB$/)
+      const note = await within(table).findByText('ค่าธรรมเนียม 0.001 BNB')
+      expect(note).toHaveClass('block', 'text-[12.5px]', 'text-muted-foreground')
+      const paid = note.closest('td')!
+      expect(paid).toHaveTextContent(/^0\.5 × 2,600\.00 USDค่าธรรมเนียม 0\.001 BNB$/)
       expect(within(paid).getByText('USD')).toHaveClass('text-muted-foreground')
-      expect(within(table).getByText(/หัก 0\.002 ETH/).closest('td')).toHaveTextContent(/^1 × 2,000\.00 USD · หัก 0\.002 ETH$/)
+      const takenNote = within(table).getByText('หัก 0.002 ETH')
+      expect(takenNote).toHaveClass('block', 'text-[12.5px]', 'text-muted-foreground')
+      expect(takenNote.closest('td')).toHaveTextContent(/^1 × 2,000\.00 USDหัก 0\.002 ETH$/)
+    })
+
+    it('leaves a row without a fee note as it was', async () => {
+      await db.transactions.bulkAdd([makeTx({ id: 'plain', quantity: '3', price: '100' })])
+      renderRoute('/transactions')
+      const table = await screen.findByRole('table')
+      expect(within(table).getByText('3 × 100.00').closest('td')).toHaveTextContent(/^3 × 100\.00 USD$/)
+      expect(table.querySelector('td span.block')).toBeNull()
     })
 
     it('does the same in the phone row', async () => {
@@ -564,12 +576,14 @@ describe('TransactionsPage', () => {
       renderRoute('/transactions')
       const table = await screen.findByRole('table')
       await user.type(screen.getByLabelText('ค้นหา'), 'bnb')
-      expect(within(table).getByText('2 × 100.00 · ค่าธรรมเนียม 0.001 BNB')).toBeInTheDocument()
+      expect(within(table).getByText('2 × 100.00')).toBeInTheDocument()
+      expect(within(table).getAllByText('ค่าธรรมเนียม 0.001 BNB')).toHaveLength(2)
       expect(within(table).getByText(/^0\.5 × 2,600\.00/)).toBeInTheDocument()
       expect(within(table).queryByText('3 × 100.00')).not.toBeInTheDocument()
       await user.clear(screen.getByLabelText('ค้นหา'))
       await user.selectOptions(screen.getByLabelText('กรองตามตลาด'), 'CRYPTO')
-      expect(within(table).getByText('2 × 100.00 · ค่าธรรมเนียม 0.001 BNB')).toBeInTheDocument()
+      expect(within(table).getByText('2 × 100.00')).toBeInTheDocument()
+      expect(within(table).getAllByText('ค่าธรรมเนียม 0.001 BNB')).toHaveLength(2)
       expect(within(table).queryByText('3 × 100.00')).not.toBeInTheDocument()
     })
   })

@@ -1,5 +1,5 @@
 import { Lock, Pencil, Trash2 } from 'lucide-react'
-import { useState, type FormEvent } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 import { Alert } from '../../components/ui/alert'
 import { Button } from '../../components/ui/button'
 import { Card } from '../../components/ui/card'
@@ -8,11 +8,27 @@ import { Input, NativeSelect } from '../../components/ui/input'
 import { db } from '../../db/db'
 import { addAccount, deleteAccount, saveSettings } from '../../db/repo'
 import { AUTO_FX_CURRENCIES } from '../../domain/currencies'
-import { feeTemplateSummary } from '../../domain/fees'
+import type { FeeTemplate } from '../../domain/types'
 import { AccountEditor } from '../components/AccountEditor'
 import { DataSection } from '../components/DataSection'
 import { PageHeader } from '../components/PageHeader'
+import { feeTemplateParts } from '../feeTemplateText'
 import { useAppData } from '../hooks'
+
+function FeeTemplateLine({ template }: { template: FeeTemplate }) {
+  const { body, minimum } = feeTemplateParts(template)
+  return (
+    <span className="text-[12.5px] text-muted-foreground">
+      {body}
+      {minimum && (
+        <>
+          {' '}
+          <span className="whitespace-nowrap">{minimum}</span>
+        </>
+      )}
+    </span>
+  )
+}
 
 export function SettingsPage() {
   const data = useAppData()
@@ -20,6 +36,7 @@ export function SettingsPage() {
   const [broker, setBroker] = useState('')
   const [message, setMessage] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
+  const refocusId = useRef<string | null>(null)
 
   if (!data) return <p className="text-muted-foreground">กำลังโหลด…</p>
   const hasTransactions = data.transactions.length > 0
@@ -30,6 +47,11 @@ export function SettingsPage() {
     await addAccount(db, { name: name.trim(), broker: broker.trim(), note: '' })
     setName('')
     setBroker('')
+  }
+
+  function closeEditor(id: string) {
+    refocusId.current = id
+    setEditingId(null)
   }
 
   async function handleDeleteAccount(id: string) {
@@ -86,15 +108,15 @@ export function SettingsPage() {
                 {data.accounts.map((account) => (
                   <li key={account.id} className="border-t border-muted py-3 first:border-t-0">
                     {editingId === account.id ? (
-                      <AccountEditor account={account} onDone={() => setEditingId(null)} />
+                      <AccountEditor account={account} onDone={() => closeEditor(account.id)} />
                     ) : (
                       <div className="flex items-center justify-between gap-2">
                         <span className="min-w-0">
                           <b className="block font-display text-base font-semibold">{account.name}</b>
-                          {(account.feeTemplate || account.broker) && (
-                            <span className="text-[12.5px] text-muted-foreground">
-                              {account.feeTemplate ? feeTemplateSummary(account.feeTemplate) : account.broker}
-                            </span>
+                          {account.feeTemplate ? (
+                            <FeeTemplateLine template={account.feeTemplate} />
+                          ) : (
+                            account.broker && <span className="text-[12.5px] text-muted-foreground">{account.broker}</span>
                           )}
                         </span>
                         <span className="flex shrink-0">
@@ -103,6 +125,12 @@ export function SettingsPage() {
                             variant="ghost"
                             size="icon"
                             aria-label={`แก้ไข ${account.name}`}
+                            ref={(button) => {
+                              if (button && refocusId.current === account.id) {
+                                refocusId.current = null
+                                button.focus()
+                              }
+                            }}
                             onClick={() => setEditingId(account.id)}
                           >
                             <Pencil aria-hidden />

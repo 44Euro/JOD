@@ -1257,6 +1257,7 @@ describe('TransactionFormPage', () => {
     }
     const summary = 'THB · 0.157% + VAT 7% · ขั้นต่ำ 50 บาท'
     const provider = () => fakeFxProvider({ 'USD|THB': '35' }).provider
+    const autoHint = () => screen.getByText(/^คำนวณจากสูตรของ Streaming SET/)
 
     async function openSetBuy() {
       await db.accounts.add(streaming)
@@ -1274,13 +1275,13 @@ describe('TransactionFormPage', () => {
       const { user } = await openSetBuy()
       const fee = screen.getByLabelText('ค่าธรรมเนียม')
       expect(fee).toHaveValue('53.50')
-      expect(screen.getByText(`คำนวณจากสูตรของ Streaming SET · ${summary}`)).toBeInTheDocument()
+      expect(autoHint()).toHaveTextContent(`คำนวณจากสูตรของ Streaming SET · ${summary}`)
       await user.clear(fee)
       await user.type(fee, '60')
       expect(screen.queryByText(/คำนวณจากสูตรของ/)).not.toBeInTheDocument()
       await user.click(screen.getByRole('button', { name: 'ใช้สูตรของบัญชี (53.50)' }))
       expect(fee).toHaveValue('53.50')
-      expect(screen.getByText(`คำนวณจากสูตรของ Streaming SET · ${summary}`)).toBeInTheDocument()
+      expect(autoHint()).toHaveTextContent(`คำนวณจากสูตรของ Streaming SET · ${summary}`)
     })
 
     it('follows the order until a fee is typed, and keeps the typed one', async () => {
@@ -1344,6 +1345,40 @@ describe('TransactionFormPage', () => {
       expect(screen.getByText('สูตรของ Streaming SET ใช้กับรายการสกุล THB')).toBeInTheDocument()
     })
 
+    it('gives the hint a full-width line of its own on a phone, and the column it was in from sm up', async () => {
+      await openSetBuy()
+      const hint = autoHint()
+      expect(hint).toHaveClass('col-span-2', 'sm:col-span-1', 'sm:row-start-2', 'sm:col-start-1', 'sm:-mt-2')
+      expect(hint.tagName).toBe('P')
+      expect(screen.getByLabelText('ค่าธรรมเนียม').parentElement).not.toContainElement(hint)
+      expect(hint.parentElement).toContainElement(screen.getByLabelText('ภาษี / VAT'))
+      expect(hint.previousElementSibling).toContainElement(screen.getByLabelText('ภาษี / VAT'))
+      expect(within(hint).getByText('· ขั้นต่ำ 50 บาท')).toHaveClass('whitespace-nowrap')
+    })
+
+    it('puts the hint under the fee when the way of paying comes before it', async () => {
+      await db.accounts.add(streaming)
+      const user = userEvent.setup()
+      renderRoute('/transactions/new', provider())
+      await user.selectOptions(await screen.findByLabelText('บัญชี'), 'Streaming SET')
+      await user.selectOptions(screen.getByLabelText('ตลาด'), 'คริปโต')
+      await user.selectOptions(screen.getByLabelText('สกุลเงิน'), 'THB')
+      await user.type(screen.getByLabelText('สัญลักษณ์'), 'btc')
+      await user.type(screen.getByLabelText('จำนวนหน่วย'), '1')
+      await user.type(screen.getByLabelText('ราคาต่อหน่วย'), '3500')
+      expect(screen.getByLabelText('ค่าธรรมเนียม')).toHaveValue('53.50')
+      expect(autoHint()).toHaveClass('col-span-2', 'sm:col-start-2', 'sm:row-start-2')
+      expect(autoHint()).not.toHaveClass('sm:col-start-1')
+    })
+
+    it('gives the note about another currency the same full-width line', async () => {
+      const { user } = await openSetBuy()
+      await user.selectOptions(screen.getByLabelText('ตลาด'), 'สหรัฐ (US)')
+      const note = screen.getByText('สูตรของ Streaming SET ใช้กับรายการสกุล THB')
+      expect(note).toHaveClass('col-span-2', 'sm:col-span-1')
+      expect(screen.getByLabelText('ค่าธรรมเนียม').parentElement).not.toContainElement(note)
+    })
+
     it('says nothing about a formula for an account without one', async () => {
       const user = userEvent.setup()
       renderRoute('/transactions/new', provider())
@@ -1357,7 +1392,13 @@ describe('TransactionFormPage', () => {
     it('gives the way back to the formula a phone-sized target', async () => {
       const { user } = await openSetBuy()
       await user.type(screen.getByLabelText('ค่าธรรมเนียม'), '1')
-      expect(screen.getByRole('button', { name: 'ใช้สูตรของบัญชี (53.50)' })).toHaveClass('inline-flex', 'min-h-11', 'items-center', 'md:min-h-0')
+      expect(screen.getByRole('button', { name: 'ใช้สูตรของบัญชี (53.50)' })).toHaveClass(
+        'inline-flex',
+        'min-h-11',
+        'items-center',
+        'text-left',
+        'md:min-h-0',
+      )
     })
   })
 })

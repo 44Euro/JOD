@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { D } from './decimal'
-import { feeTemplateSummary, orderFee } from './fees'
+import { orderFee } from './fees'
 import type { FeeTemplate } from './types'
 
 const streaming: FeeTemplate = { currency: 'THB', commissionPct: '0.157', minimum: '50', vatPct: '7', perOrder: '0' }
@@ -24,25 +24,5 @@ describe('orderFee', () => {
   it('rounds half up to two decimals', () => {
     expect(orderFee({ ...bitkub, commissionPct: '0.1' }, D('5')).toFixed(2)).toBe('0.01')
     expect(orderFee({ ...bitkub, commissionPct: '0.1' }, D('4.9')).toFixed(2)).toBe('0.00')
-  })
-})
-
-describe('feeTemplateSummary', () => {
-  it('sums a formula up the way the settings mock does', () => {
-    expect(feeTemplateSummary(streaming)).toBe('THB · 0.157% + VAT 7% · ขั้นต่ำ 50 บาท')
-    expect(feeTemplateSummary(dime)).toBe('USD · ค่าคอม 0 ต่อคำสั่ง')
-    expect(feeTemplateSummary(bitkub)).toBe('THB · 0.25% ต่อคำสั่ง')
-    expect(feeTemplateSummary({ ...dime, perOrder: '0.99' })).toBe('USD · ค่าคอม 0.99 ต่อคำสั่ง')
-  })
-
-  it('shows both the percentage and the fixed fee, and names a minimum in a foreign currency', () => {
-    expect(feeTemplateSummary({ ...dime, commissionPct: '0.1', perOrder: '1' })).toBe('USD · 0.1% + 1 ต่อคำสั่ง')
-    expect(feeTemplateSummary({ ...dime, commissionPct: '0.1', minimum: '1.5' })).toBe('USD · 0.1% · ขั้นต่ำ 1.5 USD')
-  })
-
-  it('reads empty fields as zero', () => {
-    expect(feeTemplateSummary({ currency: 'THB', commissionPct: '', minimum: '', vatPct: '', perOrder: '' })).toBe(
-      'THB · ค่าคอม 0 ต่อคำสั่ง',
-    )
   })
 })

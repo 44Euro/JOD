@@ -69,6 +69,19 @@ describe('updateAccount', () => {
     expect(await db.accounts.get(account.id)).not.toHaveProperty('feeTemplate')
   })
 
+  it('saves again without changes', async () => {
+    const account = await addAccount(db, { name: 'Streaming', broker: 'Streaming', note: '' })
+    await updateAccount(db, account.id, { name: 'Streaming', broker: 'Streaming', note: '', feeTemplate: undefined })
+    expect(await db.accounts.get(account.id)).toEqual(account)
+  })
+
+  it('says so when the account is not there', async () => {
+    await expect(updateAccount(db, 'ghost', { name: 'Streaming', broker: '', note: '', feeTemplate: undefined })).rejects.toThrow(
+      'ไม่พบบัญชีนี้',
+    )
+    expect(await db.accounts.count()).toBe(0)
+  })
+
   it('refuses an empty name', async () => {
     const account = await addAccount(db, { name: 'Streaming', broker: '', note: '' })
     await expect(updateAccount(db, account.id, { name: '  ', broker: '', note: '', feeTemplate: undefined })).rejects.toThrow('กรุณาตั้งชื่อบัญชี')

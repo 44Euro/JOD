@@ -235,7 +235,7 @@ describe('validateFeeTemplate', () => {
   it('rejects numbers that are negative or not numbers, naming the field', () => {
     expect(validateFeeTemplate({ ...template, commissionPct: '-1' })).toEqual(['ค่าคอมต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป'])
     expect(validateFeeTemplate({ ...template, minimum: 'abc' })).toEqual(['ขั้นต่ำต่อคำสั่งต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป'])
-    expect(validateFeeTemplate({ ...template, vatPct: '1e1' })).toEqual(['VATต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป'])
+    expect(validateFeeTemplate({ ...template, vatPct: '1e1' })).toEqual(['VAT ต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป'])
     expect(validateFeeTemplate({ ...template, perOrder: '-0.5' })).toEqual(['ค่าธรรมเนียมต่อคำสั่งต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป'])
   })
 
