@@ -1,7 +1,8 @@
-import { ChevronLeft, Copy } from 'lucide-react'
+import { ChevronLeft, Copy, Pencil } from 'lucide-react'
+import { useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { Badge } from '../../components/ui/badge'
-import { buttonVariants } from '../../components/ui/button'
+import { Button, buttonVariants } from '../../components/ui/button'
 import { Card } from '../../components/ui/card'
 import { Table, Td, Th } from '../../components/ui/table'
 import { todayLocal } from '../../domain/dates'
@@ -13,6 +14,7 @@ import { cn } from '../../lib/cn'
 import { MarketPill } from '../components/MarketPill'
 import { MoneyRoute } from '../components/MoneyRoute'
 import { RateCell } from '../components/RateCell'
+import { RenameInstrument } from '../components/RenameInstrument'
 import { Stat, SummaryPanel } from '../components/Summary'
 import { ThesisCard } from '../components/ThesisCard'
 import { fmtDate, fmtHeadline, fmtNumber, fmtPrice, fmtSigned, fmtSignedPct, fmtValue, fmtYield, plClass } from '../format'
@@ -32,6 +34,7 @@ export function AssetPage() {
   const data = useAppData()
   const { ledger, valuations, rates, ready } = usePortfolio(data)
   const isDesktop = useIsDesktop()
+  const [renamingId, setRenamingId] = useState<string>()
   if (!data || !ledger || !ready) return <p className="text-muted-foreground">กำลังโหลด…</p>
 
   const base = data.settings.baseCurrency
@@ -74,21 +77,43 @@ export function AssetPage() {
   return (
     <>
       {back}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <MarketPill market={instrument?.market ?? marketOf(id)} assetType={instrument?.assetType} />
-          <h1 className="text-[26px] font-semibold leading-tight md:text-[34px]">{symbol}</h1>
-          {instrument && instrument.name !== instrument.symbol && <span className="text-muted-foreground">{instrument.name}</span>}
-        </div>
-        {lastBuy && (
-          <div className="flex flex-wrap items-center gap-2">
-            <Link to={`/transactions/new?from=${lastBuy.id}`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
-              <Copy aria-hidden />
-              ทำซ้ำรายการซื้อ
-            </Link>
+      <div>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 flex-nowrap items-center gap-3">
+            <MarketPill market={instrument?.market ?? marketOf(id)} assetType={instrument?.assetType} />
+            <h1 className="min-w-0 truncate text-[26px] font-semibold leading-tight md:text-[34px]">{symbol}</h1>
+            {instrument && instrument.name !== instrument.symbol && (
+              <span className="truncate text-muted-foreground max-md:hidden">{instrument.name}</span>
+            )}
           </div>
+          <div className="flex shrink-0 items-center gap-2">
+            {lastBuy && (
+              <Link to={`/transactions/new?from=${lastBuy.id}`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+                <Copy aria-hidden />
+                ทำซ้ำรายการซื้อ
+              </Link>
+            )}
+            {instrument && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="max-md:w-11 max-md:px-0"
+                aria-expanded={renamingId === id}
+                onClick={() => setRenamingId(id)}
+              >
+                <Pencil aria-hidden />
+                <span className="max-md:sr-only">เปลี่ยนชื่อ/สัญลักษณ์</span>
+              </Button>
+            )}
+          </div>
+        </div>
+        {instrument?.previousSymbols && (
+          <p className="mt-1 text-[12.5px] text-muted-foreground">เดิม: {instrument.previousSymbols.join(', ')}</p>
         )}
       </div>
+
+      {instrument && renamingId === id && <RenameInstrument instrument={instrument} onClose={() => setRenamingId(undefined)} />}
 
       {stats && (
         <SummaryPanel

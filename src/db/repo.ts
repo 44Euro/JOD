@@ -1,5 +1,5 @@
-import { DEFAULT_SETTINGS, type Account, type Instrument, type Settings, type Thesis, type Transaction } from '../domain/types'
-import { validateFeeTemplate, validateThesis, validateTransaction } from '../domain/validation'
+import { DEFAULT_SETTINGS, instrumentKey, type Account, type Instrument, type Settings, type Thesis, type Transaction, type Unit } from '../domain/types'
+import { validateFeeTemplate, validateSymbol, validateThesis, validateTransaction } from '../domain/validation'
 import type { DailyValueRecord, JodDB } from './db'
 
 export function newId(): string {
@@ -71,6 +71,43 @@ export async function saveInstrumentThesis(db: JodDB, id: string, thesis: Thesis
     reviewDate: thesis.reviewDate || undefined,
   })
   if (updated === 0) throw new Error('ไม่พบสินทรัพย์นี้')
+}
+
+// The id is MARKET:SYMBOL, so a new symbol is a new id: the instrument is re-keyed and every transaction that points at
+// the old id follows it, in one database transaction. Daily values only hold totals and do not refer to instruments.
+export async function renameInstrument(
+  db: JodDB,
+  id: string,
+  change: { symbol: string; name: string; unit?: Unit },
+): Promise<string> {
+  const errors = validateSymbol(change.symbol)
+  if (errors.length > 0) throw new Error(errors.join(', '))
+  const symbol = change.symbol.trim().toUpperCase()
+  return db.transaction('rw', db.instruments, db.transactions, async () => {
+    const existing = await db.instruments.get(id)
+    if (!existing) throw new Error('ไม่พบสินทรัพย์นี้')
+    const newId = instrumentKey(existing.market, symbol)
+    const name = change.name.trim() || symbol
+    const unit = change.unit ?? existing.unit
+    if (newId === id) {
+      await db.instruments.put({ ...existing, name, ...(unit && { unit }) })
+      return id
+    }
+    if (await db.instruments.get(newId)) throw new Error(`มี ${newId} อยู่แล้ว · รวมสินทรัพย์สองตัวยังทำไม่ได้`)
+    await db.instruments.add({
+      ...existing,
+      id: newId,
+      symbol,
+      name,
+      ...(unit && { unit }),
+      previousSymbols: [...(existing.previousSymbols ?? []), existing.symbol],
+    })
+    await db.instruments.delete(id)
+    await db.transactions.where('instrumentId').equals(id).modify({ instrumentId: newId })
+    await db.transactions.filter((tx) => tx.toInstrumentId === id).modify({ toInstrumentId: newId })
+    await db.transactions.filter((tx) => tx.feeInstrumentId === id).modify({ feeInstrumentId: newId })
+    return newId
+  })
 }
 
 export async function saveTransaction(db: JodDB, tx: Transaction, now: Date = new Date()): Promise<void> {

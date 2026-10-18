@@ -76,6 +76,7 @@ export interface Instrument {
   assetType: AssetType
   currency: string
   unit?: Unit
+  previousSymbols?: string[]
   lastPrice?: string
   lastPriceAt?: string
   holdReason?: string

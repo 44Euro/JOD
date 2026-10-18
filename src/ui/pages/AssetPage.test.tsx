@@ -308,6 +308,127 @@ describe('AssetPage', () => {
     expect(screen.queryByRole('link', { name: 'ทำซ้ำรายการซื้อ' })).not.toBeInTheDocument()
   })
 
+  describe('rename', () => {
+    const fb = { id: 'US:FB', market: 'US', symbol: 'FB', name: 'Facebook', assetType: 'stock', currency: 'USD', lastPrice: '300' } as const
+    const rename = async (user: ReturnType<typeof userEvent.setup>, symbol: string, name: string) => {
+      await user.click(await screen.findByRole('button', { name: 'เปลี่ยนชื่อ/สัญลักษณ์' }))
+      await user.clear(screen.getByLabelText('สัญลักษณ์'))
+      await user.type(screen.getByLabelText('สัญลักษณ์'), symbol)
+      await user.clear(screen.getByLabelText('ชื่อ'))
+      await user.type(screen.getByLabelText('ชื่อ'), name)
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+    }
+
+    beforeEach(async () => {
+      await db.instruments.add(fb)
+      await db.transactions.bulkAdd([
+        makeTx({ instrumentId: 'US:FB', quantity: '5', price: '280', fxRate: '35', date: '2024-02-01' }),
+        makeTx({ instrumentId: 'US:FB', type: 'dividend', quantity: undefined, price: undefined, amount: '4', fxRate: '34', date: '2024-03-01' }),
+      ])
+    })
+
+    it('renames an asset and lands on its new page with the history', async () => {
+      const user = userEvent.setup()
+      const router = renderRoute('/assets/US%3AFB', usd)
+      await rename(user, 'META', 'Meta Platforms')
+      expect(await screen.findByRole('heading', { name: 'META' })).toBeInTheDocument()
+      expect(router.state.location.pathname).toBe('/assets/US%3AMETA')
+      expect(router.state.historyAction).toBe('REPLACE')
+      expect(screen.getByText('เดิม: FB')).toBeInTheDocument()
+      expect(screen.getByText('Meta Platforms')).toBeInTheDocument()
+      expect(screen.queryByLabelText('สัญลักษณ์')).not.toBeInTheDocument()
+      expect(await screen.findByText('ทั้งหมด 2 รายการ')).toBeInTheDocument()
+      const rows = within(screen.getAllByRole('table').at(-1)!).getAllByRole('row')
+      expect(rows[2]).toHaveTextContent('5 × 280.00')
+      expect(await db.instruments.get('US:FB')).toBeUndefined()
+    })
+
+    it('shows the problem under the form and stays on the page when the symbol is taken', async () => {
+      await db.instruments.add({ ...fb, id: 'US:META', symbol: 'META', name: 'Meta' })
+      const user = userEvent.setup()
+      const router = renderRoute('/assets/US%3AFB', usd)
+      await rename(user, 'meta', 'Meta Platforms')
+      expect(await screen.findByRole('alert')).toHaveTextContent('มี US:META อยู่แล้ว · รวมสินทรัพย์สองตัวยังทำไม่ได้')
+      expect(router.state.location.pathname).toBe('/assets/US%3AFB')
+      expect(screen.getByRole('heading', { name: 'FB' })).toBeInTheDocument()
+      expect(screen.getByLabelText('สัญลักษณ์')).toHaveValue('meta')
+      expect((await db.transactions.toArray()).filter((t) => t.instrumentId === 'US:FB')).toHaveLength(2)
+    })
+
+    it('reports a symbol with a space without leaving the page', async () => {
+      const user = userEvent.setup()
+      const router = renderRoute('/assets/US%3AFB', usd)
+      await rename(user, 'ME TA', 'Meta')
+      expect(await screen.findByRole('alert')).toHaveTextContent('สัญลักษณ์ห้ามมีช่องว่างหรือเครื่องหมาย :')
+      expect(router.state.location.pathname).toBe('/assets/US%3AFB')
+    })
+
+    it('starts from the current symbol, name and unit, and closes on cancel', async () => {
+      const user = userEvent.setup()
+      renderRoute('/assets/US%3AFB', usd)
+      await user.click(await screen.findByRole('button', { name: 'เปลี่ยนชื่อ/สัญลักษณ์' }))
+      expect(screen.getByLabelText('สัญลักษณ์')).toHaveValue('FB')
+      expect(screen.getByLabelText('สัญลักษณ์')).toHaveAttribute('autocapitalize', 'characters')
+      expect(screen.getByLabelText('ชื่อ')).toHaveValue('Facebook')
+      expect(screen.getByLabelText('หน่วยนับ')).toHaveDisplayValue('หุ้น')
+      await user.click(screen.getByRole('button', { name: 'ยกเลิก' }))
+      expect(screen.queryByLabelText('สัญลักษณ์')).not.toBeInTheDocument()
+      expect(screen.queryByText(/^เดิม:/)).not.toBeInTheDocument()
+    })
+
+    it('changes the unit in place, on the same page', async () => {
+      const user = userEvent.setup()
+      const router = renderRoute('/assets/US%3AFB', usd)
+      await user.click(await screen.findByRole('button', { name: 'เปลี่ยนชื่อ/สัญลักษณ์' }))
+      await user.selectOptions(screen.getByLabelText('หน่วยนับ'), 'หน่วย')
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+      expect(await screen.findByText(/^มูลค่าวันนี้ · 5 หน่วย ×/)).toBeInTheDocument()
+      expect(router.state.location.pathname).toBe('/assets/US%3AFB')
+      expect(screen.queryByLabelText('หน่วยนับ')).not.toBeInTheDocument()
+      expect(await db.instruments.get('US:FB')).toMatchObject({ unit: 'unit', name: 'Facebook' })
+      expect((await db.instruments.get('US:FB'))?.previousSymbols).toBeUndefined()
+    })
+
+    it('does not show a line for old symbols when there are none', async () => {
+      renderRoute('/assets/US%3AFB', usd)
+      await screen.findByRole('heading', { name: 'FB' })
+      expect(screen.queryByText(/^เดิม:/)).not.toBeInTheDocument()
+    })
+
+    it('lists every old symbol, oldest first', async () => {
+      await db.instruments.update('US:FB', { previousSymbols: ['TFB', 'FB0'] })
+      renderRoute('/assets/US%3AFB', usd)
+      expect(await screen.findByText('เดิม: TFB, FB0')).toBeInTheDocument()
+    })
+
+    it('keeps the rename button next to the repeat button, each phone-sized, and offers it without a buy', async () => {
+      renderRoute('/assets/US%3AFB', usd)
+      const button = await screen.findByRole('button', { name: 'เปลี่ยนชื่อ/สัญลักษณ์' })
+      const repeat = screen.getByRole('link', { name: 'ทำซ้ำรายการซื้อ' })
+      expect(button.parentElement).toBe(repeat.parentElement)
+      expect(button).toHaveClass('h-11', 'max-md:w-11')
+      expect(repeat).toHaveClass('h-11')
+      expect(screen.getByRole('heading', { name: 'FB' }).closest('div')).toHaveClass('flex-nowrap', 'min-w-0')
+      expect(screen.getByText('Facebook')).toHaveClass('max-md:hidden')
+
+      await db.transactions.clear()
+      await db.transactions.add(makeTx({ instrumentId: 'US:FB', type: 'dividend', quantity: undefined, price: undefined, amount: '4', fxRate: '34' }))
+      await waitFor(() => expect(screen.queryByRole('link', { name: 'ทำซ้ำรายการซื้อ' })).not.toBeInTheDocument())
+      expect(screen.getByRole('button', { name: 'เปลี่ยนชื่อ/สัญลักษณ์' })).toBeInTheDocument()
+    })
+
+    it('closes the form when another asset opens', async () => {
+      await db.instruments.add(voo)
+      const user = userEvent.setup()
+      const router = renderRoute('/assets/US%3AFB', usd)
+      await user.click(await screen.findByRole('button', { name: 'เปลี่ยนชื่อ/สัญลักษณ์' }))
+      expect(screen.getByLabelText('สัญลักษณ์')).toBeInTheDocument()
+      await act(() => router.navigate('/assets/US%3AVOO'))
+      expect(await screen.findByRole('heading', { name: 'VOO' })).toBeInTheDocument()
+      expect(screen.queryByLabelText('สัญลักษณ์')).not.toBeInTheDocument()
+    })
+  })
+
   it('says so when the asset does not exist', async () => {
     renderRoute('/assets/US%3ANOPE')
     expect(await screen.findByText('ไม่พบสินทรัพย์นี้')).toBeInTheDocument()

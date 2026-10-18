@@ -121,6 +121,16 @@ export function validateTransaction(tx: Transaction, today: string = todayLocal(
   return errors
 }
 
+// A space or a colon would break the id MARKET:SYMBOL, which is split on ":".
+export function validateSymbol(symbol: string): string[] {
+  const trimmed = symbol.trim()
+  if (!trimmed) return ['กรุณาระบุสัญลักษณ์']
+  const errors: string[] = []
+  if (/[\s:]/.test(trimmed)) errors.push('สัญลักษณ์ห้ามมีช่องว่างหรือเครื่องหมาย :')
+  if (trimmed.length > 20) errors.push('สัญลักษณ์ยาวเกิน 20 ตัวอักษร')
+  return errors
+}
+
 // Every field may be left empty; whatever is filled in has to make sense.
 export function validateThesis(thesis: Thesis): string[] {
   const errors: string[] = []

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { makeTx } from '../test/fixtures'
 import type { FeeTemplate } from './types'
-import { validateFeeTemplate, validateTransaction } from './validation'
+import { validateFeeTemplate, validateSymbol, validateTransaction } from './validation'
 
 const TODAY = '2024-06-30'
 
@@ -251,5 +251,28 @@ describe('validateFeeTemplate', () => {
       'ค่าคอมต้องไม่เกิน 100%',
       'ขั้นต่ำต่อคำสั่งต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป',
     ])
+  })
+})
+
+describe('validateSymbol', () => {
+  it('asks for a symbol when it is empty after trimming', () => {
+    expect(validateSymbol('')).toEqual(['กรุณาระบุสัญลักษณ์'])
+    expect(validateSymbol('   ')).toEqual(['กรุณาระบุสัญลักษณ์'])
+  })
+
+  it('refuses a space or a colon, which would break the id MARKET:SYMBOL', () => {
+    expect(validateSymbol('ME TA')).toEqual(['สัญลักษณ์ห้ามมีช่องว่างหรือเครื่องหมาย :'])
+    expect(validateSymbol('US:META')).toEqual(['สัญลักษณ์ห้ามมีช่องว่างหรือเครื่องหมาย :'])
+  })
+
+  it('refuses a symbol over 20 characters', () => {
+    expect(validateSymbol('A'.repeat(21))).toEqual(['สัญลักษณ์ยาวเกิน 20 ตัวอักษร'])
+    expect(validateSymbol('A'.repeat(20))).toEqual([])
+  })
+
+  it('accepts what the markets use, and ignores spaces around it', () => {
+    expect(validateSymbol(' META ')).toEqual([])
+    expect(validateSymbol('SCBS&P500')).toEqual([])
+    expect(validateSymbol('96.5')).toEqual([])
   })
 })

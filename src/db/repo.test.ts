@@ -6,6 +6,7 @@ import {
   deleteAccount,
   getSettings,
   recordDailyValue,
+  renameInstrument,
   saveInstrumentThesis,
   saveSettings,
   saveTransaction,
@@ -142,6 +143,78 @@ describe('instrument thesis', () => {
       'วันทบทวนไม่ถูกต้อง',
     )
     await expect(saveInstrumentThesis(db, 'US:NOPE', { holdReason: 'x', targetPrice: '', reviewDate: '' })).rejects.toThrow('ไม่พบสินทรัพย์นี้')
+  })
+})
+
+describe('renameInstrument', () => {
+  const fb = { id: 'US:FB', market: 'US' as const, symbol: 'FB', name: 'Facebook', assetType: 'stock' as const, currency: 'USD', lastPrice: '300', holdReason: 'ads' }
+
+  it('moves every transaction to the new symbol and remembers the old one', async () => {
+    await db.instruments.add(fb)
+    const plain = makeTx({ instrumentId: 'US:FB' })
+    const swap = makeTx({ type: 'swap', instrumentId: 'US:AAPL', toInstrumentId: 'US:FB', quantity: '1', toQuantity: '1', amount: '100', price: undefined })
+    const paid = makeTx({ instrumentId: 'US:AAPL', feePaidIn: 'asset', feeInstrumentId: 'US:FB', feeQuantity: '0.01', fees: '3' })
+    await db.transactions.bulkAdd([plain, swap, paid])
+    await expect(renameInstrument(db, 'US:FB', { symbol: 'meta', name: 'Meta Platforms' })).resolves.toBe('US:META')
+    expect(await db.instruments.get('US:FB')).toBeUndefined()
+    expect(await db.instruments.get('US:META')).toMatchObject({ symbol: 'META', name: 'Meta Platforms', lastPrice: '300', holdReason: 'ads', previousSymbols: ['FB'] })
+    const ids = async (id: string) => {
+      const t = await db.transactions.get(id)
+      return [t?.instrumentId, t?.toInstrumentId, t?.feeInstrumentId]
+    }
+    expect(await ids(plain.id)).toEqual(['US:META', undefined, undefined])
+    expect(await ids(swap.id)).toEqual(['US:AAPL', 'US:META', undefined])
+    expect(await ids(paid.id)).toEqual(['US:AAPL', undefined, 'US:META'])
+  })
+
+  it('refuses a symbol that already exists and changes nothing', async () => {
+    await db.instruments.bulkAdd([fb, { ...fb, id: 'US:META', symbol: 'META', name: 'Meta' }])
+    await db.transactions.add(makeTx({ instrumentId: 'US:FB' }))
+    await expect(renameInstrument(db, 'US:FB', { symbol: 'META', name: 'x' })).rejects.toThrow('มี US:META อยู่แล้ว · รวมสินทรัพย์สองตัวยังทำไม่ได้')
+    expect((await db.transactions.toArray())[0].instrumentId).toBe('US:FB')
+    expect(await db.instruments.get('US:FB')).toMatchObject({ name: 'Facebook' })
+  })
+
+  it('changes only the name when the symbol stays the same', async () => {
+    await db.instruments.add(fb)
+    await expect(renameInstrument(db, 'US:FB', { symbol: 'FB', name: 'Meta' })).resolves.toBe('US:FB')
+    expect(await db.instruments.get('US:FB')).toMatchObject({ name: 'Meta' })
+    expect((await db.instruments.get('US:FB'))?.previousSymbols).toBeUndefined()
+  })
+
+  it('changes only the unit in place and keeps everything else', async () => {
+    await db.instruments.add(fb)
+    await db.transactions.add(makeTx({ instrumentId: 'US:FB' }))
+    await expect(renameInstrument(db, 'US:FB', { symbol: 'FB', name: 'Facebook', unit: 'unit' })).resolves.toBe('US:FB')
+    expect(await db.instruments.get('US:FB')).toEqual({ ...fb, unit: 'unit' })
+    expect((await db.transactions.toArray())[0].instrumentId).toBe('US:FB')
+  })
+
+  it('keeps the stored unit when none is given and carries it to the new symbol', async () => {
+    await db.instruments.add({ ...fb, unit: 'coin' })
+    await expect(renameInstrument(db, 'US:FB', { symbol: 'META', name: 'Meta' })).resolves.toBe('US:META')
+    expect(await db.instruments.get('US:META')).toMatchObject({ unit: 'coin' })
+    await renameInstrument(db, 'US:META', { symbol: 'META', name: 'Meta', unit: 'gram' })
+    expect(await db.instruments.get('US:META')).toMatchObject({ unit: 'gram', previousSymbols: ['FB'] })
+  })
+
+  it('keeps a trail when an asset is renamed more than once', async () => {
+    await db.instruments.add(fb)
+    await renameInstrument(db, 'US:FB', { symbol: 'META', name: 'Meta' })
+    await renameInstrument(db, 'US:META', { symbol: 'MVRS', name: 'Meta' })
+    expect(await db.instruments.get('US:MVRS')).toMatchObject({ symbol: 'MVRS', previousSymbols: ['FB', 'META'] })
+  })
+
+  it('refuses a bad symbol before touching anything', async () => {
+    await db.instruments.add(fb)
+    await expect(renameInstrument(db, 'US:FB', { symbol: ' ', name: 'x' })).rejects.toThrow('กรุณาระบุสัญลักษณ์')
+    await expect(renameInstrument(db, 'US:FB', { symbol: 'ME TA', name: 'x' })).rejects.toThrow('สัญลักษณ์ห้ามมีช่องว่างหรือเครื่องหมาย :')
+    expect(await db.instruments.get('US:FB')).toEqual(fb)
+  })
+
+  it('says so when the asset is not there', async () => {
+    await expect(renameInstrument(db, 'US:NOPE', { symbol: 'META', name: 'Meta' })).rejects.toThrow('ไม่พบสินทรัพย์นี้')
+    expect(await db.instruments.count()).toBe(0)
   })
 })
 
