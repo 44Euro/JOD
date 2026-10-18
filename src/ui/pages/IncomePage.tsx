@@ -26,9 +26,9 @@ import { IncomeBars } from '../components/IncomeBars'
 import { CashPill, MarketPill } from '../components/MarketPill'
 import { PageHeader } from '../components/PageHeader'
 import { Stat, SummaryPanel } from '../components/Summary'
-import { fmtDate, fmtHeadline, fmtMoney, fmtNumber, fmtPct, fmtSigned, fmtSignedPct, fmtValue, fmtYield, plClass } from '../format'
+import { fmtDate, fmtHeadline, fmtMoney, fmtNumber, fmtPct, fmtPrice, fmtSigned, fmtSignedPct, fmtValue, fmtYield, plClass } from '../format'
 import { useAppData, useLedger } from '../hooks'
-import { INCOME_SERIES, TX_TYPE_LABELS, marketOf } from '../labels'
+import { INCOME_SERIES, RECEIVE_KIND_LABELS, TX_TYPE_LABELS, marketOf } from '../labels'
 import { useIsDesktop } from '../useIsDesktop'
 
 const PERIODS = [
@@ -71,12 +71,14 @@ function AssetCell({
   instrument,
   accountName,
   currencies,
+  receiveTag,
   compact,
 }: {
   row: AssetIncomeRow
   instrument?: Instrument
   accountName: string
   currencies: readonly string[]
+  receiveTag?: string
   compact: boolean
 }) {
   if (!row.instrumentId) {
@@ -95,6 +97,7 @@ function AssetCell({
       {row.kinds.length === 1 && row.kinds[0] === 'interest' && (
         <span className="truncate text-[12.5px] text-muted-foreground">ดอกเบี้ย/คูปอง</span>
       )}
+      {receiveTag && <span className="truncate text-[12.5px] text-muted-foreground">{receiveTag}</span>}
     </span>
   )
 }
@@ -138,18 +141,32 @@ export function IncomePage() {
   const change = changePct(compared, previous)
   const buckets = incomeBuckets(events, period, today)
   const rows = incomeByAsset(events, range)
-  const currenciesByAccount = cashCurrencies(inRange(events, range))
+  const inPeriod = inRange(events, range)
+  const currenciesByAccount = cashCurrencies(inPeriod)
   const instruments = new Map(data.instruments.map((i) => [i.id, i]))
+  const transactions = new Map(data.transactions.map((t) => [t.id, t]))
   const accountNames = new Map(data.accounts.map((a) => [a.id, a.name]))
   const yieldOf = (row: AssetIncomeRow) =>
     row.instrumentId ? (instrumentStats(row.instrumentId, valuations, ledger, today)?.yieldOnCostPct ?? null) : null
   const symbolOf = (instrumentId: string) => instruments.get(instrumentId)?.symbol ?? instrumentId.split(':')[1]
+  // The kind of the latest receive names a row that only ever got assets; events are already in date order.
+  const receiveTagOf = (row: AssetIncomeRow) => {
+    if (row.kinds.length !== 1 || row.kinds[0] !== 'receive_asset') return undefined
+    const latest = inPeriod.filter((e) => e.instrumentId === row.instrumentId).at(-1)
+    const kind = latest && transactions.get(latest.txId)?.receiveKind
+    return kind ? RECEIVE_KIND_LABELS[kind].toLowerCase() : undefined
+  }
+  const receivedLine = (e: IncomeEvent) => {
+    const tx = e.kind === 'receive_asset' ? transactions.get(e.txId) : undefined
+    return tx && ` · ${fmtNumber(tx.quantity, 8)} ${symbolOf(e.instrumentId)} @${fmtPrice(tx.price)}`
+  }
   const assetCell = (row: AssetIncomeRow, compact = false) => (
     <AssetCell
       row={row}
       instrument={instruments.get(row.instrumentId)}
       accountName={accountNames.get(row.accountId) ?? '—'}
       currencies={currenciesByAccount.get(row.accountId) ?? [row.currency]}
+      receiveTag={receiveTagOf(row)}
       compact={compact}
     />
   )
@@ -211,7 +228,7 @@ export function IncomePage() {
                     <Td className="max-w-72">{assetCell(row)}</Td>
                     <Td className="text-right font-display font-semibold">{fmtValue(row.netBase)}</Td>
                     <Td className="text-right">{fmtYield(yieldOf(row))}</Td>
-                    <Td className="text-right text-muted-foreground">{fmtValue(row.taxBase)}</Td>
+                    <Td className="text-right text-muted-foreground">{row.taxBase.isZero() ? '—' : fmtValue(row.taxBase)}</Td>
                   </tr>
                 ))}
               </tbody>
@@ -226,7 +243,8 @@ export function IncomePage() {
                   {assetCell(row, true)}
                   <span className="font-display font-semibold">{fmtValue(row.netBase)}</span>
                   <span className="col-span-2 text-[12.5px] text-muted-foreground">
-                    {row.instrumentId ? `ปันผล/ทุน ${fmtYield(yieldOf(row))}` : 'ดอกเบี้ยเงินสด'} · หัก {fmtValue(row.taxBase)}
+                    {row.instrumentId ? `ปันผล/ทุน ${fmtYield(yieldOf(row))}` : 'ดอกเบี้ยเงินสด'}
+                    {!row.taxBase.isZero() && ` · หัก ${fmtValue(row.taxBase)}`}
                   </span>
                 </li>
               ))}
@@ -245,6 +263,7 @@ export function IncomePage() {
                   </span>
                   <span className="block text-[12.5px] text-muted-foreground">
                     {fmtDate(e.date)}
+                    {receivedLine(e)}
                     {!e.taxQuote.isZero() && ` · หัก ${e.currency === base ? fmtNumber(e.taxQuote) : fmtMoney(e.taxQuote, e.currency)}`}
                   </span>
                 </span>

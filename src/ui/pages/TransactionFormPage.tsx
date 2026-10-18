@@ -26,7 +26,7 @@ import { FeeTaxFields } from '../components/txform/FeeTaxFields'
 import { AfterSavePanel, TotalPanel } from '../components/txform/FormSidePanels'
 import { FxRateBox } from '../components/txform/FxRateBox'
 import { InstrumentFields } from '../components/txform/InstrumentFields'
-import { ReceiveFields } from '../components/txform/ReceiveFields'
+import { ReceiveFields, ReceiveTaxField } from '../components/txform/ReceiveFields'
 import { SwapFields, SwapSummary } from '../components/txform/SwapFields'
 import { TransferAmountField, TransferFields } from '../components/txform/TransferFields'
 import { TypePicker } from '../components/txform/TypePicker'
@@ -406,6 +406,7 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
               </Field>
             )}
             {draft.type === 'transfer' && <TransferAmountField draft={draft} update={update} />}
+            {draft.type === 'receive_asset' && <ReceiveTaxField draft={draft} update={update} />}
             {usesAmountField && (
               <Field id="tx-amount" label={amountLabel(draft)}>
                 <Input id="tx-amount" inputMode="decimal" value={draft.amount} onChange={(e) => update({ amount: e.target.value })} />

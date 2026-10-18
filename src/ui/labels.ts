@@ -17,6 +17,14 @@ export const TX_TYPE_LABELS: Record<TxType, string> = {
   opening: 'ยอดยกมา',
 }
 
+// The phone row has one line for the asset, the account and the type, so the longest names are shortened there.
+export const TX_TYPE_SHORT_LABELS: Partial<Record<TxType, string>> = {
+  transfer: 'โอน',
+  receive_asset: 'รับสินทรัพย์',
+  split: 'แตกพาร์',
+  interest: 'ดอกเบี้ย',
+}
+
 export const PRIMARY_TX_TYPES: readonly TxType[] = ['buy', 'sell', 'dividend', 'interest', 'fx_convert', 'deposit', 'withdraw']
 export const MORE_TX_TYPES: readonly TxType[] = ['transfer', 'swap', 'receive_asset', 'split', 'fee', 'opening']
 

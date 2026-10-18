@@ -89,6 +89,43 @@ describe('instrumentStats', () => {
   })
 })
 
+describe('yield on cost with assets received', () => {
+  const sol = { instrumentId: 'CRYPTO:SOL', fxRate: '35' }
+  const bought = makeTx({ ...sol, quantity: '10', price: '100', date: '2024-01-10' })
+  const staked = makeTx({ ...sol, type: 'receive_asset', receiveKind: 'staking', quantity: '0.5', price: '150', date: '2024-06-10' })
+  const today = '2024-10-16'
+
+  it('divides the income by the money paid for what is held, not by the value of what was received', () => {
+    const { ledger, valuations } = setup([bought, staked], '120')
+    const [mine] = holdingStats(valuations, ledger, today)
+    expect(mine.costBase.toString()).toBe('37625')
+    expect(mine.income12mBase.toString()).toBe('2625')
+    expect(mine.yieldOnCostPct?.toString()).toBe('7.5')
+    expect(instrumentStats('CRYPTO:SOL', valuations, ledger, today)?.yieldOnCostPct?.toString()).toBe('7.5')
+  })
+
+  it('has no yield when everything held was received', () => {
+    const { ledger, valuations } = setup([staked], '120')
+    const [mine] = holdingStats(valuations, ledger, today)
+    expect(mine.income12mBase.toString()).toBe('2625')
+    expect(mine.yieldOnCostPct).toBeNull()
+    expect(instrumentStats('CRYPTO:SOL', valuations, ledger, today)?.yieldOnCostPct).toBeNull()
+  })
+
+  it('keeps the same share of received cost after part of the holding is sold', () => {
+    const sell = makeTx({ ...sol, type: 'sell', quantity: '5.25', price: '120', date: '2024-07-10' })
+    const { ledger, valuations } = setup([bought, staked, sell], '120')
+    const [mine] = holdingStats(valuations, ledger, today)
+    expect(mine.costBase.toString()).toBe('18812.5')
+    expect(mine.yieldOnCostPct?.toString()).toBe('15')
+  })
+
+  it('keeps counting dividends of a bought holding as before', () => {
+    const { ledger, valuations } = setup(transactions, '500')
+    expect(holdingStats(valuations, ledger, '2024-10-16')[0].yieldOnCostPct?.toFixed(2)).toBe('0.52')
+  })
+})
+
 describe('allocation', () => {
   it('groups by key, adds cash and gives each group its share', () => {
     const rows = allocate([

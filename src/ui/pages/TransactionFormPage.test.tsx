@@ -585,6 +585,18 @@ describe('TransactionFormPage', () => {
       expect(within(given).queryByLabelText('จำนวนที่ได้รับ')).not.toBeInTheDocument()
     })
 
+    it('sets the groups apart with a hairline above every group that follows another, and reads the legends as titles', async () => {
+      await openSwap()
+      const given = screen.getByRole('group', { name: 'แลกออก' })
+      const received = screen.getByRole('group', { name: 'ได้รับ' })
+      for (const group of [given, received]) {
+        expect(group.parentElement).toHaveClass('[&~&]:border-t', '[&~&]:pt-4')
+        expect(within(group).getByText(group === given ? 'แลกออก' : 'ได้รับ', { selector: 'legend' })).toHaveClass('text-base')
+      }
+      expect(given.parentElement).not.toHaveClass('border-t')
+      expect(received.parentElement).not.toHaveClass('border-t')
+    })
+
     it('starts on crypto in both markets and in the crypto currency', async () => {
       const user = userEvent.setup()
       renderRoute('/transactions/new', provider())
@@ -741,6 +753,18 @@ describe('TransactionFormPage', () => {
       expect(screen.queryByLabelText('จำนวนเงิน')).not.toBeInTheDocument()
       expect(screen.queryByLabelText('จำนวนหน่วย')).not.toBeInTheDocument()
       expect(screen.queryByLabelText('ราคาต่อหน่วย')).not.toBeInTheDocument()
+    })
+
+    it('puts the tax beside the currency, the quantity beside the value, and lets the kind take the whole row', async () => {
+      await openReceive()
+      const rowOf = (id: string) => document.getElementById(id)!.parentElement!.parentElement!
+      expect(rowOf('tx-tax')).toBe(rowOf('tx-currency'))
+      expect(rowOf('tx-tax')).toHaveClass('grid', 'sm:grid-cols-2')
+      expect(rowOf('tx-quantity')).toBe(rowOf('tx-price'))
+      expect(rowOf('tx-quantity')).toHaveClass('grid', 'sm:grid-cols-2')
+      expect(rowOf('tx-quantity')).not.toBe(rowOf('tx-tax'))
+      expect(rowOf('tx-receive-kind')).not.toHaveClass('sm:grid-cols-2')
+      expect(rowOf('tx-receive-kind')).not.toBe(rowOf('tx-market'))
     })
 
     it('records a stock dividend with tax withheld and shows the units after saving', async () => {

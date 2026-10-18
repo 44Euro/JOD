@@ -9,6 +9,8 @@ export interface Position {
   quantity: Decimal
   costQuote: Decimal
   costBase: Decimal
+  // The part of costBase that came from units received as income, which is value earned, not money paid.
+  receivedCostBase: Decimal
 }
 
 export interface RealizedEvent {
@@ -84,11 +86,15 @@ export function acquisitionCostQuote(tx: Transaction): Decimal {
 
 // The cost that leaves a position with `quantity` units: the average cost per unit times the units, or
 // everything when the whole holding goes so no rounding residue is left behind.
-export function takeCost(position: Position, quantity: Decimal): { costQuote: Decimal; costBase: Decimal; closesAll: boolean } {
+export function takeCost(
+  position: Position,
+  quantity: Decimal,
+): { costQuote: Decimal; costBase: Decimal; receivedCostBase: Decimal; closesAll: boolean } {
   const closesAll = quantity.equals(position.quantity)
   return {
     costQuote: closesAll ? position.costQuote : position.costQuote.div(position.quantity).times(quantity),
     costBase: closesAll ? position.costBase : position.costBase.div(position.quantity).times(quantity),
+    receivedCostBase: closesAll ? position.receivedCostBase : position.receivedCostBase.div(position.quantity).times(quantity),
     closesAll,
   }
 }
@@ -216,6 +222,7 @@ export function computeLedger(transactions: readonly Transaction[]): Ledger {
       position.quantity = position.quantity.minus(quantity)
       position.costQuote = position.costQuote.minus(cost.costQuote)
       position.costBase = position.costBase.minus(cost.costBase)
+      position.receivedCostBase = position.receivedCostBase.minus(cost.receivedCostBase)
     }
   }
 
@@ -240,11 +247,13 @@ export function computeLedger(transactions: readonly Transaction[]): Ledger {
         quantity: D(0),
         costQuote: D(0),
         costBase: D(0),
+        receivedCostBase: D(0),
       }
       const cost = tx.type === 'receive_asset' ? receivedValueQuote(tx) : acquisitionCostQuote(tx)
       position.quantity = position.quantity.plus(D(tx.quantity))
       position.costQuote = position.costQuote.plus(cost)
       position.costBase = position.costBase.plus(cost.times(rate))
+      if (tx.type === 'receive_asset') position.receivedCostBase = position.receivedCostBase.plus(cost.times(rate))
       positions.set(key, position)
     }
 
@@ -286,10 +295,12 @@ export function computeLedger(transactions: readonly Transaction[]): Ledger {
         quantity: D(0),
         costQuote: D(0),
         costBase: D(0),
+        receivedCostBase: D(0),
       }
       received.quantity = received.quantity.plus(quantity)
       received.costQuote = received.costQuote.plus(cost.costQuote)
       received.costBase = received.costBase.plus(cost.costBase)
+      received.receivedCostBase = received.receivedCostBase.plus(cost.receivedCostBase)
       positions.set(toKey, received)
     }
 
@@ -321,6 +332,7 @@ export function computeLedger(transactions: readonly Transaction[]): Ledger {
         quantity: D(0),
         costQuote: D(0),
         costBase: D(0),
+        receivedCostBase: D(0),
       }
       const receivedCost = receivedCostQuote(tx)
       received.quantity = received.quantity.plus(D(tx.toQuantity))

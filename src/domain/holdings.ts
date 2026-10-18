@@ -45,6 +45,8 @@ function stats(
   months: ReadonlySet<string>,
 ): HoldingStats {
   const costBase = sumBy(valuations, (v) => v.position.costBase)
+  // Units received as income cost nothing out of pocket, so a yield measured against them would only repeat itself.
+  const paidBase = costBase.minus(sumBy(valuations, (v) => v.position.receivedCostBase))
   const unrealizedBase = sumValued(valuations, (v) => v.unrealizedBase)
   const realizedBase = sumBy(realized, (e) => e.realizedBase)
   const incomeBase = sumBy(income, (e) => e.netBase)
@@ -70,7 +72,7 @@ function stats(
     income12mBase,
     totalReturnBase,
     totalReturnPct: pctOf(totalReturnBase, costBase),
-    yieldOnCostPct: pctOf(income12mBase, costBase),
+    yieldOnCostPct: pctOf(income12mBase, paidBase),
   }
 }
 

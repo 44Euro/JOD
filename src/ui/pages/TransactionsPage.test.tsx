@@ -154,6 +154,39 @@ describe('TransactionsPage', () => {
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
   })
 
+  describe('type names', () => {
+    beforeEach(async () => {
+      await db.transactions.bulkAdd([
+        makeTx({ id: 'int', type: 'interest', instrumentId: undefined, quantity: undefined, price: undefined, amount: '5', date: '2024-01-12' }),
+        makeTx({ id: 'spl', type: 'split', quantity: undefined, price: undefined, splitRatio: '4', date: '2024-01-11' }),
+        makeTx({ id: 'div', type: 'dividend', quantity: undefined, price: undefined, amount: '5', date: '2024-01-10' }),
+        makeTx({ id: 'buy', date: '2024-01-09' }),
+      ])
+    })
+
+    it('keeps the full names in the table', async () => {
+      renderRoute('/transactions')
+      const table = await screen.findByRole('table')
+      for (const full of ['ดอกเบี้ย/คูปอง', 'แตกพาร์/รวมหุ้น', 'ปันผล', 'ซื้อ']) expect(within(table).getByText(full)).toBeInTheDocument()
+    })
+
+    it('uses short names in the phone row so the account name keeps room, and the full name where none is short', async () => {
+      vi.stubGlobal('matchMedia', (query: string) => ({
+        matches: false,
+        media: query,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      }))
+      renderRoute('/transactions')
+      const list = await screen.findByRole('list', { name: 'รายการทั้งหมด' })
+      for (const short of ['ดอกเบี้ย', 'แตกพาร์', 'ปันผล', 'ซื้อ']) expect(within(list).getByText(short)).toBeInTheDocument()
+      expect(within(list).queryByText('ดอกเบี้ย/คูปอง')).not.toBeInTheDocument()
+      expect(within(list).queryByText('แตกพาร์/รวมหุ้น')).not.toBeInTheDocument()
+      const buy = within(list).getByText('ซื้อ').closest('a')!
+      expect(within(buy).getByText('Dime US')).toHaveClass('min-w-[3.5rem]')
+    })
+  })
+
   describe('transfers', () => {
     const ibkr = { id: 'acc-2', name: 'IBKR', broker: 'IBKR', note: '', createdAt: '2024-01-01T00:00:00.000Z' }
     const sendShares = makeTx({
@@ -238,6 +271,8 @@ describe('TransactionsPage', () => {
       expect(within(shares).queryByText('· เรท')).not.toBeInTheDocument()
       const buy = within(list).getByText('10 × 100.00 USD').closest('li')!
       expect(within(buy).getByText('· เรท')).toBeInTheDocument()
+      expect(within(shares).getByText('โอน')).toBeInTheDocument()
+      expect(within(list).queryByText('โอนระหว่างบัญชี')).not.toBeInTheDocument()
     })
   })
 
@@ -361,6 +396,9 @@ describe('TransactionsPage', () => {
       const list = await screen.findByRole('list', { name: 'รายการทั้งหมด' })
       const item = within(list).getByText(/^0\.5 × 150\.00 · Staking USD$/).closest('li')!
       expect(within(item).getByText('+2,625.00')).toHaveClass('text-gain')
+      expect(within(item).getByText('รับสินทรัพย์')).toBeInTheDocument()
+      expect(within(item).queryByText('รับเป็นสินทรัพย์')).not.toBeInTheDocument()
+      expect(within(item).getByText('Dime US')).toHaveClass('min-w-[3.5rem]')
     })
   })
 })

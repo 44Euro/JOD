@@ -344,6 +344,56 @@ describe('computeLedger assets received as income', () => {
     expect(ledger.income[0].netBase.toString()).toBe('0')
   })
 
+  describe('cost that came from received units', () => {
+    const sol = { instrumentId: 'CRYPTO:SOL', fxRate: '35' }
+    const bought = makeTx({ ...sol, quantity: '10', price: '100', date: '2024-01-10' })
+    const staked = makeTx({ ...sol, type: 'receive_asset', receiveKind: 'staking', quantity: '0.5', price: '150', date: '2024-02-10' })
+    const sell = (quantity: string) => makeTx({ ...sol, type: 'sell', quantity, price: '120', date: '2024-03-10' })
+    const shares = (ledger: Ledger) => ledger.positions.map((p) => [p.key, p.quantity, p.costBase, p.receivedCostBase].map(String))
+
+    it('is zero for units that were paid for and the base cost of what was received', () => {
+      expect(shares(computeLedger([bought]))).toEqual([['acc-1|CRYPTO:SOL', '10', '35000', '0']])
+      expect(shares(computeLedger([bought, staked]))).toEqual([['acc-1|CRYPTO:SOL', '10.5', '37625', '2625']])
+    })
+
+    it('leaves in proportion with the units that are sold, and with all of them when everything goes', () => {
+      expect(shares(computeLedger([bought, staked, sell('5.25')]))).toEqual([['acc-1|CRYPTO:SOL', '5.25', '18812.5', '1312.5']])
+      expect(computeLedger([bought, staked, sell('10.5')]).positions).toEqual([])
+    })
+
+    it('leaves in proportion with the units that are swapped away', () => {
+      const swap = makeTx({
+        ...sol,
+        type: 'swap',
+        quantity: '5.25',
+        price: undefined,
+        toInstrumentId: 'CRYPTO:ETH',
+        toQuantity: '0.3',
+        amount: '700',
+        date: '2024-03-10',
+      })
+      expect(shares(computeLedger([bought, staked, swap]))).toEqual([
+        ['acc-1|CRYPTO:ETH', '0.3', '24500', '0'],
+        ['acc-1|CRYPTO:SOL', '5.25', '18812.5', '1312.5'],
+      ])
+    })
+
+    it('moves with the units that are transferred and adds to what the other account already holds', () => {
+      const send = makeTx({ ...sol, type: 'transfer', toAccountId: 'acc-2', quantity: '5.25', price: undefined, date: '2024-03-10' })
+      const there = makeTx({ ...sol, accountId: 'acc-2', quantity: '1', price: '90', date: '2024-01-05' })
+      expect(shares(computeLedger([bought, staked, send]))).toEqual([
+        ['acc-1|CRYPTO:SOL', '5.25', '18812.5', '1312.5'],
+        ['acc-2|CRYPTO:SOL', '5.25', '18812.5', '1312.5'],
+      ])
+      expect(shares(computeLedger([there, bought, staked, send]))[1]).toEqual(['acc-2|CRYPTO:SOL', '6.25', '21962.5', '1312.5'])
+    })
+
+    it('does not change when units are split', () => {
+      const split = makeTx({ ...sol, type: 'split', quantity: undefined, price: undefined, splitRatio: '2', date: '2024-03-10' })
+      expect(shares(computeLedger([bought, staked, split]))).toEqual([['acc-1|CRYPTO:SOL', '21', '37625', '2625']])
+    })
+  })
+
   it('refuses an asset received in another currency than the one held and leaves everything alone', () => {
     const buy = makeTx({ ...thb, instrumentId: 'CRYPTO:SOL', quantity: '1', price: '5000', date: '2024-01-10' })
     const received = makeTx({ type: 'receive_asset', receiveKind: 'staking', instrumentId: 'CRYPTO:SOL', quantity: '0.5', price: '150', tax: '1' })

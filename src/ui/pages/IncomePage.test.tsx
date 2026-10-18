@@ -47,7 +47,7 @@ describe('IncomePage', () => {
     const group = await screen.findByRole('group', { name: 'ช่วงเวลา' })
     expect(group).toHaveClass('max-md:w-full')
     expect(group).not.toHaveClass('max-[380px]:grid')
-    for (const button of within(group).getAllByRole('button')) expect(button).toHaveClass('h-11', 'max-md:flex-1', 'max-md:px-2')
+    for (const button of within(group).getAllByRole('button')) expect(button).toHaveClass('h-11', 'min-w-11', 'max-md:flex-1', 'max-md:px-2')
   })
 
   it('sums this year after tax and compares it with the same days last year', async () => {
@@ -161,9 +161,104 @@ describe('IncomePage', () => {
     expect(month).toHaveTextContent('ส.ค. 2025 ฿2,625')
     expect(month.querySelector('.bg-income-asset')).toHaveStyle({ height: '100.00%' })
     const recent = screen.getByRole('list', { name: 'รายได้ล่าสุด' })
-    expect(within(recent).getAllByRole('listitem')[0]).toHaveTextContent('SOL รับเป็นสินทรัพย์20 ส.ค. 2025+2,625')
+    expect(within(recent).getAllByRole('listitem')[0]).toHaveTextContent('SOL รับเป็นสินทรัพย์20 ส.ค. 2025 · 0.5 SOL @150.00+2,625')
     const sol = screen.getByText('SOL', { selector: 'b' }).closest('tr')!
     expect(within(sol).getByText('2,625')).toBeInTheDocument()
+  })
+
+  describe('rows for assets received', () => {
+    const sol = { id: 'CRYPTO:SOL', market: 'CRYPTO', symbol: 'SOL', name: 'Solana', assetType: 'crypto', currency: 'USD' } as const
+    const receive = (overrides = {}) =>
+      makeTx({ type: 'receive_asset', receiveKind: 'staking', instrumentId: 'CRYPTO:SOL', quantity: '0.5', price: '150', fxRate: '35', date: '2025-08-20', ...overrides })
+    const phone = () =>
+      vi.stubGlobal('matchMedia', (query: string) => ({
+        matches: false,
+        media: query,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      }))
+
+    it('shows the kind beside the symbol, a dash for no tax and no yield when nothing was paid', async () => {
+      await db.instruments.add(sol)
+      await db.transactions.add(receive())
+      renderRoute('/income')
+      const row = (await screen.findByText('SOL', { selector: 'b' })).closest('tr')!
+      expect(within(row).getByText('staking')).toBeInTheDocument()
+      expect(row.cells[2]).toHaveTextContent(/^—$/)
+      expect(row.cells[3]).toHaveTextContent(/^—$/)
+    })
+
+    it('tags the row with the kind of the most recent receive, in lowercase for English and as is for Thai', async () => {
+      await db.instruments.add(sol)
+      await db.transactions.bulkAdd([
+        receive({ receiveKind: 'staking', date: '2025-03-20' }),
+        receive({ receiveKind: 'airdrop', date: '2025-06-20' }),
+      ])
+      renderRoute('/income')
+      const row = (await screen.findByText('SOL', { selector: 'b' })).closest('tr')!
+      expect(within(row).getByText('airdrop')).toBeInTheDocument()
+      expect(within(row).queryByText('staking')).not.toBeInTheDocument()
+    })
+
+    it('tags a Thai kind as it is written', async () => {
+      await db.instruments.add(sol)
+      await db.transactions.add(receive({ receiveKind: 'coin_interest' }))
+      renderRoute('/income')
+      expect(within((await screen.findByText('SOL', { selector: 'b' })).closest('tr')!).getByText('ดอกเบี้ยเป็นเหรียญ')).toBeInTheDocument()
+    })
+
+    it('leaves the tag off when the asset also paid a dividend', async () => {
+      await db.instruments.add({ id: 'SET:PTT', market: 'SET', symbol: 'PTT', name: 'ปตท.', assetType: 'stock', currency: 'THB' })
+      await db.transactions.bulkAdd([
+        makeTx({ ...cashFree, ...baht, type: 'dividend', instrumentId: 'SET:PTT', amount: '1000', tax: '100', date: '2025-08-20' }),
+        receive({ ...baht, instrumentId: 'SET:PTT', receiveKind: 'stock_dividend', quantity: '100', price: '1' }),
+      ])
+      renderRoute('/income')
+      const row = (await screen.findByText('PTT', { selector: 'b' })).closest('tr')!
+      expect(within(row).queryByText('ปันผลเป็นหุ้น')).not.toBeInTheDocument()
+      expect(row.cells[3]).toHaveTextContent(/^100$/)
+    })
+
+    it('shows a dash for cash interest that had no tax too', async () => {
+      await db.transactions.add(makeTx({ ...cashFree, ...baht, type: 'interest', instrumentId: undefined, amount: '100', date: '2025-02-10' }))
+      renderRoute('/income')
+      const cash = (await screen.findByText('ดอกเบี้ยเงินสด')).closest('tr')!
+      expect(cash.cells[3]).toHaveTextContent(/^—$/)
+    })
+
+    it('adds the quantity and the value of the day to the recent line, with the tax after it', async () => {
+      await db.instruments.add(sol)
+      await db.transactions.add(receive({ tax: '1' }))
+      renderRoute('/income')
+      const item = within(await screen.findByRole('list', { name: 'รายได้ล่าสุด' })).getAllByRole('listitem')[0]
+      expect(item).toHaveTextContent('SOL รับเป็นสินทรัพย์20 ส.ค. 2025 · 0.5 SOL @150.00 · หัก 1.00 USD+2,590')
+    })
+
+    it('does not add that part to the recent line of a dividend', async () => {
+      await seedIncome()
+      renderRoute('/income')
+      const item = within(await screen.findByRole('list', { name: 'รายได้ล่าสุด' })).getAllByRole('listitem')[0]
+      expect(item).toHaveTextContent(/^PTT ปันผล20 ส.ค. 2025 · หัก 120\+1,080$/)
+    })
+
+    it('leaves the tax off the second line of a phone row when none was withheld', async () => {
+      phone()
+      await db.instruments.add(sol)
+      await db.transactions.add(receive())
+      renderRoute('/income')
+      const list = await screen.findByRole('list', { name: 'รายได้ตามสินทรัพย์' })
+      const [item] = within(list).getAllByRole('listitem')
+      expect(item).toHaveTextContent('SOLstaking2,625ปันผล/ทุน —')
+      expect(item).not.toHaveTextContent('หัก')
+    })
+
+    it('keeps the tax on the second line of a phone row that had some', async () => {
+      phone()
+      await seedIncome()
+      renderRoute('/income')
+      const [item] = within(await screen.findByRole('list', { name: 'รายได้ตามสินทรัพย์' })).getAllByRole('listitem')
+      expect(item).toHaveTextContent('ปันผล/ทุน 6.6% · หัก 120')
+    })
   })
 
   it('stacks an asset received on top of the dividend of the same month', async () => {

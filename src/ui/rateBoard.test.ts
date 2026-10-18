@@ -13,6 +13,7 @@ function position(overrides: Partial<Position>): Position {
     quantity: D(10),
     costQuote: D(1000),
     costBase: D(35000),
+    receivedCostBase: D(0),
     ...overrides,
   }
 }
