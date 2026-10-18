@@ -158,14 +158,15 @@ export function changeType(draft: Draft, type: TxType, baseCurrency: string): Dr
     draft.type === 'fx_convert' ? changeCurrency({ ...draft, type }, MARKET_CURRENCY[draft.market]) : { ...draft, type }
   const changed = isOpeningAsset(next) !== isOpeningAsset(draft) ? restartRate(next) : next
   if (type !== 'swap') return changed
-  return {
-    ...changed,
-    toMarket: changed.market,
-    toSymbol: '',
-    toInstrumentName: '',
-    toAssetType: defaultAssetType(changed.market),
-    toQuantity: '',
-  }
+  // A swap is almost always between coins, so it starts on crypto instead of the market of the last entry.
+  const onCrypto =
+    changed.market === 'CRYPTO'
+      ? changed
+      : changeCurrency(
+          { ...changed, market: 'CRYPTO', symbol: '', instrumentName: '', assetType: 'crypto' },
+          MARKET_CURRENCY.CRYPTO,
+        )
+  return { ...onCrypto, toMarket: 'CRYPTO', toSymbol: '', toInstrumentName: '', toAssetType: 'crypto', toQuantity: '' }
 }
 
 export function changeOpeningKind(draft: Draft, openingKind: OpeningKind): Draft {

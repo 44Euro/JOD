@@ -4,6 +4,7 @@ import type { Instrument } from '../../../domain/types'
 import type { SwapOutcome } from '../../afterSave'
 import { fmtPrice, fmtSigned, plClass } from '../../format'
 import { changeMarket, changeToMarket, pickSymbol, pickToSymbol, type Draft } from '../../transactionDraft'
+import { FieldGroup } from './FieldGroup'
 import { InstrumentFields } from './InstrumentFields'
 
 export function SwapFields({
@@ -22,7 +23,7 @@ export function SwapFields({
   const update = (patch: Partial<Draft>) => setDraft((d) => ({ ...d, ...patch }))
   return (
     <>
-      <div className="grid gap-3.5">
+      <FieldGroup legend="แลกออก">
         <InstrumentFields
           idPrefix="tx"
           symbolLabel="สินทรัพย์ที่แลกออก"
@@ -42,8 +43,8 @@ export function SwapFields({
             <Input id="tx-quantity" inputMode="decimal" value={draft.quantity} onChange={(e) => update({ quantity: e.target.value })} />
           </Field>
         </div>
-      </div>
-      <div className="grid gap-3.5">
+      </FieldGroup>
+      <FieldGroup legend="ได้รับ">
         <InstrumentFields
           idPrefix="tx-to"
           symbolLabel="สินทรัพย์ที่ได้รับ"
@@ -63,7 +64,7 @@ export function SwapFields({
             <Input id="tx-to-quantity" inputMode="decimal" value={draft.toQuantity} onChange={(e) => update({ toQuantity: e.target.value })} />
           </Field>
         </div>
-      </div>
+      </FieldGroup>
     </>
   )
 }

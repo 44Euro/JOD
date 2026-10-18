@@ -276,14 +276,14 @@ describe('computeLedger swaps', () => {
   it('refuses a swap when the coin given up is held in another currency', () => {
     const inBaht = makeTx({ instrumentId: 'CRYPTO:BTC', currency: 'THB', quantity: '0.01', price: '2000000', fxRate: '1', fxSource: 'same', date: '2024-03-01' })
     const ledger = computeLedger([inBaht, swap()])
-    expect(ledger.issues[0].message).toBe('สกุลเงิน USD ไม่ตรงกับที่ถืออยู่ (THB)')
+    expect(ledger.issues[0].message).toBe('BTC ถืออยู่เป็น THB · รายการนี้ใช้ USD')
   })
 
   it('refuses a swap that would add to a coin held in another currency and leaves everything alone', () => {
     const ethInBaht = makeTx({ instrumentId: 'CRYPTO:ETH', currency: 'THB', quantity: '1', price: '90000', fxRate: '1', fxSource: 'same', date: '2024-02-01' })
     const skipped = swap({ fees: '2' })
     const ledger = computeLedger([ethInBaht, buyBtc, skipped])
-    expect(ledger.issues).toEqual([{ txId: skipped.id, message: 'สกุลเงิน USD ไม่ตรงกับที่ถืออยู่ (THB)' }])
+    expect(ledger.issues).toEqual([{ txId: skipped.id, message: 'ETH ถืออยู่เป็น THB · รายการนี้ใช้ USD' }])
     const without = computeLedger([ethInBaht, buyBtc])
     expect(ledger.positions.map((p) => [p.key, p.quantity.toString()])).toEqual(without.positions.map((p) => [p.key, p.quantity.toString()]))
     expect(ledger.realized).toEqual([])

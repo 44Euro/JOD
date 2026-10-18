@@ -103,6 +103,10 @@ export function instrumentKey(market: Market, symbol: string): string {
   return `${market}:${symbol.trim().toUpperCase()}`
 }
 
+export function symbolOf(instrumentId: string | undefined): string {
+  return instrumentId?.split(':')[1] ?? ''
+}
+
 export function findInstrument(instruments: readonly Instrument[], market: Market, symbol: string): Instrument | undefined {
   const id = instrumentKey(market, symbol)
   return instruments.find((i) => i.id === id)

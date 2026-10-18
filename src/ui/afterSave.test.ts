@@ -132,18 +132,38 @@ describe('previewAfterSave for a swap', () => {
     const { rows, warning } = previewAfterSave([buyBtc], swap(), 'THB', 'BTC')
     expect(rows).toEqual([
       { label: 'BTC ที่ถือ', before: '0.01', after: '0' },
-      { label: 'ทุนเฉลี่ย (USD)', before: '58,000', after: '—' },
-      { label: 'เรทเฉลี่ยตอนซื้อ', before: '34', after: '—', fx: true },
+      { label: 'ทุนเฉลี่ย BTC (USD)', before: '58,000', after: '—' },
+      { label: 'เรทเฉลี่ยตอนซื้อ BTC', before: '34', after: '—', fx: true },
       { label: 'ETH ที่ถือ', before: '0', after: '0.25' },
+      { label: 'ทุนเฉลี่ย ETH (USD)', before: '—', after: '2,640' },
+      { label: 'เรทเฉลี่ยตอนซื้อ ETH', before: '—', after: '35', fx: true },
     ])
     expect(warning).toBeNull()
+  })
+
+  it('names the coin on every row and keeps the rows of each coin together', () => {
+    const { rows } = previewAfterSave([buyBtc], swap(), 'THB', 'BTC')
+    expect(rows.map((row) => row.label)).toEqual([
+      'BTC ที่ถือ',
+      'ทุนเฉลี่ย BTC (USD)',
+      'เรทเฉลี่ยตอนซื้อ BTC',
+      'ETH ที่ถือ',
+      'ทุนเฉลี่ย ETH (USD)',
+      'เรทเฉลี่ยตอนซื้อ ETH',
+    ])
+  })
+
+  it('leaves out the rate rows when the swap is valued in the base currency', () => {
+    const inBaht = { currency: 'THB', fxRate: '1', fxSource: 'same' as const }
+    const { rows } = previewAfterSave([{ ...buyBtc, ...inBaht }], swap(inBaht), 'THB', 'BTC')
+    expect(rows.map((row) => row.label)).toEqual(['BTC ที่ถือ', 'ทุนเฉลี่ย BTC (THB)', 'ETH ที่ถือ', 'ทุนเฉลี่ย ETH (THB)'])
   })
 
   it('adds the coin received to what is already held', () => {
     const eth = makeTx({ instrumentId: 'CRYPTO:ETH', quantity: '1', price: '2000', fxRate: '33', date: '2024-02-01' })
     const { rows } = previewAfterSave([eth, buyBtc], swap({ quantity: '0.004', toQuantity: '0.1', amount: '264' }), 'THB', 'BTC')
     expect(rows[0]).toEqual({ label: 'BTC ที่ถือ', before: '0.01', after: '0.006' })
-    expect(rows[rows.length - 1]).toEqual({ label: 'ETH ที่ถือ', before: '1', after: '1.1' })
+    expect(rows.find((row) => row.label === 'ETH ที่ถือ')).toEqual({ label: 'ETH ที่ถือ', before: '1', after: '1.1' })
   })
 
   it('shows the fee paid in cash only for an account that records cash', () => {
@@ -171,7 +191,7 @@ describe('previewAfterSave for a swap', () => {
     const saved = swap({ id: 'swap-1' })
     const { rows, swap: outcome } = previewAfterSave([buyBtc], { ...saved, toQuantity: '0.3' }, 'THB', 'BTC', saved)
     expect(rows[0]).toEqual({ label: 'BTC ที่ถือ', before: '0', after: '0' })
-    expect(rows[rows.length - 1]).toEqual({ label: 'ETH ที่ถือ', before: '0.25', after: '0.3' })
+    expect(rows.find((row) => row.label === 'ETH ที่ถือ')).toEqual({ label: 'ETH ที่ถือ', before: '0.25', after: '0.3' })
     expect(outcome?.unitCost.toString()).toBe('2200')
   })
 })

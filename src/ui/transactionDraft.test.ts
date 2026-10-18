@@ -409,6 +409,35 @@ describe('swaps', () => {
     expect(next).toMatchObject({ type: 'swap', toMarket: 'CRYPTO', toSymbol: '', toQuantity: '', toInstrumentName: '', toAssetType: 'crypto' })
   })
 
+  it('starts a swap on crypto in both markets, in the crypto currency, with the rate started over', () => {
+    const from = buyDraft({ market: 'SET', symbol: 'ptt', instrumentName: 'ปตท.', assetType: 'etf', currency: 'THB', fxRate: '', fxSource: 'auto' })
+    expect(changeType(from, 'swap', 'THB')).toMatchObject({
+      market: 'CRYPTO',
+      toMarket: 'CRYPTO',
+      assetType: 'crypto',
+      toAssetType: 'crypto',
+      currency: 'USD',
+      fxRate: '',
+      fxSource: 'auto',
+      referenceFxRate: '',
+      symbol: '',
+      instrumentName: '',
+    })
+    const priced = changeType(buyDraft({ market: 'HK', currency: 'HKD', fxRate: '4.5' }), 'swap', 'THB')
+    expect(priced).toMatchObject({ currency: 'USD', fxRate: '', referenceFxRate: '' })
+  })
+
+  it('keeps the symbol, currency and rate of a draft that is already on crypto', () => {
+    const onCrypto = buyDraft({ market: 'CRYPTO', symbol: 'btc', assetType: 'crypto', currency: 'USD' })
+    expect(changeType(onCrypto, 'swap', 'THB')).toMatchObject({
+      market: 'CRYPTO',
+      toMarket: 'CRYPTO',
+      symbol: 'btc',
+      currency: 'USD',
+      fxRate: '35.1',
+    })
+  })
+
   it('leaves a swap alone when the type is chosen again', () => {
     const swapping = swapDraft()
     expect(changeType(swapping, 'swap', 'THB')).toBe(swapping)

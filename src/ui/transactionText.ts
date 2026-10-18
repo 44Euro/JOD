@@ -1,8 +1,7 @@
 import { D } from '../domain/decimal'
 import { acquisitionCostQuote, cashDeltaQuote } from '../domain/ledger'
-import type { Transaction } from '../domain/types'
+import { symbolOf, type Transaction } from '../domain/types'
 import { fmtNumber, fmtPrice, fmtSigned, fmtValue, plClass } from './format'
-import { symbolOf } from './labels'
 
 export function describeAmount(tx: Transaction, accountNames?: ReadonlyMap<string, string>): string {
   switch (tx.type) {

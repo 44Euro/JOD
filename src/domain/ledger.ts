@@ -1,5 +1,5 @@
 import { D, Decimal } from './decimal'
-import type { Transaction } from './types'
+import { symbolOf, type Transaction } from './types'
 
 export interface Position {
   key: string
@@ -292,7 +292,11 @@ export function computeLedger(transactions: readonly Transaction[]): Ledger {
       const toKey = positionKey(tx.accountId, toInstrumentId)
       const wrongCurrency = [held, positions.get(toKey)].find((p) => p && p.currency !== tx.currency)
       if (wrongCurrency) {
-        issues.push({ txId: tx.id, message: `สกุลเงิน ${tx.currency} ไม่ตรงกับที่ถืออยู่ (${wrongCurrency.currency})` })
+        // Either coin of a swap can be the one in the wrong currency, so the message names it.
+        issues.push({
+          txId: tx.id,
+          message: `${symbolOf(wrongCurrency.instrumentId)} ถืออยู่เป็น ${wrongCurrency.currency} · รายการนี้ใช้ ${tx.currency}`,
+        })
         continue
       }
       if (!held || held.quantity.lessThan(quantity)) {

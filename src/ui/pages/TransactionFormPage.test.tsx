@@ -572,6 +572,30 @@ describe('TransactionFormPage', () => {
       expect(screen.queryByLabelText('จำนวนหน่วย')).not.toBeInTheDocument()
     })
 
+    it('groups the two coins so each field says which side it belongs to', async () => {
+      await openSwap()
+      const given = screen.getByRole('group', { name: 'แลกออก' })
+      const received = screen.getByRole('group', { name: 'ได้รับ' })
+      expect(within(given).getByLabelText('ตลาด')).toHaveAttribute('id', 'tx-market')
+      expect(within(given).getByLabelText('สินทรัพย์ที่แลกออก')).toBeInTheDocument()
+      expect(within(given).getByLabelText('จำนวนที่แลกออก')).toBeInTheDocument()
+      expect(within(received).getByLabelText('ตลาด')).toHaveAttribute('id', 'tx-to-market')
+      expect(within(received).getByLabelText('สินทรัพย์ที่ได้รับ')).toBeInTheDocument()
+      expect(within(received).getByLabelText('จำนวนที่ได้รับ')).toBeInTheDocument()
+      expect(within(given).queryByLabelText('จำนวนที่ได้รับ')).not.toBeInTheDocument()
+    })
+
+    it('starts on crypto in both markets and in the crypto currency', async () => {
+      const user = userEvent.setup()
+      renderRoute('/transactions/new', provider())
+      await user.selectOptions(await screen.findByLabelText('ตลาด'), 'SET')
+      expect(screen.getByLabelText('สกุลเงิน')).toHaveValue('THB')
+      await user.selectOptions(screen.getByLabelText('ประเภทอื่นๆ'), 'แลกเหรียญ')
+      expect(screen.getAllByLabelText('ตลาด').map((m) => (m as HTMLSelectElement).value)).toEqual(['CRYPTO', 'CRYPTO'])
+      expect(screen.getByLabelText('สกุลเงินที่ใช้วัดมูลค่า')).toHaveValue('USD')
+      await waitFor(() => expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('35'))
+    })
+
     it('says what is held of each coin', async () => {
       await db.instruments.add(eth)
       await db.transactions.add(makeTx({ id: 'eth-buy', instrumentId: 'CRYPTO:ETH', quantity: '2', price: '2000', date: '2024-01-10' }))
@@ -605,7 +629,7 @@ describe('TransactionFormPage', () => {
       const { user } = await openSwap()
       await fillSwap(user)
       await user.click(screen.getByRole('button', { name: 'บันทึกแล้วเพิ่มอีก' }))
-      expect(await screen.findByRole('status')).toHaveTextContent('บันทึกแล้ว · แลกเหรียญ BTC')
+      expect(await screen.findByRole('status')).toHaveTextContent('บันทึกแล้ว · แลกเหรียญ BTC → ETH')
       for (const label of ['สินทรัพย์ที่แลกออก', 'จำนวนที่แลกออก', 'สินทรัพย์ที่ได้รับ', 'จำนวนที่ได้รับ', 'มูลค่ารวม ณ ตอนแลก']) {
         expect(screen.getByLabelText(label)).toHaveValue('')
       }

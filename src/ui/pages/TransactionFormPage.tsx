@@ -14,7 +14,7 @@ import { isIsoDate, todayLocal } from '../../domain/dates'
 import { D, isDecimalString } from '../../domain/decimal'
 import { fxConvertSummary, spreadPct } from '../../domain/fxConvert'
 import { computeLedger, positionKey } from '../../domain/ledger'
-import { findInstrument, instrumentKey, type Market, type Transaction } from '../../domain/types'
+import { findInstrument, instrumentKey, symbolOf, type Market, type Transaction } from '../../domain/types'
 import { useFxProvider } from '../../fx/context'
 import { getFxQuote } from '../../fx/fxService'
 import { cn } from '../../lib/cn'
@@ -276,7 +276,8 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
     setSaving(false)
     setDraft(clearEntry)
     setErrors([])
-    setSavedNote(`บันทึกแล้ว · ${TX_TYPE_LABELS[tx.type]} ${symbol}`.trim())
+    const subject = tx.toInstrumentId ? `${symbol} → ${symbolOf(tx.toInstrumentId)}` : symbol
+    setSavedNote(`บันทึกแล้ว · ${TX_TYPE_LABELS[tx.type]} ${subject}`.trim())
   }
 
   function handleSubmit(event: FormEvent) {

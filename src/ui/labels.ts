@@ -52,10 +52,6 @@ export function marketOf(instrumentId: string): Market {
   return (MARKETS as readonly string[]).includes(prefix) ? (prefix as Market) : 'OTHER'
 }
 
-export function symbolOf(instrumentId: string | undefined): string {
-  return instrumentId?.split(':')[1] ?? ''
-}
-
 export const INCOME_SERIES: Record<IncomeKind, { label: string; className: string }> = {
   dividend: { label: 'ปันผล', className: 'bg-primary' },
   interest: { label: 'ดอกเบี้ย/คูปอง', className: 'bg-income-interest' },
