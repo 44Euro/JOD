@@ -93,6 +93,16 @@ export function takeCost(position: Position, quantity: Decimal): { costQuote: De
   }
 }
 
+// The coin received in a swap costs the value it was swapped at plus the fees and tax paid on top.
+function receivedCostQuote(tx: Transaction): Decimal {
+  return D(tx.amount).plus(D(tx.fees)).plus(D(tx.tax))
+}
+
+export function receivedUnitCost(tx: Transaction): Decimal | null {
+  const quantity = D(tx.toQuantity)
+  return quantity.greaterThan(0) ? receivedCostQuote(tx).div(quantity) : null
+}
+
 // An account that only ever records trades has no cash history, so the cash computed for it only reflects
 // the trades and is not a real balance.
 export function accountTracksCash(transactions: readonly Transaction[], accountId: string): boolean {
@@ -125,6 +135,9 @@ export function cashDeltaQuote(tx: Transaction): Decimal {
       return D(tx.amount).negated()
     case 'transfer':
       return tx.instrumentId ? fees.negated() : D(tx.amount).plus(fees).negated()
+    // Only the fees and tax are paid in cash; the coin given up pays for the coin received.
+    case 'swap':
+      return fees.plus(tax).negated()
     // An opening holding was paid for before the app existed, so only opening cash moves cash.
     case 'opening':
       return tx.instrumentId ? D(0) : D(tx.amount)
@@ -141,9 +154,37 @@ export function transferInQuote(tx: Transaction): Decimal {
 // Tax on dividends and interest is withholding tax, so it is reported under income instead.
 export function feesQuote(tx: Transaction): Decimal {
   const fees = D(tx.fees)
-  if (tx.type === 'buy' || tx.type === 'sell') return fees.plus(D(tx.tax))
+  if (tx.type === 'buy' || tx.type === 'sell' || tx.type === 'swap') return fees.plus(D(tx.tax))
   if (tx.type === 'fee') return fees.plus(D(tx.amount)).plus(D(tx.tax))
   return fees
+}
+
+type TakenCost = ReturnType<typeof takeCost>
+
+function realizedEvent(tx: Transaction, quantity: Decimal, proceedsQuote: Decimal, cost: TakenCost): RealizedEvent {
+  const rate = D(tx.fxRate)
+  const proceedsBase = proceedsQuote.times(rate)
+  const realizedQuote = proceedsQuote.minus(cost.costQuote)
+  const realizedBase = proceedsBase.minus(cost.costBase)
+  // Price effect is valued at the rate the units were bought at; whatever is left is currency.
+  const costRate = cost.costQuote.isZero() ? rate : cost.costBase.div(cost.costQuote)
+  const priceEffectBase = realizedQuote.times(costRate)
+  return {
+    txId: tx.id,
+    date: tx.date,
+    accountId: tx.accountId,
+    instrumentId: tx.instrumentId ?? '',
+    currency: tx.currency,
+    quantity,
+    proceedsQuote,
+    costQuote: cost.costQuote,
+    realizedQuote,
+    proceedsBase,
+    costBase: cost.costBase,
+    realizedBase,
+    priceEffectBase,
+    fxEffectBase: realizedBase.minus(priceEffectBase),
+  }
 }
 
 export function computeLedger(transactions: readonly Transaction[]): Ledger {
@@ -159,6 +200,16 @@ export function computeLedger(transactions: readonly Transaction[]): Ledger {
     const row = cash.get(key) ?? { accountId, currency, amount: D(0) }
     row.amount = row.amount.plus(delta)
     cash.set(key, row)
+  }
+
+  const removeUnits = (key: string, position: Position, quantity: Decimal, cost: TakenCost) => {
+    if (cost.closesAll) {
+      positions.delete(key)
+    } else {
+      position.quantity = position.quantity.minus(quantity)
+      position.costQuote = position.costQuote.minus(cost.costQuote)
+      position.costBase = position.costBase.minus(cost.costBase)
+    }
   }
 
   for (const tx of sortTransactions(transactions)) {
@@ -196,37 +247,9 @@ export function computeLedger(transactions: readonly Transaction[]): Ledger {
         issues.push({ txId: tx.id, message: `ขาย ${quantity} หน่วย แต่ถืออยู่ ${held?.quantity ?? 0} หน่วย` })
         continue
       }
-      const { costQuote, costBase, closesAll } = takeCost(held, quantity)
-      const proceedsQuote = cashDeltaQuote(tx)
-      const proceedsBase = proceedsQuote.times(rate)
-      const realizedQuote = proceedsQuote.minus(costQuote)
-      const realizedBase = proceedsBase.minus(costBase)
-      // Price effect is valued at the rate the units were bought at; whatever is left is currency.
-      const costRate = costQuote.isZero() ? rate : costBase.div(costQuote)
-      const priceEffectBase = realizedQuote.times(costRate)
-      realized.push({
-        txId: tx.id,
-        date: tx.date,
-        accountId: tx.accountId,
-        instrumentId,
-        currency: tx.currency,
-        quantity,
-        proceedsQuote,
-        costQuote,
-        realizedQuote,
-        proceedsBase,
-        costBase,
-        realizedBase,
-        priceEffectBase,
-        fxEffectBase: realizedBase.minus(priceEffectBase),
-      })
-      if (closesAll) {
-        positions.delete(key)
-      } else {
-        held.quantity = held.quantity.minus(quantity)
-        held.costQuote = held.costQuote.minus(costQuote)
-        held.costBase = held.costBase.minus(costBase)
-      }
+      const cost = takeCost(held, quantity)
+      realized.push(realizedEvent(tx, quantity, cashDeltaQuote(tx), cost))
+      removeUnits(key, held, quantity, cost)
     }
 
     if (tx.type === 'transfer' && tx.instrumentId) {
@@ -245,14 +268,8 @@ export function computeLedger(transactions: readonly Transaction[]): Ledger {
         })
         continue
       }
-      const { costQuote, costBase, closesAll } = takeCost(held, quantity)
-      if (closesAll) {
-        positions.delete(key)
-      } else {
-        held.quantity = held.quantity.minus(quantity)
-        held.costQuote = held.costQuote.minus(costQuote)
-        held.costBase = held.costBase.minus(costBase)
-      }
+      const cost = takeCost(held, quantity)
+      removeUnits(key, held, quantity, cost)
       // Read after the sending side was updated, so a transfer to the same account cannot count twice.
       const received = positions.get(toKey) ?? {
         key: toKey,
@@ -264,8 +281,40 @@ export function computeLedger(transactions: readonly Transaction[]): Ledger {
         costBase: D(0),
       }
       received.quantity = received.quantity.plus(quantity)
-      received.costQuote = received.costQuote.plus(costQuote)
-      received.costBase = received.costBase.plus(costBase)
+      received.costQuote = received.costQuote.plus(cost.costQuote)
+      received.costBase = received.costBase.plus(cost.costBase)
+      positions.set(toKey, received)
+    }
+
+    if (tx.type === 'swap') {
+      const quantity = D(tx.quantity)
+      const toInstrumentId = tx.toInstrumentId ?? ''
+      const toKey = positionKey(tx.accountId, toInstrumentId)
+      const wrongCurrency = [held, positions.get(toKey)].find((p) => p && p.currency !== tx.currency)
+      if (wrongCurrency) {
+        issues.push({ txId: tx.id, message: `สกุลเงิน ${tx.currency} ไม่ตรงกับที่ถืออยู่ (${wrongCurrency.currency})` })
+        continue
+      }
+      if (!held || held.quantity.lessThan(quantity)) {
+        issues.push({ txId: tx.id, message: `แลก ${quantity} หน่วย แต่ถืออยู่ ${held?.quantity ?? 0} หน่วย` })
+        continue
+      }
+      const cost = takeCost(held, quantity)
+      realized.push(realizedEvent(tx, quantity, D(tx.amount), cost))
+      removeUnits(key, held, quantity, cost)
+      const received = positions.get(toKey) ?? {
+        key: toKey,
+        accountId: tx.accountId,
+        instrumentId: toInstrumentId,
+        currency: tx.currency,
+        quantity: D(0),
+        costQuote: D(0),
+        costBase: D(0),
+      }
+      const receivedCost = receivedCostQuote(tx)
+      received.quantity = received.quantity.plus(D(tx.toQuantity))
+      received.costQuote = received.costQuote.plus(receivedCost)
+      received.costBase = received.costBase.plus(receivedCost.times(rate))
       positions.set(toKey, received)
     }
 

@@ -14,7 +14,7 @@ import { isIsoDate, todayLocal } from '../../domain/dates'
 import { D, isDecimalString } from '../../domain/decimal'
 import { fxConvertSummary, spreadPct } from '../../domain/fxConvert'
 import { computeLedger, positionKey } from '../../domain/ledger'
-import { instrumentKey, type Transaction } from '../../domain/types'
+import { findInstrument, instrumentKey, type Market, type Transaction } from '../../domain/types'
 import { useFxProvider } from '../../fx/context'
 import { getFxQuote } from '../../fx/fxService'
 import { cn } from '../../lib/cn'
@@ -26,6 +26,7 @@ import { FeeTaxFields } from '../components/txform/FeeTaxFields'
 import { AfterSavePanel, TotalPanel } from '../components/txform/FormSidePanels'
 import { FxRateBox } from '../components/txform/FxRateBox'
 import { InstrumentFields } from '../components/txform/InstrumentFields'
+import { SwapFields, SwapSummary } from '../components/txform/SwapFields'
 import { TransferAmountField, TransferFields } from '../components/txform/TransferFields'
 import { TypePicker } from '../components/txform/TypePicker'
 import { WithdrawFields } from '../components/txform/WithdrawFields'
@@ -78,6 +79,7 @@ function positiveDecimal(value: string | undefined): boolean {
 // Units moved between accounts have no currency of their own here, so the field only says what the fee is paid in.
 function currencyLabel(draft: Draft): string {
   if (draft.type === 'fx_convert') return 'สกุลเงินต้นทาง'
+  if (draft.type === 'swap') return 'สกุลเงินที่ใช้วัดมูลค่า'
   return draft.type === 'transfer' && draft.transferKind === 'asset' ? 'สกุลเงินของค่าธรรมเนียม' : 'สกุลเงิน'
 }
 
@@ -91,6 +93,8 @@ function amountLabel(draft: Draft): string {
       return 'จำนวนเงินต้นทาง'
     case 'opening':
       return 'เงินสดยกมา'
+    case 'swap':
+      return 'มูลค่ารวม ณ ตอนแลก'
     default:
       return 'จำนวนเงิน'
   }
@@ -103,6 +107,9 @@ function clearEntry(draft: Draft): Draft {
     time: '',
     symbol: '',
     instrumentName: '',
+    toSymbol: '',
+    toInstrumentName: '',
+    toQuantity: '',
     quantity: '',
     price: '',
     amount: '',
@@ -202,12 +209,15 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
   const accountNames = new Map(data.accounts.map((a) => [a.id, a.name]))
   const afterSave =
     preview.errors.length === 0 ? previewAfterSave(others, preview.tx, base, symbol, existing, accountNames) : null
-  const knownInstrument = symbol ? data.instruments.find((i) => i.id === instrumentKey(draft.market, symbol)) : undefined
-  const held =
-    showsInstrument(draft) && symbol
-      ? heldLedger.positions.find((p) => p.key === positionKey(draft.accountId, instrumentKey(draft.market, symbol)))
-      : undefined
-  const symbolHint = [knownInstrument?.name, held && `ถืออยู่ ${fmtNumber(held.quantity, 8)} หน่วย`].filter(Boolean).join(' · ')
+  const hintFor = (market: Market, typed: string) => {
+    const entered = typed.trim()
+    if (!entered) return undefined
+    const held = heldLedger.positions.find((p) => p.key === positionKey(draft.accountId, instrumentKey(market, entered)))
+    const hint = [findInstrument(data.instruments, market, entered)?.name, held && `ถืออยู่ ${fmtNumber(held.quantity, 8)} หน่วย`]
+      .filter(Boolean)
+      .join(' · ')
+    return hint || undefined
+  }
 
   async function save(addAnother: boolean) {
     if (savingRef.current) return
@@ -235,15 +245,20 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
     try {
       // A dividend can be paid in another currency than the one the instrument trades in, so a known
       // instrument keeps what is stored for it.
-      if (tx.instrumentId && !data.instruments.some((i) => i.id === tx.instrumentId)) {
-        await upsertInstrument(db, {
-          id: tx.instrumentId,
-          market: draft.market,
-          symbol,
-          name: draft.instrumentName.trim() || symbol,
-          assetType: draft.assetType,
-          currency: draft.currency,
-        })
+      const entered = [
+        { id: tx.instrumentId, market: draft.market, symbol, name: draft.instrumentName, assetType: draft.assetType },
+        {
+          id: tx.toInstrumentId,
+          market: draft.toMarket,
+          symbol: draft.toSymbol.trim().toUpperCase(),
+          name: draft.toInstrumentName,
+          assetType: draft.toAssetType,
+        },
+      ]
+      for (const { id, name, ...instrument } of entered) {
+        if (id && !data.instruments.some((i) => i.id === id)) {
+          await upsertInstrument(db, { ...instrument, id, name: name.trim() || instrument.symbol, currency: draft.currency })
+        }
       }
       await saveTransaction(db, tx, at)
     } catch {
@@ -332,7 +347,7 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
 
           {draft.type === 'transfer' && <TransferFields draft={draft} accounts={data.accounts} update={update} />}
 
-          {showsInstrument(draft) && (
+          {showsInstrument(draft) && draft.type !== 'swap' && (
             <InstrumentFields
               idPrefix="tx"
               symbolLabel={draft.type === 'interest' ? 'สัญลักษณ์ (ถ้าเป็นคูปองหุ้นกู้)' : 'สัญลักษณ์'}
@@ -341,11 +356,21 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
               name={draft.instrumentName}
               assetType={draft.assetType}
               instruments={data.instruments}
-              hint={symbolHint || undefined}
+              hint={hintFor(draft.market, draft.symbol)}
               onMarket={(market) => setDraft((d) => changeMarket(d, market, data.instruments))}
               onSymbol={(value) => setDraft((d) => pickSymbol(d, value, data.instruments))}
               onName={(instrumentName) => update({ instrumentName })}
               onAssetType={(assetType) => update({ assetType })}
+            />
+          )}
+
+          {draft.type === 'swap' && (
+            <SwapFields
+              draft={draft}
+              instruments={data.instruments}
+              fromHint={hintFor(draft.market, draft.symbol)}
+              toHint={hintFor(draft.toMarket, draft.toSymbol)}
+              setDraft={setDraft}
             />
           )}
 
@@ -392,6 +417,8 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
           {needsFx && <FxRateBox draft={draft} base={base} fxMessage={fxMessage} rateSpread={rateSpread} update={update} />}
 
           {convert && <ConvertSummary draft={draft} summary={convert} />}
+
+          {afterSave?.swap && <SwapSummary draft={draft} outcome={afterSave.swap} />}
 
           <Field id="tx-note" label="หมายเหตุ">
             <Textarea id="tx-note" value={draft.note} onChange={(e) => update({ note: e.target.value })} />

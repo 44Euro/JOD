@@ -47,6 +47,14 @@ export function validateTransaction(tx: Transaction, today: string = todayLocal(
       if (tx.instrumentId) positive(tx.quantity, 'จำนวนหน่วย')
       else positive(tx.amount, 'จำนวนเงิน')
       break
+    case 'swap':
+      if (!tx.instrumentId) errors.push('กรุณาระบุสินทรัพย์ที่แลกออก')
+      if (!tx.toInstrumentId) errors.push('กรุณาระบุสินทรัพย์ที่ได้รับ')
+      else if (tx.toInstrumentId === tx.instrumentId) errors.push('สินทรัพย์ที่ได้รับต้องต่างจากที่แลกออก')
+      positive(tx.quantity, 'จำนวนที่แลกออก')
+      positive(tx.toQuantity, 'จำนวนที่ได้รับ')
+      positive(tx.amount, 'มูลค่ารวม')
+      break
     case 'fx_convert':
       positive(tx.amount, 'จำนวนเงินต้นทาง')
       positive(tx.toAmount, 'จำนวนเงินที่ได้รับ')

@@ -240,4 +240,78 @@ describe('TransactionsPage', () => {
       expect(within(buy).getByText('· เรท')).toBeInTheDocument()
     })
   })
+
+  describe('swaps', () => {
+    const buyBtc = makeTx({ id: 'buy-btc', instrumentId: 'CRYPTO:BTC', quantity: '0.01', price: '58000', fxRate: '34', date: '2024-03-01' })
+    const swap = (overrides = {}) =>
+      makeTx({
+        id: 'swap-1',
+        type: 'swap',
+        instrumentId: 'CRYPTO:BTC',
+        quantity: '0.01',
+        price: undefined,
+        toInstrumentId: 'CRYPTO:ETH',
+        toQuantity: '0.25',
+        amount: '660',
+        fees: '1.5',
+        fxRate: '35',
+        date: '2024-04-01',
+        ...overrides,
+      })
+
+    it('shows the units on both sides, the rate of the swap and the fee as the net amount', async () => {
+      await db.transactions.bulkAdd([buyBtc, swap()])
+      renderRoute('/transactions')
+      const table = await screen.findByRole('table')
+      const row = (await within(table).findByText('0.01 BTC → 0.25 ETH')).closest('tr')!
+      expect(row.cells[1]).toHaveTextContent('แลกเหรียญ')
+      expect(row.cells[3]).toHaveTextContent(/^0\.01 BTC → 0\.25 ETH$/)
+      expect(row.cells[4]).toHaveTextContent('35.00กรอกเอง')
+      expect(row.cells[5]).toHaveTextContent(/^−52\.50$/)
+      expect(row.cells[5]).toHaveClass('text-loss')
+    })
+
+    it('shows a dash instead of a net amount when a swap has no fee', async () => {
+      await db.transactions.bulkAdd([buyBtc, swap({ fees: '0' })])
+      renderRoute('/transactions')
+      const table = await screen.findByRole('table')
+      const row = (await within(table).findByText('0.01 BTC → 0.25 ETH')).closest('tr')!
+      expect(row.cells[5]).toHaveTextContent(/^—$/)
+      expect(row.cells[5]).toHaveClass('text-muted-foreground')
+      expect(row.cells[4]).toHaveTextContent('35.00กรอกเอง')
+    })
+
+    it('finds a swap by the coin received and by the market of either side', async () => {
+      const aapl = makeTx({ id: 'buy-aapl', quantity: '1', date: '2024-03-02' })
+      const toCoin = swap({ id: 'swap-2', instrumentId: 'US:AAPL', quantity: '1', date: '2024-04-02' })
+      await db.transactions.bulkAdd([buyBtc, aapl, swap(), toCoin])
+      const user = userEvent.setup()
+      renderRoute('/transactions')
+      const table = await screen.findByRole('table')
+      await user.type(screen.getByLabelText('ค้นหา'), 'eth')
+      expect(within(table).getAllByText(/→ 0\.25 ETH$/)).toHaveLength(2)
+      expect(within(table).queryByText('1 × 100.00')).not.toBeInTheDocument()
+      await user.clear(screen.getByLabelText('ค้นหา'))
+      await user.selectOptions(screen.getByLabelText('กรองตามตลาด'), 'CRYPTO')
+      expect(within(table).getAllByText(/→ 0\.25 ETH$/)).toHaveLength(2)
+      expect(within(table).getByText('0.01 × 58,000.00')).toBeInTheDocument()
+      await user.selectOptions(screen.getByLabelText('กรองตามตลาด'), 'US')
+      expect(within(table).getAllByText(/→ 0\.25 ETH$/)).toHaveLength(1)
+    })
+
+    it('reads the same on a phone, with the rate of the swap', async () => {
+      vi.stubGlobal('matchMedia', (query: string) => ({
+        matches: false,
+        media: query,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      }))
+      await db.transactions.bulkAdd([buyBtc, swap()])
+      renderRoute('/transactions')
+      const list = await screen.findByRole('list', { name: 'รายการทั้งหมด' })
+      const item = within(list).getByText('0.01 BTC → 0.25 ETH').closest('li')!
+      expect(within(item).getByText('· เรท')).toBeInTheDocument()
+      expect(within(item).getByText('−52.50')).toHaveClass('text-loss')
+    })
+  })
 })

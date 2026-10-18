@@ -44,14 +44,19 @@ function AssetLabel({ tx, instrument, accountName }: { tx: Transaction; instrume
   )
 }
 
-// An exchange and a transfer of cash spell out their currency; on a transfer of units it only belongs to the fee.
+// An exchange and a transfer of cash spell out their currency; a transfer of units or a swap shows units only,
+// so the currency there belongs to the fee or the value.
 function namesCurrency(tx: Transaction): boolean {
-  return tx.type === 'fx_convert' || tx.type === 'transfer'
+  return tx.type === 'fx_convert' || tx.type === 'transfer' || tx.type === 'swap'
 }
 
 // Only the fee of a transfer is valued at its rate, so without a fee the rate would suggest a value that is not there.
 function feeFreeTransfer(tx: Transaction): boolean {
   return tx.type === 'transfer' && D(tx.fees).isZero()
+}
+
+function instrumentIds(tx: Transaction): string[] {
+  return [tx.instrumentId, tx.toInstrumentId].filter((id): id is string => id !== undefined)
 }
 
 export function TransactionsPage() {
@@ -72,8 +77,8 @@ export function TransactionsPage() {
         (tx) =>
           (!accountId || tx.accountId === accountId || tx.toAccountId === accountId) &&
           (!type || tx.type === type) &&
-          (!market || (tx.instrumentId !== undefined && marketOf(tx.instrumentId) === market)) &&
-          (!q || (tx.instrumentId ?? '').includes(q) || tx.note.toUpperCase().includes(q)),
+          (!market || instrumentIds(tx).some((id) => marketOf(id) === market)) &&
+          (!q || instrumentIds(tx).some((id) => id.includes(q)) || tx.note.toUpperCase().includes(q)),
       )
   }, [data, accountId, type, market, query])
 

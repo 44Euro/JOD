@@ -1,7 +1,8 @@
 import { D, type Decimal } from '../domain/decimal'
-import { accountTracksCash, computeLedger, positionKey, type Ledger, type Position } from '../domain/ledger'
+import { accountTracksCash, computeLedger, positionKey, receivedUnitCost, type Ledger, type Position } from '../domain/ledger'
 import type { Transaction } from '../domain/types'
 import { fmtMoney, fmtNumber } from './format'
+import { symbolOf } from './labels'
 
 export interface AfterSaveRow {
   label: string
@@ -10,9 +11,15 @@ export interface AfterSaveRow {
   fx?: boolean
 }
 
+export interface SwapOutcome {
+  unitCost: Decimal
+  realizedQuote: Decimal
+}
+
 export interface AfterSavePreview {
   rows: AfterSaveRow[]
   warning: string | null
+  swap: SwapOutcome | null
 }
 
 function cashOf(ledger: Ledger, accountId: string, currency: string): Decimal {
@@ -61,6 +68,13 @@ export function previewAfterSave(
       rows.push({ label: 'เรทเฉลี่ยตอนซื้อ', before: avgRate(was), after: avgRate(now), fx: true })
     }
   }
+  if (tx.type === 'swap' && tx.toInstrumentId) {
+    rows.push({
+      label: `${symbolOf(tx.toInstrumentId)} ที่ถือ`,
+      before: quantity(positionOf(before, tx.accountId, tx.toInstrumentId)),
+      after: quantity(positionOf(after, tx.accountId, tx.toInstrumentId)),
+    })
+  }
 
   const cashRow = (accountId: string, currency: string): AfterSaveRow => ({
     label: transfer ? `เงินสด ${currency} · ${nameOf(accountId)}` : `เงินสด ${currency}`,
@@ -85,5 +99,9 @@ export function previewAfterSave(
     }
   }
   if (cashTransfer) rows.push(cashRow(toAccountId, tx.currency))
-  return { rows, warning }
+
+  // A swap the ledger would skip realizes nothing.
+  const realized = tx.type === 'swap' ? after.realized.find((e) => e.txId === tx.id) : undefined
+  const unitCost = receivedUnitCost(tx)
+  return { rows, warning, swap: realized && unitCost ? { unitCost, realizedQuote: realized.realizedQuote } : null }
 }

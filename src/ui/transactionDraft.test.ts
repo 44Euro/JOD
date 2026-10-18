@@ -6,11 +6,13 @@ import {
   changeDate,
   changeMarket,
   changeOpeningKind,
+  changeToMarket,
   changeType,
   draftFromTransaction,
   draftToTransaction,
   emptyDraft,
   pickSymbol,
+  pickToSymbol,
   receivedAmount,
   syncReceived,
   totalForDisplay,
@@ -383,5 +385,123 @@ describe('transfers', () => {
     expect(totalForDisplay(shares)).toBeNull()
     const cash = draftToTransaction({ ...transferDraft, transferKind: 'cash', currency: 'THB', amount: '20,000', fees: '25' }, ctx).tx
     expect(totalForDisplay(cash)?.toString()).toBe('20000')
+  })
+})
+
+describe('swaps', () => {
+  const btc: Instrument = { id: 'CRYPTO:BTC', market: 'CRYPTO', symbol: 'BTC', name: 'Bitcoin', assetType: 'crypto', currency: 'USD' }
+  const eth: Instrument = { id: 'CRYPTO:ETH', market: 'CRYPTO', symbol: 'ETH', name: 'Ethereum', assetType: 'crypto', currency: 'USDT' }
+  const swapDraft = (overrides: Partial<Draft> = {}): Draft => ({
+    ...changeType(buyDraft({ market: 'CRYPTO', symbol: 'btc', currency: 'USD', assetType: 'crypto' }), 'swap', 'THB'),
+    quantity: '0.01',
+    toSymbol: 'eth',
+    toQuantity: '0.25',
+    amount: '660',
+    ...overrides,
+  })
+
+  it('starts the coin received in the market of the coin given up and clears what was typed for it', () => {
+    const next = changeType(
+      buyDraft({ market: 'CRYPTO', toMarket: 'HK', toSymbol: 'old', toQuantity: '3', toInstrumentName: 'Old', toAssetType: 'fund' }),
+      'swap',
+      'THB',
+    )
+    expect(next).toMatchObject({ type: 'swap', toMarket: 'CRYPTO', toSymbol: '', toQuantity: '', toInstrumentName: '', toAssetType: 'crypto' })
+  })
+
+  it('leaves a swap alone when the type is chosen again', () => {
+    const swapping = swapDraft()
+    expect(changeType(swapping, 'swap', 'THB')).toBe(swapping)
+  })
+
+  it('builds a swap with both instruments, both quantities and the total value but no price', () => {
+    const { tx, errors } = draftToTransaction(swapDraft({ price: '5', fees: '1.5' }), ctx)
+    expect(errors).toEqual([])
+    expect(tx).toMatchObject({
+      type: 'swap',
+      instrumentId: 'CRYPTO:BTC',
+      quantity: '0.01',
+      toInstrumentId: 'CRYPTO:ETH',
+      toQuantity: '0.25',
+      amount: '660',
+      currency: 'USD',
+      fees: '1.5',
+      fxRate: '35.1',
+    })
+    expect(tx.price).toBeUndefined()
+  })
+
+  it('sends the coin received only with a swap', () => {
+    const { tx } = draftToTransaction({ ...swapDraft(), type: 'buy' }, ctx)
+    expect(tx.toInstrumentId).toBeUndefined()
+    expect(tx.toQuantity).toBeUndefined()
+  })
+
+  it('needs no exchange rate when the swap is valued in the base currency', () => {
+    const { tx, errors } = draftToTransaction(swapDraft({ currency: 'THB', fxRate: '' }), ctx)
+    expect(errors).toEqual([])
+    expect(tx).toMatchObject({ fxRate: '1', fxSource: 'same' })
+  })
+
+  it('asks for each missing part of a swap once', () => {
+    const { errors } = draftToTransaction(swapDraft({ symbol: '', toSymbol: ' ', quantity: '', toQuantity: '', amount: '' }), ctx)
+    expect(errors).toEqual([
+      'กรุณาระบุสินทรัพย์ที่แลกออก',
+      'กรุณาระบุสินทรัพย์ที่ได้รับ',
+      'จำนวนที่แลกออกต้องเป็นตัวเลขมากกว่า 0',
+      'จำนวนที่ได้รับต้องเป็นตัวเลขมากกว่า 0',
+      'มูลค่ารวมต้องเป็นตัวเลขมากกว่า 0',
+    ])
+  })
+
+  it('refuses a swap into the same instrument', () => {
+    expect(draftToTransaction(swapDraft({ toSymbol: 'BTC' }), ctx).errors).toEqual(['สินทรัพย์ที่ได้รับต้องต่างจากที่แลกออก'])
+  })
+
+  it('picks the name and type of the coin received without touching the currency of the swap', () => {
+    const next = pickToSymbol(swapDraft({ toSymbol: '' }), 'eth', [btc, eth])
+    expect(next).toMatchObject({ toSymbol: 'eth', toInstrumentName: 'Ethereum', toAssetType: 'crypto', currency: 'USD', symbol: 'btc' })
+    expect(next.fxRate).toBe(swapDraft().fxRate)
+  })
+
+  it('clears a looked-up name once the symbol received stops matching', () => {
+    const matched = pickToSymbol(swapDraft({ toSymbol: '' }), 'eth', [eth])
+    expect(pickToSymbol(matched, 'ethx', [eth])).toMatchObject({ toSymbol: 'ethx', toInstrumentName: '', toAssetType: 'crypto' })
+  })
+
+  it('moves the market of the coin received without changing the currency or the coin given up', () => {
+    const next = changeToMarket(swapDraft({ toMarket: 'CRYPTO', toSymbol: 'abc' }), 'HK')
+    expect(next).toMatchObject({ toMarket: 'HK', toSymbol: 'abc', toAssetType: 'stock', market: 'CRYPTO', currency: 'USD', symbol: 'btc' })
+    expect(next.fxRate).toBe(swapDraft().fxRate)
+    expect(changeToMarket(swapDraft({ toMarket: 'US', toAssetType: 'stock' }), 'CRYPTO').toAssetType).toBe('crypto')
+  })
+
+  it('looks the coin received up again in its new market', () => {
+    const next = changeToMarket(swapDraft({ toMarket: 'US', toSymbol: 'eth' }), 'CRYPTO', [eth])
+    expect(next).toMatchObject({ toMarket: 'CRYPTO', toInstrumentName: 'Ethereum', currency: 'USD' })
+  })
+
+  it('reads a saved swap back with both instruments', () => {
+    const { tx } = draftToTransaction(swapDraft({ fees: '1.5' }), ctx)
+    const read = draftFromTransaction(tx, [btc, eth])
+    expect(read).toMatchObject({
+      type: 'swap',
+      market: 'CRYPTO',
+      symbol: 'BTC',
+      instrumentName: 'Bitcoin',
+      quantity: '0.01',
+      toMarket: 'CRYPTO',
+      toSymbol: 'ETH',
+      toInstrumentName: 'Ethereum',
+      toAssetType: 'crypto',
+      toQuantity: '0.25',
+      amount: '660',
+    })
+    expect(draftFromTransaction(tx, []).toSymbol).toBe('ETH')
+  })
+
+  it('shows the total value of a swap, not its fees', () => {
+    const { tx } = draftToTransaction(swapDraft({ fees: '1.5' }), ctx)
+    expect(totalForDisplay(tx)?.toString()).toBe('660')
   })
 })

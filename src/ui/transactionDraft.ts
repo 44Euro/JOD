@@ -2,6 +2,7 @@ import { MARKET_CURRENCY } from '../domain/currencies'
 import { D, Decimal, parseDecimalInput } from '../domain/decimal'
 import { cashDeltaQuote } from '../domain/ledger'
 import {
+  findInstrument,
   instrumentKey,
   type Account,
   type AssetType,
@@ -25,6 +26,11 @@ export interface Draft {
   symbol: string
   instrumentName: string
   assetType: AssetType
+  toMarket: Market
+  toSymbol: string
+  toInstrumentName: string
+  toAssetType: AssetType
+  toQuantity: string
   openingKind: OpeningKind
   toAccountId: string
   transferKind: OpeningKind
@@ -56,7 +62,7 @@ export interface DraftContext {
   today: string
 }
 
-const INSTRUMENT_TYPES: readonly TxType[] = ['buy', 'sell', 'dividend', 'interest', 'split']
+const INSTRUMENT_TYPES: readonly TxType[] = ['buy', 'sell', 'dividend', 'interest', 'split', 'swap']
 
 export function emptyDraft(accountId: string, today: string): Draft {
   return {
@@ -68,6 +74,11 @@ export function emptyDraft(accountId: string, today: string): Draft {
     symbol: '',
     instrumentName: '',
     assetType: 'stock',
+    toMarket: 'US',
+    toSymbol: '',
+    toInstrumentName: '',
+    toAssetType: 'stock',
+    toQuantity: '',
     openingKind: 'asset',
     toAccountId: '',
     transferKind: 'asset',
@@ -142,9 +153,19 @@ export function changeType(draft: Draft, type: TxType, baseCurrency: string): Dr
       toAmountSource: 'auto',
     }
   }
+  if (type === 'swap' && draft.type === type) return draft
   const next =
     draft.type === 'fx_convert' ? changeCurrency({ ...draft, type }, MARKET_CURRENCY[draft.market]) : { ...draft, type }
-  return isOpeningAsset(next) !== isOpeningAsset(draft) ? restartRate(next) : next
+  const changed = isOpeningAsset(next) !== isOpeningAsset(draft) ? restartRate(next) : next
+  if (type !== 'swap') return changed
+  return {
+    ...changed,
+    toMarket: changed.market,
+    toSymbol: '',
+    toInstrumentName: '',
+    toAssetType: defaultAssetType(changed.market),
+    toQuantity: '',
+  }
 }
 
 export function changeOpeningKind(draft: Draft, openingKind: OpeningKind): Draft {
@@ -152,16 +173,12 @@ export function changeOpeningKind(draft: Draft, openingKind: OpeningKind): Draft
   return isOpeningAsset(next) !== isOpeningAsset(draft) ? restartRate(next) : next
 }
 
-function lookupInstrument(market: Market, symbol: string, instruments: readonly Instrument[]): Instrument | undefined {
-  return instruments.find((i) => i.id === instrumentKey(market, symbol))
-}
-
 function defaultAssetType(market: Market): AssetType {
   return market === 'CRYPTO' ? 'crypto' : 'stock'
 }
 
 export function changeMarket(draft: Draft, market: Market, instruments: readonly Instrument[] = []): Draft {
-  const lookedUp = lookupInstrument(draft.market, draft.symbol, instruments) !== undefined
+  const lookedUp = findInstrument(instruments, draft.market, draft.symbol) !== undefined
   const assetType = market === 'CRYPTO' ? 'crypto' : draft.assetType === 'crypto' ? 'stock' : draft.assetType
   const switched = changeCurrency(
     lookedUp
@@ -173,12 +190,39 @@ export function changeMarket(draft: Draft, market: Market, instruments: readonly
 }
 
 export function pickSymbol(draft: Draft, symbol: string, instruments: readonly Instrument[]): Draft {
-  const found = lookupInstrument(draft.market, symbol, instruments)
+  const found = findInstrument(instruments, draft.market, symbol)
   if (found) return changeCurrency({ ...draft, symbol, instrumentName: found.name, assetType: found.assetType }, found.currency)
-  if (lookupInstrument(draft.market, draft.symbol, instruments)) {
+  if (findInstrument(instruments, draft.market, draft.symbol)) {
     return { ...draft, symbol, instrumentName: '', assetType: defaultAssetType(draft.market) }
   }
   return { ...draft, symbol }
+}
+
+// The coin received is picked like the main instrument, but its currency is not the currency of the swap, so only
+// the instrument fields are taken back from the result.
+function viaMain(draft: Draft, change: (main: Draft) => Draft): Draft {
+  const changed = change({
+    ...draft,
+    market: draft.toMarket,
+    symbol: draft.toSymbol,
+    instrumentName: draft.toInstrumentName,
+    assetType: draft.toAssetType,
+  })
+  return {
+    ...draft,
+    toMarket: changed.market,
+    toSymbol: changed.symbol,
+    toInstrumentName: changed.instrumentName,
+    toAssetType: changed.assetType,
+  }
+}
+
+export function changeToMarket(draft: Draft, market: Market, instruments: readonly Instrument[] = []): Draft {
+  return viaMain(draft, (main) => changeMarket(main, market, instruments))
+}
+
+export function pickToSymbol(draft: Draft, symbol: string, instruments: readonly Instrument[]): Draft {
+  return viaMain(draft, (main) => pickSymbol(main, symbol, instruments))
 }
 
 // An opening holding needs the user's own average purchase rate, so the reference rate is offered but never filled in.
@@ -214,19 +258,37 @@ export function syncReceived(draft: Draft): Draft {
   return toAmount === draft.toAmount ? draft : { ...draft, toAmount }
 }
 
+function instrumentFields(
+  instrumentId: string | undefined,
+  instruments: readonly Instrument[],
+): { market: Market; symbol: string; name: string; assetType: AssetType } {
+  const instrument = instruments.find((i) => i.id === instrumentId)
+  const separator = instrumentId?.indexOf(':') ?? -1
+  return {
+    market: (instrument?.market ?? (separator > 0 ? instrumentId?.slice(0, separator) : 'US')) as Market,
+    symbol: instrument?.symbol ?? (separator > 0 ? (instrumentId?.slice(separator + 1) ?? '') : ''),
+    name: instrument?.name ?? '',
+    assetType: instrument?.assetType ?? 'stock',
+  }
+}
+
 export function draftFromTransaction(tx: Transaction, instruments: readonly Instrument[]): Draft {
-  const instrument = instruments.find((i) => i.id === tx.instrumentId)
-  const separator = tx.instrumentId?.indexOf(':') ?? -1
-  const market = (instrument?.market ?? (separator > 0 ? tx.instrumentId?.slice(0, separator) : 'US')) as Market
+  const main = instrumentFields(tx.instrumentId, instruments)
+  const received = instrumentFields(tx.toInstrumentId, instruments)
   return {
     type: tx.type,
     accountId: tx.accountId,
     date: tx.date,
     time: tx.time ?? '',
-    market,
-    symbol: instrument?.symbol ?? (separator > 0 ? (tx.instrumentId?.slice(separator + 1) ?? '') : ''),
-    instrumentName: instrument?.name ?? '',
-    assetType: instrument?.assetType ?? 'stock',
+    market: main.market,
+    symbol: main.symbol,
+    instrumentName: main.name,
+    assetType: main.assetType,
+    toMarket: received.market,
+    toSymbol: received.symbol,
+    toInstrumentName: received.name,
+    toAssetType: received.assetType,
+    toQuantity: tx.toQuantity ?? '',
     openingKind: tx.type === 'opening' && !tx.instrumentId ? 'cash' : 'asset',
     toAccountId: tx.toAccountId ?? '',
     transferKind: tx.type === 'transfer' && !tx.instrumentId ? 'cash' : 'asset',
@@ -257,6 +319,7 @@ export function draftToTransaction(draft: Draft, ctx: DraftContext): { tx: Trans
   const num = (raw: string) => (raw.trim() === '' ? undefined : (parseDecimalInput(raw) ?? raw.trim()))
   const holding = draft.type === 'buy' || draft.type === 'sell' || isOpeningAsset(draft)
   const isTransfer = draft.type === 'transfer'
+  const isSwap = draft.type === 'swap'
   const sendsUnits = isTransfer && draft.transferKind === 'asset'
   const usesAmount = !holding && !sendsUnits && draft.type !== 'split'
   const isConvert = draft.type === 'fx_convert'
@@ -272,7 +335,9 @@ export function draftToTransaction(draft: Draft, ctx: DraftContext): { tx: Trans
     date: draft.date,
     time: draft.time || undefined,
     instrumentId: showsInstrument(draft) && draft.symbol.trim() ? instrumentKey(draft.market, draft.symbol) : undefined,
-    quantity: holding || sendsUnits ? num(draft.quantity) : undefined,
+    toInstrumentId: isSwap && draft.toSymbol.trim() ? instrumentKey(draft.toMarket, draft.toSymbol) : undefined,
+    quantity: holding || sendsUnits || isSwap ? num(draft.quantity) : undefined,
+    toQuantity: isSwap ? num(draft.toQuantity) : undefined,
     price: holding ? num(draft.price) : undefined,
     amount: usesAmount ? num(draft.amount) : undefined,
     currency: draft.currency,
@@ -303,6 +368,7 @@ export function draftToTransaction(draft: Draft, ctx: DraftContext): { tx: Trans
 
 export function totalForDisplay(tx: Transaction): Decimal | null {
   if (tx.type === 'split') return null
+  if (tx.type === 'swap') return D(tx.amount)
   if (tx.type === 'transfer') return tx.instrumentId ? null : D(tx.amount)
   if (tx.type === 'opening' && tx.instrumentId) {
     return D(tx.quantity).times(D(tx.price)).plus(D(tx.fees)).plus(D(tx.tax))

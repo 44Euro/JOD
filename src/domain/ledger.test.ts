@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { makeTx } from '../test/fixtures'
-import { accountTracksCash, computeLedger, type Ledger } from './ledger'
+import { accountTracksCash, computeLedger, receivedUnitCost, type Ledger } from './ledger'
+import type { Transaction } from './types'
 
 describe('computeLedger positions and realized P/L', () => {
   const buy1 = makeTx({ type: 'buy', quantity: '10', price: '100', fees: '1', fxRate: '35', date: '2024-01-10' })
@@ -199,6 +200,121 @@ describe('computeLedger transfers', () => {
       ['acc-2', 'THB', '20000'],
     ])
     expect(feesBase.toString()).toBe('25')
+  })
+})
+
+describe('computeLedger swaps', () => {
+  const crypto = { instrumentId: 'CRYPTO:BTC', currency: 'USD' }
+  const buyBtc = makeTx({ ...crypto, quantity: '0.01', price: '58000', fxRate: '34', date: '2024-03-01' })
+  const swap = (overrides: Partial<Transaction> = {}) =>
+    makeTx({
+      ...crypto,
+      type: 'swap',
+      quantity: '0.01',
+      price: undefined,
+      toInstrumentId: 'CRYPTO:ETH',
+      toQuantity: '0.25',
+      amount: '660',
+      fxRate: '35',
+      date: '2024-04-01',
+      ...overrides,
+    })
+
+  it('sells the coin given up and buys the one received at the total value (spec 7.3)', () => {
+    const { realized, positions } = computeLedger([buyBtc, swap()])
+    expect(realized).toHaveLength(1)
+    const e = realized[0]
+    expect([e.instrumentId, e.proceedsQuote, e.costQuote, e.realizedQuote].map(String)).toEqual(['CRYPTO:BTC', '660', '580', '80'])
+    expect([e.proceedsBase, e.costBase, e.realizedBase, e.priceEffectBase, e.fxEffectBase].map(String)).toEqual([
+      '23100', '19720', '3380', '2720', '660',
+    ])
+    expect(positions.map((p) => [p.key, p.quantity.toString(), p.costQuote.toString(), p.costBase.toString()])).toEqual([
+      ['acc-1|CRYPTO:ETH', '0.25', '660', '23100'],
+    ])
+  })
+
+  it('adds a cash fee to the cost of the coin received', () => {
+    const { positions, cash, realized } = computeLedger([buyBtc, swap({ fees: '1.5' })])
+    expect(positions[0].costQuote.toString()).toBe('661.5')
+    expect(positions[0].costBase.toString()).toBe('23152.5')
+    expect(realized[0].realizedQuote.toString()).toBe('80')
+    expect(cash.map((c) => c.amount.toString())).toEqual(['-581.5'])
+  })
+
+  it('takes cost in proportion when only part of the holding is swapped', () => {
+    const buy = makeTx({ ...crypto, quantity: '0.02', price: '50000', fxRate: '34', date: '2024-03-01' })
+    const { realized, positions } = computeLedger([buy, swap({ quantity: '0.005', toQuantity: '0.1', amount: '300', fxRate: '34' })])
+    expect([realized[0].costQuote, realized[0].realizedQuote, realized[0].realizedBase].map(String)).toEqual(['250', '50', '1700'])
+    expect(positions.map((p) => [p.key, p.quantity.toString(), p.costQuote.toString(), p.costBase.toString()])).toEqual([
+      ['acc-1|CRYPTO:BTC', '0.015', '750', '25500'],
+      ['acc-1|CRYPTO:ETH', '0.1', '300', '10200'],
+    ])
+  })
+
+  it('refuses a swap larger than the holding', () => {
+    const ledger = computeLedger([buyBtc, swap({ quantity: '0.02' })])
+    expect(ledger.issues[0].message).toBe('แลก 0.02 หน่วย แต่ถืออยู่ 0.01 หน่วย')
+    expect(ledger.positions.map((p) => p.key)).toEqual(['acc-1|CRYPTO:BTC'])
+  })
+
+  it('counts tax like a fee and reports both as fees paid', () => {
+    const { positions, cash, feesBase } = computeLedger([buyBtc, swap({ fees: '1.5', tax: '0.5' })])
+    expect(positions[0].costQuote.toString()).toBe('662')
+    expect(positions[0].costBase.toString()).toBe('23170')
+    expect(cash.map((c) => c.amount.toString())).toEqual(['-582'])
+    expect(feesBase.toString()).toBe('70')
+  })
+
+  it('adds the coin received to what is already held, at the cost of this swap', () => {
+    const ethBefore = makeTx({ instrumentId: 'CRYPTO:ETH', currency: 'USD', quantity: '1', price: '2000', fxRate: '33', date: '2024-02-01' })
+    const { positions } = computeLedger([ethBefore, buyBtc, swap()])
+    expect(positions.map((p) => [p.key, p.quantity.toString(), p.costQuote.toString(), p.costBase.toString()])).toEqual([
+      ['acc-1|CRYPTO:ETH', '1.25', '2660', '89100'],
+    ])
+  })
+
+  it('refuses a swap when the coin given up is held in another currency', () => {
+    const inBaht = makeTx({ instrumentId: 'CRYPTO:BTC', currency: 'THB', quantity: '0.01', price: '2000000', fxRate: '1', fxSource: 'same', date: '2024-03-01' })
+    const ledger = computeLedger([inBaht, swap()])
+    expect(ledger.issues[0].message).toBe('สกุลเงิน USD ไม่ตรงกับที่ถืออยู่ (THB)')
+  })
+
+  it('refuses a swap that would add to a coin held in another currency and leaves everything alone', () => {
+    const ethInBaht = makeTx({ instrumentId: 'CRYPTO:ETH', currency: 'THB', quantity: '1', price: '90000', fxRate: '1', fxSource: 'same', date: '2024-02-01' })
+    const skipped = swap({ fees: '2' })
+    const ledger = computeLedger([ethInBaht, buyBtc, skipped])
+    expect(ledger.issues).toEqual([{ txId: skipped.id, message: 'สกุลเงิน USD ไม่ตรงกับที่ถืออยู่ (THB)' }])
+    const without = computeLedger([ethInBaht, buyBtc])
+    expect(ledger.positions.map((p) => [p.key, p.quantity.toString()])).toEqual(without.positions.map((p) => [p.key, p.quantity.toString()]))
+    expect(ledger.realized).toEqual([])
+    expect(ledger.cash).toEqual(without.cash)
+    expect(ledger.feesBase.toString()).toBe(without.feesBase.toString())
+  })
+
+  it('turns a swap into an issue when the buy before it is gone', () => {
+    expect(computeLedger([swap()]).issues[0].message).toBe('แลก 0.01 หน่วย แต่ถืออยู่ 0 หน่วย')
+  })
+
+  it('leaves cash and fees alone when the swap is refused', () => {
+    const ledger = computeLedger([buyBtc, swap({ quantity: '0.02', fees: '3' })])
+    expect(ledger.cash.map((c) => c.amount.toString())).toEqual(['-580'])
+    expect(ledger.feesBase.toString()).toBe('0')
+    expect(ledger.realized).toEqual([])
+  })
+})
+
+describe('receivedUnitCost', () => {
+  const swap = (overrides: Partial<Transaction> = {}) =>
+    makeTx({ type: 'swap', toInstrumentId: 'CRYPTO:ETH', toQuantity: '0.25', amount: '660', ...overrides })
+
+  it('spreads the value, fees and tax over the units received', () => {
+    expect(receivedUnitCost(swap())?.toString()).toBe('2640')
+    expect(receivedUnitCost(swap({ fees: '1.5', tax: '0.5' }))?.toString()).toBe('2648')
+  })
+
+  it('has no cost per unit without units received', () => {
+    expect(receivedUnitCost(swap({ toQuantity: '0' }))).toBeNull()
+    expect(receivedUnitCost(swap({ toQuantity: undefined }))).toBeNull()
   })
 })
 

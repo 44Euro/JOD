@@ -11,12 +11,13 @@ export const TX_TYPE_LABELS: Record<TxType, string> = {
   withdraw: 'ถอนเงิน',
   fx_convert: 'แลกเงิน',
   transfer: 'โอนระหว่างบัญชี',
+  swap: 'แลกเหรียญ',
   fee: 'ค่าธรรมเนียม',
   opening: 'ยอดยกมา',
 }
 
 export const PRIMARY_TX_TYPES: readonly TxType[] = ['buy', 'sell', 'dividend', 'interest', 'fx_convert', 'deposit', 'withdraw']
-export const MORE_TX_TYPES: readonly TxType[] = ['transfer', 'split', 'fee', 'opening']
+export const MORE_TX_TYPES: readonly TxType[] = ['transfer', 'swap', 'split', 'fee', 'opening']
 
 export const MARKET_LABELS: Record<Market, string> = {
   US: 'สหรัฐ (US)',
@@ -49,6 +50,10 @@ export const FX_SOURCE_LABELS: Record<FxSource, string> = {
 export function marketOf(instrumentId: string): Market {
   const prefix = instrumentId.slice(0, instrumentId.indexOf(':'))
   return (MARKETS as readonly string[]).includes(prefix) ? (prefix as Market) : 'OTHER'
+}
+
+export function symbolOf(instrumentId: string | undefined): string {
+  return instrumentId?.split(':')[1] ?? ''
 }
 
 export const INCOME_SERIES: Record<IncomeKind, { label: string; className: string }> = {

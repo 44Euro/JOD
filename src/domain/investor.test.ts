@@ -200,6 +200,38 @@ describe('summarizeInvestor with transfers', () => {
   })
 })
 
+describe('summarizeInvestor with swaps', () => {
+  const buyBtc = makeTx({ instrumentId: 'CRYPTO:BTC', quantity: '0.01', price: '58000', fxRate: '34', date: '2024-03-01' })
+  const swap = (fees: string) =>
+    makeTx({
+      type: 'swap',
+      instrumentId: 'CRYPTO:BTC',
+      quantity: '0.01',
+      price: undefined,
+      toInstrumentId: 'CRYPTO:ETH',
+      toQuantity: '0.25',
+      amount: '660',
+      fees,
+      fxRate: '35',
+      date: '2024-04-01',
+    })
+
+  it('puts only the fee of a swap in as money, and the gain on the coin given up shows as realized', () => {
+    const result = run([buyBtc, swap('1.5')], { 'CRYPTO:ETH': '2700' }, { USD: '36' })
+    expect(result.flows.map((f) => f.amountBase.toString())).toEqual(['19720', '52.5'])
+    expect(result.invested.totalBase.toString()).toBe('19772.5')
+    expect(result.worth.totalBase.toString()).toBe('24300')
+    expect(result.gain.totalBase.toString()).toBe('4527.5')
+    expect(result.gain.realizedBase.toString()).toBe('3380')
+    expect(result.gain.otherFeesBase.toString()).toBe('0')
+    expect(result.gain.cashFxBase.toString()).toBe('0')
+  })
+
+  it('moves no money for a swap without fees', () => {
+    expect(run([buyBtc, swap('0')], {}, { USD: '36' }).flows.map((f) => f.txId)).toEqual([buyBtc.id])
+  })
+})
+
 describe('dailySnapshot', () => {
   it('rounds today’s value and money invested to satang', () => {
     const summary = run(cashAccount, { 'US:AAPL': '120' }, { USD: '33' })

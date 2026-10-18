@@ -16,6 +16,7 @@ beforeEach(async () => {
 
 afterEach(() => {
   vi.restoreAllMocks()
+  vi.unstubAllGlobals()
 })
 
 describe('TransactionFormPage', () => {
@@ -490,6 +491,166 @@ describe('TransactionFormPage', () => {
       expect(screen.getByRole('button', { name: 'เงินสด' })).toHaveAttribute('aria-pressed', 'true')
       expect(screen.getByLabelText('จำนวนเงินที่โอน')).toHaveValue('20000')
       expect(screen.getByLabelText('ค่าธรรมเนียมการโอน')).toHaveValue('25')
+    })
+  })
+
+  describe('coin swaps', () => {
+    const provider = () => fakeFxProvider({ 'USD|THB': '35' }).provider
+    const btc = { id: 'CRYPTO:BTC', market: 'CRYPTO', symbol: 'BTC', name: 'Bitcoin', assetType: 'crypto', currency: 'USD' } as const
+    const eth = { id: 'CRYPTO:ETH', market: 'CRYPTO', symbol: 'ETH', name: 'Ethereum', assetType: 'crypto', currency: 'USD' } as const
+    const heldBtc = () =>
+      makeTx({ id: 'btc-buy', instrumentId: 'CRYPTO:BTC', quantity: '0.01', price: '58000', fxRate: '34', date: '2024-01-15' })
+
+    async function openSwap() {
+      await db.instruments.add(btc)
+      await db.transactions.add(heldBtc())
+      const user = userEvent.setup()
+      const router = renderRoute('/transactions/new', provider())
+      await user.selectOptions(await screen.findByLabelText('ประเภทอื่นๆ'), 'แลกเหรียญ')
+      return { user, router }
+    }
+
+    async function fillSwap(user: ReturnType<typeof userEvent.setup>, to = 'eth') {
+      const [fromMarket, toMarket] = screen.getAllByLabelText('ตลาด')
+      await user.selectOptions(fromMarket, 'คริปโต')
+      await user.type(screen.getByLabelText('สินทรัพย์ที่แลกออก'), 'btc')
+      await user.type(screen.getByLabelText('จำนวนที่แลกออก'), '0.01')
+      await user.selectOptions(toMarket, 'คริปโต')
+      await user.type(screen.getByLabelText('สินทรัพย์ที่ได้รับ'), to)
+      await user.type(screen.getByLabelText('จำนวนที่ได้รับ'), '0.25')
+      await user.type(screen.getByLabelText('มูลค่ารวม ณ ตอนแลก'), '660')
+      await waitFor(() => expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('35'))
+    }
+
+    it('records a swap and shows the cost of the coin received and the gain on the one given up', async () => {
+      const { user, router } = await openSwap()
+      await fillSwap(user)
+      expect(screen.getByText(/^ต้นทุน ETH 2,640\.00 USD ต่อหน่วย · กำไรที่ขายแล้วของ BTC/)).toHaveTextContent(
+        'ต้นทุน ETH 2,640.00 USD ต่อหน่วย · กำไรที่ขายแล้วของ BTC +80.00 USD',
+      )
+      expect(screen.getByText('BTC ที่ถือ').nextSibling).toHaveTextContent('0.01 → 0')
+      expect(screen.getByText('ETH ที่ถือ').nextSibling).toHaveTextContent('0 → 0.25')
+      expect(screen.getByText('660.00 USD')).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+      await waitFor(() => expect(router.state.location.pathname).toBe('/transactions'))
+      const saved = (await db.transactions.toArray()).find((t) => t.type === 'swap')
+      expect(saved).toMatchObject({
+        type: 'swap',
+        instrumentId: 'CRYPTO:BTC',
+        toInstrumentId: 'CRYPTO:ETH',
+        quantity: '0.01',
+        toQuantity: '0.25',
+        amount: '660',
+        currency: 'USD',
+        fxRate: '35',
+      })
+      expect(saved?.price).toBeUndefined()
+      expect(await db.instruments.get('CRYPTO:ETH')).toMatchObject({ symbol: 'ETH', currency: 'USD', assetType: 'crypto', name: 'ETH' })
+    })
+
+    it('puts the fee into the cost of the coin received and keeps the new coin’s name and type', async () => {
+      const { user } = await openSwap()
+      await fillSwap(user)
+      await user.type(screen.getByLabelText('ค่าธรรมเนียม'), '1.5')
+      expect(await screen.findByText(/^ต้นทุน ETH 2,646\.00 USD ต่อหน่วย/)).toBeInTheDocument()
+      await user.type(document.getElementById('tx-to-name') as HTMLElement, 'Ethereum')
+      await user.selectOptions(document.getElementById('tx-to-asset-type') as HTMLElement, 'คริปโต')
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+      await waitFor(async () => expect(await db.instruments.get('CRYPTO:ETH')).toMatchObject({ name: 'Ethereum', assetType: 'crypto' }))
+      expect((await db.transactions.toArray()).find((t) => t.type === 'swap')).toMatchObject({ fees: '1.5' })
+    })
+
+    it('asks only for the parts of a swap that make sense and not for a price', async () => {
+      await openSwap()
+      expect(screen.getByLabelText('สินทรัพย์ที่แลกออก')).toBeInTheDocument()
+      expect(screen.getByLabelText('สินทรัพย์ที่ได้รับ')).toBeInTheDocument()
+      expect(screen.getByLabelText('จำนวนที่แลกออก')).toHaveAttribute('id', 'tx-quantity')
+      expect(screen.getByLabelText('จำนวนที่ได้รับ')).toHaveAttribute('id', 'tx-to-quantity')
+      expect(screen.getByLabelText('มูลค่ารวม ณ ตอนแลก')).toHaveAttribute('id', 'tx-amount')
+      expect(screen.getByLabelText('สกุลเงินที่ใช้วัดมูลค่า')).toHaveValue('USD')
+      expect(screen.queryByLabelText('ราคาต่อหน่วย')).not.toBeInTheDocument()
+      expect(screen.queryByLabelText('จำนวนหน่วย')).not.toBeInTheDocument()
+    })
+
+    it('says what is held of each coin', async () => {
+      await db.instruments.add(eth)
+      await db.transactions.add(makeTx({ id: 'eth-buy', instrumentId: 'CRYPTO:ETH', quantity: '2', price: '2000', date: '2024-01-10' }))
+      const { user } = await openSwap()
+      const [fromMarket, toMarket] = screen.getAllByLabelText('ตลาด')
+      await user.selectOptions(fromMarket, 'คริปโต')
+      await user.selectOptions(toMarket, 'คริปโต')
+      await user.type(screen.getByLabelText('สินทรัพย์ที่แลกออก'), 'btc')
+      await user.type(screen.getByLabelText('สินทรัพย์ที่ได้รับ'), 'eth')
+      expect(await screen.findByText('Bitcoin · ถืออยู่ 0.01 หน่วย')).toBeInTheDocument()
+      expect(screen.getByText('Ethereum · ถืออยู่ 2 หน่วย')).toBeInTheDocument()
+      expect(document.getElementById('tx-to-name')).toBeNull()
+    })
+
+    it('refuses to swap more than is held and swapping a coin for itself', async () => {
+      const { user } = await openSwap()
+      await fillSwap(user)
+      await user.clear(screen.getByLabelText('จำนวนที่แลกออก'))
+      await user.type(screen.getByLabelText('จำนวนที่แลกออก'), '0.02')
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+      expect(await screen.findByText('แลก 0.02 หน่วย แต่ถืออยู่ 0.01 หน่วย')).toBeInTheDocument()
+      expect(await db.transactions.count()).toBe(1)
+      await user.clear(screen.getByLabelText('สินทรัพย์ที่ได้รับ'))
+      await user.type(screen.getByLabelText('สินทรัพย์ที่ได้รับ'), 'btc')
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+      expect(await screen.findByText('สินทรัพย์ที่ได้รับต้องต่างจากที่แลกออก')).toBeInTheDocument()
+      expect(await db.transactions.count()).toBe(1)
+    })
+
+    it('starts over with both coins empty after save and add another', async () => {
+      const { user } = await openSwap()
+      await fillSwap(user)
+      await user.click(screen.getByRole('button', { name: 'บันทึกแล้วเพิ่มอีก' }))
+      expect(await screen.findByRole('status')).toHaveTextContent('บันทึกแล้ว · แลกเหรียญ BTC')
+      for (const label of ['สินทรัพย์ที่แลกออก', 'จำนวนที่แลกออก', 'สินทรัพย์ที่ได้รับ', 'จำนวนที่ได้รับ', 'มูลค่ารวม ณ ตอนแลก']) {
+        expect(screen.getByLabelText(label)).toHaveValue('')
+      }
+      expect(screen.getAllByLabelText('ตลาด')[1]).toHaveDisplayValue('คริปโต')
+    })
+
+    it('opens a saved swap with both coins, the value and the fee', async () => {
+      await db.instruments.bulkAdd([btc, eth])
+      await db.transactions.add(heldBtc())
+      await db.transactions.add(
+        makeTx({
+          id: 'swap-1',
+          type: 'swap',
+          instrumentId: 'CRYPTO:BTC',
+          quantity: '0.01',
+          price: undefined,
+          toInstrumentId: 'CRYPTO:ETH',
+          toQuantity: '0.25',
+          amount: '660',
+          fees: '1.5',
+          fxRate: '35',
+          date: '2024-04-01',
+        }),
+      )
+      renderRoute('/transactions/swap-1', provider())
+      expect(await screen.findByLabelText('สินทรัพย์ที่ได้รับ')).toHaveValue('ETH')
+      expect(screen.getByLabelText('สินทรัพย์ที่แลกออก')).toHaveValue('BTC')
+      expect(screen.getAllByLabelText('ตลาด').map((m) => (m as HTMLSelectElement).value)).toEqual(['CRYPTO', 'CRYPTO'])
+      expect(screen.getByLabelText('จำนวนที่แลกออก')).toHaveValue('0.01')
+      expect(screen.getByLabelText('จำนวนที่ได้รับ')).toHaveValue('0.25')
+      expect(screen.getByLabelText('มูลค่ารวม ณ ตอนแลก')).toHaveValue('660')
+      expect(screen.getByLabelText('ค่าธรรมเนียม')).toHaveValue('1.5')
+      expect(await screen.findByText(/^ต้นทุน ETH 2,646\.00 USD ต่อหน่วย/)).toBeInTheDocument()
+    })
+
+    it('shows the summary line on a phone too', async () => {
+      vi.stubGlobal('matchMedia', (query: string) => ({
+        matches: false,
+        media: query,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      }))
+      const { user } = await openSwap()
+      await fillSwap(user)
+      expect(screen.getByText(/^ต้นทุน ETH 2,640\.00 USD ต่อหน่วย/)).toBeInTheDocument()
     })
   })
 })

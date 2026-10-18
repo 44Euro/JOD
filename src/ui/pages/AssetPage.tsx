@@ -54,7 +54,7 @@ export function AssetPage() {
   const symbol = instrument?.symbol ?? id.split(':')[1] ?? id
   const issues = new Map(ledger.issues.map((i) => [i.txId, i.message]))
   const accountNames = new Map(data.accounts.map((a) => [a.id, a.name]))
-  const transactions = sortTransactions(data.transactions.filter((t) => t.instrumentId === id)).reverse()
+  const transactions = sortTransactions(data.transactions.filter((t) => t.instrumentId === id || t.toInstrumentId === id)).reverse()
   const fees = sumBy(
     transactions.filter((t) => !issues.has(t.id)),
     (t) => feesQuote(t).times(D(t.fxRate)),

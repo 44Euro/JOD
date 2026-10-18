@@ -74,4 +74,38 @@ describe('validateTransaction', () => {
     )
     expect(validateTransaction({ ...base, toAccountId: 'acc-2' }, TODAY)).toEqual([])
   })
+
+  describe('swap', () => {
+    const swap = makeTx({
+      type: 'swap',
+      instrumentId: 'CRYPTO:BTC',
+      quantity: '0.01',
+      price: undefined,
+      toInstrumentId: 'CRYPTO:ETH',
+      toQuantity: '0.25',
+      amount: '660',
+    })
+
+    it('accepts a complete swap', () => {
+      expect(validateTransaction(swap, TODAY)).toEqual([])
+    })
+
+    it('needs the coin received and a different one from the coin given up', () => {
+      expect(validateTransaction({ ...swap, toInstrumentId: undefined }, TODAY)).toEqual(['กรุณาระบุสินทรัพย์ที่ได้รับ'])
+      expect(validateTransaction({ ...swap, toInstrumentId: 'CRYPTO:BTC' }, TODAY)).toEqual([
+        'สินทรัพย์ที่ได้รับต้องต่างจากที่แลกออก',
+      ])
+    })
+
+    it('needs the coin given up', () => {
+      expect(validateTransaction({ ...swap, instrumentId: undefined }, TODAY)).toEqual(['กรุณาระบุสินทรัพย์ที่แลกออก'])
+    })
+
+    it('needs a positive quantity on both sides and a positive total value', () => {
+      expect(validateTransaction({ ...swap, quantity: '0' }, TODAY)).toEqual(['จำนวนที่แลกออกต้องเป็นตัวเลขมากกว่า 0'])
+      expect(validateTransaction({ ...swap, toQuantity: '0' }, TODAY)).toEqual(['จำนวนที่ได้รับต้องเป็นตัวเลขมากกว่า 0'])
+      expect(validateTransaction({ ...swap, toQuantity: undefined }, TODAY)).toEqual(['จำนวนที่ได้รับต้องเป็นตัวเลขมากกว่า 0'])
+      expect(validateTransaction({ ...swap, amount: '0' }, TODAY)).toEqual(['มูลค่ารวมต้องเป็นตัวเลขมากกว่า 0'])
+    })
+  })
 })

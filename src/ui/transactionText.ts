@@ -2,6 +2,7 @@ import { D } from '../domain/decimal'
 import { acquisitionCostQuote, cashDeltaQuote } from '../domain/ledger'
 import type { Transaction } from '../domain/types'
 import { fmtNumber, fmtPrice, fmtSigned, fmtValue, plClass } from './format'
+import { symbolOf } from './labels'
 
 export function describeAmount(tx: Transaction, accountNames?: ReadonlyMap<string, string>): string {
   switch (tx.type) {
@@ -18,6 +19,8 @@ export function describeAmount(tx: Transaction, accountNames?: ReadonlyMap<strin
       const to = accountNames?.get(tx.toAccountId ?? '') ?? '—'
       return tx.instrumentId ? `${fmtNumber(tx.quantity, 8)} หน่วย → ${to}` : `${fmtNumber(tx.amount)} ${tx.currency} → ${to}`
     }
+    case 'swap':
+      return `${fmtNumber(tx.quantity, 8)} ${symbolOf(tx.instrumentId)} → ${fmtNumber(tx.toQuantity, 8)} ${symbolOf(tx.toInstrumentId)}`
     case 'dividend':
     case 'interest':
       return D(tx.tax).greaterThan(0) ? `${fmtNumber(tx.amount)} หัก ณ ที่จ่าย ${fmtNumber(tx.tax)}` : fmtNumber(tx.amount)
@@ -39,5 +42,6 @@ export function netOf(tx: Transaction, skipped: boolean): { text: string; classN
     return cost.isZero() ? { text: '—', className: 'text-muted-foreground' } : { text: fmtSigned(cost), className: plClass(cost) }
   }
   const net = cashDeltaQuote(tx).times(D(tx.fxRate))
+  if (tx.type === 'swap' && net.isZero()) return { text: '—', className: 'text-muted-foreground' }
   return { text: fmtSigned(net), className: plClass(net) }
 }

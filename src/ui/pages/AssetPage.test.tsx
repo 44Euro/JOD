@@ -150,6 +150,37 @@ describe('AssetPage', () => {
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
   })
 
+  it('lists a swap on the page of the coin received as well as the coin given up', async () => {
+    const btc = { id: 'CRYPTO:BTC', market: 'CRYPTO', symbol: 'BTC', name: 'Bitcoin', assetType: 'crypto', currency: 'USD' } as const
+    const eth = { id: 'CRYPTO:ETH', market: 'CRYPTO', symbol: 'ETH', name: 'Ethereum', assetType: 'crypto', currency: 'USD' } as const
+    await db.instruments.bulkAdd([btc, eth])
+    await db.transactions.bulkAdd([
+      makeTx({ instrumentId: 'CRYPTO:BTC', quantity: '0.01', price: '58000', fxRate: '34', date: '2024-03-01' }),
+      makeTx({
+        type: 'swap',
+        instrumentId: 'CRYPTO:BTC',
+        quantity: '0.01',
+        price: undefined,
+        toInstrumentId: 'CRYPTO:ETH',
+        toQuantity: '0.25',
+        amount: '660',
+        fees: '1.5',
+        fxRate: '35',
+        date: '2024-04-01',
+      }),
+    ])
+    const router = renderRoute('/assets/CRYPTO%3AETH', usd)
+    expect(await screen.findByRole('heading', { name: 'ETH' })).toBeInTheDocument()
+    const row = (await screen.findByText('0.01 BTC → 0.25 ETH')).closest('tr')!
+    expect(row.cells[1]).toHaveTextContent('แลกเหรียญ')
+    expect(row.cells[4]).toHaveTextContent('−52.50')
+    expect(screen.getByText('ทั้งหมด 1 รายการ')).toBeInTheDocument()
+    await act(() => router.navigate('/assets/CRYPTO%3ABTC'))
+    expect(await screen.findByRole('heading', { name: 'BTC' })).toBeInTheDocument()
+    expect(await screen.findByText('0.01 BTC → 0.25 ETH')).toBeInTheDocument()
+    expect(screen.getByText('ทั้งหมด 2 รายการ')).toBeInTheDocument()
+  })
+
   it('says so when the asset does not exist', async () => {
     renderRoute('/assets/US%3ANOPE')
     expect(await screen.findByText('ไม่พบสินทรัพย์นี้')).toBeInTheDocument()

@@ -8,6 +8,7 @@ export const TX_TYPES = [
   'withdraw',
   'fx_convert',
   'transfer',
+  'swap',
   'fee',
   'opening',
 ] as const
@@ -58,6 +59,8 @@ export interface Thesis {
 // fx_convert: amount is everything that leaves `currency`, fees included; toAmount is what arrives in toCurrency.
 // transfer moves a holding (instrumentId, quantity) or cash (amount) from accountId to toAccountId; fees are paid
 // from the cash of accountId in `currency`.
+// swap gives up quantity of instrumentId for toQuantity of toInstrumentId in the same account; amount is the total
+// value of the swap in `currency`, and fees and tax are paid in cash and added to the cost of what is received.
 export interface Transaction {
   id: string
   accountId: string
@@ -66,7 +69,9 @@ export interface Transaction {
   date: string
   time?: string
   instrumentId?: string
+  toInstrumentId?: string
   quantity?: string
+  toQuantity?: string
   price?: string
   amount?: string
   currency: string
@@ -96,4 +101,9 @@ export const DEFAULT_SETTINGS: Settings = { baseCurrency: 'THB' }
 
 export function instrumentKey(market: Market, symbol: string): string {
   return `${market}:${symbol.trim().toUpperCase()}`
+}
+
+export function findInstrument(instruments: readonly Instrument[], market: Market, symbol: string): Instrument | undefined {
+  const id = instrumentKey(market, symbol)
+  return instruments.find((i) => i.id === id)
 }

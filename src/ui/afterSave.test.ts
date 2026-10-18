@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import type { Transaction } from '../domain/types'
 import { makeTx } from '../test/fixtures'
 import { previewAfterSave } from './afterSave'
 
@@ -111,3 +112,66 @@ describe('previewAfterSave for a transfer', () => {
   })
 })
 
+describe('previewAfterSave for a swap', () => {
+  const buyBtc = makeTx({ instrumentId: 'CRYPTO:BTC', quantity: '0.01', price: '58000', fxRate: '34', date: '2024-03-01' })
+  const swap = (overrides: Partial<Transaction> = {}) =>
+    makeTx({
+      type: 'swap',
+      instrumentId: 'CRYPTO:BTC',
+      quantity: '0.01',
+      price: undefined,
+      toInstrumentId: 'CRYPTO:ETH',
+      toQuantity: '0.25',
+      amount: '660',
+      fxRate: '35',
+      date: '2024-04-01',
+      ...overrides,
+    })
+
+  it('shows the coin given up and then the coin received', () => {
+    const { rows, warning } = previewAfterSave([buyBtc], swap(), 'THB', 'BTC')
+    expect(rows).toEqual([
+      { label: 'BTC ที่ถือ', before: '0.01', after: '0' },
+      { label: 'ทุนเฉลี่ย (USD)', before: '58,000', after: '—' },
+      { label: 'เรทเฉลี่ยตอนซื้อ', before: '34', after: '—', fx: true },
+      { label: 'ETH ที่ถือ', before: '0', after: '0.25' },
+    ])
+    expect(warning).toBeNull()
+  })
+
+  it('adds the coin received to what is already held', () => {
+    const eth = makeTx({ instrumentId: 'CRYPTO:ETH', quantity: '1', price: '2000', fxRate: '33', date: '2024-02-01' })
+    const { rows } = previewAfterSave([eth, buyBtc], swap({ quantity: '0.004', toQuantity: '0.1', amount: '264' }), 'THB', 'BTC')
+    expect(rows[0]).toEqual({ label: 'BTC ที่ถือ', before: '0.01', after: '0.006' })
+    expect(rows[rows.length - 1]).toEqual({ label: 'ETH ที่ถือ', before: '1', after: '1.1' })
+  })
+
+  it('shows the fee paid in cash only for an account that records cash', () => {
+    const deposit = makeTx({ type: 'deposit', instrumentId: undefined, quantity: undefined, price: undefined, amount: '100', date: '2024-01-05' })
+    const { rows } = previewAfterSave([deposit, buyBtc], swap({ fees: '2' }), 'THB', 'BTC')
+    expect(rows[rows.length - 1]).toEqual({ label: 'เงินสด USD', before: '−480.00', after: '−482.00' })
+    const free = previewAfterSave([deposit, buyBtc], swap(), 'THB', 'BTC').rows.map((row) => row.label)
+    expect(free).not.toContain('เงินสด USD')
+  })
+
+  it('gives the cost of each unit received and the gain on the coin given up', () => {
+    const outcome = previewAfterSave([buyBtc], swap({ fees: '1.5' }), 'THB', 'BTC').swap
+    expect(outcome?.unitCost.toString()).toBe('2646')
+    expect(outcome?.realizedQuote.toString()).toBe('80')
+    const loss = previewAfterSave([buyBtc], swap({ amount: '500' }), 'THB', 'BTC').swap
+    expect(loss?.realizedQuote.toString()).toBe('-80')
+  })
+
+  it('gives no outcome for other types or for a swap the ledger would skip', () => {
+    expect(previewAfterSave([], makeTx({ quantity: '1', price: '100' }), 'THB', 'AAPL').swap).toBeNull()
+    expect(previewAfterSave([buyBtc], swap({ quantity: '0.02' }), 'THB', 'BTC').swap).toBeNull()
+  })
+
+  it('compares an edited swap against its saved version', () => {
+    const saved = swap({ id: 'swap-1' })
+    const { rows, swap: outcome } = previewAfterSave([buyBtc], { ...saved, toQuantity: '0.3' }, 'THB', 'BTC', saved)
+    expect(rows[0]).toEqual({ label: 'BTC ที่ถือ', before: '0', after: '0' })
+    expect(rows[rows.length - 1]).toEqual({ label: 'ETH ที่ถือ', before: '0.25', after: '0.3' })
+    expect(outcome?.unitCost.toString()).toBe('2200')
+  })
+})

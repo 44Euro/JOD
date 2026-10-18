@@ -1,6 +1,6 @@
 import { Field } from '../../../components/ui/field'
 import { Input, NativeSelect } from '../../../components/ui/input'
-import { ASSET_TYPES, MARKETS, instrumentKey, type AssetType, type Instrument, type Market } from '../../../domain/types'
+import { ASSET_TYPES, MARKETS, findInstrument, type AssetType, type Instrument, type Market } from '../../../domain/types'
 import { ASSET_TYPE_LABELS, MARKET_LABELS } from '../../labels'
 
 export interface InstrumentFieldsProps {
@@ -34,8 +34,7 @@ export function InstrumentFields({
   onName,
   onAssetType,
 }: InstrumentFieldsProps) {
-  const normalized = symbol.trim().toUpperCase()
-  const known = normalized ? instruments.some((i) => i.id === instrumentKey(market, normalized)) : false
+  const known = findInstrument(instruments, market, symbol) !== undefined
   const listId = `${idPrefix}-symbols`
   return (
     <div className="grid gap-3.5 sm:grid-cols-2">

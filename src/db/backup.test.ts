@@ -103,8 +103,24 @@ describe('transactionsToCsv', () => {
       .replace('\uFEFF', '')
       .trimEnd()
       .split('\r\n')
-    expect(header.endsWith(',tax_year,to_account,note')).toBe(true)
-    expect(row.endsWith(',,IBKR,move')).toBe(true)
-    expect(plain.endsWith(',,,')).toBe(true)
+    expect(header.endsWith(',tax_year,to_account,to_instrument,to_quantity,note')).toBe(true)
+    expect(row.endsWith(',,IBKR,,,move')).toBe(true)
+    expect(plain.endsWith(',,,,,')).toBe(true)
+  })
+
+  it('names the coin received in a swap and how much of it just before the note', () => {
+    const swap = makeTx({
+      type: 'swap',
+      instrumentId: 'CRYPTO:BTC',
+      quantity: '0.01',
+      price: undefined,
+      toInstrumentId: 'CRYPTO:ETH',
+      toQuantity: '0.25',
+      amount: '660',
+      fees: '1.5',
+      note: 'rotate',
+    })
+    const [, row] = transactionsToCsv([swap], [account], 'THB').replace('\uFEFF', '').trimEnd().split('\r\n')
+    expect(row).toBe('2024-01-15,,swap,Dime US,CRYPTO:BTC,0.01,,660,USD,1.5,0,35,manual,-1.5,-52.5,,,,CRYPTO:ETH,0.25,rotate')
   })
 })
