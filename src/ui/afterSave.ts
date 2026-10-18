@@ -77,6 +77,13 @@ export function previewAfterSave(
     rows.push(...holdingRows(tx.instrumentId, symbol))
   }
   if (swap && tx.toInstrumentId) rows.push(...holdingRows(tx.toInstrumentId, symbolOf(tx.toInstrumentId)))
+  if (tx.feePaidIn === 'asset' && tx.feeInstrumentId) {
+    rows.push({
+      label: `${symbolOf(tx.feeInstrumentId)} ที่ถือ`,
+      before: quantity(positionOf(before, tx.accountId, tx.feeInstrumentId)),
+      after: quantity(positionOf(after, tx.accountId, tx.feeInstrumentId)),
+    })
+  }
 
   const cashRow = (accountId: string, currency: string): AfterSaveRow => ({
     label: transfer ? `เงินสด ${currency} · ${nameOf(accountId)}` : `เงินสด ${currency}`,

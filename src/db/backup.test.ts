@@ -66,6 +66,13 @@ describe('parseBackup', () => {
     expect(() => parseBackup(JSON.stringify(file))).toThrow('รายการ z อ้างถึงบัญชีที่ไม่มีในไฟล์')
   })
 
+  it('keeps how a fee was paid and rejects a way that does not exist', () => {
+    const paid = makeTx({ id: 'f', feePaidIn: 'asset', feeInstrumentId: 'CRYPTO:BNB', feeQuantity: '0.001', fees: '0.6' })
+    const file = (tx: unknown) => JSON.stringify({ app: 'jod', version: 2, exportedAt: '', data: { accounts: [account], instruments: [], settings: [], transactions: [tx] } })
+    expect(parseBackup(file(paid)).data.transactions[0]).toMatchObject({ feePaidIn: 'asset', feeInstrumentId: 'CRYPTO:BNB', feeQuantity: '0.001' })
+    expect(() => parseBackup(file({ ...paid, feePaidIn: 'gold' }))).toThrow('รายการ f ไม่ถูกต้อง: วิธีจ่ายค่าธรรมเนียมไม่ถูกต้อง')
+  })
+
   it('rejects a damaged daily value and an unknown version', () => {
     const file = { app: 'jod', version: 2, exportedAt: '', data: { accounts: [account], instruments: [], settings: [], transactions: [], dailyValues: [{ ...day, valueBase: 'abc' }] } }
     expect(() => parseBackup(JSON.stringify(file))).toThrow('พบมูลค่ารายวันที่เสียหายในไฟล์')
@@ -103,9 +110,9 @@ describe('transactionsToCsv', () => {
       .replace('\uFEFF', '')
       .trimEnd()
       .split('\r\n')
-    expect(header.endsWith(',tax_year,to_account,to_instrument,to_quantity,receive_kind,note')).toBe(true)
-    expect(row.endsWith(',,IBKR,,,,move')).toBe(true)
-    expect(plain.endsWith(',,,,,,')).toBe(true)
+    expect(header.endsWith(',tax_year,to_account,to_instrument,to_quantity,receive_kind,fee_paid_in,fee_instrument,fee_quantity,note')).toBe(true)
+    expect(row.endsWith(',,IBKR,,,,,,,move')).toBe(true)
+    expect(plain.endsWith(',,,,,,,,,')).toBe(true)
   })
 
   it('names the coin received in a swap and how much of it just before the received kind and the note', () => {
@@ -121,7 +128,7 @@ describe('transactionsToCsv', () => {
       note: 'rotate',
     })
     const [, row] = transactionsToCsv([swap], [account], 'THB').replace('\uFEFF', '').trimEnd().split('\r\n')
-    expect(row).toBe('2024-01-15,,swap,Dime US,CRYPTO:BTC,0.01,,660,USD,1.5,0,35,manual,-1.5,-52.5,,,,CRYPTO:ETH,0.25,,rotate')
+    expect(row).toBe('2024-01-15,,swap,Dime US,CRYPTO:BTC,0.01,,660,USD,1.5,0,35,manual,-1.5,-52.5,,,,CRYPTO:ETH,0.25,,,,,rotate')
   })
 
   it('writes the kind of an asset received just before the note', () => {
@@ -134,6 +141,28 @@ describe('transactionsToCsv', () => {
       note: 'reward',
     })
     const [, row] = transactionsToCsv([received], [account], 'THB').replace('\uFEFF', '').trimEnd().split('\r\n')
-    expect(row).toBe('2024-01-15,,receive_asset,Dime US,CRYPTO:SOL,0.5,150,,USD,0,0,35,manual,0,0,,,,,,staking,reward')
+    expect(row).toBe('2024-01-15,,receive_asset,Dime US,CRYPTO:SOL,0.5,150,,USD,0,0,35,manual,0,0,,,,,,staking,,,,reward')
   })
 })
+
+describe('transactionsToCsv for a fee paid in something else', () => {
+  it('names what the fee is paid in, the asset and the units just before the note, and leaves a fee in cash empty', () => {
+    const paidInBnb = makeTx({
+      instrumentId: 'CRYPTO:ETH',
+      quantity: '1',
+      price: '2000',
+      fees: '0.6',
+      feePaidIn: 'asset',
+      feeInstrumentId: 'CRYPTO:BNB',
+      feeQuantity: '0.001',
+      note: 'gas',
+    })
+    const taken = makeTx({ instrumentId: 'CRYPTO:ETH', quantity: '1', price: '2000', feePaidIn: 'received', feeQuantity: '0.001', date: '2024-01-16' })
+    const cash = makeTx({ date: '2024-01-17' })
+    const [, bnbRow, takenRow, cashRow] = transactionsToCsv([paidInBnb, taken, cash], [account], 'THB').replace('\uFEFF', '').trimEnd().split('\r\n')
+    expect(bnbRow).toBe('2024-01-15,,buy,Dime US,CRYPTO:ETH,1,2000,,USD,0.6,0,35,manual,-2000,-70000,,,,,,,asset,CRYPTO:BNB,0.001,gas')
+    expect(takenRow).toBe('2024-01-16,,buy,Dime US,CRYPTO:ETH,1,2000,,USD,0,0,35,manual,-2000,-70000,,,,,,,received,,0.001,')
+    expect(cashRow.endsWith(',,,,,,,,,')).toBe(true)
+  })
+})
+

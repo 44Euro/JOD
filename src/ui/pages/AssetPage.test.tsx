@@ -181,6 +181,37 @@ describe('AssetPage', () => {
     expect(screen.getByText('ทั้งหมด 2 รายการ')).toBeInTheDocument()
   })
 
+  it('lists a trade on the page of the asset its fee was paid in, and counts only that fee there', async () => {
+    const bnb = { id: 'CRYPTO:BNB', market: 'CRYPTO', symbol: 'BNB', name: 'BNB', assetType: 'crypto', currency: 'USD' } as const
+    const eth = { id: 'CRYPTO:ETH', market: 'CRYPTO', symbol: 'ETH', name: 'Ethereum', assetType: 'crypto', currency: 'USD' } as const
+    await db.instruments.bulkAdd([bnb, eth])
+    await db.transactions.bulkAdd([
+      makeTx({ instrumentId: 'CRYPTO:BNB', quantity: '1', price: '500', fxRate: '34', date: '2024-01-10' }),
+      makeTx({
+        instrumentId: 'CRYPTO:ETH',
+        quantity: '1',
+        price: '2000',
+        tax: '1',
+        fxRate: '34',
+        date: '2024-01-11',
+        feePaidIn: 'asset',
+        feeInstrumentId: 'CRYPTO:BNB',
+        feeQuantity: '0.001',
+        fees: '0.6',
+      }),
+      makeTx({ instrumentId: 'CRYPTO:ETH', quantity: '1', price: '2100', fxRate: '34', date: '2024-01-12', feePaidIn: 'received', feeQuantity: '0.002' }),
+    ])
+    const router = renderRoute('/assets/CRYPTO%3ABNB', usd)
+    expect(await screen.findByRole('heading', { name: 'BNB' })).toBeInTheDocument()
+    expect(await screen.findByText('1 × 2,000.00 · ค่าธรรมเนียม 0.001 BNB')).toBeInTheDocument()
+    expect(screen.getByText('ทั้งหมด 2 รายการ')).toBeInTheDocument()
+    expect(screen.getByText('ค่าธรรมเนียมรวม').nextSibling).toHaveTextContent('20')
+    await act(() => router.navigate('/assets/CRYPTO%3AETH'))
+    expect(await screen.findByRole('heading', { name: 'ETH' })).toBeInTheDocument()
+    expect(await screen.findByText('1 × 2,100.00 · หัก 0.002 ETH')).toBeInTheDocument()
+    expect(screen.getByText('ทั้งหมด 2 รายการ')).toBeInTheDocument()
+  })
+
   it('says so when the asset does not exist', async () => {
     renderRoute('/assets/US%3ANOPE')
     expect(await screen.findByText('ไม่พบสินทรัพย์นี้')).toBeInTheDocument()

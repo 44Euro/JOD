@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import { makeTx } from '../test/fixtures'
-import { accountTracksCash, computeLedger, receivedUnitCost, type Ledger } from './ledger'
+import {
+  accountTracksCash,
+  cashDeltaQuote,
+  computeLedger,
+  feeFromCash,
+  feesQuote,
+  receivedUnitCost,
+  saleProceedsQuote,
+  type Ledger,
+} from './ledger'
 import type { Transaction } from './types'
 
 describe('computeLedger positions and realized P/L', () => {
@@ -414,6 +423,10 @@ describe('receivedUnitCost', () => {
     expect(receivedUnitCost(swap({ fees: '1.5', tax: '0.5' }))?.toString()).toBe('2648')
   })
 
+  it('spreads the cost over the units that arrive when the fee took some of them', () => {
+    expect(receivedUnitCost(swap({ feePaidIn: 'received', feeQuantity: '0.05' }))?.toString()).toBe('3300')
+  })
+
   it('has no cost per unit without units received', () => {
     expect(receivedUnitCost(swap({ toQuantity: '0' }))).toBeNull()
     expect(receivedUnitCost(swap({ toQuantity: undefined }))).toBeNull()
@@ -441,5 +454,195 @@ describe('accountTracksCash', () => {
     ]
     expect(accountTracksCash(txs, 'a')).toBe(false)
     expect(accountTracksCash(txs, 'b')).toBe(true)
+  })
+})
+
+describe('computeLedger fees paid in an asset', () => {
+  const eth = { instrumentId: 'CRYPTO:ETH', currency: 'USD', fxRate: '34' }
+  const buyBnb = (quantity: string) =>
+    makeTx({ instrumentId: 'CRYPTO:BNB', currency: 'USD', quantity, price: '500', fxRate: '34', date: '2024-01-10' })
+  const bnbFee = { feePaidIn: 'asset' as const, feeInstrumentId: 'CRYPTO:BNB', feeQuantity: '0.001', fees: '0.6' }
+
+  it('keeps the fee units out of a buy whose fee was taken from the coins received', () => {
+    const { positions, cash, feesBase } = computeLedger([
+      makeTx({ ...eth, quantity: '1', price: '2000', feePaidIn: 'received', feeQuantity: '0.001' }),
+    ])
+    expect([positions[0].quantity, positions[0].costQuote, positions[0].costBase].map(String)).toEqual(['0.999', '2000', '68000'])
+    expect(cash[0].amount.toString()).toBe('-2000')
+    expect(feesBase.toString()).toBe('68')
+  })
+
+  it('pays a buy fee with BNB: the fee joins the cost and the BNB is sold at its value (spec 7.3)', () => {
+    const buyEth = makeTx({ ...eth, quantity: '1', price: '2000', date: '2024-01-11', ...bnbFee })
+    const { positions, cash, realized } = computeLedger([buyBnb('1'), buyEth])
+    const byKey = new Map(positions.map((p) => [p.key, [p.quantity, p.costQuote, p.costBase].map(String)]))
+    expect(byKey.get('acc-1|CRYPTO:ETH')).toEqual(['1', '2000.6', '68020.4'])
+    expect(byKey.get('acc-1|CRYPTO:BNB')).toEqual(['0.999', '499.5', '16983'])
+    expect(cash[0].amount.toString()).toBe('-2500')
+    const bnb = realized.find((e) => e.instrumentId === 'CRYPTO:BNB')!
+    expect([bnb.txId, bnb.proceedsQuote, bnb.costQuote, bnb.realizedQuote].map(String)).toEqual([buyEth.id, '0.6', '0.5', '0.1'])
+    expect([bnb.proceedsBase, bnb.costBase, bnb.realizedBase, bnb.priceEffectBase, bnb.fxEffectBase].map(String)).toEqual([
+      '20.4', '17', '3.4', '3.4', '0',
+    ])
+  })
+
+  it('refuses a fee in an asset that is not held in that amount', () => {
+    const ledger = computeLedger([buyBnb('0.0005'), makeTx({ ...eth, quantity: '1', price: '2000', date: '2024-01-11', ...bnbFee })])
+    expect(ledger.issues[0].message).toBe('ค่าธรรมเนียม 0.001 BNB แต่ถืออยู่ 0.0005 BNB')
+    expect(ledger.positions.map((p) => p.key)).toEqual(['acc-1|CRYPTO:BNB'])
+  })
+
+  it('lowers the gain of a sell by a BNB fee without taking it from cash', () => {
+    const { realized, cash } = computeLedger([
+      makeTx({ ...eth, quantity: '1', price: '2000', date: '2024-01-09' }),
+      buyBnb('1'),
+      makeTx({ ...eth, type: 'sell', quantity: '1', price: '2500', fxRate: '35', date: '2024-02-01', ...bnbFee }),
+    ])
+    expect(realized.find((e) => e.instrumentId === 'CRYPTO:ETH')!.realizedQuote.toString()).toBe('499.4')
+    expect(realized.find((e) => e.instrumentId === 'CRYPTO:BNB')!.realizedBase.toString()).toBe('4')
+    expect(cash).toEqual([])
+  })
+
+  it('takes the fee units from the coins received in a swap and from the units that arrive in a transfer', () => {
+    const buyBtc = makeTx({ instrumentId: 'CRYPTO:BTC', quantity: '0.01', price: '58000', fxRate: '34', date: '2024-03-01' })
+    const swapped = computeLedger([
+      buyBtc,
+      makeTx({ instrumentId: 'CRYPTO:BTC', type: 'swap', quantity: '0.01', price: undefined, toInstrumentId: 'CRYPTO:ETH', toQuantity: '0.25', amount: '660', fxRate: '35', date: '2024-04-01', feePaidIn: 'received', feeQuantity: '0.0025' }),
+    ])
+    expect([swapped.positions[0].quantity, swapped.positions[0].costQuote].map(String)).toEqual(['0.2475', '660'])
+    const moved = computeLedger([
+      buyBtc,
+      makeTx({ instrumentId: 'CRYPTO:BTC', type: 'transfer', toAccountId: 'acc-2', quantity: '0.01', price: undefined, date: '2024-04-01', feePaidIn: 'received', feeQuantity: '0.0002' }),
+    ])
+    expect(moved.positions.map((p) => [p.key, p.quantity.toString(), p.costQuote.toString(), p.costBase.toString()])).toEqual([
+      ['acc-2|CRYPTO:BTC', '0.0098', '580', '19720'],
+    ])
+  })
+
+  describe('beyond a single buy', () => {
+    const buyBtc = makeTx({ instrumentId: 'CRYPTO:BTC', quantity: '0.01', price: '58000', fxRate: '34', date: '2024-03-01' })
+    const swapBtc = (overrides: Partial<Transaction> = {}) =>
+      makeTx({
+        instrumentId: 'CRYPTO:BTC',
+        type: 'swap',
+        quantity: '0.01',
+        price: undefined,
+        toInstrumentId: 'CRYPTO:ETH',
+        toQuantity: '0.25',
+        amount: '660',
+        fxRate: '35',
+        date: '2024-04-01',
+        ...overrides,
+      })
+
+    it('adds a swap fee paid in BNB to the cost of the coin received and sells the BNB after the coin given up', () => {
+      const { positions, realized, cash } = computeLedger([buyBtc, buyBnb('1'), swapBtc(bnbFee)])
+      const byKey = new Map(positions.map((p) => [p.key, [p.quantity, p.costQuote, p.costBase].map(String)]))
+      expect(byKey.get('acc-1|CRYPTO:ETH')).toEqual(['0.25', '660.6', '23121'])
+      expect(byKey.get('acc-1|CRYPTO:BNB')).toEqual(['0.999', '499.5', '16983'])
+      expect(realized.map((e) => [e.instrumentId, e.realizedBase.toString()])).toEqual([
+        ['CRYPTO:BTC', '3380'],
+        ['CRYPTO:BNB', '4'],
+      ])
+      expect(cash[0].amount.toString()).toBe('-1080')
+    })
+
+    it('closes the position of the asset a fee uses up completely', () => {
+      const { positions, realized } = computeLedger([buyBnb('0.001'), makeTx({ ...eth, quantity: '1', price: '2000', date: '2024-01-11', ...bnbFee })])
+      expect(positions.map((p) => p.key)).toEqual(['acc-1|CRYPTO:ETH'])
+      expect(realized.find((e) => e.instrumentId === 'CRYPTO:BNB')!.realizedBase.toString()).toBe('3.4')
+    })
+
+    it('reports a fee paid in an asset as a fee in the currency of the transaction', () => {
+      const { feesBase } = computeLedger([buyBnb('1'), makeTx({ ...eth, quantity: '1', price: '2000', tax: '1', date: '2024-01-11', ...bnbFee })])
+      expect(feesBase.toString()).toBe('54.4')
+    })
+
+    it('values the units a swap fee took at the price they were swapped at', () => {
+      const { feesBase } = computeLedger([buyBtc, swapBtc({ feePaidIn: 'received', feeQuantity: '0.0025' })])
+      expect(feesBase.toString()).toBe('231')
+    })
+
+    it('puts no value on the units a transfer fee took', () => {
+      const { feesBase } = computeLedger([buyBtc, makeTx({ instrumentId: 'CRYPTO:BTC', type: 'transfer', toAccountId: 'acc-2', quantity: '0.01', price: undefined, date: '2024-04-01', feePaidIn: 'received', feeQuantity: '0.0002' })])
+      expect(feesBase.toString()).toBe('0')
+    })
+
+    it('refuses a fee in an asset held in another currency and leaves everything alone', () => {
+      const bnbInBaht = makeTx({ instrumentId: 'CRYPTO:BNB', currency: 'THB', quantity: '1', price: '17000', fxRate: '1', date: '2024-01-10' })
+      const ledger = computeLedger([bnbInBaht, makeTx({ ...eth, quantity: '1', price: '2000', date: '2024-01-11', ...bnbFee })])
+      expect(ledger.issues[0].message).toBe('BNB ถืออยู่เป็น THB · รายการนี้ใช้ USD')
+      expect(ledger.positions.map((p) => [p.key, p.quantity.toString()])).toEqual([['acc-1|CRYPTO:BNB', '1']])
+      expect(ledger.cash.map((row) => row.currency)).toEqual(['THB'])
+      expect(ledger.feesBase.toString()).toBe('0')
+    })
+
+    it('refuses a fee in an asset that is not held at all', () => {
+      const ledger = computeLedger([makeTx({ ...eth, quantity: '1', price: '2000', ...bnbFee })])
+      expect(ledger.issues[0].message).toBe('ค่าธรรมเนียม 0.001 BNB แต่ถืออยู่ 0 BNB')
+      expect(ledger.positions).toEqual([])
+    })
+
+    it('leaves a sell alone when its fee asset is missing', () => {
+      const buyEth = makeTx({ ...eth, quantity: '1', price: '2000', date: '2024-01-09' })
+      const ledger = computeLedger([buyEth, makeTx({ ...eth, type: 'sell', quantity: '1', price: '2500', date: '2024-02-01', ...bnbFee })])
+      expect(ledger.issues).toHaveLength(1)
+      expect(ledger.realized).toEqual([])
+      expect(ledger.positions.map((p) => [p.key, p.quantity.toString()])).toEqual([['acc-1|CRYPTO:ETH', '1']])
+      expect(ledger.cash[0].amount.toString()).toBe('-2000')
+    })
+
+    it('leaves both coins of a swap alone when its fee asset is missing', () => {
+      const ledger = computeLedger([buyBtc, swapBtc(bnbFee)])
+      expect(ledger.issues).toHaveLength(1)
+      expect(ledger.realized).toEqual([])
+      expect(ledger.positions.map((p) => [p.key, p.quantity.toString()])).toEqual([['acc-1|CRYPTO:BTC', '0.01']])
+    })
+
+    it('names the main problem first when a sell fails for both reasons', () => {
+      const ledger = computeLedger([makeTx({ ...eth, type: 'sell', quantity: '1', price: '2500', ...bnbFee })])
+      expect(ledger.issues[0].message).toBe('ขาย 1 หน่วย แต่ถืออยู่ 0 หน่วย')
+    })
+  })
+})
+
+describe('what a fee is paid in', () => {
+  const sell = makeTx({ type: 'sell', quantity: '2', price: '450', fees: '1', tax: '0.5', feePaidIn: 'asset', feeInstrumentId: 'CRYPTO:BNB', feeQuantity: '0.001' })
+  const cashSell = { ...sell, feePaidIn: undefined, feeInstrumentId: undefined, feeQuantity: undefined }
+
+  it('is cash unless the transaction says otherwise', () => {
+    expect([undefined, 'cash', 'received', 'asset'].map((feePaidIn) => feeFromCash(makeTx({ feePaidIn: feePaidIn as never })))).toEqual([
+      true, true, false, false,
+    ])
+  })
+
+  it('takes the fee out of the proceeds of a sell whatever it was paid in, but out of cash only when it was paid in cash', () => {
+    expect(saleProceedsQuote(cashSell).toString()).toBe('898.5')
+    expect(saleProceedsQuote(sell).toString()).toBe('898.5')
+    expect(cashDeltaQuote(cashSell).toString()).toBe('898.5')
+    expect(cashDeltaQuote(sell).toString()).toBe('899.5')
+  })
+
+  it('leaves a fee that is not paid in cash out of the cash of a buy, a swap and a transfer', () => {
+    const buy = makeTx({ quantity: '2', price: '450', fees: '1', tax: '0.5' })
+    expect(cashDeltaQuote(buy).toString()).toBe('-901.5')
+    expect(cashDeltaQuote({ ...buy, feePaidIn: 'asset' }).toString()).toBe('-900.5')
+    const swap = makeTx({ type: 'swap', amount: '660', fees: '1', tax: '0.5' })
+    expect(cashDeltaQuote(swap).toString()).toBe('-1.5')
+    expect(cashDeltaQuote({ ...swap, feePaidIn: 'asset' }).toString()).toBe('-0.5')
+    const transfer = makeTx({ type: 'transfer', toAccountId: 'acc-2', price: undefined, fees: '2' })
+    expect(cashDeltaQuote(transfer).toString()).toBe('-2')
+    expect(cashDeltaQuote({ ...transfer, fees: '0', feePaidIn: 'received', feeQuantity: '0.1' }).toString()).toBe('0')
+  })
+
+  it('counts the units taken from a buy at its price and the value of an asset as it was given', () => {
+    const buy = makeTx({ quantity: '2', price: '450', tax: '0.5' })
+    expect(feesQuote({ ...buy, feePaidIn: 'received', feeQuantity: '0.1' }).toString()).toBe('45.5')
+    expect(feesQuote({ ...buy, fees: '3', feePaidIn: 'asset' }).toString()).toBe('3.5')
+  })
+
+  it('counts no units taken from a swap that received nothing', () => {
+    const swap = makeTx({ type: 'swap', amount: '660', toQuantity: undefined, feePaidIn: 'received', feeQuantity: '0.1' })
+    expect(feesQuote(swap).toString()).toBe('0')
   })
 })

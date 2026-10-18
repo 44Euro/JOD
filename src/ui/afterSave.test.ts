@@ -195,3 +195,48 @@ describe('previewAfterSave for a swap', () => {
     expect(outcome?.unitCost.toString()).toBe('2200')
   })
 })
+
+describe('previewAfterSave for a fee paid in an asset', () => {
+  const bnbFee = { feePaidIn: 'asset' as const, feeInstrumentId: 'CRYPTO:BNB', feeQuantity: '0.001', fees: '0.6' }
+  const buyBnb = makeTx({ instrumentId: 'CRYPTO:BNB', quantity: '1', price: '500', fxRate: '34', date: '2024-01-10' })
+  const buyEth = (overrides: Partial<Transaction> = {}) =>
+    makeTx({ instrumentId: 'CRYPTO:ETH', quantity: '1', price: '2000', fxRate: '34', date: '2024-01-11', ...overrides })
+
+  it('shows what is left of the asset the fee was paid in after the rows of the asset traded', () => {
+    const { rows } = previewAfterSave([buyBnb], buyEth(bnbFee), 'THB', 'ETH')
+    expect(rows.map((row) => row.label)).toEqual(['ETH ที่ถือ', 'ทุนเฉลี่ย (USD)', 'เรทเฉลี่ยตอนซื้อ', 'BNB ที่ถือ'])
+    expect(rows[rows.length - 1]).toEqual({ label: 'BNB ที่ถือ', before: '1', after: '0.999' })
+  })
+
+  it('shows the asset a sell paid its fee in', () => {
+    const held = makeTx({ instrumentId: 'CRYPTO:ETH', quantity: '1', price: '2000', fxRate: '34', date: '2024-01-09' })
+    const sell = buyEth({ type: 'sell', price: '2500', ...bnbFee })
+    expect(previewAfterSave([held, buyBnb], sell, 'THB', 'ETH').rows.at(-1)).toEqual({ label: 'BNB ที่ถือ', before: '1', after: '0.999' })
+  })
+
+  it('shows it after both coins of a swap', () => {
+    const buyBtc = makeTx({ instrumentId: 'CRYPTO:BTC', quantity: '0.01', price: '58000', fxRate: '34', date: '2024-03-01' })
+    const swap = makeTx({ type: 'swap', instrumentId: 'CRYPTO:BTC', quantity: '0.01', price: undefined, toInstrumentId: 'CRYPTO:ETH', toQuantity: '0.25', amount: '660', fxRate: '35', date: '2024-04-01', ...bnbFee })
+    const labels = previewAfterSave([buyBtc, buyBnb], swap, 'THB', 'BTC').rows.map((row) => row.label)
+    expect(labels.slice(-2)).toEqual(['เรทเฉลี่ยตอนซื้อ ETH', 'BNB ที่ถือ'])
+  })
+
+  it('compares an edited fee against the saved one', () => {
+    const saved = buyEth({ id: 'buy-eth', ...bnbFee })
+    const { rows } = previewAfterSave([buyBnb], { ...saved, feeQuantity: '0.002' }, 'THB', 'ETH', saved)
+    expect(rows.at(-1)).toEqual({ label: 'BNB ที่ถือ', before: '0.999', after: '0.998' })
+  })
+
+  it('adds no such row when the fee is paid in cash or taken from the coins received', () => {
+    expect(previewAfterSave([buyBnb], buyEth({ fees: '1' }), 'THB', 'ETH').rows.map((row) => row.label)).not.toContain('BNB ที่ถือ')
+    const received = previewAfterSave([], buyEth({ feePaidIn: 'received', feeQuantity: '0.001' }), 'THB', 'ETH')
+    expect(received.rows[0]).toEqual({ label: 'ETH ที่ถือ', before: '0', after: '0.999' })
+    expect(received.rows).toHaveLength(3)
+  })
+
+  it('shows nothing changing when the ledger would refuse the fee', () => {
+    const { rows } = previewAfterSave([], buyEth(bnbFee), 'THB', 'ETH')
+    expect(rows[0]).toEqual({ label: 'ETH ที่ถือ', before: '0', after: '0' })
+    expect(rows.at(-1)).toEqual({ label: 'BNB ที่ถือ', before: '0', after: '0' })
+  })
+})

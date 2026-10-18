@@ -2,10 +2,12 @@ import { MARKET_CURRENCY } from '../domain/currencies'
 import { D, Decimal, parseDecimalInput } from '../domain/decimal'
 import { cashDeltaQuote } from '../domain/ledger'
 import {
+  FEE_PAID_IN,
   findInstrument,
   instrumentKey,
   type Account,
   type AssetType,
+  type FeePaidIn,
   type FxSource,
   type Instrument,
   type Market,
@@ -42,6 +44,10 @@ export interface Draft {
   amount: string
   fees: string
   tax: string
+  feePaidIn: FeePaidIn
+  feeMarket: Market
+  feeSymbol: string
+  feeQuantity: string
   splitRatio: string
   toCurrency: string
   toAmount: string
@@ -63,6 +69,9 @@ export interface DraftContext {
   baseCurrency: string
   today: string
 }
+
+// A fee paid in another asset is nearly always paid in a coin, such as BNB on an exchange.
+const FEE_MARKET: Market = 'CRYPTO'
 
 const INSTRUMENT_TYPES: readonly TxType[] = ['buy', 'sell', 'dividend', 'interest', 'split', 'swap', 'receive_asset']
 
@@ -91,6 +100,10 @@ export function emptyDraft(accountId: string, today: string): Draft {
     amount: '',
     fees: '',
     tax: '',
+    feePaidIn: 'cash',
+    feeMarket: FEE_MARKET,
+    feeSymbol: '',
+    feeQuantity: '',
     splitRatio: '',
     toCurrency: '',
     toAmount: '',
@@ -115,6 +128,25 @@ export function showsInstrument(draft: Draft): boolean {
   if (draft.type === 'opening') return draft.openingKind === 'asset'
   if (draft.type === 'transfer') return draft.transferKind === 'asset'
   return INSTRUMENT_TYPES.includes(draft.type)
+}
+
+export function feePaidInOptions(draft: Draft): readonly FeePaidIn[] {
+  switch (draft.type) {
+    case 'buy':
+    case 'swap':
+      return FEE_PAID_IN
+    case 'sell':
+      return ['cash', 'asset']
+    case 'transfer':
+      return draft.transferKind === 'asset' ? ['cash', 'received'] : ['cash']
+    default:
+      return ['cash']
+  }
+}
+
+// Changing the type or the kind of transfer can leave a way of paying that the draft no longer offers.
+export function feePaidInOf(draft: Draft): FeePaidIn {
+  return feePaidInOptions(draft).includes(draft.feePaidIn) ? draft.feePaidIn : 'cash'
 }
 
 // A transfer needs a receiving account other than the sending one, so one is picked until the user chooses.
@@ -148,7 +180,7 @@ function defaultReceiveKind(market: Market): ReceiveKind {
   return market === 'CRYPTO' ? 'staking' : 'stock_dividend'
 }
 
-export function changeType(draft: Draft, type: TxType, baseCurrency: string): Draft {
+function applyType(draft: Draft, type: TxType, baseCurrency: string): Draft {
   if (type === 'fx_convert') {
     if (draft.type === type) return draft
     const converted = changeCurrency({ ...draft, type }, baseCurrency)
@@ -176,6 +208,11 @@ export function changeType(draft: Draft, type: TxType, baseCurrency: string): Dr
           MARKET_CURRENCY.CRYPTO,
         )
   return { ...onCrypto, toMarket: 'CRYPTO', toSymbol: '', toInstrumentName: '', toAssetType: 'crypto', toQuantity: '' }
+}
+
+export function changeType(draft: Draft, type: TxType, baseCurrency: string): Draft {
+  const next = applyType(draft, type, baseCurrency)
+  return feePaidInOptions(next).includes(next.feePaidIn) ? next : { ...next, feePaidIn: 'cash', feeQuantity: '' }
 }
 
 export function changeOpeningKind(draft: Draft, openingKind: OpeningKind): Draft {
@@ -272,6 +309,15 @@ export function syncReceived(draft: Draft): Draft {
   return toAmount === draft.toAmount ? draft : { ...draft, toAmount }
 }
 
+// What actually arrives once the fee has taken its units out of the asset received.
+export function receivedAfterFee(draft: Draft): string | null {
+  if (feePaidInOf(draft) !== 'received') return null
+  const received = parsedDecimal(draft.type === 'swap' ? draft.toQuantity : draft.quantity)
+  const taken = parsedDecimal(draft.feeQuantity)
+  if (!received || !taken || !taken.greaterThan(0) || taken.greaterThanOrEqualTo(received)) return null
+  return received.minus(taken).toString()
+}
+
 function instrumentFields(
   instrumentId: string | undefined,
   instruments: readonly Instrument[],
@@ -289,6 +335,7 @@ function instrumentFields(
 export function draftFromTransaction(tx: Transaction, instruments: readonly Instrument[]): Draft {
   const main = instrumentFields(tx.instrumentId, instruments)
   const received = instrumentFields(tx.toInstrumentId, instruments)
+  const fee = instrumentFields(tx.feeInstrumentId, instruments)
   return {
     type: tx.type,
     accountId: tx.accountId,
@@ -313,6 +360,10 @@ export function draftFromTransaction(tx: Transaction, instruments: readonly Inst
     amount: tx.amount ?? '',
     fees: tx.fees === '0' ? '' : tx.fees,
     tax: tx.tax === '0' ? '' : tx.tax,
+    feePaidIn: tx.feePaidIn ?? 'cash',
+    feeMarket: tx.feeInstrumentId ? fee.market : FEE_MARKET,
+    feeSymbol: fee.symbol,
+    feeQuantity: tx.feeQuantity ?? '',
     splitRatio: tx.splitRatio ?? '',
     toCurrency: tx.toCurrency ?? '',
     toAmount: tx.toAmount ?? '',
@@ -340,6 +391,7 @@ export function draftToTransaction(draft: Draft, ctx: DraftContext): { tx: Trans
   const usesAmount = !holding && !sendsUnits && !isReceive && draft.type !== 'split'
   const isConvert = draft.type === 'fx_convert'
   const remit = draft.type === 'withdraw' && draft.remitToThailand
+  const feePaidIn = feePaidInOf(draft)
   // A split moves no money, so it never needs an exchange rate.
   const noFx = draft.currency === ctx.baseCurrency || draft.type === 'split'
 
@@ -357,11 +409,15 @@ export function draftToTransaction(draft: Draft, ctx: DraftContext): { tx: Trans
     price: holding || isReceive ? num(draft.price) : undefined,
     amount: usesAmount ? num(draft.amount) : undefined,
     currency: draft.currency,
-    // An asset received has no fee field, so a fee typed under the type before it must not come along.
-    fees: isReceive ? '0' : (num(draft.fees) ?? '0'),
+    // An asset received has no fee field, and a fee taken from the units received is counted in units, so a fee
+    // typed before the type or the way of paying changed must not come along.
+    fees: isReceive || feePaidIn === 'received' ? '0' : (num(draft.fees) ?? '0'),
     tax: num(draft.tax) ?? '0',
     splitRatio: draft.type === 'split' ? num(draft.splitRatio) : undefined,
     receiveKind: isReceive ? draft.receiveKind : undefined,
+    feePaidIn: feePaidIn === 'cash' ? undefined : feePaidIn,
+    feeInstrumentId: feePaidIn === 'asset' && draft.feeSymbol.trim() ? instrumentKey(draft.feeMarket, draft.feeSymbol) : undefined,
+    feeQuantity: feePaidIn === 'cash' ? undefined : num(draft.feeQuantity),
     toCurrency: isConvert ? draft.toCurrency : undefined,
     toAmount: isConvert ? num(draft.toAmount) : undefined,
     marketRate: isConvert ? draft.marketRate || undefined : undefined,

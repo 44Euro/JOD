@@ -4,7 +4,19 @@ import { symbolOf, type Transaction } from '../domain/types'
 import { fmtNumber, fmtPrice, fmtSigned, fmtValue, plClass } from './format'
 import { RECEIVE_KIND_LABELS } from './labels'
 
+// A fee paid in cash is in the net column; one paid in units is not, so the row says how many.
+function feeNote(tx: Transaction): string {
+  if (tx.feePaidIn === 'received') {
+    return ` · หัก ${fmtNumber(tx.feeQuantity, 8)} ${symbolOf(tx.type === 'swap' ? tx.toInstrumentId : tx.instrumentId)}`
+  }
+  return tx.feePaidIn === 'asset' ? ` · ค่าธรรมเนียม ${fmtNumber(tx.feeQuantity, 8)} ${symbolOf(tx.feeInstrumentId)}` : ''
+}
+
 export function describeAmount(tx: Transaction, accountNames?: ReadonlyMap<string, string>): string {
+  return describeBody(tx, accountNames) + feeNote(tx)
+}
+
+function describeBody(tx: Transaction, accountNames?: ReadonlyMap<string, string>): string {
   switch (tx.type) {
     case 'buy':
     case 'sell':

@@ -1,5 +1,5 @@
 import type { IncomeKind } from '../domain/ledger'
-import { MARKETS, type AssetType, type FxSource, type Market, type ReceiveKind, type TxType } from '../domain/types'
+import { MARKETS, type AssetType, type FeePaidIn, type FxSource, type Market, type ReceiveKind, type TxType } from '../domain/types'
 
 export const TX_TYPE_LABELS: Record<TxType, string> = {
   buy: 'ซื้อ',
@@ -34,6 +34,12 @@ export const RECEIVE_KIND_LABELS: Record<ReceiveKind, string> = {
   airdrop: 'Airdrop',
   coin_interest: 'ดอกเบี้ยเป็นเหรียญ',
   other: 'อื่นๆ',
+}
+
+export const FEE_PAID_IN_LABELS: Record<FeePaidIn, string> = {
+  cash: 'สกุลเงิน',
+  received: 'หักจากที่ได้รับ',
+  asset: 'สินทรัพย์อื่น',
 }
 
 export const MARKET_LABELS: Record<Market, string> = {

@@ -7,6 +7,7 @@ import { todayLocal } from '../../domain/dates'
 import { D, sumBy, type Decimal } from '../../domain/decimal'
 import { instrumentStats } from '../../domain/holdings'
 import { feesQuote, sortTransactions } from '../../domain/ledger'
+import type { Transaction } from '../../domain/types'
 import { cn } from '../../lib/cn'
 import { MarketPill } from '../components/MarketPill'
 import { MoneyRoute } from '../components/MoneyRoute'
@@ -54,10 +55,14 @@ export function AssetPage() {
   const symbol = instrument?.symbol ?? id.split(':')[1] ?? id
   const issues = new Map(ledger.issues.map((i) => [i.txId, i.message]))
   const accountNames = new Map(data.accounts.map((a) => [a.id, a.name]))
-  const transactions = sortTransactions(data.transactions.filter((t) => t.instrumentId === id || t.toInstrumentId === id)).reverse()
+  const transactions = sortTransactions(
+    data.transactions.filter((t) => t.instrumentId === id || t.toInstrumentId === id || t.feeInstrumentId === id),
+  ).reverse()
+  // On the page of the asset that only paid a fee, the tax of the trade is not its own.
+  const feeOnly = (t: Transaction) => t.instrumentId !== id && t.toInstrumentId !== id
   const fees = sumBy(
     transactions.filter((t) => !issues.has(t.id)),
-    (t) => feesQuote(t).times(D(t.fxRate)),
+    (t) => (feeOnly(t) ? D(t.fees) : feesQuote(t)).times(D(t.fxRate)),
   )
   const lastPrice = instrument?.lastPrice ? D(instrument.lastPrice) : null
   const todayRate = stats && rates[stats.currency] ? D(rates[stats.currency].rate) : null

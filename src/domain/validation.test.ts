@@ -135,4 +135,85 @@ describe('validateTransaction', () => {
       expect(validateTransaction({ ...swap, amount: '0' }, TODAY)).toEqual(['มูลค่ารวมต้องเป็นตัวเลขมากกว่า 0'])
     })
   })
+
+  describe('what a fee is paid in', () => {
+    const swap = makeTx({
+      type: 'swap',
+      instrumentId: 'CRYPTO:BTC',
+      quantity: '0.01',
+      price: undefined,
+      toInstrumentId: 'CRYPTO:ETH',
+      toQuantity: '0.25',
+      amount: '660',
+    })
+    const buyReceived = makeTx({ feePaidIn: 'received', feeQuantity: '0.001', quantity: '1' })
+    const bnbFee = { feePaidIn: 'asset' as const, feeInstrumentId: 'CRYPTO:BNB', feeQuantity: '0.001', fees: '0.6' }
+    const sellAsset = makeTx({ type: 'sell', ...bnbFee })
+    const transfer = makeTx({ type: 'transfer', toAccountId: 'acc-2', quantity: '4', price: undefined })
+
+    it('accepts a fee paid in cash, spelled out or not', () => {
+      expect(validateTransaction(makeTx({ feePaidIn: 'cash' }), TODAY)).toEqual([])
+      expect(validateTransaction(makeTx({ fees: '2' }), TODAY)).toEqual([])
+    })
+
+    it('accepts a fee taken from what a buy, a swap and a transfer of units receive', () => {
+      expect(validateTransaction(buyReceived, TODAY)).toEqual([])
+      expect(validateTransaction({ ...swap, feePaidIn: 'received', feeQuantity: '0.0025' }, TODAY)).toEqual([])
+      expect(validateTransaction({ ...transfer, feePaidIn: 'received', feeQuantity: '0.1' }, TODAY)).toEqual([])
+    })
+
+    it('accepts a fee paid in another asset on a buy, a sell and a swap', () => {
+      expect(validateTransaction(sellAsset, TODAY)).toEqual([])
+      expect(validateTransaction({ ...sellAsset, type: 'buy' }, TODAY)).toEqual([])
+      expect(validateTransaction({ ...swap, ...bnbFee }, TODAY)).toEqual([])
+    })
+
+    it('keeps a fee taken from what is received to a buy, a swap and a transfer of units', () => {
+      const message = 'หักจากที่ได้รับใช้ได้กับการซื้อ แลกเหรียญ และโอนสินทรัพย์'
+      expect(validateTransaction({ ...buyReceived, type: 'sell' }, TODAY)).toEqual([message])
+      expect(validateTransaction({ ...transfer, instrumentId: undefined, quantity: undefined, amount: '100', feePaidIn: 'received', feeQuantity: '1' }, TODAY)).toEqual([message])
+      expect(validateTransaction(makeTx({ type: 'dividend', amount: '5', feePaidIn: 'received', feeQuantity: '1' }), TODAY)).toEqual([message])
+    })
+
+    it('needs a positive number of units taken, as units, and fewer than the units received', () => {
+      expect(validateTransaction({ ...buyReceived, feeQuantity: undefined }, TODAY)).toEqual(['จำนวนที่ถูกหักต้องเป็นตัวเลขมากกว่า 0'])
+      expect(validateTransaction({ ...buyReceived, feeQuantity: '0' }, TODAY)).toEqual(['จำนวนที่ถูกหักต้องเป็นตัวเลขมากกว่า 0'])
+      expect(validateTransaction({ ...buyReceived, fees: '1' }, TODAY)).toEqual(['ค่าธรรมเนียมที่หักจากที่ได้รับกรอกเป็นจำนวนหน่วย'])
+      expect(validateTransaction({ ...buyReceived, feeQuantity: '1' }, TODAY)).toEqual(['ค่าธรรมเนียมต้องน้อยกว่าจำนวนที่ได้รับ'])
+      expect(validateTransaction({ ...buyReceived, feeQuantity: '2' }, TODAY)).toEqual(['ค่าธรรมเนียมต้องน้อยกว่าจำนวนที่ได้รับ'])
+      expect(validateTransaction({ ...buyReceived, feeQuantity: '0.999' }, TODAY)).toEqual([])
+    })
+
+    it('compares the units taken with the coin received by a swap, not the coin given up', () => {
+      const received = { ...swap, feePaidIn: 'received' as const }
+      expect(validateTransaction({ ...received, feeQuantity: '0.25' }, TODAY)).toEqual(['ค่าธรรมเนียมต้องน้อยกว่าจำนวนที่ได้รับ'])
+      expect(validateTransaction({ ...received, feeQuantity: '0.02' }, TODAY)).toEqual([])
+    })
+
+    it('keeps a fee paid in another asset to a buy, a sell and a swap', () => {
+      const message = 'จ่ายค่าธรรมเนียมเป็นสินทรัพย์อื่นใช้ได้กับการซื้อ ขาย และแลกเหรียญ'
+      expect(validateTransaction({ ...transfer, ...bnbFee }, TODAY)).toEqual([message])
+      expect(validateTransaction({ ...sellAsset, type: 'dividend', amount: '5' }, TODAY)).toEqual([message])
+    })
+
+    it('needs the asset, a positive number of units and a positive value for a fee paid in another asset', () => {
+      expect(validateTransaction({ ...sellAsset, feeInstrumentId: undefined }, TODAY)).toEqual(['กรุณาระบุสินทรัพย์ที่ใช้จ่ายค่าธรรมเนียม'])
+      expect(validateTransaction({ ...sellAsset, feeQuantity: '0' }, TODAY)).toEqual(['จำนวนที่จ่ายค่าธรรมเนียมต้องเป็นตัวเลขมากกว่า 0'])
+      expect(validateTransaction({ ...sellAsset, feeQuantity: undefined }, TODAY)).toEqual(['จำนวนที่จ่ายค่าธรรมเนียมต้องเป็นตัวเลขมากกว่า 0'])
+      expect(validateTransaction({ ...sellAsset, fees: '0' }, TODAY)).toEqual(['มูลค่าค่าธรรมเนียมต้องเป็นตัวเลขมากกว่า 0'])
+    })
+
+    it('refuses to pay the fee with an asset of the transaction itself', () => {
+      const message = 'สินทรัพย์ที่จ่ายค่าธรรมเนียมต้องต่างจากสินทรัพย์ของรายการ'
+      expect(validateTransaction({ ...sellAsset, feeInstrumentId: 'US:AAPL' }, TODAY)).toEqual([message])
+      const bySwap = { ...swap, ...bnbFee }
+      expect(validateTransaction({ ...bySwap, feeInstrumentId: 'CRYPTO:BTC' }, TODAY)).toEqual([message])
+      expect(validateTransaction({ ...bySwap, feeInstrumentId: 'CRYPTO:ETH' }, TODAY)).toEqual([message])
+      expect(validateTransaction({ ...bySwap, feeInstrumentId: 'CRYPTO:BNB' }, TODAY)).toEqual([])
+    })
+
+    it('rejects a way of paying the fee that does not exist', () => {
+      expect(validateTransaction(makeTx({ feePaidIn: 'gold' as never }), TODAY)).toEqual(['วิธีจ่ายค่าธรรมเนียมไม่ถูกต้อง'])
+    })
+  })
 })

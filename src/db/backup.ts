@@ -105,7 +105,8 @@ export function transactionsToCsv(
   const names = new Map(accounts.map((a) => [a.id, a.name]))
   const header = [
     'date', 'time', 'type', 'account', 'instrument', 'quantity', 'price', 'amount', 'currency', 'fees', 'tax',
-    'fx_rate', 'fx_source', 'net_amount', `net_amount_${baseCurrency}`, 'remit_to_thailand', 'tax_year', 'to_account', 'to_instrument', 'to_quantity', 'receive_kind', 'note',
+    'fx_rate', 'fx_source', 'net_amount', `net_amount_${baseCurrency}`, 'remit_to_thailand', 'tax_year', 'to_account', 'to_instrument', 'to_quantity', 'receive_kind',
+    'fee_paid_in', 'fee_instrument', 'fee_quantity', 'note',
   ]
   const rows = sortTransactions(transactions).map((tx) => {
     const net = cashDeltaQuote(tx)
@@ -114,7 +115,7 @@ export function transactionsToCsv(
       tx.quantity ?? '', tx.price ?? '', tx.amount ?? '', tx.currency, tx.fees, tx.tax, tx.fxRate, tx.fxSource,
       net.toString(), net.times(D(tx.fxRate)).toString(), tx.remitToThailand ? 'yes' : '', tx.taxYear?.toString() ?? '',
       tx.toAccountId ? (names.get(tx.toAccountId) ?? tx.toAccountId) : '', tx.toInstrumentId ?? '', tx.toQuantity ?? '',
-      tx.receiveKind ?? '', tx.note,
+      tx.receiveKind ?? '', tx.feePaidIn ?? '', tx.feeInstrumentId ?? '', tx.feeQuantity ?? '', tx.note,
     ]
   })
   // The BOM makes Excel open the file as UTF-8 so Thai text is not garbled.

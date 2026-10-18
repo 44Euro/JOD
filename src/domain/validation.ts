@@ -1,6 +1,6 @@
 import { isIsoDate, todayLocal } from './dates'
 import { D, isDecimalString } from './decimal'
-import { RECEIVE_KINDS, TX_TYPES, type Thesis, type Transaction } from './types'
+import { FEE_PAID_IN, RECEIVE_KINDS, TX_TYPES, type Thesis, type Transaction } from './types'
 
 const INSTRUMENT_REQUIRED: readonly string[] = ['buy', 'sell', 'dividend', 'split', 'receive_asset']
 
@@ -81,6 +81,40 @@ export function validateTransaction(tx: Transaction, today: string = todayLocal(
   if (tx.type === 'withdraw' && tx.remitToThailand) {
     const year = tx.taxYear
     if (year === undefined || !Number.isInteger(year) || year < 2000 || year > 2200) errors.push('ปีภาษีไม่ถูกต้อง')
+  }
+
+  const feePaidIn = tx.feePaidIn ?? 'cash'
+  if (!FEE_PAID_IN.includes(feePaidIn)) {
+    errors.push('วิธีจ่ายค่าธรรมเนียมไม่ถูกต้อง')
+  } else if (feePaidIn === 'received') {
+    if (tx.type !== 'buy' && tx.type !== 'swap' && !(tx.type === 'transfer' && tx.instrumentId)) {
+      errors.push('หักจากที่ได้รับใช้ได้กับการซื้อ แลกเหรียญ และโอนสินทรัพย์')
+    } else {
+      positive(tx.feeQuantity, 'จำนวนที่ถูกหัก')
+      if (isDecimalString(tx.fees) && !D(tx.fees).isZero()) errors.push('ค่าธรรมเนียมที่หักจากที่ได้รับกรอกเป็นจำนวนหน่วย')
+      const received = tx.type === 'swap' ? tx.toQuantity : tx.quantity
+      if (
+        tx.feeQuantity &&
+        received &&
+        isDecimalString(tx.feeQuantity) &&
+        isDecimalString(received) &&
+        D(received).greaterThan(0) &&
+        D(tx.feeQuantity).greaterThanOrEqualTo(D(received))
+      ) {
+        errors.push('ค่าธรรมเนียมต้องน้อยกว่าจำนวนที่ได้รับ')
+      }
+    }
+  } else if (feePaidIn === 'asset') {
+    if (tx.type !== 'buy' && tx.type !== 'sell' && tx.type !== 'swap') {
+      errors.push('จ่ายค่าธรรมเนียมเป็นสินทรัพย์อื่นใช้ได้กับการซื้อ ขาย และแลกเหรียญ')
+    } else {
+      if (!tx.feeInstrumentId) errors.push('กรุณาระบุสินทรัพย์ที่ใช้จ่ายค่าธรรมเนียม')
+      else if (tx.feeInstrumentId === tx.instrumentId || tx.feeInstrumentId === tx.toInstrumentId) {
+        errors.push('สินทรัพย์ที่จ่ายค่าธรรมเนียมต้องต่างจากสินทรัพย์ของรายการ')
+      }
+      positive(tx.feeQuantity, 'จำนวนที่จ่ายค่าธรรมเนียม')
+      positive(tx.fees, 'มูลค่าค่าธรรมเนียม')
+    }
   }
   return errors
 }

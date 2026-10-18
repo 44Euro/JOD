@@ -18,6 +18,9 @@ export type TxType = (typeof TX_TYPES)[number]
 export const RECEIVE_KINDS = ['stock_dividend', 'staking', 'airdrop', 'coin_interest', 'other'] as const
 export type ReceiveKind = (typeof RECEIVE_KINDS)[number]
 
+export const FEE_PAID_IN = ['cash', 'received', 'asset'] as const
+export type FeePaidIn = (typeof FEE_PAID_IN)[number]
+
 export const MARKETS = ['US', 'SET', 'HK', 'JP', 'SG', 'CN', 'EU', 'UK', 'CRYPTO', 'OTHER'] as const
 export type Market = (typeof MARKETS)[number]
 
@@ -67,6 +70,9 @@ export interface Thesis {
 // value of the swap in `currency`, and fees and tax are paid in cash and added to the cost of what is received.
 // receive_asset adds quantity of instrumentId that was received as income; price is the value of one unit on that day,
 // which is both the cost and the income, and tax is withheld in cash.
+// feePaidIn (buy, sell, swap, transfer of units; missing = cash): 'received' takes feeQuantity units out of the asset
+// received, so fees stays 0; 'asset' pays feeQuantity of feeInstrumentId, held in the same account and currency, and
+// fees is what that is worth in `currency`.
 export interface Transaction {
   id: string
   accountId: string
@@ -85,6 +91,9 @@ export interface Transaction {
   tax: string
   splitRatio?: string
   receiveKind?: ReceiveKind
+  feePaidIn?: FeePaidIn
+  feeInstrumentId?: string
+  feeQuantity?: string
   toCurrency?: string
   toAmount?: string
   marketRate?: string

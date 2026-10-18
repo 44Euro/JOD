@@ -1,23 +1,101 @@
 import { Field } from '../../../components/ui/field'
-import { Input } from '../../../components/ui/input'
-import type { TxType } from '../../../domain/types'
-import type { Draft } from '../../transactionDraft'
+import { Input, NativeSelect } from '../../../components/ui/input'
+import type { FeePaidIn, Instrument, TxType } from '../../../domain/types'
+import { cn } from '../../../lib/cn'
+import { fmtNumber } from '../../format'
+import { FEE_PAID_IN_LABELS } from '../../labels'
+import { feePaidInOf, feePaidInOptions, receivedAfterFee, type Draft } from '../../transactionDraft'
+import { FieldGroup } from './FieldGroup'
+import { InstrumentFields } from './InstrumentFields'
 
 function feeLabel(type: TxType): string {
   if (type === 'fx_convert') return 'ค่าธรรมเนียม (หักจากยอดที่แลก)'
   return type === 'transfer' ? 'ค่าธรรมเนียมการโอน' : 'ค่าธรรมเนียม'
 }
 
-export function FeeTaxFields({ draft, update }: { draft: Draft; update(patch: Partial<Draft>): void }) {
+// The fee asset has to be held already, so the name and type that InstrumentFields asks of a new one are never shown.
+const heldOnly = { name: '', assetType: 'other', onName: () => {}, onAssetType: () => {} } as const
+
+export function FeeTaxFields({
+  draft,
+  instruments,
+  feeHint,
+  update,
+}: {
+  draft: Draft
+  instruments: readonly Instrument[]
+  feeHint?: string
+  update(patch: Partial<Draft>): void
+}) {
+  const options = feePaidInOptions(draft)
+  const paidIn = feePaidInOf(draft)
+  const showsTax = draft.type !== 'fx_convert' && draft.type !== 'deposit' && draft.type !== 'transfer'
+  const cells = Number(options.length > 1) + Number(paidIn !== 'asset') + Number(showsTax)
+  const receivedSymbol = (draft.type === 'swap' ? draft.toSymbol : draft.symbol).trim().toUpperCase()
+  const arrives = receivedAfterFee(draft)
   return (
-    <div className="grid grid-cols-2 gap-3.5">
-      <Field id="tx-fees" label={feeLabel(draft.type)}>
-        <Input id="tx-fees" inputMode="decimal" placeholder="0" value={draft.fees} onChange={(e) => update({ fees: e.target.value })} />
-      </Field>
-      {draft.type !== 'fx_convert' && draft.type !== 'deposit' && draft.type !== 'transfer' && (
-        <Field id="tx-tax" label={draft.type === 'dividend' || draft.type === 'interest' ? 'ภาษีหัก ณ ที่จ่าย' : 'ภาษี / VAT'}>
-          <Input id="tx-tax" inputMode="decimal" placeholder="0" value={draft.tax} onChange={(e) => update({ tax: e.target.value })} />
-        </Field>
+    <div className="grid gap-3.5">
+      <div className={cn('grid grid-cols-2 gap-3.5', cells === 3 && 'sm:grid-cols-3')}>
+        {options.length > 1 && (
+          <Field id="tx-fee-paid-in" label="จ่ายเป็น">
+            <NativeSelect id="tx-fee-paid-in" value={paidIn} onChange={(e) => update({ feePaidIn: e.target.value as FeePaidIn })}>
+              {options.map((option) => (
+                <option key={option} value={option}>
+                  {FEE_PAID_IN_LABELS[option]}
+                </option>
+              ))}
+            </NativeSelect>
+          </Field>
+        )}
+        {paidIn === 'cash' && (
+          <Field id="tx-fees" label={feeLabel(draft.type)}>
+            <Input id="tx-fees" inputMode="decimal" placeholder="0" value={draft.fees} onChange={(e) => update({ fees: e.target.value })} />
+          </Field>
+        )}
+        {paidIn === 'received' && (
+          <Field
+            id="tx-fee-quantity"
+            label={receivedSymbol ? `จำนวนที่ถูกหัก (${receivedSymbol})` : 'จำนวนที่ถูกหัก'}
+            hint={arrives && `ได้รับจริง ${fmtNumber(arrives, 8)} ${receivedSymbol}`.trim()}
+          >
+            <Input
+              id="tx-fee-quantity"
+              inputMode="decimal"
+              placeholder="0"
+              value={draft.feeQuantity}
+              onChange={(e) => update({ feeQuantity: e.target.value })}
+            />
+          </Field>
+        )}
+        {showsTax && (
+          <Field id="tx-tax" label={draft.type === 'dividend' || draft.type === 'interest' ? 'ภาษีหัก ณ ที่จ่าย' : 'ภาษี / VAT'}>
+            <Input id="tx-tax" inputMode="decimal" placeholder="0" value={draft.tax} onChange={(e) => update({ tax: e.target.value })} />
+          </Field>
+        )}
+      </div>
+      {paidIn === 'asset' && (
+        <FieldGroup legend="ค่าธรรมเนียมที่จ่ายเป็นสินทรัพย์">
+          <InstrumentFields
+            {...heldOnly}
+            idPrefix="tx-fee"
+            symbolLabel="สินทรัพย์ที่ใช้จ่าย"
+            market={draft.feeMarket}
+            symbol={draft.feeSymbol}
+            instruments={instruments}
+            hint={feeHint}
+            allowNew={false}
+            onMarket={(feeMarket) => update({ feeMarket })}
+            onSymbol={(feeSymbol) => update({ feeSymbol })}
+          />
+          <div className="grid gap-3.5 sm:grid-cols-2">
+            <Field id="tx-fee-quantity" label="จำนวน">
+              <Input id="tx-fee-quantity" inputMode="decimal" value={draft.feeQuantity} onChange={(e) => update({ feeQuantity: e.target.value })} />
+            </Field>
+            <Field id="tx-fees" label={`มูลค่าค่าธรรมเนียม (${draft.currency})`}>
+              <Input id="tx-fees" inputMode="decimal" value={draft.fees} onChange={(e) => update({ fees: e.target.value })} />
+            </Field>
+          </div>
+        </FieldGroup>
       )}
     </div>
   )

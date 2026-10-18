@@ -11,8 +11,11 @@ import {
   draftFromTransaction,
   draftToTransaction,
   emptyDraft,
+  feePaidInOf,
+  feePaidInOptions,
   pickSymbol,
   pickToSymbol,
+  receivedAfterFee,
   receivedAmount,
   syncReceived,
   totalForDisplay,
@@ -607,6 +610,169 @@ describe('assets received as income', () => {
       quantity: '0.5',
       price: '150',
       tax: '1',
+    })
+  })
+})
+
+describe('what a fee is paid in', () => {
+  const bnb: Instrument = { id: 'CRYPTO:BNB', market: 'CRYPTO', symbol: 'BNB', name: 'BNB', assetType: 'crypto', currency: 'USD' }
+  const ethDraft = (overrides: Partial<Draft> = {}): Draft =>
+    buyDraft({ market: 'CRYPTO', symbol: 'eth', currency: 'USD', assetType: 'crypto', quantity: '1', price: '2000', ...overrides })
+  const account = (id: string) => ({ id, name: id, broker: '', note: '', createdAt: '2024-01-01T00:00:00.000Z' })
+  const transferDraft = (overrides: Partial<Draft> = {}): Draft => ({
+    ...withTransferTarget(changeType(emptyDraft('acc-1', '2024-06-01'), 'transfer', 'THB'), [account('acc-1'), account('acc-2')]),
+    symbol: 'AAPL',
+    quantity: '4',
+    fxRate: '35',
+    ...overrides,
+  })
+
+  it('starts on cash with the fee asset empty on crypto', () => {
+    expect(emptyDraft('acc-1', '2024-06-01')).toMatchObject({ feePaidIn: 'cash', feeMarket: 'CRYPTO', feeSymbol: '', feeQuantity: '' })
+  })
+
+  it('offers each type only the ways that make sense for it', () => {
+    const offered = (draft: Draft) => feePaidInOptions(draft)
+    expect(offered(buyDraft())).toEqual(['cash', 'received', 'asset'])
+    expect(offered(buyDraft({ type: 'sell' }))).toEqual(['cash', 'asset'])
+    expect(offered(buyDraft({ type: 'swap' }))).toEqual(['cash', 'received', 'asset'])
+    expect(offered(transferDraft())).toEqual(['cash', 'received'])
+    expect(offered(transferDraft({ transferKind: 'cash' }))).toEqual(['cash'])
+    for (const type of ['dividend', 'interest', 'deposit', 'withdraw', 'fx_convert', 'fee', 'opening', 'split', 'receive_asset'] as const) {
+      expect(offered(buyDraft({ type }))).toEqual(['cash'])
+    }
+  })
+
+  it('falls back to cash for a way that the draft no longer offers', () => {
+    expect(feePaidInOf(buyDraft({ feePaidIn: 'asset' }))).toBe('asset')
+    expect(feePaidInOf(buyDraft({ type: 'sell', feePaidIn: 'received' }))).toBe('cash')
+    expect(feePaidInOf(transferDraft({ transferKind: 'cash', feePaidIn: 'received' }))).toBe('cash')
+  })
+
+  it('goes back to cash, and forgets the units, when the new type cannot pay that way', () => {
+    const received = buyDraft({ feePaidIn: 'received', feeQuantity: '0.001' })
+    expect(changeType(received, 'sell', 'THB')).toMatchObject({ type: 'sell', feePaidIn: 'cash', feeQuantity: '' })
+    expect(changeType(received, 'transfer', 'THB')).toMatchObject({ feePaidIn: 'received', feeQuantity: '0.001' })
+    expect(changeType(received, 'dividend', 'THB')).toMatchObject({ feePaidIn: 'cash', feeQuantity: '' })
+    const asset = buyDraft({ feePaidIn: 'asset', feeSymbol: 'bnb', feeQuantity: '0.001' })
+    expect(changeType(asset, 'sell', 'THB')).toMatchObject({ feePaidIn: 'asset', feeSymbol: 'bnb', feeQuantity: '0.001' })
+    expect(changeType(asset, 'transfer', 'THB')).toMatchObject({ feePaidIn: 'cash', feeQuantity: '' })
+  })
+
+  it('keeps the very same draft when the type is chosen again and nothing needs to change', () => {
+    const swapping = changeType(buyDraft({ feePaidIn: 'asset' }), 'swap', 'THB')
+    expect(changeType(swapping, 'swap', 'THB')).toBe(swapping)
+  })
+
+  it('sends nothing about the fee when it is paid in cash, whatever was typed for the other ways', () => {
+    const { tx, errors } = draftToTransaction(ethDraft({ fees: '2', feeQuantity: '0.001', feeSymbol: 'bnb' }), ctx)
+    expect(errors).toEqual([])
+    expect(tx).toMatchObject({ fees: '2' })
+    expect(tx.feePaidIn).toBeUndefined()
+    expect(tx.feeInstrumentId).toBeUndefined()
+    expect(tx.feeQuantity).toBeUndefined()
+  })
+
+  it('builds a fee taken from the coins received with no money fee, whatever was typed in the fee field', () => {
+    const { tx, errors } = draftToTransaction(ethDraft({ feePaidIn: 'received', feeQuantity: '0.001', fees: '5', feeSymbol: 'bnb' }), ctx)
+    expect(errors).toEqual([])
+    expect(tx).toMatchObject({ feePaidIn: 'received', feeQuantity: '0.001', fees: '0' })
+    expect(tx.feeInstrumentId).toBeUndefined()
+  })
+
+  it('builds a fee paid in another asset with the asset, the units and what they are worth', () => {
+    const { tx, errors } = draftToTransaction(
+      ethDraft({ feePaidIn: 'asset', feeMarket: 'CRYPTO', feeSymbol: ' bnb ', feeQuantity: '0.001', fees: '0.6' }),
+      ctx,
+    )
+    expect(errors).toEqual([])
+    expect(tx).toMatchObject({ feePaidIn: 'asset', feeInstrumentId: 'CRYPTO:BNB', feeQuantity: '0.001', fees: '0.6' })
+  })
+
+  it('takes the fee asset from its own market, not the market of the transaction', () => {
+    const { tx } = draftToTransaction(buyDraft({ feePaidIn: 'asset', feeMarket: 'SET', feeSymbol: 'ptt', feeQuantity: '1', fees: '30' }), ctx)
+    expect(tx.feeInstrumentId).toBe('SET:PTT')
+  })
+
+  it('takes the fee of a sell from another asset but never from the units received, which a sell has none of', () => {
+    const sell = ethDraft({ type: 'sell', feePaidIn: 'received', feeQuantity: '0.001', fees: '1' })
+    const { tx, errors } = draftToTransaction(sell, ctx)
+    expect(errors).toEqual([])
+    expect(tx.feePaidIn).toBeUndefined()
+    expect(tx.fees).toBe('1')
+  })
+
+  it('takes the fee of a transfer of units from the units that arrive, and ignores it for cash', () => {
+    const units = draftToTransaction(transferDraft({ feePaidIn: 'received', feeQuantity: '0.1', fees: '3' }), ctx)
+    expect(units.errors).toEqual([])
+    expect(units.tx).toMatchObject({ feePaidIn: 'received', feeQuantity: '0.1', fees: '0' })
+    const cash = draftToTransaction(transferDraft({ transferKind: 'cash', currency: 'THB', amount: '100', feePaidIn: 'received', feeQuantity: '0.1', fees: '3' }), ctx)
+    expect(cash.errors).toEqual([])
+    expect(cash.tx.feePaidIn).toBeUndefined()
+    expect(cash.tx.fees).toBe('3')
+  })
+
+  it('asks for each missing part of the fee once', () => {
+    expect(draftToTransaction(ethDraft({ feePaidIn: 'received', feeQuantity: '' }), ctx).errors).toEqual([
+      'จำนวนที่ถูกหักต้องเป็นตัวเลขมากกว่า 0',
+    ])
+    expect(draftToTransaction(ethDraft({ feePaidIn: 'received', feeQuantity: '1' }), ctx).errors).toEqual([
+      'ค่าธรรมเนียมต้องน้อยกว่าจำนวนที่ได้รับ',
+    ])
+    expect(draftToTransaction(ethDraft({ feePaidIn: 'asset' }), ctx).errors).toEqual([
+      'กรุณาระบุสินทรัพย์ที่ใช้จ่ายค่าธรรมเนียม',
+      'จำนวนที่จ่ายค่าธรรมเนียมต้องเป็นตัวเลขมากกว่า 0',
+      'มูลค่าค่าธรรมเนียมต้องเป็นตัวเลขมากกว่า 0',
+    ])
+  })
+
+  it('refuses to pay the fee with the asset that is being traded', () => {
+    const draft = ethDraft({ feePaidIn: 'asset', feeSymbol: 'ETH', feeQuantity: '0.001', fees: '2' })
+    expect(draftToTransaction(draft, ctx).errors).toEqual(['สินทรัพย์ที่จ่ายค่าธรรมเนียมต้องต่างจากสินทรัพย์ของรายการ'])
+  })
+
+  it('reads a saved fee back into the draft, ways of paying and all', () => {
+    const received = draftToTransaction(ethDraft({ feePaidIn: 'received', feeQuantity: '0.001' }), ctx).tx
+    expect(draftFromTransaction(received, [])).toMatchObject({ feePaidIn: 'received', feeQuantity: '0.001', feeSymbol: '', fees: '' })
+    const paid = draftToTransaction(ethDraft({ feePaidIn: 'asset', feeSymbol: 'bnb', feeQuantity: '0.001', fees: '0.6' }), ctx).tx
+    expect(draftFromTransaction(paid, [bnb])).toMatchObject({
+      feePaidIn: 'asset',
+      feeMarket: 'CRYPTO',
+      feeSymbol: 'BNB',
+      feeQuantity: '0.001',
+      fees: '0.6',
+    })
+    const other = draftToTransaction(buyDraft({ feePaidIn: 'asset', feeMarket: 'SET', feeSymbol: 'ptt', feeQuantity: '1', fees: '30' }), ctx).tx
+    expect(draftFromTransaction(other, [])).toMatchObject({ feeMarket: 'SET', feeSymbol: 'PTT' })
+  })
+
+  it('reads a transaction paid in cash back as cash with nothing typed for the fee asset', () => {
+    const { tx } = draftToTransaction(buyDraft({ fees: '2' }), ctx)
+    expect(draftFromTransaction(tx, [])).toMatchObject({ feePaidIn: 'cash', feeMarket: 'CRYPTO', feeSymbol: '', feeQuantity: '' })
+  })
+
+  describe('receivedAfterFee', () => {
+    const received = (overrides: Partial<Draft> = {}) => ethDraft({ feePaidIn: 'received', feeQuantity: '0.001', ...overrides })
+
+    it('takes the units from a buy, a transfer of units and the coin received by a swap', () => {
+      expect(receivedAfterFee(received())).toBe('0.999')
+      expect(receivedAfterFee(transferDraft({ feePaidIn: 'received', feeQuantity: '0.5' }))).toBe('3.5')
+      const swap = changeType(received({ quantity: '0.01' }), 'swap', 'THB')
+      expect(receivedAfterFee({ ...swap, feePaidIn: 'received', toQuantity: '0.25', feeQuantity: '0.0025' })).toBe('0.2475')
+    })
+
+    it('accepts thousands separators', () => {
+      expect(receivedAfterFee(received({ quantity: '1,000', feeQuantity: '0.5' }))).toBe('999.5')
+    })
+
+    it('has nothing to show unless the fee is taken from the units received and is smaller than them', () => {
+      expect(receivedAfterFee(received({ feePaidIn: 'cash' }))).toBeNull()
+      expect(receivedAfterFee(received({ feePaidIn: 'asset' }))).toBeNull()
+      expect(receivedAfterFee(received({ feeQuantity: '' }))).toBeNull()
+      expect(receivedAfterFee(received({ feeQuantity: '0' }))).toBeNull()
+      expect(receivedAfterFee(received({ feeQuantity: '1' }))).toBeNull()
+      expect(receivedAfterFee(received({ quantity: '' }))).toBeNull()
+      expect(receivedAfterFee(received({ feeQuantity: 'abc' }))).toBeNull()
     })
   })
 })

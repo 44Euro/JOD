@@ -99,6 +99,11 @@ export function takeCost(
   }
 }
 
+// Units a fee took out of the asset received never arrive.
+function feeUnitsTaken(tx: Transaction): Decimal {
+  return tx.feePaidIn === 'received' ? D(tx.feeQuantity) : D(0)
+}
+
 // What an asset received as income is worth on the day: both its cost and the income it counts as.
 function receivedValueQuote(tx: Transaction): Decimal {
   return D(tx.quantity).times(D(tx.price))
@@ -110,7 +115,7 @@ function receivedCostQuote(tx: Transaction): Decimal {
 }
 
 export function receivedUnitCost(tx: Transaction): Decimal | null {
-  const quantity = D(tx.toQuantity)
+  const quantity = D(tx.toQuantity).minus(feeUnitsTaken(tx))
   return quantity.greaterThan(0) ? receivedCostQuote(tx).div(quantity) : null
 }
 
@@ -124,16 +129,26 @@ export function accountTracksCash(transactions: readonly Transaction[], accountI
   )
 }
 
+export function feeFromCash(tx: Transaction): boolean {
+  return (tx.feePaidIn ?? 'cash') === 'cash'
+}
+
+// What a sell brings in for the gain: the fee lowers it however it was paid, but only a fee paid in cash lowers the cash.
+export function saleProceedsQuote(tx: Transaction): Decimal {
+  return D(tx.quantity).times(D(tx.price)).minus(D(tx.fees)).minus(D(tx.tax))
+}
+
 // Signed cash movement in the transaction's own currency (the source side for fx_convert, whose fee is
 // taken out of the amount exchanged, so it is already inside `amount`).
 export function cashDeltaQuote(tx: Transaction): Decimal {
   const fees = D(tx.fees)
+  const cashFees = feeFromCash(tx) ? fees : D(0)
   const tax = D(tx.tax)
   switch (tx.type) {
     case 'buy':
-      return acquisitionCostQuote(tx).negated()
+      return D(tx.quantity).times(D(tx.price)).plus(tax).plus(cashFees).negated()
     case 'sell':
-      return D(tx.quantity).times(D(tx.price)).minus(fees).minus(tax)
+      return D(tx.quantity).times(D(tx.price)).minus(cashFees).minus(tax)
     case 'dividend':
     case 'interest':
       return D(tx.amount).minus(fees).minus(tax)
@@ -145,10 +160,11 @@ export function cashDeltaQuote(tx: Transaction): Decimal {
     case 'fx_convert':
       return D(tx.amount).negated()
     case 'transfer':
-      return tx.instrumentId ? fees.negated() : D(tx.amount).plus(fees).negated()
+      return tx.instrumentId ? cashFees.negated() : D(tx.amount).plus(cashFees).negated()
     // Only the fees and tax are paid in cash; the coin given up pays for the coin received, and an asset
     // received as income costs nothing in cash.
     case 'swap':
+      return cashFees.plus(tax).negated()
     case 'receive_asset':
       return fees.plus(tax).negated()
     // An opening holding was paid for before the app existed, so only opening cash moves cash.
@@ -164,17 +180,32 @@ export function transferInQuote(tx: Transaction): Decimal {
   return tx.type === 'transfer' && !tx.instrumentId ? D(tx.amount) : D(0)
 }
 
+// What the units a fee took out of the asset received were worth, at the price paid for them. A transfer has no
+// price, so it counts none.
+function feeUnitsValueQuote(tx: Transaction): Decimal {
+  const units = feeUnitsTaken(tx)
+  if (tx.type === 'buy') return units.times(D(tx.price))
+  const toQuantity = D(tx.toQuantity)
+  return tx.type === 'swap' && toQuantity.greaterThan(0) ? units.times(D(tx.amount)).div(toQuantity) : D(0)
+}
+
 // Tax on dividends and interest is withholding tax, so it is reported under income instead.
 export function feesQuote(tx: Transaction): Decimal {
   const fees = D(tx.fees)
-  if (tx.type === 'buy' || tx.type === 'sell' || tx.type === 'swap') return fees.plus(D(tx.tax))
+  if (tx.type === 'buy' || tx.type === 'sell' || tx.type === 'swap') return fees.plus(D(tx.tax)).plus(feeUnitsValueQuote(tx))
   if (tx.type === 'fee') return fees.plus(D(tx.amount)).plus(D(tx.tax))
   return fees
 }
 
 type TakenCost = ReturnType<typeof takeCost>
 
-function realizedEvent(tx: Transaction, quantity: Decimal, proceedsQuote: Decimal, cost: TakenCost): RealizedEvent {
+function realizedEvent(
+  tx: Transaction,
+  instrumentId: string,
+  quantity: Decimal,
+  proceedsQuote: Decimal,
+  cost: TakenCost,
+): RealizedEvent {
   const rate = D(tx.fxRate)
   const proceedsBase = proceedsQuote.times(rate)
   const realizedQuote = proceedsQuote.minus(cost.costQuote)
@@ -186,7 +217,7 @@ function realizedEvent(tx: Transaction, quantity: Decimal, proceedsQuote: Decima
     txId: tx.id,
     date: tx.date,
     accountId: tx.accountId,
-    instrumentId: tx.instrumentId ?? '',
+    instrumentId,
     currency: tx.currency,
     quantity,
     proceedsQuote,
@@ -226,6 +257,31 @@ export function computeLedger(transactions: readonly Transaction[]): Ledger {
     }
   }
 
+  // The asset a fee is paid in is checked together with the rest of the transaction, before anything is changed,
+  // and only sold once the transaction itself has been recorded.
+  const feeAssetProblem = (tx: Transaction): string | null => {
+    if (tx.feePaidIn !== 'asset') return null
+    const feeHeld = positions.get(positionKey(tx.accountId, tx.feeInstrumentId ?? ''))
+    const symbol = symbolOf(tx.feeInstrumentId)
+    if (feeHeld && feeHeld.currency !== tx.currency) return `${symbol} ถืออยู่เป็น ${feeHeld.currency} · รายการนี้ใช้ ${tx.currency}`
+    const feeQuantity = D(tx.feeQuantity)
+    if (!feeHeld || feeHeld.quantity.lessThan(feeQuantity)) {
+      return `ค่าธรรมเนียม ${feeQuantity} ${symbol} แต่ถืออยู่ ${feeHeld?.quantity ?? 0} ${symbol}`
+    }
+    return null
+  }
+
+  // Paying with an asset sells it at what the fee is worth, so it realizes a gain or loss of its own.
+  const payFeeInAsset = (tx: Transaction) => {
+    const feeKey = positionKey(tx.accountId, tx.feeInstrumentId ?? '')
+    const feeHeld = positions.get(feeKey)
+    if (tx.feePaidIn !== 'asset' || !feeHeld) return
+    const feeQuantity = D(tx.feeQuantity)
+    const cost = takeCost(feeHeld, feeQuantity)
+    realized.push(realizedEvent(tx, feeHeld.instrumentId, feeQuantity, D(tx.fees), cost))
+    removeUnits(feeKey, feeHeld, feeQuantity, cost)
+  }
+
   for (const tx of sortTransactions(transactions)) {
     const rate = D(tx.fxRate)
     const instrumentId = tx.instrumentId ?? ''
@@ -239,6 +295,11 @@ export function computeLedger(transactions: readonly Transaction[]): Ledger {
     }
 
     if (acquires) {
+      const feeProblem = feeAssetProblem(tx)
+      if (feeProblem) {
+        issues.push({ txId: tx.id, message: feeProblem })
+        continue
+      }
       const position = held ?? {
         key,
         accountId: tx.accountId,
@@ -250,11 +311,12 @@ export function computeLedger(transactions: readonly Transaction[]): Ledger {
         receivedCostBase: D(0),
       }
       const cost = tx.type === 'receive_asset' ? receivedValueQuote(tx) : acquisitionCostQuote(tx)
-      position.quantity = position.quantity.plus(D(tx.quantity))
+      position.quantity = position.quantity.plus(D(tx.quantity)).minus(feeUnitsTaken(tx))
       position.costQuote = position.costQuote.plus(cost)
       position.costBase = position.costBase.plus(cost.times(rate))
       if (tx.type === 'receive_asset') position.receivedCostBase = position.receivedCostBase.plus(cost.times(rate))
       positions.set(key, position)
+      payFeeInAsset(tx)
     }
 
     if (tx.type === 'sell') {
@@ -263,9 +325,15 @@ export function computeLedger(transactions: readonly Transaction[]): Ledger {
         issues.push({ txId: tx.id, message: `ขาย ${quantity} หน่วย แต่ถืออยู่ ${held?.quantity ?? 0} หน่วย` })
         continue
       }
+      const feeProblem = feeAssetProblem(tx)
+      if (feeProblem) {
+        issues.push({ txId: tx.id, message: feeProblem })
+        continue
+      }
       const cost = takeCost(held, quantity)
-      realized.push(realizedEvent(tx, quantity, cashDeltaQuote(tx), cost))
+      realized.push(realizedEvent(tx, instrumentId, quantity, saleProceedsQuote(tx), cost))
       removeUnits(key, held, quantity, cost)
+      payFeeInAsset(tx)
     }
 
     if (tx.type === 'transfer' && tx.instrumentId) {
@@ -297,7 +365,7 @@ export function computeLedger(transactions: readonly Transaction[]): Ledger {
         costBase: D(0),
         receivedCostBase: D(0),
       }
-      received.quantity = received.quantity.plus(quantity)
+      received.quantity = received.quantity.plus(quantity).minus(feeUnitsTaken(tx))
       received.costQuote = received.costQuote.plus(cost.costQuote)
       received.costBase = received.costBase.plus(cost.costBase)
       received.receivedCostBase = received.receivedCostBase.plus(cost.receivedCostBase)
@@ -321,8 +389,13 @@ export function computeLedger(transactions: readonly Transaction[]): Ledger {
         issues.push({ txId: tx.id, message: `แลก ${quantity} หน่วย แต่ถืออยู่ ${held?.quantity ?? 0} หน่วย` })
         continue
       }
+      const feeProblem = feeAssetProblem(tx)
+      if (feeProblem) {
+        issues.push({ txId: tx.id, message: feeProblem })
+        continue
+      }
       const cost = takeCost(held, quantity)
-      realized.push(realizedEvent(tx, quantity, D(tx.amount), cost))
+      realized.push(realizedEvent(tx, instrumentId, quantity, D(tx.amount), cost))
       removeUnits(key, held, quantity, cost)
       const received = positions.get(toKey) ?? {
         key: toKey,
@@ -335,10 +408,11 @@ export function computeLedger(transactions: readonly Transaction[]): Ledger {
         receivedCostBase: D(0),
       }
       const receivedCost = receivedCostQuote(tx)
-      received.quantity = received.quantity.plus(D(tx.toQuantity))
+      received.quantity = received.quantity.plus(D(tx.toQuantity)).minus(feeUnitsTaken(tx))
       received.costQuote = received.costQuote.plus(receivedCost)
       received.costBase = received.costBase.plus(receivedCost.times(rate))
       positions.set(toKey, received)
+      payFeeInAsset(tx)
     }
 
     if (tx.type === 'split') {

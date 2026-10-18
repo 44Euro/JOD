@@ -854,4 +854,265 @@ describe('TransactionFormPage', () => {
       expect(screen.getByText('75.00 USD')).toBeInTheDocument()
     })
   })
+
+  describe('what a fee is paid in', () => {
+    const provider = () => fakeFxProvider({ 'USD|THB': '35' }).provider
+    const heldBnb = () => makeTx({ id: 'bnb-buy', instrumentId: 'CRYPTO:BNB', quantity: '1', price: '500', fxRate: '34', date: '2024-01-10' })
+    const optionsOf = (label: string) => Array.from((screen.getByLabelText(label) as HTMLSelectElement).options).map((o) => o.text)
+
+    async function openEthBuy() {
+      await db.transactions.add(heldBnb())
+      const user = userEvent.setup()
+      const router = renderRoute('/transactions/new', provider())
+      await user.selectOptions(await screen.findByLabelText('ตลาด'), 'คริปโต')
+      await user.type(screen.getByLabelText('สัญลักษณ์'), 'eth')
+      await user.type(screen.getByLabelText('จำนวนหน่วย'), '1')
+      await user.type(screen.getByLabelText('ราคาต่อหน่วย'), '2000')
+      return { user, router }
+    }
+
+    it('records a buy whose fee was paid in BNB', async () => {
+      const { user, router } = await openEthBuy()
+      await user.selectOptions(screen.getByLabelText('จ่ายเป็น'), 'สินทรัพย์อื่น')
+      await user.type(screen.getByLabelText('สินทรัพย์ที่ใช้จ่าย'), 'bnb')
+      expect(await screen.findByText('ถืออยู่ 1 หน่วย')).toBeInTheDocument()
+      await user.type(screen.getByLabelText('จำนวน'), '0.001')
+      await user.type(screen.getByLabelText('มูลค่าค่าธรรมเนียม (USD)'), '0.6')
+      await waitFor(() => expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('35'))
+      expect(screen.getByText('BNB ที่ถือ').nextSibling).toHaveTextContent('1 → 0.999')
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+      await waitFor(() => expect(router.state.location.pathname).toBe('/transactions'))
+      const saved = (await db.transactions.toArray()).find((t) => t.instrumentId === 'CRYPTO:ETH')
+      expect(saved).toMatchObject({ feePaidIn: 'asset', feeInstrumentId: 'CRYPTO:BNB', feeQuantity: '0.001', fees: '0.6' })
+      expect(await db.instruments.get('CRYPTO:BNB')).toBeUndefined()
+    })
+
+    it('shows what actually arrives when the fee is taken from the coins received', async () => {
+      const { user, router } = await openEthBuy()
+      await user.selectOptions(screen.getByLabelText('จ่ายเป็น'), 'หักจากที่ได้รับ')
+      await user.type(screen.getByLabelText('จำนวนที่ถูกหัก (ETH)'), '0.001')
+      expect(screen.getByText('ได้รับจริง 0.999 ETH')).toBeInTheDocument()
+      expect(screen.queryByLabelText('ค่าธรรมเนียม')).not.toBeInTheDocument()
+      expect(screen.queryByLabelText('สินทรัพย์ที่ใช้จ่าย')).not.toBeInTheDocument()
+      await waitFor(() => expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('35'))
+      expect(screen.getByText('ETH ที่ถือ').nextSibling).toHaveTextContent('0 → 0.999')
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+      await waitFor(() => expect(router.state.location.pathname).toBe('/transactions'))
+      const saved = (await db.transactions.toArray()).find((t) => t.instrumentId === 'CRYPTO:ETH')
+      expect(saved).toMatchObject({ feePaidIn: 'received', feeQuantity: '0.001', fees: '0' })
+      expect(saved?.feeInstrumentId).toBeUndefined()
+    })
+
+    it('keeps the money fee out of the way, and out of the record, once the units are what is paid', async () => {
+      const { user, router } = await openEthBuy()
+      await user.type(screen.getByLabelText('ค่าธรรมเนียม'), '5')
+      await user.selectOptions(screen.getByLabelText('จ่ายเป็น'), 'หักจากที่ได้รับ')
+      await user.type(screen.getByLabelText('จำนวนที่ถูกหัก (ETH)'), '0.001')
+      await waitFor(() => expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('35'))
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+      await waitFor(() => expect(router.state.location.pathname).toBe('/transactions'))
+      expect((await db.transactions.toArray()).find((t) => t.instrumentId === 'CRYPTO:ETH')).toMatchObject({ fees: '0' })
+    })
+
+    it('offers each type only the ways of paying that make sense', async () => {
+      const user = userEvent.setup()
+      renderRoute('/transactions/new', provider())
+      await screen.findByLabelText('จ่ายเป็น')
+      expect(optionsOf('จ่ายเป็น')).toEqual(['สกุลเงิน', 'หักจากที่ได้รับ', 'สินทรัพย์อื่น'])
+      await user.click(screen.getByRole('button', { name: 'ขาย' }))
+      expect(optionsOf('จ่ายเป็น')).toEqual(['สกุลเงิน', 'สินทรัพย์อื่น'])
+      await user.selectOptions(screen.getByLabelText('ประเภทอื่นๆ'), 'แลกเหรียญ')
+      expect(optionsOf('จ่ายเป็น')).toEqual(['สกุลเงิน', 'หักจากที่ได้รับ', 'สินทรัพย์อื่น'])
+      await user.click(screen.getByRole('button', { name: 'ปันผล' }))
+      expect(screen.queryByLabelText('จ่ายเป็น')).not.toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'ฝากเงิน' }))
+      expect(screen.queryByLabelText('จ่ายเป็น')).not.toBeInTheDocument()
+    })
+
+    it('starts on the currency and puts the money fee beside it', async () => {
+      renderRoute('/transactions/new', provider())
+      expect(await screen.findByLabelText('จ่ายเป็น')).toHaveDisplayValue('สกุลเงิน')
+      expect(screen.getByLabelText('ค่าธรรมเนียม')).toBeInTheDocument()
+      expect(screen.getByLabelText('ภาษี / VAT')).toBeInTheDocument()
+      expect(screen.queryByLabelText('จำนวนที่ถูกหัก (ETH)')).not.toBeInTheDocument()
+      expect(screen.queryByRole('group', { name: 'ค่าธรรมเนียมที่จ่ายเป็นสินทรัพย์' })).not.toBeInTheDocument()
+    })
+
+    it('goes back to the currency when the new type cannot pay the way that was chosen', async () => {
+      const { user } = await openEthBuy()
+      await user.selectOptions(screen.getByLabelText('จ่ายเป็น'), 'หักจากที่ได้รับ')
+      await user.click(screen.getByRole('button', { name: 'ขาย' }))
+      expect(screen.getByLabelText('จ่ายเป็น')).toHaveDisplayValue('สกุลเงิน')
+      expect(screen.getByLabelText('ค่าธรรมเนียม')).toBeInTheDocument()
+    })
+
+    it('asks for the fee asset in a group of its own, only among what is already held', async () => {
+      const { user } = await openEthBuy()
+      await user.selectOptions(screen.getByLabelText('จ่ายเป็น'), 'สินทรัพย์อื่น')
+      const group = screen.getByRole('group', { name: 'ค่าธรรมเนียมที่จ่ายเป็นสินทรัพย์' })
+      expect(within(group).getByLabelText('ตลาด')).toHaveDisplayValue('คริปโต')
+      expect(within(group).getByLabelText('สินทรัพย์ที่ใช้จ่าย')).toHaveAttribute('id', 'tx-fee-symbol')
+      expect(within(group).getByLabelText('จำนวน')).toHaveAttribute('id', 'tx-fee-quantity')
+      expect(within(group).getByLabelText('มูลค่าค่าธรรมเนียม (USD)')).toHaveAttribute('id', 'tx-fees')
+      await user.type(within(group).getByLabelText('สินทรัพย์ที่ใช้จ่าย'), 'xyz')
+      expect(document.getElementById('tx-fee-name')).toBeNull()
+      expect(document.getElementById('tx-fee-asset-type')).toBeNull()
+      expect(screen.queryByLabelText('ค่าธรรมเนียม')).not.toBeInTheDocument()
+    })
+
+    it('refuses a fee in an asset that is not held in that amount', async () => {
+      const { user } = await openEthBuy()
+      await user.selectOptions(screen.getByLabelText('จ่ายเป็น'), 'สินทรัพย์อื่น')
+      await user.type(screen.getByLabelText('สินทรัพย์ที่ใช้จ่าย'), 'bnb')
+      await user.type(screen.getByLabelText('จำนวน'), '2')
+      await user.type(screen.getByLabelText('มูลค่าค่าธรรมเนียม (USD)'), '1200')
+      await waitFor(() => expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('35'))
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+      expect(await screen.findByText('ค่าธรรมเนียม 2 BNB แต่ถืออยู่ 1 BNB')).toBeInTheDocument()
+      expect(await db.transactions.count()).toBe(1)
+    })
+
+    it('asks for each missing part of a fee paid in an asset', async () => {
+      const { user } = await openEthBuy()
+      await user.selectOptions(screen.getByLabelText('จ่ายเป็น'), 'สินทรัพย์อื่น')
+      await waitFor(() => expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('35'))
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+      expect(await screen.findByText('กรุณาระบุสินทรัพย์ที่ใช้จ่ายค่าธรรมเนียม')).toBeInTheDocument()
+      expect(screen.getByText('จำนวนที่จ่ายค่าธรรมเนียมต้องเป็นตัวเลขมากกว่า 0')).toBeInTheDocument()
+      expect(screen.getByText('มูลค่าค่าธรรมเนียมต้องเป็นตัวเลขมากกว่า 0')).toBeInTheDocument()
+      expect(await db.transactions.count()).toBe(1)
+    })
+
+    it('takes the fee of a sell from BNB and leaves the gain to the sell', async () => {
+      await db.transactions.bulkAdd([
+        heldBnb(),
+        makeTx({ id: 'eth-buy', instrumentId: 'CRYPTO:ETH', quantity: '1', price: '2000', fxRate: '34', date: '2024-01-09' }),
+      ])
+      const user = userEvent.setup()
+      const router = renderRoute('/transactions/new', provider())
+      await user.click(await screen.findByRole('button', { name: 'ขาย' }))
+      await user.selectOptions(screen.getByLabelText('ตลาด'), 'คริปโต')
+      await user.type(screen.getByLabelText('สัญลักษณ์'), 'eth')
+      await user.type(screen.getByLabelText('จำนวนหน่วย'), '1')
+      await user.type(screen.getByLabelText('ราคาต่อหน่วย'), '2500')
+      await user.selectOptions(screen.getByLabelText('จ่ายเป็น'), 'สินทรัพย์อื่น')
+      await user.type(screen.getByLabelText('สินทรัพย์ที่ใช้จ่าย'), 'bnb')
+      await user.type(screen.getByLabelText('จำนวน'), '0.001')
+      await user.type(screen.getByLabelText('มูลค่าค่าธรรมเนียม (USD)'), '0.6')
+      await waitFor(() => expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('35'))
+      expect(screen.getByText('2,500.00 USD')).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+      await waitFor(() => expect(router.state.location.pathname).toBe('/transactions'))
+      expect((await db.transactions.toArray()).find((t) => t.type === 'sell')).toMatchObject({
+        feePaidIn: 'asset',
+        feeInstrumentId: 'CRYPTO:BNB',
+        feeQuantity: '0.001',
+        fees: '0.6',
+      })
+    })
+
+    it('takes the fee of a swap from the coin received, named in the field', async () => {
+      await db.transactions.add(makeTx({ id: 'btc-buy', instrumentId: 'CRYPTO:BTC', quantity: '0.01', price: '58000', fxRate: '34', date: '2024-01-15' }))
+      const user = userEvent.setup()
+      renderRoute('/transactions/new', provider())
+      await user.selectOptions(await screen.findByLabelText('ประเภทอื่นๆ'), 'แลกเหรียญ')
+      await user.type(screen.getByLabelText('สินทรัพย์ที่แลกออก'), 'btc')
+      await user.type(screen.getByLabelText('จำนวนที่แลกออก'), '0.01')
+      await user.type(screen.getByLabelText('สินทรัพย์ที่ได้รับ'), 'eth')
+      await user.type(screen.getByLabelText('จำนวนที่ได้รับ'), '0.25')
+      await user.type(screen.getByLabelText('มูลค่ารวม ณ ตอนแลก'), '660')
+      await user.selectOptions(screen.getByLabelText('จ่ายเป็น'), 'หักจากที่ได้รับ')
+      await user.type(screen.getByLabelText('จำนวนที่ถูกหัก (ETH)'), '0.0025')
+      expect(screen.getByText('ได้รับจริง 0.2475 ETH')).toBeInTheDocument()
+      await waitFor(() => expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('35'))
+      expect(screen.getByText('ETH ที่ถือ').nextSibling).toHaveTextContent('0 → 0.2475')
+      expect(screen.getByText(/^ต้นทุน ETH 2,666\.6667 USD ต่อหน่วย/)).toBeInTheDocument()
+    })
+
+    it('takes the fee of a transfer of units from the units that arrive, and leaves a cash transfer alone', async () => {
+      await db.accounts.add({ id: 'acc-2', name: 'IBKR', broker: 'IBKR', note: '', createdAt: '2024-01-01T00:00:00.000Z' })
+      await db.transactions.add(makeTx({ id: 'buy-1', quantity: '10', date: '2024-01-15' }))
+      const user = userEvent.setup()
+      const router = renderRoute('/transactions/new', provider())
+      await user.selectOptions(await screen.findByLabelText('ประเภทอื่นๆ'), 'โอนระหว่างบัญชี')
+      expect(optionsOf('จ่ายเป็น')).toEqual(['สกุลเงิน', 'หักจากที่ได้รับ'])
+      await user.type(screen.getByLabelText('สัญลักษณ์'), 'aapl')
+      await user.type(screen.getByLabelText('จำนวนหน่วยที่โอน'), '4')
+      await user.selectOptions(screen.getByLabelText('จ่ายเป็น'), 'หักจากที่ได้รับ')
+      await user.type(screen.getByLabelText('จำนวนที่ถูกหัก (AAPL)'), '0.5')
+      expect(screen.getByText('ได้รับจริง 3.5 AAPL')).toBeInTheDocument()
+      await waitFor(() => expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('35'))
+      expect(screen.getByText('AAPL · IBKR').nextSibling).toHaveTextContent('0 → 3.5')
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+      await waitFor(() => expect(router.state.location.pathname).toBe('/transactions'))
+      expect((await db.transactions.toArray()).find((t) => t.type === 'transfer')).toMatchObject({
+        instrumentId: 'US:AAPL',
+        quantity: '4',
+        feePaidIn: 'received',
+        feeQuantity: '0.5',
+        fees: '0',
+      })
+    })
+
+    it('has no way to pay a cash transfer in anything but cash', async () => {
+      await db.accounts.add({ id: 'acc-2', name: 'IBKR', broker: 'IBKR', note: '', createdAt: '2024-01-01T00:00:00.000Z' })
+      const user = userEvent.setup()
+      renderRoute('/transactions/new', provider())
+      await user.selectOptions(await screen.findByLabelText('ประเภทอื่นๆ'), 'โอนระหว่างบัญชี')
+      await user.click(screen.getByRole('button', { name: 'เงินสด' }))
+      expect(screen.queryByLabelText('จ่ายเป็น')).not.toBeInTheDocument()
+      expect(screen.getByLabelText('ค่าธรรมเนียมการโอน')).toBeInTheDocument()
+    })
+
+    it('keeps the way of paying and the fee asset for the next entry, and empties the units', async () => {
+      const { user } = await openEthBuy()
+      await user.selectOptions(screen.getByLabelText('จ่ายเป็น'), 'สินทรัพย์อื่น')
+      await user.type(screen.getByLabelText('สินทรัพย์ที่ใช้จ่าย'), 'bnb')
+      await user.type(screen.getByLabelText('จำนวน'), '0.001')
+      await user.type(screen.getByLabelText('มูลค่าค่าธรรมเนียม (USD)'), '0.6')
+      await waitFor(() => expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('35'))
+      await user.click(screen.getByRole('button', { name: 'บันทึกแล้วเพิ่มอีก' }))
+      expect(await screen.findByRole('status')).toHaveTextContent('บันทึกแล้ว')
+      expect(screen.getByLabelText('จ่ายเป็น')).toHaveDisplayValue('สินทรัพย์อื่น')
+      expect(screen.getByLabelText('สินทรัพย์ที่ใช้จ่าย')).toHaveValue('bnb')
+      expect(screen.getByLabelText('จำนวน')).toHaveValue('')
+      expect(screen.getByLabelText('มูลค่าค่าธรรมเนียม (USD)')).toHaveValue('')
+    })
+
+    it('opens a saved fee paid in an asset', async () => {
+      await db.transactions.bulkAdd([
+        heldBnb(),
+        makeTx({ id: 'paid', instrumentId: 'CRYPTO:ETH', quantity: '1', price: '2000', fxRate: '34', date: '2024-01-11', feePaidIn: 'asset', feeInstrumentId: 'CRYPTO:BNB', feeQuantity: '0.001', fees: '0.6' }),
+      ])
+      renderRoute('/transactions/paid', provider())
+      expect(await screen.findByLabelText('จ่ายเป็น')).toHaveDisplayValue('สินทรัพย์อื่น')
+      expect(screen.getByLabelText('สินทรัพย์ที่ใช้จ่าย')).toHaveValue('BNB')
+      expect(screen.getByLabelText('จำนวน')).toHaveValue('0.001')
+      expect(screen.getByLabelText('มูลค่าค่าธรรมเนียม (USD)')).toHaveValue('0.6')
+      expect(await screen.findByText('BNB ที่ถือ')).toBeInTheDocument()
+    })
+
+    it('opens a saved fee taken from the coins received', async () => {
+      await db.transactions.add(
+        makeTx({ id: 'taken', instrumentId: 'CRYPTO:ETH', quantity: '1', price: '2000', fxRate: '34', date: '2024-01-12', feePaidIn: 'received', feeQuantity: '0.002' }),
+      )
+      renderRoute('/transactions/taken', provider())
+      expect(await screen.findByLabelText('จ่ายเป็น')).toHaveDisplayValue('หักจากที่ได้รับ')
+      expect(screen.getByLabelText('จำนวนที่ถูกหัก (ETH)')).toHaveValue('0.002')
+      expect(screen.getByText('ได้รับจริง 0.998 ETH')).toBeInTheDocument()
+    })
+
+    it('shows the fields and what arrives on a phone too', async () => {
+      vi.stubGlobal('matchMedia', (query: string) => ({
+        matches: false,
+        media: query,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      }))
+      const { user } = await openEthBuy()
+      await user.selectOptions(screen.getByLabelText('จ่ายเป็น'), 'หักจากที่ได้รับ')
+      await user.type(screen.getByLabelText('จำนวนที่ถูกหัก (ETH)'), '0.001')
+      expect(screen.getByText('ได้รับจริง 0.999 ETH')).toBeInTheDocument()
+    })
+  })
 })

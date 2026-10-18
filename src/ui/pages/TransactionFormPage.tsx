@@ -116,6 +116,7 @@ function clearEntry(draft: Draft): Draft {
     amount: '',
     fees: '',
     tax: '',
+    feeQuantity: '',
     splitRatio: '',
     toAmount: '',
     toAmountSource: 'auto',
@@ -418,7 +419,12 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
           </div>
 
           {draft.type !== 'split' && draft.type !== 'opening' && draft.type !== 'receive_asset' && (
-            <FeeTaxFields draft={draft} update={update} />
+            <FeeTaxFields
+              draft={draft}
+              instruments={data.instruments}
+              feeHint={hintFor(draft.feeMarket, draft.feeSymbol)}
+              update={update}
+            />
           )}
 
           {draft.type === 'withdraw' && <WithdrawFields draft={draft} update={update} />}
