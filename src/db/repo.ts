@@ -79,6 +79,17 @@ export async function saveTransaction(db: JodDB, tx: Transaction, now: Date = ne
   await db.transactions.put({ ...tx, updatedAt: now.toISOString() })
 }
 
+// Every transaction is checked before the first is written, and the writes share one database transaction, so a set
+// that belongs together (a dividend and the buy it paid for) is saved whole or not at all.
+export async function saveTransactions(db: JodDB, txs: readonly Transaction[], now: Date = new Date()): Promise<void> {
+  const errors = [...new Set(txs.flatMap((tx) => validateTransaction(tx)))]
+  if (errors.length > 0) throw new Error(errors.join(', '))
+  const updatedAt = now.toISOString()
+  await db.transaction('rw', db.transactions, async () => {
+    for (const tx of txs) await db.transactions.put({ ...tx, updatedAt })
+  })
+}
+
 export async function deleteTransaction(db: JodDB, id: string): Promise<void> {
   await db.transactions.delete(id)
 }

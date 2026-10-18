@@ -39,10 +39,11 @@ export function previewAfterSave(
   symbol: string,
   previous?: Transaction,
   accountNames?: ReadonlyMap<string, string>,
+  alongside: readonly Transaction[] = [],
 ): AfterSavePreview {
   const saved = previous ? [...others, previous] : others
   const before = computeLedger(saved)
-  const after = computeLedger([...others, tx])
+  const after = computeLedger([...others, tx, ...alongside])
   const rows: AfterSaveRow[] = []
   const transfer = tx.type === 'transfer'
   const swap = tx.type === 'swap'
@@ -93,7 +94,7 @@ export function previewAfterSave(
 
   // A transfer of cash always shows both accounts; the sending side is judged like any other cash movement.
   const cashTransfer = transfer && !tx.instrumentId
-  const tracksCash = accountTracksCash([...saved, tx], tx.accountId)
+  const tracksCash = accountTracksCash([...saved, tx, ...alongside], tx.accountId)
   let warning: string | null = null
   if (tracksCash || cashTransfer) {
     const currencies = tx.type === 'fx_convert' && tx.toCurrency ? [tx.currency, tx.toCurrency] : [tx.currency]

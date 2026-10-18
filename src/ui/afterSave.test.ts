@@ -239,4 +239,27 @@ describe('previewAfterSave for a fee paid in an asset', () => {
     expect(rows[0]).toEqual({ label: 'ETH ที่ถือ', before: '0', after: '0' })
     expect(rows.at(-1)).toEqual({ label: 'BNB ที่ถือ', before: '0', after: '0' })
   })
+
+  describe('a transaction saved together with others', () => {
+    const deposit = makeTx({ type: 'deposit', instrumentId: undefined, quantity: undefined, price: undefined, amount: '100', date: '2024-01-02' })
+    const dividend = makeTx({ type: 'dividend', instrumentId: 'US:VOO', quantity: undefined, price: undefined, amount: '10', tax: '1.5', fxRate: '34', date: '2024-03-28' })
+    const buy = makeTx({ instrumentId: 'US:VOO', quantity: '0.016', price: '500', fxRate: '34', date: '2024-03-28' })
+
+    it('counts the transactions saved alongside in the holding and the cash', () => {
+      const { rows } = previewAfterSave([deposit], dividend, 'THB', 'VOO', undefined, undefined, [buy])
+      expect(rows).toContainEqual({ label: 'VOO ที่ถือ', before: '0', after: '0.016' })
+      expect(rows).toContainEqual({ label: 'เงินสด USD', before: '100.00', after: '100.50' })
+    })
+
+    it('shows only the dividend when nothing is saved alongside', () => {
+      const { rows } = previewAfterSave([deposit], dividend, 'THB', 'VOO')
+      expect(rows).toContainEqual({ label: 'VOO ที่ถือ', before: '0', after: '0' })
+      expect(rows).toContainEqual({ label: 'เงินสด USD', before: '100.00', after: '108.50' })
+    })
+
+    it('warns about cash that the whole set takes below zero', () => {
+      const { warning } = previewAfterSave([deposit], dividend, 'THB', 'VOO', undefined, undefined, [{ ...buy, quantity: '1' }])
+      expect(warning).toBe('เงินสด USD จะติดลบ · ลืมบันทึกการแลกเงินหรือฝากเงินหรือเปล่า?')
+    })
+  })
 })

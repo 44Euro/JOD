@@ -64,6 +64,10 @@ export interface Draft {
   remitToThailand: boolean
   taxYear: string
   note: string
+  reinvest: boolean
+  reinvestQuantity: string
+  reinvestPrice: string
+  reinvestFees: string
 }
 
 export interface DraftContext {
@@ -121,6 +125,10 @@ export function emptyDraft(accountId: string, today: string): Draft {
     remitToThailand: false,
     taxYear: today.slice(0, 4),
     note: '',
+    reinvest: false,
+    reinvestQuantity: '',
+    reinvestPrice: '',
+    reinvestFees: '',
   }
 }
 
@@ -415,12 +423,40 @@ export function draftFromTransaction(tx: Transaction, instruments: readonly Inst
     remitToThailand: tx.remitToThailand ?? false,
     taxYear: tx.taxYear?.toString() ?? tx.date.slice(0, 4),
     note: tx.note,
+    reinvest: false,
+    reinvestQuantity: '',
+    reinvestPrice: '',
+    reinvestFees: '',
   }
 }
 
+// A repeat is for today, so what belonged to the day of the original is dropped: the rate is fetched again, and the
+// price and the amount received are what the market gives today. The fee stays as it was (feesSource is manual),
+// because the account formula would have no price to work it out from.
+export function duplicateDraft(tx: Transaction, instruments: readonly Instrument[], today: string): Draft {
+  const repeated: Draft = {
+    ...draftFromTransaction(tx, instruments),
+    date: today,
+    time: '',
+    taxYear: today.slice(0, 4),
+    fxRate: '',
+    fxSource: 'auto',
+    fxRateDate: '',
+    referenceFxRate: '',
+  }
+  if (tx.type === 'buy' || tx.type === 'sell') return { ...repeated, price: '' }
+  if (tx.type === 'fx_convert') {
+    return { ...repeated, toAmount: '', toAmountSource: 'auto', marketRate: '', marketRateDate: '' }
+  }
+  return repeated
+}
+
+// Unparseable input is passed through unchanged so validateTransaction reports it once.
+function num(raw: string): string | undefined {
+  return raw.trim() === '' ? undefined : (parseDecimalInput(raw) ?? raw.trim())
+}
+
 export function draftToTransaction(draft: Draft, ctx: DraftContext): { tx: Transaction; errors: string[] } {
-  // Unparseable input is passed through unchanged so validateTransaction reports it once.
-  const num = (raw: string) => (raw.trim() === '' ? undefined : (parseDecimalInput(raw) ?? raw.trim()))
   const holding = draft.type === 'buy' || draft.type === 'sell' || isOpeningAsset(draft)
   const isTransfer = draft.type === 'transfer'
   const isSwap = draft.type === 'swap'
@@ -475,6 +511,36 @@ export function draftToTransaction(draft: Draft, ctx: DraftContext): { tx: Trans
   if (sendsUnits && !tx.instrumentId) {
     const checked = { ...tx, instrumentId: instrumentKey(draft.market, 'X') }
     return { tx, errors: ['กรุณาระบุหุ้น/สินทรัพย์', ...validateTransaction(checked, ctx.today)] }
+  }
+  return { tx, errors: validateTransaction(tx, ctx.today) }
+}
+
+// The buy shares the dividend's account, time, instrument and rate, so the two read as one event. The caller gives it a
+// createdAt after the dividend's, so the ledger replays the dividend first.
+export function reinvestTransaction(
+  draft: Draft,
+  dividend: Transaction,
+  ctx: { id: string; createdAt: string; today: string },
+): { tx: Transaction; errors: string[] } {
+  const tx: Transaction = {
+    id: ctx.id,
+    accountId: dividend.accountId,
+    type: 'buy',
+    date: dividend.date,
+    time: dividend.time,
+    instrumentId: dividend.instrumentId,
+    quantity: num(draft.reinvestQuantity),
+    price: num(draft.reinvestPrice),
+    currency: dividend.currency,
+    fees: num(draft.reinvestFees) ?? '0',
+    tax: '0',
+    fxRate: dividend.fxRate,
+    fxSource: dividend.fxSource,
+    fxRateDate: dividend.fxRateDate,
+    referenceFxRate: dividend.referenceFxRate,
+    note: '',
+    createdAt: ctx.createdAt,
+    updatedAt: ctx.createdAt,
   }
   return { tx, errors: validateTransaction(tx, ctx.today) }
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Account, FeeTemplate, Instrument } from '../domain/types'
+import { makeTx } from '../test/fixtures'
 import {
   applyReferenceRate,
   changeCurrency,
@@ -10,6 +11,7 @@ import {
   changeType,
   draftFromTransaction,
   draftToTransaction,
+  duplicateDraft,
   emptyDraft,
   feePaidInOf,
   feePaidInOptions,
@@ -18,6 +20,7 @@ import {
   pickToSymbol,
   receivedAfterFee,
   receivedAmount,
+  reinvestTransaction,
   showsFeePaidIn,
   syncFees,
   syncReceived,
@@ -955,5 +958,158 @@ describe('fees from the account formula', () => {
     expect(syncFees(filled, [streamingAccount])).toBe(filled)
     const typed = { ...setBuy, fees: '60', feesSource: 'manual' as const }
     expect(syncFees(typed, [streamingAccount])).toBe(typed)
+  })
+})
+
+describe('repeating a transaction', () => {
+  it('repeats a buy for today with the same asset, quantity and fee, and a fresh rate', () => {
+    const buy = makeTx({ quantity: '2', price: '512.3', fees: '1', fxRate: '33.8', fxSource: 'auto', fxRateDate: '2024-03-08', date: '2024-03-10', time: '21:30' })
+    const draft = duplicateDraft(buy, [], '2024-06-01')
+    expect(draft).toMatchObject({ type: 'buy', symbol: 'AAPL', quantity: '2', fees: '1', price: '', date: '2024-06-01', time: '' })
+    expect(draft).toMatchObject({ fxRate: '', fxSource: 'auto', fxRateDate: '', referenceFxRate: '', feesSource: 'manual' })
+  })
+
+  it('also empties the price of a sell and keeps the account, note and how the fee was paid', () => {
+    const sell = makeTx({
+      type: 'sell',
+      accountId: 'acc-9',
+      instrumentId: 'CRYPTO:SOL',
+      quantity: '3',
+      price: '150',
+      fees: '0.2',
+      feePaidIn: 'asset',
+      feeInstrumentId: 'CRYPTO:BNB',
+      feeQuantity: '0.01',
+      note: 'monthly',
+    })
+    expect(duplicateDraft(sell, [], '2024-06-01')).toMatchObject({
+      type: 'sell',
+      accountId: 'acc-9',
+      price: '',
+      quantity: '3',
+      fees: '0.2',
+      feePaidIn: 'asset',
+      feeMarket: 'CRYPTO',
+      feeSymbol: 'BNB',
+      feeQuantity: '0.01',
+      note: 'monthly',
+    })
+  })
+
+  it('keeps the other side of a swap and of a transfer', () => {
+    const swap = makeTx({
+      type: 'swap',
+      instrumentId: 'CRYPTO:BTC',
+      toInstrumentId: 'CRYPTO:ETH',
+      quantity: '0.1',
+      toQuantity: '2',
+      price: undefined,
+      amount: '6000',
+      fxRate: '35',
+    })
+    expect(duplicateDraft(swap, [], '2024-06-01')).toMatchObject({
+      type: 'swap',
+      symbol: 'BTC',
+      quantity: '0.1',
+      toMarket: 'CRYPTO',
+      toSymbol: 'ETH',
+      toQuantity: '2',
+      amount: '6000',
+      fxRate: '',
+    })
+    const transfer = makeTx({ type: 'transfer', toAccountId: 'acc-2', quantity: '5', price: undefined })
+    expect(duplicateDraft(transfer, [], '2024-06-01')).toMatchObject({ type: 'transfer', toAccountId: 'acc-2', transferKind: 'asset', quantity: '5' })
+  })
+
+  it('starts the received amount and the market rate of an exchange over', () => {
+    const exchange = makeTx({
+      type: 'fx_convert',
+      instrumentId: undefined,
+      quantity: undefined,
+      price: undefined,
+      amount: '1000',
+      currency: 'USD',
+      toCurrency: 'THB',
+      toAmount: '34000',
+      marketRate: '34.2',
+      fees: '2',
+    })
+    expect(duplicateDraft(exchange, [], '2024-06-01')).toMatchObject({
+      type: 'fx_convert',
+      amount: '1000',
+      toCurrency: 'THB',
+      fees: '2',
+      toAmount: '',
+      toAmountSource: 'auto',
+      marketRate: '',
+      marketRateDate: '',
+    })
+  })
+
+  it('moves the tax year of a remittance to the year of the copy', () => {
+    const withdraw = makeTx({ type: 'withdraw', instrumentId: undefined, quantity: undefined, price: undefined, amount: '500', remitToThailand: true, taxYear: 2023, date: '2023-12-20' })
+    expect(duplicateDraft(withdraw, [], '2024-06-01')).toMatchObject({ remitToThailand: true, taxYear: '2024' })
+  })
+})
+
+describe('reinvesting a dividend', () => {
+  const paid = makeTx({
+    type: 'dividend',
+    instrumentId: 'US:VOO',
+    quantity: undefined,
+    price: undefined,
+    amount: '10',
+    tax: '1.5',
+    fxRate: '34',
+    fxSource: 'auto',
+    fxRateDate: '2024-03-27',
+    referenceFxRate: '34',
+    date: '2024-03-28',
+    time: '10:15',
+  })
+  const ctx = { id: 'buy-1', createdAt: '2024-03-28T10:00:00.001Z', today: '2024-06-01' }
+  const reinvestDraft = (overrides: Partial<Draft> = {}): Draft => ({
+    ...draftFromTransaction(paid, []),
+    reinvest: true,
+    reinvestQuantity: '0.016',
+    reinvestPrice: '500',
+    reinvestFees: '',
+    ...overrides,
+  })
+
+  it('builds the buy of a reinvested dividend at the dividend’s rate and date', () => {
+    const dividend = makeTx({ type: 'dividend', instrumentId: 'US:VOO', quantity: undefined, price: undefined, amount: '10', tax: '1.5', fxRate: '34', fxSource: 'auto', date: '2024-03-28' })
+    const draft = { ...draftFromTransaction(dividend, []), reinvest: true, reinvestQuantity: '0.016', reinvestPrice: '500', reinvestFees: '' }
+    const { tx, errors } = reinvestTransaction(draft, dividend, { id: 'buy-1', createdAt: '2024-03-28T10:00:00.001Z', today: '2024-06-01' })
+    expect(errors).toEqual([])
+    expect(tx).toMatchObject({ type: 'buy', instrumentId: 'US:VOO', quantity: '0.016', price: '500', fees: '0', fxRate: '34', date: '2024-03-28' })
+  })
+
+  it('takes the account, time, currency and the whole rate from the dividend, and pays no tax', () => {
+    const { tx } = reinvestTransaction(reinvestDraft({ reinvestFees: '1,000.5' }), paid, ctx)
+    expect(tx).toMatchObject({
+      id: 'buy-1',
+      accountId: 'acc-1',
+      time: '10:15',
+      currency: 'USD',
+      fees: '1000.5',
+      tax: '0',
+      fxRate: '34',
+      fxSource: 'auto',
+      fxRateDate: '2024-03-27',
+      referenceFxRate: '34',
+      createdAt: '2024-03-28T10:00:00.001Z',
+      updatedAt: '2024-03-28T10:00:00.001Z',
+    })
+  })
+
+  it('asks for the quantity and the price of the buy', () => {
+    const { errors } = reinvestTransaction(reinvestDraft({ reinvestQuantity: '', reinvestPrice: '' }), paid, ctx)
+    expect(errors).toEqual(['จำนวนหน่วยต้องเป็นตัวเลขมากกว่า 0', 'ราคาต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป'])
+  })
+
+  it('refuses a fee that is not a number', () => {
+    const { errors } = reinvestTransaction(reinvestDraft({ reinvestFees: 'abc' }), paid, ctx)
+    expect(errors).toEqual(['ค่าธรรมเนียมต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป'])
   })
 })

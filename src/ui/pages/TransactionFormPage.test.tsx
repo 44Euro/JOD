@@ -58,6 +58,17 @@ describe('TransactionFormPage', () => {
       expect(grid).not.toHaveClass('md:grid-cols-[minmax(0,1fr)_340px]')
     })
 
+    it('lets the time wrap to its own row while the card is narrow, between 768 and 880px', async () => {
+      renderRoute('/transactions/new', fakeFxProvider({ 'USD|THB': '35' }).provider)
+      const row = (await screen.findByLabelText('บัญชี')).closest('[class*="sm:grid-cols-3"]')!
+      // md:grid-cols-2 with min-[880px]:grid-cols-3 would not do: Tailwind writes the min-[880px] rule before the md one,
+      // so the md rule would win at every width from 768px.
+      expect(row).toHaveClass('sm:grid-cols-3', 'md:max-[880px]:grid-cols-2')
+      expect(row).not.toHaveClass('md:grid-cols-2')
+      expect(row).toContainElement(screen.getByLabelText('วันที่'))
+      expect(row).toContainElement(screen.getByLabelText(/เวลา/))
+    })
+
     it.each([
       ['wide', () => {}],
       ['phone', phone],
@@ -1447,6 +1458,252 @@ describe('TransactionFormPage', () => {
         'text-left',
         'md:min-h-0',
       )
+    })
+  })
+
+  describe('repeating a transaction and reinvesting a dividend', () => {
+    const provider = () => fakeFxProvider({ 'USD|THB': '34' }).provider
+    const phone = () =>
+      vi.stubGlobal('matchMedia', (query: string) => ({
+        matches: false,
+        media: query,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      }))
+    const earlierBuy = () =>
+      makeTx({ id: 'aapl-buy', instrumentId: 'US:AAPL', quantity: '2', price: '512.3', fees: '1', fxRate: '33.8', date: '2024-03-10', note: 'monthly' })
+
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(new Date(2024, 5, 1, 9, 0))
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    async function openDividend(path = '/transactions/new') {
+      const user = userEvent.setup()
+      const router = renderRoute(path, provider())
+      await user.click(await screen.findByRole('button', { name: 'ปันผล' }))
+      await user.type(screen.getByLabelText('สัญลักษณ์'), 'VOO')
+      await user.type(screen.getByLabelText('ปันผลก่อนหักภาษี'), '10')
+      await user.type(screen.getByLabelText('ภาษีหัก ณ ที่จ่าย'), '1.5')
+      await waitFor(() => expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('34'))
+      return { user, router }
+    }
+
+    const tick = () => screen.getByRole('checkbox', { name: 'นำปันผลไปซื้อหุ้นนี้ต่อ (บันทึก 2 รายการ)' })
+
+    async function fillReinvest(user: ReturnType<typeof userEvent.setup>) {
+      await user.click(tick())
+      await user.type(screen.getByLabelText('จำนวนหน่วยที่ซื้อ'), '0.016')
+      await user.type(screen.getByLabelText('ราคาต่อหน่วย'), '500')
+    }
+
+    it('opens a copy of an earlier buy for today', async () => {
+      await db.transactions.add(earlierBuy())
+      renderRoute('/transactions/new?from=aapl-buy', provider())
+      expect(await screen.findByLabelText('สัญลักษณ์')).toHaveValue('AAPL')
+      expect(screen.getByLabelText('จำนวนหน่วย')).toHaveValue('2')
+      expect(screen.getByLabelText('ค่าธรรมเนียม')).toHaveValue('1')
+      expect(screen.getByLabelText('ราคาต่อหน่วย')).toHaveValue('')
+      expect(screen.getByLabelText('วันที่')).toHaveValue('2024-06-01')
+      expect(screen.getByLabelText('หมายเหตุ')).toHaveValue('monthly')
+      await waitFor(() => expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('34'))
+      expect(screen.getByText('ทำซ้ำจากรายการวันที่ 10 มี.ค. 2024')).toBeInTheDocument()
+    })
+
+    it('saves the copy as a new transaction and leaves the first one alone', async () => {
+      await db.transactions.add(earlierBuy())
+      const user = userEvent.setup()
+      const router = renderRoute('/transactions/new?from=aapl-buy', provider())
+      await user.type(await screen.findByLabelText('ราคาต่อหน่วย'), '520')
+      await waitFor(() => expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('34'))
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+      await waitFor(() => expect(router.state.location.pathname).toBe('/transactions'))
+      const saved = await db.transactions.toArray()
+      expect(saved).toHaveLength(2)
+      expect(saved.find((t) => t.id === 'aapl-buy')).toMatchObject({ date: '2024-03-10', price: '512.3', fxRate: '33.8' })
+      expect(saved.find((t) => t.id !== 'aapl-buy')).toMatchObject({
+        instrumentId: 'US:AAPL',
+        quantity: '2',
+        price: '520',
+        fees: '1',
+        date: '2024-06-01',
+        fxRate: '34',
+        fxSource: 'auto',
+      })
+    })
+
+    it('drops the line about the original once the next entry starts', async () => {
+      await db.transactions.add(earlierBuy())
+      const user = userEvent.setup()
+      renderRoute('/transactions/new?from=aapl-buy', provider())
+      await user.type(await screen.findByLabelText('ราคาต่อหน่วย'), '520')
+      await waitFor(() => expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('34'))
+      await user.click(screen.getByRole('button', { name: 'บันทึกแล้วเพิ่มอีก' }))
+      expect(await screen.findByRole('status')).toHaveTextContent('บันทึกแล้ว')
+      expect(screen.queryByText(/ทำซ้ำจากรายการวันที่/)).not.toBeInTheDocument()
+    })
+
+    it('opens an empty form when the transaction to copy is not there', async () => {
+      renderRoute('/transactions/new?from=gone', provider())
+      expect(await screen.findByLabelText('สัญลักษณ์')).toHaveValue('')
+      expect(screen.queryByText(/ทำซ้ำจากรายการวันที่/)).not.toBeInTheDocument()
+    })
+
+    it('links to a copy from the edit page', async () => {
+      await db.transactions.add(earlierBuy())
+      renderRoute('/transactions/aapl-buy', provider())
+      expect(await screen.findByRole('link', { name: 'ทำซ้ำ' })).toHaveAttribute('href', '/transactions/new?from=aapl-buy')
+    })
+
+    it('does not offer a copy while a new transaction is being written', async () => {
+      renderRoute('/transactions/new', provider())
+      await screen.findByLabelText('สัญลักษณ์')
+      expect(screen.queryByRole('link', { name: 'ทำซ้ำ' })).not.toBeInTheDocument()
+    })
+
+    it('records a dividend and the buy it paid for in one go', async () => {
+      const { user, router } = await openDividend()
+      await fillReinvest(user)
+      expect(screen.getByText('ซื้อ 0.016 × 500.00 = 8.00 USD · เหลือเงินสด 0.50 USD')).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+      await waitFor(() => expect(router.state.location.pathname).toBe('/transactions'))
+      const saved = await db.transactions.toArray()
+      expect(saved).toHaveLength(2)
+      const dividend = saved.find((t) => t.type === 'dividend')!
+      const buy = saved.find((t) => t.type === 'buy')!
+      expect(dividend).toMatchObject({ instrumentId: 'US:VOO', amount: '10', tax: '1.5', date: '2024-06-01', fxRate: '34' })
+      expect(buy).toMatchObject({
+        instrumentId: 'US:VOO',
+        quantity: '0.016',
+        price: '500',
+        fees: '0',
+        tax: '0',
+        date: '2024-06-01',
+        currency: 'USD',
+        fxRate: '34',
+        fxSource: 'auto',
+        accountId: dividend.accountId,
+      })
+      expect(new Date(buy.createdAt).getTime() - new Date(dividend.createdAt).getTime()).toBe(1)
+      expect(await db.instruments.get('US:VOO')).toMatchObject({ symbol: 'VOO', currency: 'USD' })
+    })
+
+    it('only offers the choice for a new dividend that names an asset', async () => {
+      const user = userEvent.setup()
+      renderRoute('/transactions/new', provider())
+      await screen.findByLabelText('สัญลักษณ์')
+      expect(screen.queryByRole('checkbox', { name: /นำปันผลไปซื้อ/ })).not.toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'ปันผล' }))
+      expect(screen.queryByRole('checkbox', { name: /นำปันผลไปซื้อ/ })).not.toBeInTheDocument()
+      await user.type(screen.getByLabelText('สัญลักษณ์'), 'VOO')
+      expect(tick()).not.toBeChecked()
+      expect(screen.queryByLabelText('จำนวนหน่วยที่ซื้อ')).not.toBeInTheDocument()
+      await user.click(tick())
+      expect(screen.getByLabelText('จำนวนหน่วยที่ซื้อ')).toBeInTheDocument()
+      expect(screen.getByLabelText('ค่าธรรมเนียมซื้อ')).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'ดอกเบี้ย/คูปอง' }))
+      expect(screen.queryByRole('checkbox', { name: /นำปันผลไปซื้อ/ })).not.toBeInTheDocument()
+    })
+
+    it('does not offer the choice when a saved dividend is edited', async () => {
+      await db.transactions.add(
+        makeTx({ id: 'voo-div', type: 'dividend', instrumentId: 'US:VOO', quantity: undefined, price: undefined, amount: '10', tax: '1.5', fxRate: '34' }),
+      )
+      renderRoute('/transactions/voo-div', provider())
+      expect(await screen.findByLabelText('ปันผลก่อนหักภาษี')).toHaveValue('10')
+      expect(screen.queryByRole('checkbox', { name: /นำปันผลไปซื้อ/ })).not.toBeInTheDocument()
+    })
+
+    it('saves only the buy when the type is changed after the choice was ticked', async () => {
+      const { user, router } = await openDividend()
+      await fillReinvest(user)
+      await user.click(screen.getByRole('button', { name: 'ซื้อ' }))
+      expect(screen.queryByLabelText('จำนวนหน่วยที่ซื้อ')).not.toBeInTheDocument()
+      await user.type(screen.getByLabelText('จำนวนหน่วย'), '1')
+      await user.type(screen.getByLabelText('ราคาต่อหน่วย'), '500')
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+      await waitFor(() => expect(router.state.location.pathname).toBe('/transactions'))
+      expect(await db.transactions.toArray()).toMatchObject([{ type: 'buy', quantity: '1' }])
+    })
+
+    it('asks for the missing parts of the buy and saves neither transaction', async () => {
+      const { user } = await openDividend()
+      await user.click(tick())
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+      expect(await screen.findByText('จำนวนหน่วยต้องเป็นตัวเลขมากกว่า 0')).toBeInTheDocument()
+      expect(screen.getByText('ราคาต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป')).toBeInTheDocument()
+      expect(await db.transactions.count()).toBe(0)
+    })
+
+    it('says a mistake shared by both transactions once', async () => {
+      const { user } = await openDividend()
+      await fillReinvest(user)
+      fireEvent.change(screen.getByLabelText(/เรทแลกเปลี่ยน/), { target: { value: '' } })
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+      expect(await screen.findAllByText('เรทแลกเปลี่ยนต้องเป็นตัวเลขมากกว่า 0')).toHaveLength(1)
+      expect(await db.transactions.count()).toBe(0)
+    })
+
+    it('stops when the buy does not fit what is held, even though the dividend does', async () => {
+      await db.transactions.add(
+        makeTx({ instrumentId: 'US:VOO', currency: 'THB', fxRate: '1', fxSource: 'same', quantity: '1', price: '15000', date: '2024-01-10' }),
+      )
+      const { user } = await openDividend()
+      await fillReinvest(user)
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+      expect(await screen.findByText('สกุลเงิน USD ไม่ตรงกับที่ถืออยู่ (THB)')).toBeInTheDocument()
+      expect(await db.transactions.count()).toBe(1)
+    })
+
+    it('says so and keeps the form when saving the pair fails', async () => {
+      vi.spyOn(db.transactions, 'put').mockRejectedValueOnce(new Error('QuotaExceededError'))
+      const { user, router } = await openDividend()
+      await fillReinvest(user)
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+      expect(await screen.findByText('บันทึกไม่สำเร็จ ข้อมูลยังไม่ถูกบันทึก ลองอีกครั้ง')).toBeInTheDocument()
+      expect(router.state.location.pathname).toBe('/transactions/new')
+      expect(await db.transactions.count()).toBe(0)
+      expect(tick()).toBeChecked()
+    })
+
+    it('tells what was saved, and starts the next entry without the choice', async () => {
+      const { user } = await openDividend()
+      await fillReinvest(user)
+      await user.click(screen.getByRole('button', { name: 'บันทึกแล้วเพิ่มอีก' }))
+      expect(await screen.findByRole('status')).toHaveTextContent('บันทึกแล้ว · ปันผล + ซื้อ VOO')
+      expect(await db.transactions.count()).toBe(2)
+      await user.type(screen.getByLabelText('สัญลักษณ์'), 'VTI')
+      expect(tick()).not.toBeChecked()
+      expect(screen.queryByLabelText('จำนวนหน่วยที่ซื้อ')).not.toBeInTheDocument()
+    })
+
+    it('shows the holding and the cash after both transactions', async () => {
+      await db.transactions.add(
+        makeTx({ type: 'deposit', instrumentId: undefined, quantity: undefined, price: undefined, amount: '100', date: '2024-01-02' }),
+      )
+      const { user } = await openDividend()
+      await fillReinvest(user)
+      expect(screen.getByText('VOO ที่ถือ').nextSibling).toHaveTextContent('0 → 0.016')
+      expect(screen.getByText('เงินสด USD').nextSibling).toHaveTextContent('100.00 → 100.50')
+    })
+
+    it('adds the fee of the buy to what is spent, and says when more cash is needed than the dividend left', async () => {
+      const { user } = await openDividend()
+      await fillReinvest(user)
+      await user.type(screen.getByLabelText('ค่าธรรมเนียมซื้อ'), '1')
+      expect(screen.getByText('ซื้อ 0.016 × 500.00 = 8.00 USD + ค่าธรรมเนียม 1.00 USD · ใช้เงินสดเพิ่ม 0.50 USD')).toBeInTheDocument()
+    })
+
+    it('shows the choice and its summary on a phone too', async () => {
+      phone()
+      const { user } = await openDividend()
+      await fillReinvest(user)
+      expect(screen.getByText('ซื้อ 0.016 × 500.00 = 8.00 USD · เหลือเงินสด 0.50 USD')).toBeInTheDocument()
+      expect(tick().closest('label')).toHaveClass('min-h-11')
     })
   })
 })

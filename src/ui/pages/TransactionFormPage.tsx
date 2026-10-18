@@ -1,6 +1,6 @@
-import { Check, Trash2 } from 'lucide-react'
+import { Check, Copy, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
-import { Link, useNavigate, useParams } from 'react-router'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { Alert } from '../../components/ui/alert'
 import { Button, buttonVariants } from '../../components/ui/button'
 import { Card } from '../../components/ui/card'
@@ -8,7 +8,7 @@ import { Chip } from '../../components/ui/chip'
 import { Field } from '../../components/ui/field'
 import { Input, NativeSelect, Textarea } from '../../components/ui/input'
 import { db } from '../../db/db'
-import { deleteTransaction, newId, saveTransaction, upsertInstrument } from '../../db/repo'
+import { deleteTransaction, newId, saveTransactions, upsertInstrument } from '../../db/repo'
 import { CURRENCY_OPTIONS } from '../../domain/currencies'
 import { isIsoDate, todayLocal } from '../../domain/dates'
 import { D, isDecimalString } from '../../domain/decimal'
@@ -27,6 +27,7 @@ import { AfterSavePanel, TotalPanel } from '../components/txform/FormSidePanels'
 import { FxRateBox } from '../components/txform/FxRateBox'
 import { InstrumentFields } from '../components/txform/InstrumentFields'
 import { ReceiveFields, ReceiveTaxField } from '../components/txform/ReceiveFields'
+import { ReinvestFields } from '../components/txform/ReinvestFields'
 import { SwapFields, SwapSummary } from '../components/txform/SwapFields'
 import { TransferAmountField, TransferFields } from '../components/txform/TransferFields'
 import { TypePicker } from '../components/txform/TypePicker'
@@ -43,10 +44,12 @@ import {
   changeType,
   draftFromTransaction,
   draftToTransaction,
+  duplicateDraft,
   emptyDraft,
   isOpeningAsset,
   movesNoMoney,
   pickSymbol,
+  reinvestTransaction,
   showsInstrument,
   syncFees,
   syncReceived,
@@ -58,6 +61,7 @@ import { useIsDesktop } from '../useIsDesktop'
 
 export function TransactionFormPage() {
   const { id } = useParams()
+  const [searchParams] = useSearchParams()
   const data = useAppData()
   if (!data) return <p className="text-muted-foreground">กำลังโหลด…</p>
   if (data.accounts.length === 0) {
@@ -72,7 +76,9 @@ export function TransactionFormPage() {
   }
   const existing = id ? data.transactions.find((t) => t.id === id) : undefined
   if (id && !existing) return <Card>ไม่พบรายการนี้</Card>
-  return <TransactionForm key={id ?? 'new'} data={data} existing={existing} />
+  const from = id ? null : searchParams.get('from')
+  const copyOf = from ? data.transactions.find((t) => t.id === from) : undefined
+  return <TransactionForm key={id ?? `new-${from ?? ''}`} data={data} existing={existing} copyOf={copyOf} />
 }
 
 function positiveDecimal(value: string | undefined): boolean {
@@ -124,6 +130,10 @@ function clearEntry(draft: Draft): Draft {
     toAmount: '',
     toAmountSource: 'auto',
     note: '',
+    reinvest: false,
+    reinvestQuantity: '',
+    reinvestPrice: '',
+    reinvestFees: '',
   }
 }
 
@@ -131,14 +141,16 @@ function marketRateKey(draft: Draft): string {
   return `${draft.toCurrency}|${draft.currency}|${draft.date}`
 }
 
-function TransactionForm({ data, existing }: { data: AppData; existing?: Transaction }) {
+function TransactionForm({ data, existing, copyOf }: { data: AppData; existing?: Transaction; copyOf?: Transaction }) {
   const navigate = useNavigate()
   const provider = useFxProvider()
   const isDesktop = useIsDesktop()
   const base = data.settings.baseCurrency
-  const [draft, setDraftState] = useState<Draft>(() =>
-    existing ? draftFromTransaction(existing, data.instruments) : emptyDraft(data.accounts[0].id, todayLocal()),
-  )
+  const [draft, setDraftState] = useState<Draft>(() => {
+    if (existing) return draftFromTransaction(existing, data.instruments)
+    if (copyOf) return duplicateDraft(copyOf, data.instruments, todayLocal())
+    return emptyDraft(data.accounts[0].id, todayLocal())
+  })
   // The accounts come from a live query that hands over a new array on every write, and setDraft is a dependency of
   // the rate lookups below, so a ref keeps it stable.
   const accountsRef = useRef(data.accounts)
@@ -155,6 +167,7 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
   const [fxMessage, setFxMessage] = useState('')
   const [noRateFor, setNoRateFor] = useState('')
   const [savedNote, setSavedNote] = useState('')
+  const [copiedFrom, setCopiedFrom] = useState(copyOf)
   const [saving, setSaving] = useState(false)
   const [saveFailed, setSaveFailed] = useState(false)
   const savingRef = useRef(false)
@@ -213,6 +226,15 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
     today: todayLocal(now),
   })
   const symbol = draft.symbol.trim().toUpperCase()
+  const offersReinvest = !existing && draft.type === 'dividend' && symbol !== ''
+  const reinvesting = offersReinvest && draft.reinvest
+  const reinvested = reinvesting
+    ? reinvestTransaction(draft, preview.tx, { id: 'preview-buy', createdAt: preview.tx.createdAt, today: todayLocal(now) })
+    : null
+  const reinvestPlan =
+    reinvested && preview.errors.length === 0 && reinvested.errors.length === 0
+      ? { dividend: preview.tx, buy: reinvested.tx }
+      : null
   const total = preview.errors.length === 0 ? totalForDisplay(preview.tx) : null
   const rate = needsFx && positiveDecimal(preview.tx.fxRate) ? preview.tx.fxRate : null
   const rateSpread =
@@ -223,7 +245,9 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
       : null
   const accountNames = new Map(data.accounts.map((a) => [a.id, a.name]))
   const afterSave =
-    preview.errors.length === 0 ? previewAfterSave(others, preview.tx, base, symbol, existing, accountNames) : null
+    preview.errors.length === 0
+      ? previewAfterSave(others, preview.tx, base, symbol, existing, accountNames, reinvestPlan ? [reinvestPlan.buy] : [])
+      : null
   const hintFor = (market: Market, typed: string) => {
     const entered = typed.trim()
     if (!entered) return undefined
@@ -238,18 +262,28 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
     if (savingRef.current) return
     setSaveFailed(false)
     const at = new Date()
-    const { tx, errors: found } = draftToTransaction(draft, {
+    const { tx, errors: dividendErrors } = draftToTransaction(draft, {
       id: existing?.id ?? newId(),
       createdAt: existing?.createdAt ?? at.toISOString(),
       baseCurrency: base,
       today: todayLocal(at),
     })
+    // The buy sorts right after the dividend even when both carry the same date and time.
+    const buy = reinvesting
+      ? reinvestTransaction(draft, tx, { id: newId(), createdAt: new Date(at.getTime() + 1).toISOString(), today: todayLocal(at) })
+      : null
+    const written = buy ? [tx, buy.tx] : [tx]
+    const found = [...new Set([...dividendErrors, ...(buy?.errors ?? [])])]
     const ledgerErrors =
       found.length > 0
         ? []
-        : computeLedger([...others, tx])
-            .issues.filter((issue) => issue.txId === tx.id)
-            .map((issue) => issue.message)
+        : [
+            ...new Set(
+              computeLedger([...others, ...written])
+                .issues.filter((issue) => written.some((t) => t.id === issue.txId))
+                .map((issue) => issue.message),
+            ),
+          ]
     if (found.length > 0 || ledgerErrors.length > 0) {
       setErrors([...found, ...ledgerErrors])
       setSavedNote('')
@@ -275,7 +309,7 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
           await upsertInstrument(db, { ...instrument, id, name: name.trim() || instrument.symbol, currency: draft.currency })
         }
       }
-      await saveTransaction(db, tx, at)
+      await saveTransactions(db, written, at)
     } catch {
       savingRef.current = false
       setSaving(false)
@@ -290,9 +324,10 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
     savingRef.current = false
     setSaving(false)
     setDraft(clearEntry)
+    setCopiedFrom(undefined)
     setErrors([])
     const subject = tx.toInstrumentId ? `${symbol} → ${symbolOf(tx.toInstrumentId)}` : symbol
-    setSavedNote(`บันทึกแล้ว · ${TX_TYPE_LABELS[tx.type]} ${subject}`.trim())
+    setSavedNote(buy ? `บันทึกแล้ว · ปันผล + ซื้อ ${symbol}` : `บันทึกแล้ว · ${TX_TYPE_LABELS[tx.type]} ${subject}`.trim())
   }
 
   function handleSubmit(event: FormEvent) {
@@ -313,9 +348,15 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
       <PageHeader title={existing ? 'แก้ไขรายการ' : 'บันทึกรายการ'} />
       <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-3.5 md:gap-[22px] xl:grid-cols-[minmax(0,1fr)_340px]">
         <Card className="grid gap-[18px]">
+          {copiedFrom && (
+            <p className="flex items-center gap-2 text-[13px] text-muted-foreground">
+              <Copy className="size-4 shrink-0" aria-hidden />
+              ทำซ้ำจากรายการวันที่ {fmtDate(copiedFrom.date)}
+            </p>
+          )}
           <TypePicker type={draft.type} onChange={(type) => setDraft((d) => withTransferTarget(changeType(d, type, base), data.accounts))} />
 
-          <div className="grid gap-3.5 sm:grid-cols-3">
+          <div className="grid gap-3.5 sm:grid-cols-3 md:max-[880px]:grid-cols-2">
             <Field id="tx-account" label="บัญชี">
               <NativeSelect
                 id="tx-account"
@@ -449,6 +490,8 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
 
           {afterSave?.swap && <SwapSummary draft={draft} outcome={afterSave.swap} />}
 
+          {offersReinvest && <ReinvestFields draft={draft} plan={reinvestPlan} update={update} />}
+
           <Field id="tx-note" label="หมายเหตุ">
             <Textarea id="tx-note" value={draft.note} onChange={(e) => update({ note: e.target.value })} />
           </Field>
@@ -486,10 +529,16 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
               ยกเลิก
             </Link>
             {existing && (
-              <Button type="button" variant="ghost" className="ml-auto text-destructive" onClick={() => void handleDelete()}>
-                <Trash2 aria-hidden />
-                ลบรายการนี้
-              </Button>
+              <div className="ml-auto flex flex-wrap items-center gap-2">
+                <Link to={`/transactions/new?from=${existing.id}`} className={buttonVariants({ variant: 'outline' })}>
+                  <Copy aria-hidden />
+                  ทำซ้ำ
+                </Link>
+                <Button type="button" variant="ghost" className="text-destructive" onClick={() => void handleDelete()}>
+                  <Trash2 aria-hidden />
+                  ลบรายการนี้
+                </Button>
+              </div>
             )}
           </div>
         </Card>

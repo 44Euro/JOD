@@ -235,6 +235,37 @@ describe('AssetPage', () => {
     expect(within(list).getByText(/^ซื้อ 1 × 500\.00/)).toBeInTheDocument()
   })
 
+  it('repeats the latest buy of this asset from its page', async () => {
+    await db.instruments.add(voo)
+    await db.transactions.bulkAdd([
+      makeTx({ id: 'voo-latest', instrumentId: 'US:VOO', quantity: '1', price: '470', date: '2024-05-01' }),
+      makeTx({ id: 'voo-elsewhere', accountId: 'acc-2', instrumentId: 'US:VOO', quantity: '1', price: '460', date: '2024-02-01' }),
+      makeTx({ id: 'paid-in-voo', instrumentId: 'CRYPTO:ETH', quantity: '1', price: '500', date: '2024-06-01', feePaidIn: 'asset', feeInstrumentId: 'US:VOO', feeQuantity: '0.001' }),
+    ])
+    renderRoute('/assets/US%3AVOO', usd)
+    await screen.findByRole('heading', { name: 'VOO' })
+    const link = screen.getByRole('link', { name: 'ทำซ้ำรายการซื้อ' })
+    expect(link).toHaveAttribute('href', '/transactions/new?from=voo-latest')
+    expect(link).toHaveClass('h-11', 'md:h-[34px]')
+    expect(screen.getByRole('heading', { name: 'VOO' }).closest('div')!.parentElement).toContainElement(link)
+  })
+
+  it('picks the latest buy among every account', async () => {
+    await db.instruments.add(voo)
+    await db.transactions.add(makeTx({ id: 'voo-other-account', accountId: 'acc-2', instrumentId: 'US:VOO', quantity: '1', price: '470', date: '2024-05-01' }))
+    renderRoute('/assets/US%3AVOO', usd)
+    expect(await screen.findByRole('link', { name: 'ทำซ้ำรายการซื้อ' })).toHaveAttribute('href', '/transactions/new?from=voo-other-account')
+  })
+
+  it('offers no repeat when the asset was never bought', async () => {
+    await db.transactions.clear()
+    await db.instruments.add(voo)
+    await db.transactions.add(makeTx({ instrumentId: 'US:VOO', type: 'dividend', quantity: undefined, price: undefined, amount: '20', fxRate: '34', date: '2024-03-01' }))
+    renderRoute('/assets/US%3AVOO', usd)
+    await screen.findByRole('heading', { name: 'VOO' })
+    expect(screen.queryByRole('link', { name: 'ทำซ้ำรายการซื้อ' })).not.toBeInTheDocument()
+  })
+
   it('says so when the asset does not exist', async () => {
     renderRoute('/assets/US%3ANOPE')
     expect(await screen.findByText('ไม่พบสินทรัพย์นี้')).toBeInTheDocument()

@@ -1,6 +1,7 @@
-import { ChevronLeft } from 'lucide-react'
+import { ChevronLeft, Copy } from 'lucide-react'
 import { Link, useParams } from 'react-router'
 import { Badge } from '../../components/ui/badge'
+import { buttonVariants } from '../../components/ui/button'
 import { Card } from '../../components/ui/card'
 import { Table, Td, Th } from '../../components/ui/table'
 import { todayLocal } from '../../domain/dates'
@@ -58,6 +59,7 @@ export function AssetPage() {
   const transactions = sortTransactions(
     data.transactions.filter((t) => t.instrumentId === id || t.toInstrumentId === id || t.feeInstrumentId === id),
   ).reverse()
+  const lastBuy = transactions.find((t) => t.type === 'buy' && t.instrumentId === id)
   // On the page of an asset that only paid a fee, the row is that payment, and the tax of the trade is not its own.
   const feeOnly = (t: Transaction) => t.instrumentId !== id && t.toInstrumentId !== id
   const fees = sumBy(
@@ -71,10 +73,20 @@ export function AssetPage() {
   return (
     <>
       {back}
-      <div className="flex flex-wrap items-center gap-3">
-        <MarketPill market={instrument?.market ?? marketOf(id)} assetType={instrument?.assetType} />
-        <h1 className="text-[26px] font-semibold leading-tight md:text-[34px]">{symbol}</h1>
-        {instrument && instrument.name !== instrument.symbol && <span className="text-muted-foreground">{instrument.name}</span>}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <MarketPill market={instrument?.market ?? marketOf(id)} assetType={instrument?.assetType} />
+          <h1 className="text-[26px] font-semibold leading-tight md:text-[34px]">{symbol}</h1>
+          {instrument && instrument.name !== instrument.symbol && <span className="text-muted-foreground">{instrument.name}</span>}
+        </div>
+        {lastBuy && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Link to={`/transactions/new?from=${lastBuy.id}`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+              <Copy aria-hidden />
+              ทำซ้ำรายการซื้อ
+            </Link>
+          </div>
+        )}
       </div>
 
       {stats && (

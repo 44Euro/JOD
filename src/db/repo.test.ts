@@ -9,6 +9,7 @@ import {
   saveInstrumentThesis,
   saveSettings,
   saveTransaction,
+  saveTransactions,
   setInstrumentPrice,
   updateAccount,
   upsertInstrument,
@@ -154,6 +155,24 @@ describe('transactions', () => {
     const tx = makeTx()
     await saveTransaction(db, tx, new Date('2024-06-01T10:00:00Z'))
     expect((await db.transactions.get(tx.id))?.updatedAt).toBe('2024-06-01T10:00:00.000Z')
+  })
+
+  it('saves a dividend and its reinvested buy together or not at all', async () => {
+    const dividend = makeTx({ type: 'dividend', quantity: undefined, price: undefined, amount: '10' })
+    const buy = makeTx({ quantity: '0.016', price: '500' })
+    await saveTransactions(db, [dividend, buy], new Date('2024-06-01T10:00:00Z'))
+    expect(await db.transactions.count()).toBe(2)
+    expect((await db.transactions.get(buy.id))?.updatedAt).toBe('2024-06-01T10:00:00.000Z')
+
+    await db.transactions.clear()
+    await expect(saveTransactions(db, [dividend, makeTx({ quantity: '0' })])).rejects.toThrow('จำนวนหน่วยต้องเป็นตัวเลขมากกว่า 0')
+    expect(await db.transactions.count()).toBe(0)
+  })
+
+  it('writes nothing when the database refuses the second transaction', async () => {
+    const withoutKey = { ...makeTx(), id: undefined as unknown as string }
+    await expect(saveTransactions(db, [makeTx(), withoutKey])).rejects.toThrow()
+    expect(await db.transactions.count()).toBe(0)
   })
 })
 
