@@ -76,7 +76,7 @@ describe('instruments and currencies', () => {
   })
 
   it('trades Thai funds, bonds and gold in baht', () => {
-    expect(MARKETS).toEqual(expect.arrayContaining(['FUND', 'BOND', 'GOLD']))
+    expect(MARKETS).toEqual(['US', 'SET', 'FUND', 'BOND', 'GOLD', 'HK', 'JP', 'SG', 'CN', 'EU', 'UK', 'CRYPTO', 'OTHER'])
     expect(ASSET_TYPES).toEqual(['stock', 'etf', 'dr', 'fund', 'bond', 'gold', 'crypto', 'other'])
     expect([MARKET_CURRENCY.FUND, MARKET_CURRENCY.BOND, MARKET_CURRENCY.GOLD]).toEqual(['THB', 'THB', 'THB'])
   })

@@ -74,7 +74,7 @@ export function InstrumentFields({
       </Field>
       {allowNew && !known && (
         <>
-          <Field id={`${idPrefix}-name`} label="ชื่อ (ไม่บังคับ)">
+          <Field id={`${idPrefix}-name`} label="ชื่อ (ไม่บังคับ)" className="sm:col-span-2">
             <Input id={`${idPrefix}-name`} value={name} onChange={(e) => onName(e.target.value)} />
           </Field>
           <Field id={`${idPrefix}-asset-type`} label="ประเภทสินทรัพย์">

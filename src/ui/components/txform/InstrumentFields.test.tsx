@@ -47,6 +47,13 @@ describe('InstrumentFields', () => {
     expect(fields.indexOf('tx-to-unit')).toBe(fields.indexOf('tx-to-asset-type') + 1)
   })
 
+  it('gives the name a row of its own so the type and the unit pair up under it', () => {
+    render(<InstrumentFields idPrefix="tx" symbolLabel="สัญลักษณ์" {...blank} />)
+    expect(screen.getByLabelText('ชื่อ (ไม่บังคับ)').parentElement).toHaveClass('sm:col-span-2')
+    expect(screen.getByLabelText('ประเภทสินทรัพย์').parentElement).not.toHaveClass('sm:col-span-2')
+    expect(screen.getByLabelText('หน่วยนับ').parentElement).not.toHaveClass('sm:col-span-2')
+  })
+
   it('reports the unit that was picked', async () => {
     const onUnit = vi.fn()
     render(<InstrumentFields idPrefix="tx" symbolLabel="สัญลักษณ์" {...blank} market="GOLD" assetType="gold" unit="baht_gold" onUnit={onUnit} />)

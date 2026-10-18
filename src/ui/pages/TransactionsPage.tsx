@@ -26,7 +26,18 @@ import { MARKET_LABELS, TX_TYPE_LABELS, TX_TYPE_SHORT_LABELS, marketOf } from '.
 import { describeBody, describeMain, feeNote, feeNoteText, netOf, taxNoteText } from '../transactionText'
 import { useIsDesktop } from '../useIsDesktop'
 
-function AssetLabel({ tx, instrument, accountName }: { tx: Transaction; instrument?: Instrument; accountName: string }) {
+// The phone row has no room for the account beside the symbol, so it puts the account on its second line instead.
+function AssetLabel({
+  tx,
+  instrument,
+  accountName,
+  withAccount = true,
+}: {
+  tx: Transaction
+  instrument?: Instrument
+  accountName: string
+  withAccount?: boolean
+}) {
   if (!tx.instrumentId) {
     return (
       <span className="flex min-w-0 items-center gap-2.5 overflow-hidden">
@@ -39,7 +50,7 @@ function AssetLabel({ tx, instrument, accountName }: { tx: Transaction; instrume
     <span className="flex min-w-0 items-center gap-2.5 overflow-hidden">
       <MarketPill market={instrument?.market ?? marketOf(tx.instrumentId)} assetType={instrument?.assetType} />
       <b className="font-display text-base font-semibold">{instrument?.symbol ?? tx.instrumentId.split(':')[1]}</b>
-      <span className="truncate text-[12.5px] text-muted-foreground">{accountName}</span>
+      {withAccount && <span className="truncate text-[12.5px] text-muted-foreground">{accountName}</span>}
     </span>
   )
 }
@@ -94,11 +105,12 @@ export function TransactionsPage() {
   }
 
   const label = (tx: Transaction) => `${TX_TYPE_LABELS[tx.type]} ${tx.date}`
-  const assetOf = (tx: Transaction) => (
+  const assetOf = (tx: Transaction, withAccount = true) => (
     <AssetLabel
       tx={tx}
       instrument={tx.instrumentId ? instruments.get(tx.instrumentId) : undefined}
       accountName={accountNames.get(tx.accountId) ?? '—'}
+      withAccount={withAccount}
     />
   )
 
@@ -218,7 +230,7 @@ export function TransactionsPage() {
                         </span>
                       </Td>
                       <Td>
-                        {describeMain(tx, accountNames)}
+                        {describeMain(tx, accountNames, instruments)}
                         {!namesCurrency(tx) && <span className="text-muted-foreground"> {tx.currency}</span>}
                         {notes.map((note) => (
                           <span key={note} className="block text-[12.5px] text-muted-foreground">
@@ -275,13 +287,14 @@ export function TransactionsPage() {
                   <li className={cn('border-t border-muted', issue && 'rounded-xl border-transparent bg-warning-bg px-2.5')}>
                     <Link to={`/transactions/${tx.id}`} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2.5 gap-y-0.5 py-3">
                       <span className="flex min-w-0 items-center gap-2">
-                        {assetOf(tx)}
+                        {assetOf(tx, false)}
                         <span className="shrink-0 text-[13px] text-muted-foreground">{TX_TYPE_SHORT_LABELS[tx.type] ?? TX_TYPE_LABELS[tx.type]}</span>
                       </span>
                       <span className={cn('font-display font-semibold', net.className)}>{net.text}</span>
                       <span className="col-span-2 flex flex-wrap items-center gap-x-1.5 text-[12.5px] text-muted-foreground">
+                        {tx.instrumentId && <span>{accountNames.get(tx.accountId) ?? '—'} ·</span>}
                         <span>
-                          {describeBody(tx, accountNames)}
+                          {describeBody(tx, accountNames, instruments)}
                           {!namesCurrency(tx) && ` ${tx.currency}`}
                           {feeNote(tx)}
                         </span>

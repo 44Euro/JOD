@@ -36,6 +36,34 @@ describe('TransactionFormPage', () => {
     expect(await db.instruments.get('US:AAPL')).toMatchObject({ symbol: 'AAPL', currency: 'USD', assetType: 'stock', unit: 'share' })
   })
 
+  describe('units in the money route of the form', () => {
+    const provider = () => fakeFxProvider({ 'USD|THB': '35' }).provider
+    const routeOf = () => screen.getByText('เส้นทางเงินของรายการนี้').closest('div')!
+
+    it('counts the units bought in the unit of a known asset', async () => {
+      await db.instruments.add({ id: 'US:AAPL', market: 'US', symbol: 'AAPL', name: 'Apple', assetType: 'stock', currency: 'USD' })
+      const user = userEvent.setup()
+      renderRoute('/transactions/new', provider())
+      await user.type(await screen.findByLabelText('สัญลักษณ์'), 'aapl')
+      await user.type(screen.getByLabelText('จำนวนหน่วย'), '2')
+      await user.type(screen.getByLabelText('ราคาต่อหน่วย'), '100')
+      await waitFor(() => expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('35'))
+      expect(within(routeOf()).getByText('AAPL 2 หุ้น')).toBeInTheDocument()
+    })
+
+    it('counts them in the unit picked for a new asset, and follows a change of it', async () => {
+      const user = userEvent.setup()
+      renderRoute('/transactions/new', provider())
+      await user.type(await screen.findByLabelText('สัญลักษณ์'), 'newco')
+      await user.type(screen.getByLabelText('จำนวนหน่วย'), '2')
+      await user.type(screen.getByLabelText('ราคาต่อหน่วย'), '100')
+      await waitFor(() => expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('35'))
+      expect(within(routeOf()).getByText('NEWCO 2 หุ้น')).toBeInTheDocument()
+      await user.selectOptions(screen.getByLabelText('หน่วยนับ'), 'หน่วย')
+      expect(within(routeOf()).getByText('NEWCO 2 หน่วย')).toBeInTheDocument()
+    })
+  })
+
   describe('Thai assets and units', () => {
     const noRates = () => fakeFxProvider({}).provider
     const openGold = async (user: ReturnType<typeof userEvent.setup>) => {
@@ -142,6 +170,15 @@ describe('TransactionFormPage', () => {
       const grid = (await screen.findByRole('button', { name: 'บันทึก' })).closest('[class*="xl:grid-cols"]')!
       expect(grid).toHaveClass('grid-cols-[minmax(0,1fr)]', 'xl:grid-cols-[minmax(0,1fr)_340px]')
       expect(grid).not.toHaveClass('md:grid-cols-[minmax(0,1fr)_340px]')
+    })
+
+    it('gives the currency of a trade room for USDT at 320px and shares the rest between quantity and price', async () => {
+      renderRoute('/transactions/new', fakeFxProvider({ 'USD|THB': '35' }).provider)
+      const row = (await screen.findByLabelText('สกุลเงิน')).closest('[class*="grid-cols"]')!
+      expect(row).toHaveClass('grid', 'grid-cols-[minmax(5.5rem,auto)_1fr_1fr]')
+      expect(row).not.toHaveClass('grid-cols-3')
+      expect(row).toContainElement(screen.getByLabelText('จำนวนหน่วย'))
+      expect(row).toContainElement(screen.getByLabelText('ราคาต่อหน่วย'))
     })
 
     it('lets the time wrap to its own row while the card is narrow, between 768 and 880px', async () => {
@@ -1680,7 +1717,7 @@ describe('TransactionFormPage', () => {
     it('records a dividend and the buy it paid for in one go', async () => {
       const { user, router } = await openDividend()
       await fillReinvest(user)
-      expect(reinvestSummary()).toHaveTextContent('ซื้อ 0.016 × 500.00 = 8.00 USD · เหลือเงินสด 0.50 USD')
+      expect(reinvestSummary().textContent).toBe('ซื้อ 0.016 × 500.00 = 8.00 USD · เหลือเงินสด 0.50 USD')
       await user.click(screen.getByRole('button', { name: 'บันทึก' }))
       await waitFor(() => expect(router.state.location.pathname).toBe('/transactions'))
       const saved = await db.transactions.toArray()
@@ -1807,7 +1844,7 @@ describe('TransactionFormPage', () => {
       const { user } = await openDividend()
       await fillReinvest(user)
       await user.type(screen.getByLabelText('ค่าธรรมเนียมซื้อ'), '1')
-      expect(reinvestSummary()).toHaveTextContent('ซื้อ 0.016 × 500.00 = 8.00 USD + ค่าธรรมเนียม 1.00 USD · ใช้เงินสดเพิ่ม 0.50 USD')
+      expect(reinvestSummary().textContent).toBe('ซื้อ 0.016 × 500.00 = 8.00 USD + ค่าธรรมเนียม 1.00 USD · ใช้เงินสดเพิ่ม 0.50 USD')
       expect(within(reinvestSummary()).getByText(/ใช้เงินสดเพิ่ม/)).toHaveClass('whitespace-nowrap')
     })
 
@@ -1841,7 +1878,7 @@ describe('TransactionFormPage', () => {
       phone()
       const { user } = await openDividend()
       await fillReinvest(user)
-      expect(reinvestSummary()).toHaveTextContent('ซื้อ 0.016 × 500.00 = 8.00 USD · เหลือเงินสด 0.50 USD')
+      expect(reinvestSummary().textContent).toBe('ซื้อ 0.016 × 500.00 = 8.00 USD · เหลือเงินสด 0.50 USD')
       expect(tick().closest('label')).toHaveClass('min-h-11')
     })
   })

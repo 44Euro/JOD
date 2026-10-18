@@ -56,6 +56,7 @@ export function AssetPage() {
   const symbol = instrument?.symbol ?? id.split(':')[1] ?? id
   const issues = new Map(ledger.issues.map((i) => [i.txId, i.message]))
   const accountNames = new Map(data.accounts.map((a) => [a.id, a.name]))
+  const instruments = new Map(data.instruments.map((i) => [i.id, i]))
   const transactions = sortTransactions(
     data.transactions.filter((t) => t.instrumentId === id || t.toInstrumentId === id || t.feeInstrumentId === id),
   ).reverse()
@@ -68,7 +69,7 @@ export function AssetPage() {
   )
   const lastPrice = instrument?.lastPrice ? D(instrument.lastPrice) : null
   const todayRate = stats && rates[stats.currency] ? D(rates[stats.currency].rate) : null
-  const route = stats ? assetRoute(stats, lastPrice, todayRate, base) : []
+  const route = stats ? assetRoute(stats, lastPrice, todayRate, base, instrument) : []
 
   return (
     <>
@@ -161,7 +162,7 @@ export function AssetPage() {
                       </Td>
                       <Td>{feeRow ? FEE_PAID_ROW_LABEL : TX_TYPE_LABELS[tx.type]}</Td>
                       <Td className="max-w-64 truncate">
-                        {feeRow ? describeFeePaid(tx) : describeAmount(tx, accountNames)}
+                        {feeRow ? describeFeePaid(tx) : describeAmount(tx, accountNames, instruments)}
                         {tx.note && <span className="text-muted-foreground"> · {tx.note}</span>}
                       </Td>
                       <Td>
@@ -184,7 +185,7 @@ export function AssetPage() {
                       <span>{fmtDate(tx.date)}</span>
                       <span className={cn('font-display font-semibold', net.className)}>{net.text}</span>
                       <span className="col-span-2 text-[12.5px] text-muted-foreground">
-                        {feeRow ? `${FEE_PAID_ROW_LABEL} ${describeFeePaid(tx)}` : `${TX_TYPE_LABELS[tx.type]} ${describeAmount(tx, accountNames)}`}
+                        {feeRow ? `${FEE_PAID_ROW_LABEL} ${describeFeePaid(tx)}` : `${TX_TYPE_LABELS[tx.type]} ${describeAmount(tx, accountNames, instruments)}`}
                         {tx.fxSource !== 'same' && ` · ${tx.fxSource === 'estimated' ? 'เรทประมาณ' : 'เรท'} ${fmtPrice(tx.fxRate)}`}
                       </span>
                     </Link>

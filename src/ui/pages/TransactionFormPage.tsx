@@ -14,7 +14,7 @@ import { isIsoDate, todayLocal } from '../../domain/dates'
 import { D, isDecimalString } from '../../domain/decimal'
 import { fxConvertSummary, spreadPct } from '../../domain/fxConvert'
 import { computeLedger, positionKey } from '../../domain/ledger'
-import { findInstrument, instrumentKey, symbolOf, type Market, type Transaction } from '../../domain/types'
+import { findInstrument, instrumentKey, symbolOf, unitOf, type Market, type Transaction } from '../../domain/types'
 import { useFxProvider } from '../../fx/context'
 import { getFxQuote } from '../../fx/fxService'
 import { cn } from '../../lib/cn'
@@ -34,7 +34,7 @@ import { TypePicker } from '../components/txform/TypePicker'
 import { WithdrawFields } from '../components/txform/WithdrawFields'
 import { fmtDate, fmtMoney, fmtNumber, fmtPrice } from '../format'
 import { useAppData, type AppData } from '../hooks'
-import { TX_TYPE_LABELS, unitLabel } from '../labels'
+import { TX_TYPE_LABELS, UNIT_LABELS, unitLabel } from '../labels'
 import {
   applyReferenceRate,
   changeAssetType,
@@ -227,6 +227,7 @@ function TransactionForm({ data, existing, copyOf }: { data: AppData; existing?:
     today: todayLocal(now),
   })
   const symbol = draft.symbol.trim().toUpperCase()
+  const known = findInstrument(data.instruments, draft.market, symbol)
   const offersReinvest = !existing && draft.type === 'dividend' && symbol !== ''
   const reinvesting = offersReinvest && draft.reinvest
   const reinvested = reinvesting
@@ -438,7 +439,7 @@ function TransactionForm({ data, existing, copyOf }: { data: AppData; existing?:
             <ReceiveFields draft={draft} instruments={data.instruments} hint={hintFor(draft.market, draft.symbol)} setDraft={setDraft} />
           )}
 
-          <div className={cn('grid gap-3.5', isTrade || openingAsset ? 'grid-cols-3' : 'sm:grid-cols-2')}>
+          <div className={cn('grid gap-3.5', isTrade || openingAsset ? 'grid-cols-[minmax(5.5rem,auto)_1fr_1fr]' : 'sm:grid-cols-2')}>
             {draft.type !== 'split' && !movesNoMoney(draft) && (
               <Field id="tx-currency" label={currencyLabel(draft)}>
                 <NativeSelect id="tx-currency" value={draft.currency} onChange={(e) => setDraft((d) => changeCurrency(d, e.target.value))}>
@@ -555,7 +556,7 @@ function TransactionForm({ data, existing, copyOf }: { data: AppData; existing?:
                 <MiniRoute
                   from={fmtMoney(total.times(D(rate)), base)}
                   via={`แลกที่ ${fmtPrice(rate)}`}
-                  to={`${symbol} ${fmtNumber(preview.tx.quantity, 8)} หน่วย`}
+                  to={`${symbol} ${fmtNumber(preview.tx.quantity, 8)} ${UNIT_LABELS[known ? unitOf(known) : draft.unit]}`}
                 />
               </Card>
             )}

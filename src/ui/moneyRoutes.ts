@@ -1,8 +1,10 @@
 import type { Decimal } from '../domain/decimal'
 import type { HoldingStats } from '../domain/holdings'
 import type { InvestorSummary } from '../domain/investor'
+import type { Instrument } from '../domain/types'
 import type { Station } from './components/MoneyRoute'
 import { fmtHeadline, fmtNumber, fmtPrice, fmtRate, fmtSigned, fmtSignedPct } from './format'
+import { unitLabel } from './labels'
 
 export function toneOf(value: Decimal | null): Station['tone'] {
   if (!value) return undefined
@@ -51,7 +53,13 @@ function rateDirection(average: Decimal | null, today: Decimal | null, base: str
 
 // Spec S5: money in → average exchange rate → average cost → today's price → today's rate → value today.
 // These stations are prices and rates, not amounts, so unlike the overview route they do not add up.
-export function assetRoute(stats: HoldingStats, lastPrice: Decimal | null, todayRate: Decimal | null, base: string): Station[] {
+export function assetRoute(
+  stats: HoldingStats,
+  lastPrice: Decimal | null,
+  todayRate: Decimal | null,
+  base: string,
+  instrument?: Instrument,
+): Station[] {
   if (stats.quantity.isZero()) return []
   const foreign = stats.currency !== base
   const avgCost = stats.costQuote.div(stats.quantity)
@@ -60,7 +68,7 @@ export function assetRoute(stats: HoldingStats, lastPrice: Decimal | null, today
   return [
     { value: fmtHeadline(stats.costBase, base), label: `${home(base)}ที่ลงไป`, neutral: true },
     ...(foreign ? [{ value: fmtRate(avgRate), label: `แลกเป็น ${stats.currency} · เรทเฉลี่ย`, tone: 'fx' as const, fx: true }] : []),
-    { value: fmtPrice(avgCost), label: `ซื้อ ${fmtNumber(stats.quantity, 8)} หน่วย · ทุนเฉลี่ย` },
+    { value: fmtPrice(avgCost), label: `ซื้อ ${fmtNumber(stats.quantity, 8)} ${unitLabel(instrument)} · ทุนเฉลี่ย` },
     {
       value: fmtPrice(lastPrice),
       label: change ? `ราคาวันนี้ · ${fmtSignedPct(change)}` : 'ราคาวันนี้ · ยังไม่ได้กรอก',

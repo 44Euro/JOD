@@ -239,6 +239,92 @@ describe('TransactionsPage', () => {
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
   })
 
+  describe('the account in the rows', () => {
+    const phone = () =>
+      vi.stubGlobal('matchMedia', (query: string) => ({
+        matches: false,
+        media: query,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      }))
+
+    it('starts the second line of a phone row with the account, so a long name cannot be cut next to the symbol', async () => {
+      phone()
+      await db.transactions.add(makeTx({ id: 'b', date: '2024-01-10', fxRate: '35' }))
+      renderRoute('/transactions')
+      const list = await screen.findByRole('list', { name: 'รายการทั้งหมด' })
+      const link = within(list).getByRole('link', { name: /AAPL/ })
+      const account = within(link).getByText('Dime US ·')
+      const second = within(link).getByText('1 × 100.00 USD').parentElement!
+      expect(account.parentElement).toBe(second)
+      expect(second.firstElementChild).toBe(account)
+      expect(second).toHaveClass('col-span-2', 'flex-wrap', 'text-muted-foreground')
+      const first = within(link).getByText('AAPL').parentElement!
+      expect(first).not.toContainElement(account)
+      expect(first).not.toHaveTextContent('Dime US')
+      expect(Array.from(second.children).map((part) => part.textContent)).toEqual(['Dime US ·', '1 × 100.00 USD', '· เรท35.00กรอกเอง'])
+    })
+
+    it('keeps the account as the title of a cash row on a phone, and does not repeat it on the second line', async () => {
+      phone()
+      await db.transactions.add(deposit)
+      renderRoute('/transactions')
+      const list = await screen.findByRole('list', { name: 'รายการทั้งหมด' })
+      const title = within(list).getByText('Dime US')
+      expect(title).toHaveClass('truncate')
+      expect(within(list).queryByText('Dime US ·')).not.toBeInTheDocument()
+    })
+
+    it('keeps the account beside the symbol in the table', async () => {
+      await db.transactions.add(makeTx({ id: 'b', date: '2024-01-10', fxRate: '35' }))
+      renderRoute('/transactions')
+      const row = (await within(await screen.findByRole('table')).findByText('AAPL')).closest('tr')!
+      expect(within(row).getByText('Dime US')).toHaveClass('truncate')
+      expect(within(row).queryByText('Dime US ·')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('units of the assets', () => {
+    const ibkr = { id: 'acc-2', name: 'IBKR', broker: 'IBKR', note: '', createdAt: '2024-01-01T00:00:00.000Z' }
+    const phone = () =>
+      vi.stubGlobal('matchMedia', (query: string) => ({
+        matches: false,
+        media: query,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      }))
+
+    beforeEach(async () => {
+      await db.accounts.add(ibkr)
+      await db.instruments.bulkAdd([
+        { id: 'GOLD:96.5', market: 'GOLD', symbol: '96.5', name: 'ทอง 96.5%', assetType: 'gold', currency: 'THB', unit: 'baht_gold' },
+        { id: 'SET:PTT', market: 'SET', symbol: 'PTT', name: 'ปตท.', assetType: 'stock', currency: 'THB' },
+      ])
+      const thb = { currency: 'THB', fxRate: '1', fxSource: 'same' as const }
+      await db.transactions.bulkAdd([
+        makeTx({ ...thb, id: 'gold-buy', instrumentId: 'GOLD:96.5', quantity: '2', price: '41000', date: '2024-01-10' }),
+        makeTx({ ...thb, id: 'ptt-buy', instrumentId: 'SET:PTT', quantity: '100', price: '33', date: '2024-01-11' }),
+        makeTx({ ...thb, id: 'gold-move', instrumentId: 'GOLD:96.5', type: 'transfer', toAccountId: 'acc-2', quantity: '0.5', price: undefined, date: '2024-01-20' }),
+        makeTx({ ...thb, id: 'ptt-move', instrumentId: 'SET:PTT', type: 'transfer', toAccountId: 'acc-2', quantity: '40', price: undefined, date: '2024-01-21' }),
+      ])
+    })
+
+    it('counts the units of a transfer in the unit of the asset in the table', async () => {
+      renderRoute('/transactions')
+      const table = await screen.findByRole('table')
+      expect(await within(table).findByText('0.5 บาททองคำ → IBKR')).toBeInTheDocument()
+      expect(within(table).getByText('40 หุ้น → IBKR')).toBeInTheDocument()
+    })
+
+    it('does the same in the phone row', async () => {
+      phone()
+      renderRoute('/transactions')
+      const list = await screen.findByRole('list', { name: 'รายการทั้งหมด' })
+      expect(await within(list).findByText('0.5 บาททองคำ → IBKR')).toBeInTheDocument()
+      expect(within(list).getByText('40 หุ้น → IBKR')).toBeInTheDocument()
+    })
+  })
+
   describe('type names', () => {
     beforeEach(async () => {
       await db.transactions.bulkAdd([
@@ -255,7 +341,7 @@ describe('TransactionsPage', () => {
       for (const full of ['ดอกเบี้ย/คูปอง', 'แตกพาร์/รวมหุ้น', 'ปันผล', 'ซื้อ']) expect(within(table).getByText(full)).toBeInTheDocument()
     })
 
-    it('uses short names in the phone row so the account name keeps room, and the full name where none is short', async () => {
+    it('uses short names in the phone row, and the full name where none is short', async () => {
       vi.stubGlobal('matchMedia', (query: string) => ({
         matches: false,
         media: query,
@@ -267,13 +353,9 @@ describe('TransactionsPage', () => {
       for (const short of ['ดอกเบี้ย', 'แตกพาร์', 'ปันผล', 'ซื้อ']) expect(within(list).getByText(short)).toBeInTheDocument()
       expect(within(list).queryByText('ดอกเบี้ย/คูปอง')).not.toBeInTheDocument()
       expect(within(list).queryByText('แตกพาร์/รวมหุ้น')).not.toBeInTheDocument()
-      const buy = within(list).getByText('ซื้อ').closest('a')!
-      const account = within(buy).getByText('Dime US')
-      expect(account).toHaveClass('truncate')
-      expect(account).not.toHaveClass('min-w-[3.5rem]')
     })
 
-    it('lets the asset block shrink and clip inside the phone row, so the type label never lands on the account', async () => {
+    it('lets the asset block shrink and clip inside the phone row, so the type label never lands on the symbol', async () => {
       vi.stubGlobal('matchMedia', (query: string) => ({
         matches: false,
         media: query,
@@ -283,7 +365,7 @@ describe('TransactionsPage', () => {
       renderRoute('/transactions')
       const list = await screen.findByRole('list', { name: 'รายการทั้งหมด' })
       const buy = within(list).getByText('ซื้อ').closest('a')!
-      const block = within(buy).getByText('Dime US').parentElement!
+      const block = within(buy).getByText('AAPL').parentElement!
       expect(block).toHaveClass('min-w-0', 'overflow-hidden')
       const row = block.parentElement!
       expect(row).toHaveClass('min-w-0')
@@ -536,7 +618,7 @@ describe('TransactionsPage', () => {
       expect(within(item).getByText('+2,625.00')).toHaveClass('text-gain')
       expect(within(item).getByText('รับสินทรัพย์')).toBeInTheDocument()
       expect(within(item).queryByText('รับเป็นสินทรัพย์')).not.toBeInTheDocument()
-      expect(within(item).getByText('Dime US')).toHaveClass('truncate')
+      expect(within(item).getByText('Dime US ·')).toBeInTheDocument()
     })
   })
 

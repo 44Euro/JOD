@@ -3,6 +3,7 @@ import { D } from '../domain/decimal'
 import { instrumentStats } from '../domain/holdings'
 import type { InvestorSummary } from '../domain/investor'
 import { computeLedger } from '../domain/ledger'
+import type { Instrument } from '../domain/types'
 import { valuePosition } from '../domain/valuation'
 import { makeTx } from '../test/fixtures'
 import { assetRoute, investorRoute } from './moneyRoutes'
@@ -53,6 +54,27 @@ describe('assetRoute', () => {
       ['—', 'ราคาวันนี้ · ยังไม่ได้กรอก'],
       ['—', 'มูลค่าวันนี้'],
     ])
+  })
+})
+
+describe('assetRoute units', () => {
+  const held = (instrumentId: string, currency: string) =>
+    computeLedger([makeTx({ instrumentId, currency, quantity: '2', price: '41000', fxRate: '1', fxSource: 'same' })])
+
+  it('counts the units bought in the unit of the asset', () => {
+    const ledger = held('GOLD:96.5', 'THB')
+    const stats = instrumentStats('GOLD:96.5', ledger.positions.map((p) => valuePosition(p, '42000', '1')), ledger, '2024-10-16')!
+    const gold: Instrument = { id: 'GOLD:96.5', market: 'GOLD', symbol: '96.5', name: 'ทอง 96.5%', assetType: 'gold', currency: 'THB', unit: 'baht_gold' }
+    expect(assetRoute(stats, D(42000), D(1), 'THB', gold).map((s) => s.label)).toContain('ซื้อ 2 บาททองคำ · ทุนเฉลี่ย')
+    expect(assetRoute(stats, D(42000), D(1), 'THB', { ...gold, unit: 'gram' }).map((s) => s.label)).toContain('ซื้อ 2 กรัม · ทุนเฉลี่ย')
+    const stock: Instrument = { id: 'SET:PTT', market: 'SET', symbol: 'PTT', name: 'ปตท.', assetType: 'stock', currency: 'THB' }
+    expect(assetRoute(stats, D(42000), D(1), 'THB', stock).map((s) => s.label)).toContain('ซื้อ 2 หุ้น · ทุนเฉลี่ย')
+  })
+
+  it('says units when the asset has no record', () => {
+    const ledger = held('GOLD:96.5', 'THB')
+    const stats = instrumentStats('GOLD:96.5', ledger.positions.map((p) => valuePosition(p, '42000', '1')), ledger, '2024-10-16')!
+    expect(assetRoute(stats, D(42000), D(1), 'THB').map((s) => s.label)).toContain('ซื้อ 2 หน่วย · ทุนเฉลี่ย')
   })
 })
 

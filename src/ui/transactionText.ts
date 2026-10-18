@@ -1,8 +1,11 @@
 import { D } from '../domain/decimal'
 import { acquisitionCostQuote, cashDeltaQuote } from '../domain/ledger'
-import { symbolOf, type Transaction } from '../domain/types'
+import { symbolOf, type Instrument, type Transaction } from '../domain/types'
 import { fmtNumber, fmtPrice, fmtSigned, fmtValue, plClass } from './format'
-import { RECEIVE_KIND_LABELS, TX_TYPE_LABELS } from './labels'
+import { RECEIVE_KIND_LABELS, TX_TYPE_LABELS, unitLabel } from './labels'
+
+type Names = ReadonlyMap<string, string>
+type Instruments = ReadonlyMap<string, Instrument>
 
 // A fee paid in cash is in the net column; one paid in units is not, so the row says how many.
 export function feeNoteText(tx: Transaction): string {
@@ -23,18 +26,19 @@ export function taxNoteText(tx: Transaction): string {
   return income && D(tx.tax).greaterThan(0) ? `หัก ณ ที่จ่าย ${fmtNumber(tx.tax)}` : ''
 }
 
-export function describeAmount(tx: Transaction, accountNames?: ReadonlyMap<string, string>): string {
-  return describeBody(tx, accountNames) + feeNote(tx)
+export function describeAmount(tx: Transaction, accountNames?: Names, instruments?: Instruments): string {
+  return describeBody(tx, accountNames, instruments) + feeNote(tx)
 }
 
 // The part of the description before the fee note, for a list that writes the currency between the two.
-export function describeBody(tx: Transaction, accountNames?: ReadonlyMap<string, string>): string {
+export function describeBody(tx: Transaction, accountNames?: Names, instruments?: Instruments): string {
   const tax = taxNoteText(tx)
-  return tax ? `${describeMain(tx, accountNames)} ${tax}` : describeMain(tx, accountNames)
+  const main = describeMain(tx, accountNames, instruments)
+  return tax ? `${main} ${tax}` : main
 }
 
 // The description without the tax withheld.
-export function describeMain(tx: Transaction, accountNames?: ReadonlyMap<string, string>): string {
+export function describeMain(tx: Transaction, accountNames?: Names, instruments?: Instruments): string {
   switch (tx.type) {
     case 'buy':
     case 'sell':
@@ -47,7 +51,9 @@ export function describeMain(tx: Transaction, accountNames?: ReadonlyMap<string,
       return `${fmtNumber(tx.amount)} ${tx.currency} → ${fmtNumber(tx.toAmount)} ${tx.toCurrency ?? ''}`
     case 'transfer': {
       const to = accountNames?.get(tx.toAccountId ?? '') ?? '—'
-      return tx.instrumentId ? `${fmtNumber(tx.quantity, 8)} หน่วย → ${to}` : `${fmtNumber(tx.amount)} ${tx.currency} → ${to}`
+      return tx.instrumentId
+        ? `${fmtNumber(tx.quantity, 8)} ${unitLabel(instruments?.get(tx.instrumentId))} → ${to}`
+        : `${fmtNumber(tx.amount)} ${tx.currency} → ${to}`
     }
     case 'swap':
       return `${fmtNumber(tx.quantity, 8)} ${symbolOf(tx.instrumentId)} → ${fmtNumber(tx.toQuantity, 8)} ${symbolOf(tx.toInstrumentId)}`

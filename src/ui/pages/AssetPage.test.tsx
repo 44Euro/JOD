@@ -69,6 +69,30 @@ describe('AssetPage', () => {
     )
     renderRoute('/assets/GOLD%3A96.5', usd)
     expect(await screen.findByText('มูลค่าวันนี้ · 2 บาททองคำ × 42,000.00 THB')).toBeInTheDocument()
+    expect(screen.getByText('ซื้อ 2 บาททองคำ · ทุนเฉลี่ย')).toBeInTheDocument()
+  })
+
+  it('counts a transfer of units on the asset page in the unit of the asset', async () => {
+    await db.instruments.add({ id: 'SET:PTT', market: 'SET', symbol: 'PTT', name: 'ปตท.', assetType: 'stock', currency: 'THB', lastPrice: '35' })
+    await db.accounts.add({ id: 'acc-2', name: 'IBKR', broker: 'IBKR', note: '', createdAt: '2024-01-01T00:00:00.000Z' })
+    await db.transactions.bulkAdd([
+      makeTx({ instrumentId: 'SET:PTT', currency: 'THB', fxRate: '1', fxSource: 'same', quantity: '10', price: '33', date: '2024-02-01' }),
+      makeTx({
+        instrumentId: 'SET:PTT',
+        type: 'transfer',
+        toAccountId: 'acc-2',
+        currency: 'THB',
+        fxRate: '1',
+        fxSource: 'same',
+        quantity: '3',
+        price: undefined,
+        date: '2024-05-01',
+      }),
+    ])
+    renderRoute('/assets/SET%3APTT', usd)
+    expect(await screen.findByText('ทั้งหมด 2 รายการ')).toBeInTheDocument()
+    const rows = within(screen.getAllByRole('table').at(-1)!).getAllByRole('row')
+    expect(rows[1]).toHaveTextContent('1 พ.ค. 2024โอนระหว่างบัญชี3 หุ้น → IBKR')
   })
 
   it('draws the six-station route and the three badges under it', async () => {

@@ -309,6 +309,12 @@ describe('draft helpers', () => {
     expect(changeMarket(dr, 'US')).toMatchObject({ assetType: 'dr', unit: 'share' })
   })
 
+  it('keeps a crypto type picked by hand on a stock market when the market moves to another one', () => {
+    const picked = changeAssetType(buyDraft(), 'crypto')
+    expect(picked).toMatchObject({ market: 'US', assetType: 'crypto', unit: 'coin' })
+    expect(changeMarket(picked, 'SET')).toMatchObject({ market: 'SET', assetType: 'crypto', unit: 'coin' })
+  })
+
   it('puts the unit back to the default of a type when the type changes', () => {
     const gram = { ...changeMarket(buyDraft(), 'GOLD'), unit: 'gram' as const }
     expect(changeAssetType(gram, 'gold')).toMatchObject({ assetType: 'gold', unit: 'baht_gold' })
