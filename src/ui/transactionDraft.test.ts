@@ -4,7 +4,6 @@ import {
   applyReferenceRate,
   changeCurrency,
   changeDate,
-  changeFeePaidIn,
   changeMarket,
   changeOpeningKind,
   changeToMarket,
@@ -826,7 +825,6 @@ describe('when the way a fee is paid is offered', () => {
 
 describe('a transfer of units whose fee is taken from the units', () => {
   const account = (id: string) => ({ id, name: id, broker: '', note: '', createdAt: '2024-01-01T00:00:00.000Z' })
-  const voo: Instrument = { id: 'US:VOO', market: 'US', symbol: 'VOO', name: 'Vanguard', assetType: 'etf', currency: 'USD' }
   const transfer = (overrides: Partial<Draft> = {}): Draft => ({
     ...withTransferTarget(changeType(emptyDraft('acc-1', '2024-06-01'), 'transfer', 'THB'), [account('acc-1'), account('acc-2')]),
     symbol: 'VOO',
@@ -858,30 +856,28 @@ describe('a transfer of units whose fee is taken from the units', () => {
     expect(errors).toEqual(['เรทแลกเปลี่ยนต้องเป็นตัวเลขมากกว่า 0'])
   })
 
-  it('takes the base currency when the fee starts to come from the units, and starts the rate over', () => {
-    const next = changeFeePaidIn(transfer(), 'received', 'THB', [voo])
-    expect(next).toMatchObject({ feePaidIn: 'received', currency: 'THB', fxRate: '', fxSource: 'auto', referenceFxRate: '' })
+  it('keeps the currency and the rate of the draft while the fee comes from the units, so no other change inherits the base currency', () => {
+    const units = transfer({ feePaidIn: 'received', feeQuantity: '0.1' })
+    expect(units).toMatchObject({ currency: 'USD', fxRate: '35', fxSource: 'auto', referenceFxRate: '35' })
+    const buy = changeType({ ...units, price: '400' }, 'buy', 'THB')
+    expect(buy).toMatchObject({ type: 'buy', currency: 'USD', fxRate: '35', fxSource: 'auto' })
+    const { tx, errors } = draftToTransaction(buy, ctx)
+    expect(errors).toEqual([])
+    expect(tx).toMatchObject({ type: 'buy', currency: 'USD', fxRate: '35', fxSource: 'auto' })
   })
 
-  it('goes back to the currency of the instrument, with the rate started over, when the fee goes back to cash', () => {
-    const units = changeFeePaidIn(transfer(), 'received', 'THB', [voo])
-    const back = changeFeePaidIn(units, 'cash', 'THB', [voo])
-    expect(back).toMatchObject({ feePaidIn: 'cash', currency: 'USD', fxRate: '', fxSource: 'auto' })
-    const set = changeFeePaidIn(transfer({ market: 'SET', symbol: 'PTT', currency: 'THB' }), 'received', 'USD', [])
-    expect(set.currency).toBe('USD')
-    expect(changeFeePaidIn(set, 'cash', 'USD', []).currency).toBe('THB')
+  it('keeps them as well when the transfer turns into a transfer of cash', () => {
+    const cash = { ...transfer({ feePaidIn: 'received', feeQuantity: '0.1' }), transferKind: 'cash' as const, amount: '100' }
+    expect(movesNoMoney(cash)).toBe(false)
+    const { tx, errors } = draftToTransaction(cash, ctx)
+    expect(errors).toEqual([])
+    expect(tx).toMatchObject({ type: 'transfer', currency: 'USD', fxRate: '35', fxSource: 'auto', fees: '0' })
+    expect(tx.feePaidIn).toBeUndefined()
   })
 
-  it('leaves the currency alone for every other change of the way of paying', () => {
-    const buy = buyDraft({ market: 'CRYPTO', currency: 'USD', fxRate: '35' })
-    expect(changeFeePaidIn(buy, 'received', 'THB', [])).toEqual({ ...buy, feePaidIn: 'received' })
-    expect(changeFeePaidIn(buy, 'asset', 'THB', [])).toEqual({ ...buy, feePaidIn: 'asset' })
-    const cash = transfer()
-    expect(changeFeePaidIn(cash, 'cash', 'THB', [voo])).toEqual(cash)
+  it('is back to its own currency and rate in the transaction as soon as the fee goes back to cash', () => {
+    const { tx } = draftToTransaction(transfer({ feePaidIn: 'cash', fees: '2' }), ctx)
+    expect(tx).toMatchObject({ currency: 'USD', fxRate: '35', fees: '2' })
   })
 
-  it('keeps the base currency already chosen when the fee comes from the units', () => {
-    const inBase = transfer({ currency: 'THB', fxRate: '1', fxSource: 'same' })
-    expect(changeFeePaidIn(inBase, 'received', 'THB', [voo])).toEqual({ ...inBase, feePaidIn: 'received' })
-  })
 })

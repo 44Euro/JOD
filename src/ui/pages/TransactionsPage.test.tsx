@@ -95,6 +95,70 @@ describe('TransactionsPage', () => {
     expect(within(table).getByText('แพงกว่าตลาด 1.49%')).toBeInTheDocument()
   })
 
+  it('keeps the rate of an exchange and its badge on one line, however wide the amount column gets', async () => {
+    await db.transactions.add(
+      makeTx({
+        id: 'fx',
+        type: 'fx_convert',
+        instrumentId: undefined,
+        quantity: undefined,
+        price: undefined,
+        currency: 'THB',
+        amount: '34000',
+        toCurrency: 'USD',
+        toAmount: '1000',
+        marketRate: '33.5',
+        fxRate: '1',
+        fxSource: 'same',
+        date: '2024-01-10',
+      }),
+    )
+    renderRoute('/transactions')
+    const badge = within(await screen.findByRole('table')).getByText('แพงกว่าตลาด 1.49%')
+    const rate = badge.parentElement!
+    expect(rate).toHaveClass('inline-flex', 'whitespace-nowrap')
+    expect(rate).not.toHaveClass('flex-wrap')
+    expect(rate.closest('td')).toHaveClass('whitespace-nowrap')
+  })
+
+  it('keeps the rate of a trade and its badge on one line', async () => {
+    await db.transactions.add(makeTx({ id: 'b', date: '2024-01-10', fxRate: '35' }))
+    renderRoute('/transactions')
+    const rate = within(await screen.findByRole('table')).getByText('กรอกเอง').parentElement!
+    expect(rate).toHaveClass('inline-flex', 'whitespace-nowrap')
+  })
+
+  it('keeps the word rate together with its number on a phone, and the badge beside them', async () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: false,
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    }))
+    await db.transactions.add(
+      makeTx({
+        id: 'fx',
+        type: 'fx_convert',
+        instrumentId: undefined,
+        quantity: undefined,
+        price: undefined,
+        currency: 'THB',
+        amount: '34000',
+        toCurrency: 'USD',
+        toAmount: '1000',
+        marketRate: '33.5',
+        fxRate: '1',
+        fxSource: 'same',
+        date: '2024-01-10',
+      }),
+    )
+    renderRoute('/transactions')
+    const list = await screen.findByRole('list', { name: 'รายการทั้งหมด' })
+    const pair = within(list).getByText('· เรท').parentElement!
+    expect(pair).toHaveClass('inline-flex', 'whitespace-nowrap')
+    expect(within(pair).getByText('แพงกว่าตลาด 1.49%').parentElement).toHaveClass('whitespace-nowrap')
+  })
+
   it('shows the cost of an opening holding and no net amount for a split', async () => {
     await db.transactions.bulkAdd([
       makeTx({
@@ -205,7 +269,7 @@ describe('TransactionsPage', () => {
       expect(within(buy).getByText('ซื้อ')).toHaveClass('shrink-0')
     })
 
-    it('shortens the opening balance to ยกมา in the phone row and keeps the full name in the table', async () => {
+    it('keeps the full name of the opening balance in the table', async () => {
       await db.transactions.add(makeTx({ id: 'open', type: 'opening', date: '2024-01-08', quantity: '1', price: '100' }))
       renderRoute('/transactions')
       expect(within(await screen.findByRole('table')).getByText('ยอดยกมา')).toBeInTheDocument()

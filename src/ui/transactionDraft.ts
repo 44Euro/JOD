@@ -157,18 +157,10 @@ export function showsFeePaidIn(draft: Draft): boolean {
   return coin || feePaidInOf(draft) !== 'cash'
 }
 
-// A transfer of units whose fee comes out of the units moves no money, so it has no currency to value anything in.
+// A transfer of units whose fee comes out of the units moves no money, so it is saved in the base currency without a
+// rate. The draft keeps its own currency and rate meanwhile, so leaving this state in any way finds them as they were.
 export function movesNoMoney(draft: Draft): boolean {
   return draft.type === 'transfer' && draft.transferKind === 'asset' && feePaidInOf(draft) === 'received'
-}
-
-// Moving into or out of a transfer that moves no money swaps the currency between the base currency and the
-// instrument's own, and starts the rate over.
-export function changeFeePaidIn(draft: Draft, feePaidIn: FeePaidIn, baseCurrency: string, instruments: readonly Instrument[]): Draft {
-  const next = { ...draft, feePaidIn }
-  if (movesNoMoney(next) === movesNoMoney(draft)) return next
-  if (movesNoMoney(next)) return changeCurrency(next, baseCurrency)
-  return changeCurrency(next, findInstrument(instruments, next.market, next.symbol)?.currency ?? MARKET_CURRENCY[next.market])
 }
 
 // A transfer needs a receiving account other than the sending one, so one is picked until the user chooses.

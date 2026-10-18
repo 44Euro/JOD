@@ -281,10 +281,10 @@ export function TransactionsPage() {
                           {feeNote(tx)}
                         </span>
                         {(tx.type === 'fx_convert' || tx.fxSource !== 'same') && !feeFreeTransfer(tx) && (
-                          <>
+                          <span className="inline-flex items-center gap-x-1.5 whitespace-nowrap">
                             <span>· เรท</span>
                             <RateCell tx={tx} />
-                          </>
+                          </span>
                         )}
                       </span>
                       {issue && <span className="col-span-2 text-[12.5px] text-warning-fg">{issue}</span>}

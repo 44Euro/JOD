@@ -21,13 +21,11 @@ export function FeeTaxFields({
   instruments,
   feeHint,
   update,
-  onPaidIn,
 }: {
   draft: Draft
   instruments: readonly Instrument[]
   feeHint?: string
   update(patch: Partial<Draft>): void
-  onPaidIn(feePaidIn: FeePaidIn): void
 }) {
   const paidIn = feePaidInOf(draft)
   const showsSelect = showsFeePaidIn(draft)
@@ -40,7 +38,7 @@ export function FeeTaxFields({
       <div className={cn('grid grid-cols-2 gap-3.5', cells === 3 && 'sm:grid-cols-3')}>
         {showsSelect && (
           <Field id="tx-fee-paid-in" label="จ่ายเป็น" className={cn(paidIn !== 'cash' && 'col-span-2 sm:col-span-1')}>
-            <NativeSelect id="tx-fee-paid-in" value={paidIn} onChange={(e) => onPaidIn(e.target.value as FeePaidIn)}>
+            <NativeSelect id="tx-fee-paid-in" value={paidIn} onChange={(e) => update({ feePaidIn: e.target.value as FeePaidIn })}>
               {feePaidInOptions(draft).map((option) => (
                 <option key={option} value={option}>
                   {FEE_PAID_IN_LABELS[option]}

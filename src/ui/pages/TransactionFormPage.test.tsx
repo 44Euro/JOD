@@ -1109,7 +1109,7 @@ describe('TransactionFormPage', () => {
       })
     })
 
-    it('brings the currency of the coin and its rate back when the fee goes back to cash', async () => {
+    it('leaves the currency and the rate alone while the fee comes from the units, and shows them again when it goes back to cash', async () => {
       await db.accounts.add({ id: 'acc-2', name: 'IBKR', broker: 'IBKR', note: '', createdAt: '2024-01-01T00:00:00.000Z' })
       const user = userEvent.setup()
       renderRoute('/transactions/new', provider())
@@ -1121,7 +1121,43 @@ describe('TransactionFormPage', () => {
       expect(screen.queryByLabelText(/เรทแลกเปลี่ยน/)).not.toBeInTheDocument()
       await user.selectOptions(screen.getByLabelText('จ่ายเป็น'), 'เงินสด')
       expect(screen.getByLabelText('สกุลเงินของค่าธรรมเนียม')).toHaveValue('USD')
+      expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('35')
+    })
+
+    it('turns into a buy in the currency of the coin, with its rate, when the type changes while the fee comes from the units', async () => {
+      await db.accounts.add({ id: 'acc-2', name: 'IBKR', broker: 'IBKR', note: '', createdAt: '2024-01-01T00:00:00.000Z' })
+      const user = userEvent.setup()
+      const router = renderRoute('/transactions/new', provider())
+      await user.selectOptions(await screen.findByLabelText('ประเภทอื่นๆ'), 'โอนระหว่างบัญชี')
+      await user.selectOptions(screen.getByLabelText('ตลาด'), 'คริปโต')
+      await user.type(screen.getByLabelText('สัญลักษณ์'), 'btc')
       await waitFor(() => expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('35'))
+      await user.selectOptions(screen.getByLabelText('จ่ายเป็น'), 'หักจากที่ได้รับ')
+      expect(screen.queryByLabelText(/เรทแลกเปลี่ยน/)).not.toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'ซื้อ' }))
+      expect(screen.getByLabelText('สกุลเงิน')).toHaveValue('USD')
+      expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('35')
+      await user.type(screen.getByLabelText('จำนวนหน่วย'), '1')
+      await user.type(screen.getByLabelText('ราคาต่อหน่วย'), '58000')
+      await user.clear(screen.getByLabelText('จำนวนที่ถูกหัก (BTC)'))
+      await user.type(screen.getByLabelText('จำนวนที่ถูกหัก (BTC)'), '0.001')
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+      await waitFor(() => expect(router.state.location.pathname).toBe('/transactions'))
+      expect((await db.transactions.toArray())[0]).toMatchObject({ type: 'buy', currency: 'USD', fxRate: '35', fxSource: 'auto' })
+    })
+
+    it('keeps the currency and the rate when the transfer of coins turns into a transfer of cash', async () => {
+      await db.accounts.add({ id: 'acc-2', name: 'IBKR', broker: 'IBKR', note: '', createdAt: '2024-01-01T00:00:00.000Z' })
+      const user = userEvent.setup()
+      renderRoute('/transactions/new', provider())
+      await user.selectOptions(await screen.findByLabelText('ประเภทอื่นๆ'), 'โอนระหว่างบัญชี')
+      await user.selectOptions(screen.getByLabelText('ตลาด'), 'คริปโต')
+      await user.type(screen.getByLabelText('สัญลักษณ์'), 'btc')
+      await waitFor(() => expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('35'))
+      await user.selectOptions(screen.getByLabelText('จ่ายเป็น'), 'หักจากที่ได้รับ')
+      await user.click(screen.getByRole('button', { name: 'เงินสด' }))
+      expect(screen.getByLabelText('สกุลเงิน')).toHaveValue('USD')
+      expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('35')
     })
 
     it('opens a saved transfer of VOO with 0.1 taken from the units, saves it in baht with no rate and shows no money fields', async () => {

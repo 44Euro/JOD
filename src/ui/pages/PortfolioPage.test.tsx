@@ -351,7 +351,7 @@ describe('PortfolioPage', () => {
     const group = await screen.findByRole('group', { name: 'มุมมอง' })
     expect(group).toHaveClass('max-md:w-full', 'max-[380px]:grid', 'max-[380px]:grid-cols-2')
     for (const button of within(group).getAllByRole('button')) {
-      // A basis of zero with a 44px floor would let the text overflow its segment, so each one starts from its text.
+      // Each segment starts from its text (basis auto, no shrinking) and only grows; 44px is just the floor.
       expect(button).toHaveClass('h-11', 'min-w-11', 'shrink-0', 'max-md:grow', 'max-md:px-2')
       expect(button).not.toHaveClass('max-md:flex-1')
     }

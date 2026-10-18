@@ -38,7 +38,6 @@ import {
   applyReferenceRate,
   changeCurrency,
   changeDate,
-  changeFeePaidIn,
   changeMarket,
   changeOpeningKind,
   changeType,
@@ -426,7 +425,6 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
               instruments={data.instruments}
               feeHint={hintFor(draft.feeMarket, draft.feeSymbol)}
               update={update}
-              onPaidIn={(feePaidIn) => setDraft((d) => changeFeePaidIn(d, feePaidIn, base, data.instruments))}
             />
           )}
 
