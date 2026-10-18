@@ -348,7 +348,7 @@ describe('AssetPage', () => {
       const user = userEvent.setup()
       const router = renderRoute('/assets/US%3AFB', usd)
       await rename(user, 'meta', 'Meta Platforms')
-      expect(await screen.findByRole('alert')).toHaveTextContent('มี US:META อยู่แล้ว · รวมสินทรัพย์สองตัวยังทำไม่ได้')
+      expect(await screen.findByRole('alert')).toHaveTextContent('มี META อยู่แล้ว · รวมสินทรัพย์สองตัวยังทำไม่ได้')
       expect(router.state.location.pathname).toBe('/assets/US%3AFB')
       expect(screen.getByRole('heading', { name: 'FB' })).toBeInTheDocument()
       expect(screen.getByLabelText('สัญลักษณ์')).toHaveValue('meta')
@@ -408,13 +408,52 @@ describe('AssetPage', () => {
       expect(button.parentElement).toBe(repeat.parentElement)
       expect(button).toHaveClass('h-11', 'max-md:w-11')
       expect(repeat).toHaveClass('h-11')
-      expect(screen.getByRole('heading', { name: 'FB' }).closest('div')).toHaveClass('flex-nowrap', 'min-w-0')
-      expect(screen.getByText('Facebook')).toHaveClass('max-md:hidden')
 
       await db.transactions.clear()
       await db.transactions.add(makeTx({ instrumentId: 'US:FB', type: 'dividend', quantity: undefined, price: undefined, amount: '4', fxRate: '34' }))
       await waitFor(() => expect(screen.queryByRole('link', { name: 'ทำซ้ำรายการซื้อ' })).not.toBeInTheDocument())
       expect(screen.getByRole('button', { name: 'เปลี่ยนชื่อ/สัญลักษณ์' })).toBeInTheDocument()
+    })
+
+    it('never clips the symbol: only the name shrinks, and the actions wrap under the title when they do not fit', async () => {
+      renderRoute('/assets/US%3AFB', usd)
+      const title = await screen.findByRole('heading', { name: 'FB' })
+      expect(title).toHaveClass('shrink-0')
+      expect(title).not.toHaveClass('truncate')
+      const group = title.closest('div')!
+      expect(group).toHaveClass('flex-nowrap', 'min-w-0')
+      expect(screen.getByText('Facebook')).toHaveClass('truncate', 'max-lg:hidden')
+      expect(group.parentElement).toHaveClass('flex-wrap')
+      expect(screen.getByRole('button', { name: 'เปลี่ยนชื่อ/สัญลักษณ์' }).parentElement).toHaveClass('ml-auto')
+    })
+
+    it('turns the repeat link into a 44px icon below 360px without losing its name', async () => {
+      renderRoute('/assets/US%3AFB', usd)
+      const repeat = await screen.findByRole('link', { name: 'ทำซ้ำรายการซื้อ' })
+      expect(repeat).toHaveClass('h-11', 'max-[359px]:w-11', 'max-[359px]:px-0')
+      expect(within(repeat).getByText('ทำซ้ำรายการซื้อ')).toHaveClass('max-[359px]:sr-only')
+    })
+
+    it('opens and closes the form from the same button and shows it pressed while open', async () => {
+      const user = userEvent.setup()
+      renderRoute('/assets/US%3AFB', usd)
+      const button = await screen.findByRole('button', { name: 'เปลี่ยนชื่อ/สัญลักษณ์' })
+      expect(button).toHaveAttribute('aria-expanded', 'false')
+      expect(button).toHaveClass('aria-expanded:bg-muted')
+      await user.click(button)
+      expect(button).toHaveAttribute('aria-expanded', 'true')
+      expect(screen.getByLabelText('สัญลักษณ์')).toBeInTheDocument()
+      await user.click(button)
+      expect(button).toHaveAttribute('aria-expanded', 'false')
+      expect(screen.queryByLabelText('สัญลักษณ์')).not.toBeInTheDocument()
+    })
+
+    it('shows no line for old symbols when the list is empty', async () => {
+      await db.instruments.update('US:FB', { previousSymbols: [] })
+      renderRoute('/assets/US%3AFB', usd)
+      const header = (await screen.findByRole('heading', { name: 'FB' })).closest('div')!.parentElement!.parentElement!
+      expect(screen.queryByText(/^เดิม:/)).not.toBeInTheDocument()
+      expect(header).not.toHaveTextContent('0')
     })
 
     it('closes the form when another asset opens', async () => {
@@ -425,6 +464,9 @@ describe('AssetPage', () => {
       expect(screen.getByLabelText('สัญลักษณ์')).toBeInTheDocument()
       await act(() => router.navigate('/assets/US%3AVOO'))
       expect(await screen.findByRole('heading', { name: 'VOO' })).toBeInTheDocument()
+      expect(screen.queryByLabelText('สัญลักษณ์')).not.toBeInTheDocument()
+      await act(() => router.navigate('/assets/US%3AFB'))
+      expect(await screen.findByRole('heading', { name: 'FB' })).toBeInTheDocument()
       expect(screen.queryByLabelText('สัญลักษณ์')).not.toBeInTheDocument()
     })
   })

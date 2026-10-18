@@ -26,6 +26,7 @@ export function RenameInstrument({ instrument, onClose }: { instrument: Instrume
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
+    setError('')
     setSaving(true)
     try {
       const newId = await renameInstrument(db, instrument.id, { symbol, name, unit })

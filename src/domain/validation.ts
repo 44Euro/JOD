@@ -121,7 +121,7 @@ export function validateTransaction(tx: Transaction, today: string = todayLocal(
   return errors
 }
 
-// A space or a colon would break the id MARKET:SYMBOL, which is split on ":".
+// A colon would break the id MARKET:SYMBOL, which is split on ":"; spaces are refused to keep symbols tidy.
 export function validateSymbol(symbol: string): string[] {
   const trimmed = symbol.trim()
   if (!trimmed) return ['กรุณาระบุสัญลักษณ์']

@@ -80,27 +80,32 @@ export async function renameInstrument(
   id: string,
   change: { symbol: string; name: string; unit?: Unit },
 ): Promise<string> {
-  const errors = validateSymbol(change.symbol)
-  if (errors.length > 0) throw new Error(errors.join(', '))
   const symbol = change.symbol.trim().toUpperCase()
   return db.transaction('rw', db.instruments, db.transactions, async () => {
     const existing = await db.instruments.get(id)
     if (!existing) throw new Error('ไม่พบสินทรัพย์นี้')
+    // An instrument saved before the rules existed can still have its name or unit edited.
+    if (symbol !== existing.symbol) {
+      const errors = validateSymbol(symbol)
+      if (errors.length > 0) throw new Error(errors.join(', '))
+    }
     const newId = instrumentKey(existing.market, symbol)
-    const name = change.name.trim() || symbol
+    const submitted = change.name.trim()
+    // A name that only repeated the old symbol would read "META FB" after the change, so it follows the symbol.
+    const name = !submitted || (existing.name === existing.symbol && submitted === existing.name) ? symbol : submitted
     const unit = change.unit ?? existing.unit
     if (newId === id) {
       await db.instruments.put({ ...existing, name, ...(unit && { unit }) })
       return id
     }
-    if (await db.instruments.get(newId)) throw new Error(`มี ${newId} อยู่แล้ว · รวมสินทรัพย์สองตัวยังทำไม่ได้`)
+    if (await db.instruments.get(newId)) throw new Error(`มี ${symbol} อยู่แล้ว · รวมสินทรัพย์สองตัวยังทำไม่ได้`)
     await db.instruments.add({
       ...existing,
       id: newId,
       symbol,
       name,
       ...(unit && { unit }),
-      previousSymbols: [...(existing.previousSymbols ?? []), existing.symbol],
+      previousSymbols: [...new Set([...(existing.previousSymbols ?? []), existing.symbol])].filter((old) => old !== symbol),
     })
     await db.instruments.delete(id)
     await db.transactions.where('instrumentId').equals(id).modify({ instrumentId: newId })

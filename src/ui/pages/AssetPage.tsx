@@ -35,6 +35,8 @@ export function AssetPage() {
   const { ledger, valuations, rates, ready } = usePortfolio(data)
   const isDesktop = useIsDesktop()
   const [renamingId, setRenamingId] = useState<string>()
+  // Coming back to an asset after visiting another must not find its form still open.
+  if (renamingId !== undefined && renamingId !== id) setRenamingId(undefined)
   if (!data || !ledger || !ready) return <p className="text-muted-foreground">กำลังโหลด…</p>
 
   const base = data.settings.baseCurrency
@@ -78,19 +80,22 @@ export function AssetPage() {
     <>
       {back}
       <div>
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex min-w-0 flex-nowrap items-center gap-3">
             <MarketPill market={instrument?.market ?? marketOf(id)} assetType={instrument?.assetType} />
-            <h1 className="min-w-0 truncate text-[26px] font-semibold leading-tight md:text-[34px]">{symbol}</h1>
+            <h1 className="shrink-0 text-[26px] font-semibold leading-tight md:text-[34px]">{symbol}</h1>
             {instrument && instrument.name !== instrument.symbol && (
-              <span className="truncate text-muted-foreground max-md:hidden">{instrument.name}</span>
+              <span className="max-w-64 truncate text-muted-foreground max-lg:hidden">{instrument.name}</span>
             )}
           </div>
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="ml-auto flex shrink-0 items-center gap-2">
             {lastBuy && (
-              <Link to={`/transactions/new?from=${lastBuy.id}`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+              <Link
+                to={`/transactions/new?from=${lastBuy.id}`}
+                className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'max-[359px]:w-11 max-[359px]:px-0')}
+              >
                 <Copy aria-hidden />
-                ทำซ้ำรายการซื้อ
+                <span className="max-[359px]:sr-only">ทำซ้ำรายการซื้อ</span>
               </Link>
             )}
             {instrument && (
@@ -98,9 +103,9 @@ export function AssetPage() {
                 type="button"
                 variant="outline"
                 size="sm"
-                className="max-md:w-11 max-md:px-0"
+                className="aria-expanded:bg-muted max-md:w-11 max-md:px-0"
                 aria-expanded={renamingId === id}
-                onClick={() => setRenamingId(id)}
+                onClick={() => setRenamingId(renamingId === id ? undefined : id)}
               >
                 <Pencil aria-hidden />
                 <span className="max-md:sr-only">เปลี่ยนชื่อ/สัญลักษณ์</span>
@@ -108,7 +113,7 @@ export function AssetPage() {
             )}
           </div>
         </div>
-        {instrument?.previousSymbols && (
+        {instrument?.previousSymbols && instrument.previousSymbols.length > 0 && (
           <p className="mt-1 text-[12.5px] text-muted-foreground">เดิม: {instrument.previousSymbols.join(', ')}</p>
         )}
       </div>
