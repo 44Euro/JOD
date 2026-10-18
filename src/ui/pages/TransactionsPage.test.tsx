@@ -265,6 +265,32 @@ describe('TransactionsPage', () => {
       expect(Array.from(second.children).map((part) => part.textContent)).toEqual(['Dime US ·', '1 × 100.00 USD', '· เรท35.00กรอกเอง'])
     })
 
+    it('cuts a long symbol on a phone with an ellipsis and never squeezes the pill, the type or the net amount', async () => {
+      phone()
+      await db.transactions.add(
+        makeTx({ id: 'bond', instrumentId: 'BOND:CPALL26NA', currency: 'THB', fxRate: '1', fxSource: 'same', quantity: '10', price: '1000', date: '2024-01-10' }),
+      )
+      renderRoute('/transactions')
+      const list = await screen.findByRole('list', { name: 'รายการทั้งหมด' })
+      const link = within(list).getByRole('link', { name: /CPALL26NA/ })
+      const symbol = within(link).getByText('CPALL26NA')
+      expect(symbol).toHaveClass('min-w-0', 'truncate')
+      expect(symbol).toHaveAttribute('title', 'CPALL26NA')
+      expect(within(link).getByText('BOND')).toHaveClass('shrink-0')
+      expect(within(link).getByText('ซื้อ')).toHaveClass('shrink-0')
+      expect(within(link).getByText('−10,000.00')).toHaveClass('shrink-0')
+    })
+
+    it('leaves the symbol in the table as it was', async () => {
+      await db.transactions.add(
+        makeTx({ id: 'bond', instrumentId: 'BOND:CPALL26NA', currency: 'THB', fxRate: '1', fxSource: 'same', quantity: '10', price: '1000', date: '2024-01-10' }),
+      )
+      renderRoute('/transactions')
+      const symbol = await within(await screen.findByRole('table')).findByText('CPALL26NA')
+      expect(symbol).not.toHaveClass('truncate')
+      expect(symbol).not.toHaveAttribute('title')
+    })
+
     it('keeps the account as the title of a cash row on a phone, and does not repeat it on the second line', async () => {
       phone()
       await db.transactions.add(deposit)

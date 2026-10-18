@@ -439,7 +439,7 @@ function TransactionForm({ data, existing, copyOf }: { data: AppData; existing?:
             <ReceiveFields draft={draft} instruments={data.instruments} hint={hintFor(draft.market, draft.symbol)} setDraft={setDraft} />
           )}
 
-          <div className={cn('grid gap-3.5', isTrade || openingAsset ? 'grid-cols-[minmax(5.5rem,auto)_1fr_1fr]' : 'sm:grid-cols-2')}>
+          <div className={cn('grid gap-3.5', isTrade || openingAsset ? 'grid-cols-[minmax(5.5rem,auto)_1fr] sm:grid-cols-3' : 'sm:grid-cols-2')}>
             {draft.type !== 'split' && !movesNoMoney(draft) && (
               <Field id="tx-currency" label={currencyLabel(draft)}>
                 <NativeSelect id="tx-currency" value={draft.currency} onChange={(e) => setDraft((d) => changeCurrency(d, e.target.value))}>
@@ -454,7 +454,7 @@ function TransactionForm({ data, existing, copyOf }: { data: AppData; existing?:
                 <Field id="tx-quantity" label="จำนวนหน่วย">
                   <Input id="tx-quantity" inputMode="decimal" value={draft.quantity} onChange={(e) => update({ quantity: e.target.value })} />
                 </Field>
-                <Field id="tx-price" label={openingAsset ? 'ต้นทุนเฉลี่ยต่อหน่วย' : 'ราคาต่อหน่วย'}>
+                <Field id="tx-price" label={openingAsset ? 'ต้นทุนเฉลี่ยต่อหน่วย' : 'ราคาต่อหน่วย'} className="col-span-2 sm:col-span-1">
                   <Input id="tx-price" inputMode="decimal" value={draft.price} onChange={(e) => update({ price: e.target.value })} />
                 </Field>
               </>

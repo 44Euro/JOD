@@ -26,7 +26,8 @@ import { MARKET_LABELS, TX_TYPE_LABELS, TX_TYPE_SHORT_LABELS, marketOf } from '.
 import { describeBody, describeMain, feeNote, feeNoteText, netOf, taxNoteText } from '../transactionText'
 import { useIsDesktop } from '../useIsDesktop'
 
-// The phone row has no room for the account beside the symbol, so it puts the account on its second line instead.
+// The phone row has no room for the account beside the symbol, so it puts the account on its second line instead, and
+// a symbol that is still too long is cut with an ellipsis.
 function AssetLabel({
   tx,
   instrument,
@@ -46,10 +47,16 @@ function AssetLabel({
       </span>
     )
   }
+  const symbol = instrument?.symbol ?? tx.instrumentId.split(':')[1]
   return (
     <span className="flex min-w-0 items-center gap-2.5 overflow-hidden">
       <MarketPill market={instrument?.market ?? marketOf(tx.instrumentId)} assetType={instrument?.assetType} />
-      <b className="font-display text-base font-semibold">{instrument?.symbol ?? tx.instrumentId.split(':')[1]}</b>
+      <b
+        className={cn('font-display text-base font-semibold', !withAccount && 'min-w-0 truncate')}
+        title={withAccount ? undefined : symbol}
+      >
+        {symbol}
+      </b>
       {withAccount && <span className="truncate text-[12.5px] text-muted-foreground">{accountName}</span>}
     </span>
   )
@@ -290,7 +297,7 @@ export function TransactionsPage() {
                         {assetOf(tx, false)}
                         <span className="shrink-0 text-[13px] text-muted-foreground">{TX_TYPE_SHORT_LABELS[tx.type] ?? TX_TYPE_LABELS[tx.type]}</span>
                       </span>
-                      <span className={cn('font-display font-semibold', net.className)}>{net.text}</span>
+                      <span className={cn('shrink-0 font-display font-semibold', net.className)}>{net.text}</span>
                       <span className="col-span-2 flex flex-wrap items-center gap-x-1.5 text-[12.5px] text-muted-foreground">
                         {tx.instrumentId && <span>{accountNames.get(tx.accountId) ?? '—'} ·</span>}
                         <span>

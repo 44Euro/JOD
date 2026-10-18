@@ -172,13 +172,16 @@ describe('TransactionFormPage', () => {
       expect(grid).not.toHaveClass('md:grid-cols-[minmax(0,1fr)_340px]')
     })
 
-    it('gives the currency of a trade room for USDT at 320px and shares the rest between quantity and price', async () => {
+    it('gives the currency of a trade room for USDT on a phone and puts the price under it, then keeps equal thirds from sm', async () => {
       renderRoute('/transactions/new', fakeFxProvider({ 'USD|THB': '35' }).provider)
       const row = (await screen.findByLabelText('สกุลเงิน')).closest('[class*="grid-cols"]')!
-      expect(row).toHaveClass('grid', 'grid-cols-[minmax(5.5rem,auto)_1fr_1fr]')
+      expect(row).toHaveClass('grid', 'grid-cols-[minmax(5.5rem,auto)_1fr]', 'sm:grid-cols-3')
       expect(row).not.toHaveClass('grid-cols-3')
       expect(row).toContainElement(screen.getByLabelText('จำนวนหน่วย'))
       expect(row).toContainElement(screen.getByLabelText('ราคาต่อหน่วย'))
+      expect(screen.getByLabelText('ราคาต่อหน่วย').parentElement).toHaveClass('col-span-2', 'sm:col-span-1')
+      expect(screen.getByLabelText('จำนวนหน่วย').parentElement).not.toHaveClass('col-span-2')
+      expect(screen.getByLabelText('สกุลเงิน').parentElement).not.toHaveClass('col-span-2')
     })
 
     it('lets the time wrap to its own row while the card is narrow, between 768 and 880px', async () => {
