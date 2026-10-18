@@ -2,6 +2,10 @@ import { D, type Decimal } from '../domain/decimal'
 import type { FeeTemplate } from '../domain/types'
 import { fmtNumber } from './format'
 
+// A plus and VAT with its rate are joined with a no-break space, so a wrapped line never ends on a plus or splits VAT
+// from its rate.
+const NO_BREAK = '\u00a0'
+
 // The minimum comes apart from the rest so a screen can keep it on one line when the summary wraps.
 export function feeTemplateParts(template: FeeTemplate): { body: string; minimum: string } {
   const pct = D(template.commissionPct)
@@ -12,13 +16,13 @@ export function feeTemplateParts(template: FeeTemplate): { body: string; minimum
   let perOrderSaid = false
   let commission = pct.isZero() ? `ค่าคอม ${number(perOrder)}` : `${number(pct)}%`
   if (!perOrder.isZero() && !pct.isZero()) {
-    commission += ` + ${number(perOrder)} ต่อคำสั่ง`
+    commission += ` +${NO_BREAK}${number(perOrder)} ต่อคำสั่ง`
     perOrderSaid = true
   } else if (!perOrder.isZero() && !minimum.isZero()) {
     commission += ' ต่อคำสั่ง'
     perOrderSaid = true
   }
-  const vatPart = vat.isZero() ? '' : ` + VAT ${number(vat)}%`
+  const vatPart = vat.isZero() ? '' : ` +${NO_BREAK}VAT${NO_BREAK}${number(vat)}%`
   const closing = minimum.isZero() && !perOrderSaid ? ' ต่อคำสั่ง' : ''
   const unit = template.currency === 'THB' ? 'บาท' : template.currency
   return {

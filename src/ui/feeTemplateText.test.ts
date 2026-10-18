@@ -8,7 +8,7 @@ const dime: FeeTemplate = { currency: 'USD', commissionPct: '0', minimum: '0', v
 
 describe('feeTemplateSummary', () => {
   it('sums a formula up the way the settings mock does', () => {
-    expect(feeTemplateSummary(streaming)).toBe('THB · 0.157% + VAT 7% · ขั้นต่ำ 50 บาท')
+    expect(feeTemplateSummary(streaming)).toBe('THB · 0.157% +\u00a0VAT\u00a07% · ขั้นต่ำ 50 บาท')
     expect(feeTemplateSummary(dime)).toBe('USD · ค่าคอม 0 ต่อคำสั่ง')
     expect(feeTemplateSummary(bitkub)).toBe('THB · 0.25% ต่อคำสั่ง')
     expect(feeTemplateSummary({ ...dime, perOrder: '0.99' })).toBe('USD · ค่าคอม 0.99 ต่อคำสั่ง')
@@ -16,10 +16,10 @@ describe('feeTemplateSummary', () => {
 
   it('says what a fixed fee per order is when there is a percentage as well', () => {
     expect(feeTemplateSummary({ currency: 'THB', commissionPct: '0.25', minimum: '10', vatPct: '7', perOrder: '5' })).toBe(
-      'THB · 0.25% + 5 ต่อคำสั่ง + VAT 7% · ขั้นต่ำ 10 บาท',
+      'THB · 0.25% +\u00a05 ต่อคำสั่ง +\u00a0VAT\u00a07% · ขั้นต่ำ 10 บาท',
     )
     expect(feeTemplateSummary({ currency: 'THB', commissionPct: '0.25', minimum: '0', vatPct: '0', perOrder: '5' })).toBe(
-      'THB · 0.25% + 5 ต่อคำสั่ง',
+      'THB · 0.25% +\u00a05 ต่อคำสั่ง',
     )
   })
 
@@ -49,9 +49,19 @@ describe('feeTemplateSummary', () => {
   })
 })
 
+describe('where a summary may break', () => {
+  it('keeps VAT with its rate, and a plus with what follows it, so no line ends on a plus', () => {
+    const text = feeTemplateSummary({ currency: 'THB', commissionPct: '0.25', minimum: '10', vatPct: '7', perOrder: '5' })
+    expect(text).toContain('+\u00a05')
+    expect(text).toContain('+\u00a0VAT\u00a07%')
+    expect(text.replace(/\u00a0/g, ' ')).toBe('THB · 0.25% + 5 ต่อคำสั่ง + VAT 7% · ขั้นต่ำ 10 บาท')
+    expect(text).not.toMatch(/\+ /)
+  })
+})
+
 describe('feeTemplateParts', () => {
   it('splits the minimum off so it can be kept on one line', () => {
-    expect(feeTemplateParts(streaming)).toEqual({ body: 'THB · 0.157% + VAT 7%', minimum: '· ขั้นต่ำ 50 บาท' })
+    expect(feeTemplateParts(streaming)).toEqual({ body: 'THB · 0.157% +\u00a0VAT\u00a07%', minimum: '· ขั้นต่ำ 50 บาท' })
     expect(feeTemplateParts(bitkub)).toEqual({ body: 'THB · 0.25% ต่อคำสั่ง', minimum: '' })
     expect(feeTemplateParts({ ...dime, commissionPct: '0.1', minimum: '1.5' })).toEqual({ body: 'USD · 0.1%', minimum: '· ขั้นต่ำ 1.5 USD' })
   })

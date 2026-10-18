@@ -58,6 +58,7 @@ describe('SettingsPage', () => {
       const summary = await screen.findByText(/^THB · 0\.157% \+ VAT 7%/)
       expect(summary).toHaveTextContent('THB · 0.157% + VAT 7% · ขั้นต่ำ 50 บาท')
       expect(within(summary).getByText('· ขั้นต่ำ 50 บาท')).toHaveClass('whitespace-nowrap')
+      expect(summary.textContent).toContain('+\u00a0VAT\u00a07%')
       expect(screen.queryByRole('form', { name: 'แก้ไข Streaming SET' })).not.toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'แก้ไข Streaming SET' })).toBeInTheDocument()
       expect((await db.accounts.get('acc-2'))?.feeTemplate).toEqual({

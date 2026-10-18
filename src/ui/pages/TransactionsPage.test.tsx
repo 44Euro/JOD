@@ -190,16 +190,37 @@ describe('TransactionsPage', () => {
     expect(split.cells[5]).toHaveTextContent(/^—$/)
   })
 
-  it('shows the tax withheld from a dividend next to its amount', async () => {
+  it('puts the tax withheld from a dividend or interest on a line of its own under the amount', async () => {
     await db.transactions.bulkAdd([
       makeTx({ id: 'div', type: 'dividend', quantity: undefined, price: undefined, amount: '1200', tax: '120', date: '2024-03-01' }),
+      makeTx({ id: 'int', type: 'interest', instrumentId: undefined, quantity: undefined, price: undefined, amount: '500', tax: '50', date: '2024-02-15' }),
       makeTx({ id: 'div-free', type: 'dividend', quantity: undefined, price: undefined, amount: '300', tax: '0', date: '2024-02-01' }),
     ])
     renderRoute('/transactions')
     const table = await screen.findByRole('table')
-    expect(await within(table).findByText(/^1,200 หัก ณ ที่จ่าย 120/)).toBeInTheDocument()
-    expect(within(table).queryByText(/^300 หัก/)).not.toBeInTheDocument()
-    expect(within(table).getByText(/^300/)).toBeInTheDocument()
+    const note = await within(table).findByText('หัก ณ ที่จ่าย 120')
+    expect(note).toHaveClass('block', 'text-[12.5px]', 'text-muted-foreground')
+    expect(note.closest('td')).toHaveTextContent(/^1,200 USDหัก ณ ที่จ่าย 120$/)
+    const interest = within(table).getByText('หัก ณ ที่จ่าย 50')
+    expect(interest).toHaveClass('block', 'text-[12.5px]', 'text-muted-foreground')
+    expect(interest.closest('td')).toHaveTextContent(/^500 USDหัก ณ ที่จ่าย 50$/)
+    expect(within(table).getAllByText(/หัก ณ ที่จ่าย/)).toHaveLength(2)
+    expect(within(table).getByText('300').closest('td')).toHaveTextContent(/^300 USD$/)
+  })
+
+  it('keeps the tax withheld inline in the phone row', async () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: false,
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    }))
+    await db.transactions.add(
+      makeTx({ id: 'div', type: 'dividend', quantity: undefined, price: undefined, amount: '1200', tax: '120', date: '2024-03-01' }),
+    )
+    renderRoute('/transactions')
+    const list = await screen.findByRole('list', { name: 'รายการทั้งหมด' })
+    expect(within(list).getByText('1,200 หัก ณ ที่จ่าย 120 USD')).toBeInTheDocument()
   })
 
   it('shows two-line rows on a phone', async () => {
@@ -483,8 +504,22 @@ describe('TransactionsPage', () => {
       renderRoute('/transactions')
       const table = await screen.findByRole('table')
       const row = (await within(table).findByText('SOL', { selector: 'b' })).closest('tr')!
-      expect(row.cells[3]).toHaveTextContent(/^0\.5 × 150\.00 · ปันผลเป็นหุ้น หัก ณ ที่จ่าย 1 USD$/)
+      expect(row.cells[3]).toHaveTextContent(/^0\.5 × 150\.00 · ปันผลเป็นหุ้น USDหัก ณ ที่จ่าย 1$/)
+      expect(within(row.cells[3]).getByText('หัก ณ ที่จ่าย 1')).toHaveClass('block', 'text-[12.5px]', 'text-muted-foreground')
       expect(row.cells[5]).toHaveTextContent(/^\+2,572\.50$/)
+    })
+
+    it('keeps the tax withheld inline on a phone', async () => {
+      vi.stubGlobal('matchMedia', (query: string) => ({
+        matches: false,
+        media: query,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      }))
+      await db.transactions.add(received({ receiveKind: 'stock_dividend', tax: '1' }))
+      renderRoute('/transactions')
+      const list = await screen.findByRole('list', { name: 'รายการทั้งหมด' })
+      expect(within(list).getByText('0.5 × 150.00 · ปันผลเป็นหุ้น หัก ณ ที่จ่าย 1 USD')).toBeInTheDocument()
     })
 
     it('reads the same on a phone', async () => {

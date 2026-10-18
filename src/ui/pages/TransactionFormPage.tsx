@@ -311,7 +311,7 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
   return (
     <form onSubmit={handleSubmit} noValidate className="grid gap-3.5 md:gap-[22px]">
       <PageHeader title={existing ? 'แก้ไขรายการ' : 'บันทึกรายการ'} />
-      <div className="grid items-start gap-3.5 md:grid-cols-[minmax(0,1fr)_340px] md:gap-[22px]">
+      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-3.5 md:gap-[22px] xl:grid-cols-[minmax(0,1fr)_340px]">
         <Card className="grid gap-[18px]">
           <TypePicker type={draft.type} onChange={(type) => setDraft((d) => withTransferTarget(changeType(d, type, base), data.accounts))} />
 

@@ -17,12 +17,24 @@ export function feeNote(tx: Transaction): string {
   return text && ` · ${text}`
 }
 
+// Tax withheld from income, for a list that puts it on a line of its own.
+export function taxNoteText(tx: Transaction): string {
+  const income = tx.type === 'dividend' || tx.type === 'interest' || tx.type === 'receive_asset'
+  return income && D(tx.tax).greaterThan(0) ? `หัก ณ ที่จ่าย ${fmtNumber(tx.tax)}` : ''
+}
+
 export function describeAmount(tx: Transaction, accountNames?: ReadonlyMap<string, string>): string {
   return describeBody(tx, accountNames) + feeNote(tx)
 }
 
 // The part of the description before the fee note, for a list that writes the currency between the two.
 export function describeBody(tx: Transaction, accountNames?: ReadonlyMap<string, string>): string {
+  const tax = taxNoteText(tx)
+  return tax ? `${describeMain(tx, accountNames)} ${tax}` : describeMain(tx, accountNames)
+}
+
+// The description without the tax withheld.
+export function describeMain(tx: Transaction, accountNames?: ReadonlyMap<string, string>): string {
   switch (tx.type) {
     case 'buy':
     case 'sell':
@@ -39,13 +51,8 @@ export function describeBody(tx: Transaction, accountNames?: ReadonlyMap<string,
     }
     case 'swap':
       return `${fmtNumber(tx.quantity, 8)} ${symbolOf(tx.instrumentId)} → ${fmtNumber(tx.toQuantity, 8)} ${symbolOf(tx.toInstrumentId)}`
-    case 'receive_asset': {
-      const received = `${fmtNumber(tx.quantity, 8)} × ${fmtPrice(tx.price)} · ${RECEIVE_KIND_LABELS[tx.receiveKind ?? 'other']}`
-      return D(tx.tax).greaterThan(0) ? `${received} หัก ณ ที่จ่าย ${fmtNumber(tx.tax)}` : received
-    }
-    case 'dividend':
-    case 'interest':
-      return D(tx.tax).greaterThan(0) ? `${fmtNumber(tx.amount)} หัก ณ ที่จ่าย ${fmtNumber(tx.tax)}` : fmtNumber(tx.amount)
+    case 'receive_asset':
+      return `${fmtNumber(tx.quantity, 8)} × ${fmtPrice(tx.price)} · ${RECEIVE_KIND_LABELS[tx.receiveKind ?? 'other']}`
     default:
       return fmtNumber(tx.amount)
   }

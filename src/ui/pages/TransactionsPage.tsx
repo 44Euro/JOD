@@ -23,7 +23,7 @@ import { downloadText } from '../download'
 import { fmtDate, fmtDay } from '../format'
 import { useAppData, useLedger } from '../hooks'
 import { MARKET_LABELS, TX_TYPE_LABELS, TX_TYPE_SHORT_LABELS, marketOf } from '../labels'
-import { describeBody, feeNote, feeNoteText, netOf } from '../transactionText'
+import { describeBody, describeMain, feeNote, feeNoteText, netOf, taxNoteText } from '../transactionText'
 import { useIsDesktop } from '../useIsDesktop'
 
 function AssetLabel({ tx, instrument, accountName }: { tx: Transaction; instrument?: Instrument; accountName: string }) {
@@ -192,7 +192,7 @@ export function TransactionsPage() {
               {rows.map((tx, index) => {
                 const issue = issues.get(tx.id)
                 const net = netOf(tx, issue !== undefined)
-                const note = feeNoteText(tx)
+                const notes = [taxNoteText(tx), feeNoteText(tx)].filter(Boolean)
                 const newDay = index === 0 || rows[index - 1].date !== tx.date
                 return (
                   <Fragment key={tx.id}>
@@ -218,9 +218,13 @@ export function TransactionsPage() {
                         </span>
                       </Td>
                       <Td>
-                        {describeBody(tx, accountNames)}
+                        {describeMain(tx, accountNames)}
                         {!namesCurrency(tx) && <span className="text-muted-foreground"> {tx.currency}</span>}
-                        {note && <span className="block text-[12.5px] text-muted-foreground">{note}</span>}
+                        {notes.map((note) => (
+                          <span key={note} className="block text-[12.5px] text-muted-foreground">
+                            {note}
+                          </span>
+                        ))}
                       </Td>
                       <Td>{feeFreeTransfer(tx) ? <span className="text-muted-foreground">—</span> : <RateCell tx={tx} />}</Td>
                       <Td className={cn('text-right font-display font-semibold', net.className)}>{net.text}</Td>

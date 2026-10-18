@@ -36,6 +36,54 @@ describe('TransactionFormPage', () => {
     expect(await db.instruments.get('US:AAPL')).toMatchObject({ symbol: 'AAPL', currency: 'USD' })
   })
 
+  describe('layout by width', () => {
+    const phone = () =>
+      vi.stubGlobal('matchMedia', (query: string) => ({
+        matches: false,
+        media: query,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      }))
+    const fillBuy = async (user: ReturnType<typeof userEvent.setup>) => {
+      await user.type(await screen.findByLabelText('สัญลักษณ์'), 'AAPL')
+      await user.type(screen.getByLabelText('จำนวนหน่วย'), '2')
+      await user.type(screen.getByLabelText('ราคาต่อหน่วย'), '100')
+      await waitFor(() => expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('35'))
+    }
+
+    it('splits into two columns only from xl, because the sidebar takes 240px from md', async () => {
+      renderRoute('/transactions/new', fakeFxProvider({ 'USD|THB': '35' }).provider)
+      const grid = (await screen.findByRole('button', { name: 'บันทึก' })).closest('[class*="xl:grid-cols"]')!
+      expect(grid).toHaveClass('grid-cols-[minmax(0,1fr)]', 'xl:grid-cols-[minmax(0,1fr)_340px]')
+      expect(grid).not.toHaveClass('md:grid-cols-[minmax(0,1fr)_340px]')
+    })
+
+    it.each([
+      ['wide', () => {}],
+      ['phone', phone],
+    ])('shows the total once on a %s screen', async (_name, setUp) => {
+      setUp()
+      const user = userEvent.setup()
+      renderRoute('/transactions/new', fakeFxProvider({ 'USD|THB': '35' }).provider)
+      await fillBuy(user)
+      expect(screen.getAllByText('รวม')).toHaveLength(1)
+      expect(screen.getByText('200.00 USD')).toBeInTheDocument()
+    })
+
+    it('keeps the side panels, stacked under the form, from md', async () => {
+      const user = userEvent.setup()
+      renderRoute('/transactions/new', fakeFxProvider({ 'USD|THB': '35' }).provider)
+      await fillBuy(user)
+      const form = screen.getByRole('button', { name: 'บันทึก' }).closest('form')!
+      const grid = form.querySelector('[class*="xl:grid-cols"]')!
+      const [card, side] = Array.from(grid.children)
+      expect(card).toContainElement(screen.getByRole('button', { name: 'บันทึก' }))
+      expect(side).toContainElement(screen.getByText('รวม'))
+      expect(side).toContainElement(screen.getByText('หลังบันทึก'))
+      expect(card).not.toContainElement(screen.getByText('รวม'))
+    })
+  })
+
   it('lets the user type a rate when no automatic rate exists', async () => {
     const user = userEvent.setup()
     renderRoute('/transactions/new', fakeFxProvider({}).provider)
