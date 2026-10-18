@@ -1,8 +1,8 @@
 import { isIsoDate, todayLocal } from './dates'
 import { D, isDecimalString } from './decimal'
-import { TX_TYPES, type Thesis, type Transaction } from './types'
+import { RECEIVE_KINDS, TX_TYPES, type Thesis, type Transaction } from './types'
 
-const INSTRUMENT_REQUIRED: readonly string[] = ['buy', 'sell', 'dividend', 'split']
+const INSTRUMENT_REQUIRED: readonly string[] = ['buy', 'sell', 'dividend', 'split', 'receive_asset']
 
 export function validateTransaction(tx: Transaction, today: string = todayLocal()): string[] {
   const errors: string[] = []
@@ -54,6 +54,11 @@ export function validateTransaction(tx: Transaction, today: string = todayLocal(
       positive(tx.quantity, 'จำนวนที่แลกออก')
       positive(tx.toQuantity, 'จำนวนที่ได้รับ')
       positive(tx.amount, 'มูลค่ารวม')
+      break
+    case 'receive_asset':
+      if (!tx.receiveKind || !RECEIVE_KINDS.includes(tx.receiveKind)) errors.push('ประเภทการรับไม่ถูกต้อง')
+      positive(tx.quantity, 'จำนวนที่ได้รับ')
+      nonNegative(tx.price, 'มูลค่าต่อหน่วย')
       break
     case 'fx_convert':
       positive(tx.amount, 'จำนวนเงินต้นทาง')

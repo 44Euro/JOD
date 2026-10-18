@@ -96,19 +96,19 @@ describe('transactionsToCsv', () => {
     expect(csv).toContain(',-100,-3500,')
   })
 
-  it('names the receiving account of a transfer just before the note', () => {
+  it('names the receiving account of a transfer just before the received kind and the note', () => {
     const other = { ...account, id: 'acc-2', name: 'IBKR' }
     const transfer = makeTx({ type: 'transfer', accountId: 'acc-1', toAccountId: 'acc-2', quantity: '4', price: undefined, note: 'move' })
     const [header, row, plain] = transactionsToCsv([transfer, makeTx({ date: '2024-02-01' })], [account, other], 'THB')
       .replace('\uFEFF', '')
       .trimEnd()
       .split('\r\n')
-    expect(header.endsWith(',tax_year,to_account,to_instrument,to_quantity,note')).toBe(true)
-    expect(row.endsWith(',,IBKR,,,move')).toBe(true)
-    expect(plain.endsWith(',,,,,')).toBe(true)
+    expect(header.endsWith(',tax_year,to_account,to_instrument,to_quantity,receive_kind,note')).toBe(true)
+    expect(row.endsWith(',,IBKR,,,,move')).toBe(true)
+    expect(plain.endsWith(',,,,,,')).toBe(true)
   })
 
-  it('names the coin received in a swap and how much of it just before the note', () => {
+  it('names the coin received in a swap and how much of it just before the received kind and the note', () => {
     const swap = makeTx({
       type: 'swap',
       instrumentId: 'CRYPTO:BTC',
@@ -121,6 +121,19 @@ describe('transactionsToCsv', () => {
       note: 'rotate',
     })
     const [, row] = transactionsToCsv([swap], [account], 'THB').replace('\uFEFF', '').trimEnd().split('\r\n')
-    expect(row).toBe('2024-01-15,,swap,Dime US,CRYPTO:BTC,0.01,,660,USD,1.5,0,35,manual,-1.5,-52.5,,,,CRYPTO:ETH,0.25,rotate')
+    expect(row).toBe('2024-01-15,,swap,Dime US,CRYPTO:BTC,0.01,,660,USD,1.5,0,35,manual,-1.5,-52.5,,,,CRYPTO:ETH,0.25,,rotate')
+  })
+
+  it('writes the kind of an asset received just before the note', () => {
+    const received = makeTx({
+      type: 'receive_asset',
+      receiveKind: 'staking',
+      instrumentId: 'CRYPTO:SOL',
+      quantity: '0.5',
+      price: '150',
+      note: 'reward',
+    })
+    const [, row] = transactionsToCsv([received], [account], 'THB').replace('\uFEFF', '').trimEnd().split('\r\n')
+    expect(row).toBe('2024-01-15,,receive_asset,Dime US,CRYPTO:SOL,0.5,150,,USD,0,0,35,manual,0,0,,,,,,staking,reward')
   })
 })

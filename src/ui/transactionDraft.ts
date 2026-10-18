@@ -9,6 +9,7 @@ import {
   type FxSource,
   type Instrument,
   type Market,
+  type ReceiveKind,
   type Transaction,
   type TxType,
 } from '../domain/types'
@@ -34,6 +35,7 @@ export interface Draft {
   openingKind: OpeningKind
   toAccountId: string
   transferKind: OpeningKind
+  receiveKind: ReceiveKind
   currency: string
   quantity: string
   price: string
@@ -62,7 +64,7 @@ export interface DraftContext {
   today: string
 }
 
-const INSTRUMENT_TYPES: readonly TxType[] = ['buy', 'sell', 'dividend', 'interest', 'split', 'swap']
+const INSTRUMENT_TYPES: readonly TxType[] = ['buy', 'sell', 'dividend', 'interest', 'split', 'swap', 'receive_asset']
 
 export function emptyDraft(accountId: string, today: string): Draft {
   return {
@@ -82,6 +84,7 @@ export function emptyDraft(accountId: string, today: string): Draft {
     openingKind: 'asset',
     toAccountId: '',
     transferKind: 'asset',
+    receiveKind: 'stock_dividend',
     currency: MARKET_CURRENCY.US,
     quantity: '',
     price: '',
@@ -140,6 +143,11 @@ function restartRate(next: Draft): Draft {
     : { ...next, fxRate: next.referenceFxRate, fxSource: 'auto' }
 }
 
+// Coins are mostly received as staking rewards and shares as stock dividends.
+function defaultReceiveKind(market: Market): ReceiveKind {
+  return market === 'CRYPTO' ? 'staking' : 'stock_dividend'
+}
+
 export function changeType(draft: Draft, type: TxType, baseCurrency: string): Draft {
   if (type === 'fx_convert') {
     if (draft.type === type) return draft
@@ -157,6 +165,7 @@ export function changeType(draft: Draft, type: TxType, baseCurrency: string): Dr
   const next =
     draft.type === 'fx_convert' ? changeCurrency({ ...draft, type }, MARKET_CURRENCY[draft.market]) : { ...draft, type }
   const changed = isOpeningAsset(next) !== isOpeningAsset(draft) ? restartRate(next) : next
+  if (type === 'receive_asset' && draft.type !== type) return { ...changed, receiveKind: defaultReceiveKind(changed.market) }
   if (type !== 'swap') return changed
   // A swap is almost always between coins, so it starts on crypto instead of the market of the last entry.
   const onCrypto =
@@ -181,10 +190,14 @@ function defaultAssetType(market: Market): AssetType {
 export function changeMarket(draft: Draft, market: Market, instruments: readonly Instrument[] = []): Draft {
   const lookedUp = findInstrument(instruments, draft.market, draft.symbol) !== undefined
   const assetType = market === 'CRYPTO' ? 'crypto' : draft.assetType === 'crypto' ? 'stock' : draft.assetType
+  // The kind only follows the market while it is still the one the old market starts with, so a kind the user
+  // picked is kept.
+  const receiveKind =
+    draft.type === 'receive_asset' && draft.receiveKind === defaultReceiveKind(draft.market) ? defaultReceiveKind(market) : draft.receiveKind
   const switched = changeCurrency(
     lookedUp
-      ? { ...draft, market, instrumentName: '', assetType: defaultAssetType(market) }
-      : { ...draft, market, assetType },
+      ? { ...draft, market, receiveKind, instrumentName: '', assetType: defaultAssetType(market) }
+      : { ...draft, market, receiveKind, assetType },
     MARKET_CURRENCY[market],
   )
   return draft.symbol ? pickSymbol(switched, draft.symbol, instruments) : switched
@@ -293,6 +306,7 @@ export function draftFromTransaction(tx: Transaction, instruments: readonly Inst
     openingKind: tx.type === 'opening' && !tx.instrumentId ? 'cash' : 'asset',
     toAccountId: tx.toAccountId ?? '',
     transferKind: tx.type === 'transfer' && !tx.instrumentId ? 'cash' : 'asset',
+    receiveKind: tx.receiveKind ?? 'stock_dividend',
     currency: tx.currency,
     quantity: tx.quantity ?? '',
     price: tx.price ?? '',
@@ -321,8 +335,9 @@ export function draftToTransaction(draft: Draft, ctx: DraftContext): { tx: Trans
   const holding = draft.type === 'buy' || draft.type === 'sell' || isOpeningAsset(draft)
   const isTransfer = draft.type === 'transfer'
   const isSwap = draft.type === 'swap'
+  const isReceive = draft.type === 'receive_asset'
   const sendsUnits = isTransfer && draft.transferKind === 'asset'
-  const usesAmount = !holding && !sendsUnits && draft.type !== 'split'
+  const usesAmount = !holding && !sendsUnits && !isReceive && draft.type !== 'split'
   const isConvert = draft.type === 'fx_convert'
   const remit = draft.type === 'withdraw' && draft.remitToThailand
   // A split moves no money, so it never needs an exchange rate.
@@ -337,14 +352,16 @@ export function draftToTransaction(draft: Draft, ctx: DraftContext): { tx: Trans
     time: draft.time || undefined,
     instrumentId: showsInstrument(draft) && draft.symbol.trim() ? instrumentKey(draft.market, draft.symbol) : undefined,
     toInstrumentId: isSwap && draft.toSymbol.trim() ? instrumentKey(draft.toMarket, draft.toSymbol) : undefined,
-    quantity: holding || sendsUnits || isSwap ? num(draft.quantity) : undefined,
+    quantity: holding || sendsUnits || isSwap || isReceive ? num(draft.quantity) : undefined,
     toQuantity: isSwap ? num(draft.toQuantity) : undefined,
-    price: holding ? num(draft.price) : undefined,
+    price: holding || isReceive ? num(draft.price) : undefined,
     amount: usesAmount ? num(draft.amount) : undefined,
     currency: draft.currency,
-    fees: num(draft.fees) ?? '0',
+    // An asset received has no fee field, so a fee typed under the type before it must not come along.
+    fees: isReceive ? '0' : (num(draft.fees) ?? '0'),
     tax: num(draft.tax) ?? '0',
     splitRatio: draft.type === 'split' ? num(draft.splitRatio) : undefined,
+    receiveKind: isReceive ? draft.receiveKind : undefined,
     toCurrency: isConvert ? draft.toCurrency : undefined,
     toAmount: isConvert ? num(draft.toAmount) : undefined,
     marketRate: isConvert ? draft.marketRate || undefined : undefined,
@@ -370,6 +387,7 @@ export function draftToTransaction(draft: Draft, ctx: DraftContext): { tx: Trans
 export function totalForDisplay(tx: Transaction): Decimal | null {
   if (tx.type === 'split') return null
   if (tx.type === 'swap') return D(tx.amount)
+  if (tx.type === 'receive_asset') return D(tx.quantity).times(D(tx.price))
   if (tx.type === 'transfer') return tx.instrumentId ? null : D(tx.amount)
   if (tx.type === 'opening' && tx.instrumentId) {
     return D(tx.quantity).times(D(tx.price)).plus(D(tx.fees)).plus(D(tx.tax))

@@ -53,6 +53,20 @@ describe('income totals', () => {
     expect(totals.count).toBe(3)
   })
 
+  it('keeps an asset received under its own kind, valued after tax at the rate of the day', () => {
+    const { income: received } = computeLedger([
+      makeTx({ type: 'receive_asset', receiveKind: 'staking', instrumentId: 'CRYPTO:SOL', quantity: '0.5', price: '150', tax: '1', fxRate: '35', date: '2025-05-01' }),
+    ])
+    const events = [...income, ...received]
+    const totals = sumIncome(events, periodRange('year', today))
+    expect(totals.byKind.receive_asset.toString()).toBe('2590')
+    expect(totals.byKind.dividend.toString()).toBe('1416.6')
+    expect(totals.netBase.toString()).toBe('4091.6')
+    expect(totals.grossBase.toString()).toBe('4321')
+    expect(incomeBuckets(events, 'year', today)[4].byKind.receive_asset.toString()).toBe('2590')
+    expect(incomeByAsset(events, periodRange('year', today)).find((row) => row.instrumentId === 'CRYPTO:SOL')?.kinds).toEqual(['receive_asset'])
+  })
+
   it('compares with last year and averages the last twelve months', () => {
     const now = sumIncome(income, periodRange('year', today)).netBase
     const before = sumIncome(income, comparisonRange('year', today)).netBase

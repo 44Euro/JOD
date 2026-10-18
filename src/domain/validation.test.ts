@@ -75,6 +75,33 @@ describe('validateTransaction', () => {
     expect(validateTransaction({ ...base, toAccountId: 'acc-2' }, TODAY)).toEqual([])
   })
 
+  describe('receive_asset', () => {
+    const received = makeTx({ type: 'receive_asset', receiveKind: 'staking', instrumentId: 'CRYPTO:SOL', quantity: '0.5', price: '150' })
+
+    it('accepts a complete asset received, in every kind', () => {
+      expect(validateTransaction(received, TODAY)).toEqual([])
+      for (const receiveKind of ['stock_dividend', 'staking', 'airdrop', 'coin_interest', 'other'] as const) {
+        expect(validateTransaction({ ...received, receiveKind }, TODAY)).toEqual([])
+      }
+    })
+
+    it('accepts an airdrop that has no value yet', () => {
+      expect(validateTransaction({ ...received, receiveKind: 'airdrop', price: '0' }, TODAY)).toEqual([])
+    })
+
+    it('needs the asset, a positive quantity and a value of zero or more', () => {
+      expect(validateTransaction({ ...received, instrumentId: undefined }, TODAY)).toEqual(['กรุณาระบุหุ้น/สินทรัพย์'])
+      expect(validateTransaction({ ...received, quantity: '0' }, TODAY)).toEqual(['จำนวนที่ได้รับต้องเป็นตัวเลขมากกว่า 0'])
+      expect(validateTransaction({ ...received, price: '-1' }, TODAY)).toEqual(['มูลค่าต่อหน่วยต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป'])
+      expect(validateTransaction({ ...received, price: undefined }, TODAY)).toEqual(['มูลค่าต่อหน่วยต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป'])
+    })
+
+    it('needs one of the known kinds', () => {
+      expect(validateTransaction({ ...received, receiveKind: undefined }, TODAY)).toEqual(['ประเภทการรับไม่ถูกต้อง'])
+      expect(validateTransaction({ ...received, receiveKind: 'gift' as never }, TODAY)).toEqual(['ประเภทการรับไม่ถูกต้อง'])
+    })
+  })
+
   describe('swap', () => {
     const swap = makeTx({
       type: 'swap',

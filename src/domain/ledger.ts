@@ -28,7 +28,7 @@ export interface RealizedEvent {
   fxEffectBase: Decimal
 }
 
-export type IncomeKind = 'dividend' | 'interest'
+export type IncomeKind = 'dividend' | 'interest' | 'receive_asset'
 
 export interface IncomeEvent {
   txId: string
@@ -93,6 +93,11 @@ export function takeCost(position: Position, quantity: Decimal): { costQuote: De
   }
 }
 
+// What an asset received as income is worth on the day: both its cost and the income it counts as.
+function receivedValueQuote(tx: Transaction): Decimal {
+  return D(tx.quantity).times(D(tx.price))
+}
+
 // The coin received in a swap costs the value it was swapped at plus the fees and tax paid on top.
 function receivedCostQuote(tx: Transaction): Decimal {
   return D(tx.amount).plus(D(tx.fees)).plus(D(tx.tax))
@@ -135,8 +140,10 @@ export function cashDeltaQuote(tx: Transaction): Decimal {
       return D(tx.amount).negated()
     case 'transfer':
       return tx.instrumentId ? fees.negated() : D(tx.amount).plus(fees).negated()
-    // Only the fees and tax are paid in cash; the coin given up pays for the coin received.
+    // Only the fees and tax are paid in cash; the coin given up pays for the coin received, and an asset
+    // received as income costs nothing in cash.
     case 'swap':
+    case 'receive_asset':
       return fees.plus(tax).negated()
     // An opening holding was paid for before the app existed, so only opening cash moves cash.
     case 'opening':
@@ -217,7 +224,7 @@ export function computeLedger(transactions: readonly Transaction[]): Ledger {
     const instrumentId = tx.instrumentId ?? ''
     const key = positionKey(tx.accountId, instrumentId)
     const held = positions.get(key)
-    const acquires = tx.type === 'buy' || (tx.type === 'opening' && Boolean(tx.instrumentId))
+    const acquires = tx.type === 'buy' || tx.type === 'receive_asset' || (tx.type === 'opening' && Boolean(tx.instrumentId))
 
     if ((acquires || tx.type === 'sell') && held && held.currency !== tx.currency) {
       issues.push({ txId: tx.id, message: `สกุลเงิน ${tx.currency} ไม่ตรงกับที่ถืออยู่ (${held.currency})` })
@@ -234,7 +241,7 @@ export function computeLedger(transactions: readonly Transaction[]): Ledger {
         costQuote: D(0),
         costBase: D(0),
       }
-      const cost = acquisitionCostQuote(tx)
+      const cost = tx.type === 'receive_asset' ? receivedValueQuote(tx) : acquisitionCostQuote(tx)
       position.quantity = position.quantity.plus(D(tx.quantity))
       position.costQuote = position.costQuote.plus(cost)
       position.costBase = position.costBase.plus(cost.times(rate))
@@ -330,8 +337,9 @@ export function computeLedger(transactions: readonly Transaction[]): Ledger {
       held.quantity = held.quantity.times(D(tx.splitRatio))
     }
 
-    if (tx.type === 'dividend' || tx.type === 'interest') {
-      const netQuote = cashDeltaQuote(tx)
+    if (tx.type === 'dividend' || tx.type === 'interest' || tx.type === 'receive_asset') {
+      const grossQuote = tx.type === 'receive_asset' ? receivedValueQuote(tx) : D(tx.amount)
+      const netQuote = grossQuote.minus(D(tx.fees)).minus(D(tx.tax))
       income.push({
         txId: tx.id,
         date: tx.date,
@@ -339,10 +347,10 @@ export function computeLedger(transactions: readonly Transaction[]): Ledger {
         instrumentId,
         kind: tx.type,
         currency: tx.currency,
-        grossQuote: D(tx.amount),
+        grossQuote,
         taxQuote: D(tx.tax),
         netQuote,
-        grossBase: D(tx.amount).times(rate),
+        grossBase: grossQuote.times(rate),
         taxBase: D(tx.tax).times(rate),
         netBase: netQuote.times(rate),
       })

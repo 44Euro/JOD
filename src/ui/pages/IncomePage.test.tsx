@@ -142,6 +142,44 @@ describe('IncomePage', () => {
     expect(within(cash).getByText('270')).toBeInTheDocument()
   })
 
+  it('shows an asset received as its own color, with the value of the day in baht', async () => {
+    await db.instruments.add({ id: 'CRYPTO:SOL', market: 'CRYPTO', symbol: 'SOL', name: 'Solana', assetType: 'crypto', currency: 'USD' })
+    await db.transactions.add(
+      makeTx({
+        type: 'receive_asset',
+        receiveKind: 'staking',
+        instrumentId: 'CRYPTO:SOL',
+        quantity: '0.5',
+        price: '150',
+        fxRate: '35',
+        date: '2025-08-20',
+      }),
+    )
+    renderRoute('/income')
+    expect(await screen.findByText('รับเป็นสินทรัพย์ ฿2,625')).toBeInTheDocument()
+    const month = within(screen.getByRole('list', { name: 'รายได้แต่ละช่วง' })).getAllByRole('listitem')[7]
+    expect(month).toHaveTextContent('ส.ค. 2025 ฿2,625')
+    expect(month.querySelector('.bg-income-asset')).toHaveStyle({ height: '100.00%' })
+    const recent = screen.getByRole('list', { name: 'รายได้ล่าสุด' })
+    expect(within(recent).getAllByRole('listitem')[0]).toHaveTextContent('SOL รับเป็นสินทรัพย์20 ส.ค. 2025+2,625')
+    const sol = screen.getByText('SOL', { selector: 'b' }).closest('tr')!
+    expect(within(sol).getByText('2,625')).toBeInTheDocument()
+  })
+
+  it('stacks an asset received on top of the dividend of the same month', async () => {
+    await seedIncome()
+    await db.instruments.add({ id: 'CRYPTO:SOL', market: 'CRYPTO', symbol: 'SOL', name: 'Solana', assetType: 'crypto', currency: 'USD' })
+    await db.transactions.add(
+      makeTx({ type: 'receive_asset', receiveKind: 'staking', instrumentId: 'CRYPTO:SOL', quantity: '0.5', price: '150', fxRate: '35', date: '2025-08-21' }),
+    )
+    renderRoute('/income')
+    const month = within(await screen.findByRole('list', { name: 'รายได้แต่ละช่วง' })).getAllByRole('listitem')[7]
+    expect(month).toHaveTextContent('ส.ค. 2025 ฿3,705')
+    expect(month.querySelector('.bg-primary')).toBeInTheDocument()
+    expect(month.querySelector('.bg-income-asset')).toBeInTheDocument()
+    expect(screen.getByText('รับเป็นสินทรัพย์ ฿2,625')).toBeInTheDocument()
+  })
+
   it('shows two-line rows on a phone', async () => {
     vi.stubGlobal('matchMedia', (query: string) => ({
       matches: false,

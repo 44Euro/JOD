@@ -303,6 +303,58 @@ describe('computeLedger swaps', () => {
   })
 })
 
+describe('computeLedger assets received as income', () => {
+  const thb = { currency: 'THB', fxRate: '1', fxSource: 'same' as const }
+
+  it('adds staked coins at their value on the day and counts the same value as income (spec 7.3)', () => {
+    const { positions, income } = computeLedger([
+      makeTx({ type: 'receive_asset', receiveKind: 'staking', instrumentId: 'CRYPTO:SOL', quantity: '0.5', price: '150', fxRate: '35' }),
+    ])
+    expect([positions[0].quantity, positions[0].costQuote, positions[0].costBase].map(String)).toEqual(['0.5', '75', '2625'])
+    expect(income[0].kind).toBe('receive_asset')
+    expect([income[0].grossQuote, income[0].netQuote, income[0].netBase].map(String)).toEqual(['75', '75', '2625'])
+  })
+
+  it('takes the withholding tax of a stock dividend from cash and from the income, not from the cost', () => {
+    const set = { ...thb, instrumentId: 'SET:PTT' }
+    const { positions, income, cash } = computeLedger([
+      makeTx({ ...set, type: 'buy', quantity: '1000', price: '35', date: '2024-01-10' }),
+      makeTx({ ...set, type: 'receive_asset', receiveKind: 'stock_dividend', quantity: '100', price: '1', tax: '10', date: '2024-05-10' }),
+    ])
+    expect([positions[0].quantity, positions[0].costQuote].map(String)).toEqual(['1100', '35100'])
+    expect([income[0].grossQuote, income[0].taxQuote, income[0].netQuote].map(String)).toEqual(['100', '10', '90'])
+    expect(cash[0].amount.toString()).toBe('-35010')
+  })
+
+  it('takes a fee from the income and reports it as a fee paid, but never adds it to the cost', () => {
+    const ledger = computeLedger([
+      makeTx({ type: 'receive_asset', receiveKind: 'airdrop', instrumentId: 'CRYPTO:ARB', quantity: '100', price: '1.2', fees: '2', tax: '3', fxRate: '35' }),
+    ])
+    expect(ledger.positions[0].costQuote.toString()).toBe('120')
+    expect([ledger.income[0].grossQuote, ledger.income[0].taxQuote, ledger.income[0].netQuote].map(String)).toEqual(['120', '3', '115'])
+    expect(ledger.cash[0].amount.toString()).toBe('-5')
+    expect(ledger.feesBase.toString()).toBe('70')
+  })
+
+  it('starts an airdrop with no value at a cost of zero', () => {
+    const ledger = computeLedger([
+      makeTx({ type: 'receive_asset', receiveKind: 'airdrop', instrumentId: 'CRYPTO:ARB', quantity: '100', price: '0' }),
+    ])
+    expect([ledger.positions[0].quantity, ledger.positions[0].costQuote, ledger.positions[0].costBase].map(String)).toEqual(['100', '0', '0'])
+    expect(ledger.income[0].netBase.toString()).toBe('0')
+  })
+
+  it('refuses an asset received in another currency than the one held and leaves everything alone', () => {
+    const buy = makeTx({ ...thb, instrumentId: 'CRYPTO:SOL', quantity: '1', price: '5000', date: '2024-01-10' })
+    const received = makeTx({ type: 'receive_asset', receiveKind: 'staking', instrumentId: 'CRYPTO:SOL', quantity: '0.5', price: '150', tax: '1' })
+    const ledger = computeLedger([buy, received])
+    expect(ledger.issues).toEqual([{ txId: received.id, message: 'สกุลเงิน USD ไม่ตรงกับที่ถืออยู่ (THB)' }])
+    expect(ledger.income).toEqual([])
+    expect(ledger.cash).toEqual(computeLedger([buy]).cash)
+    expect(ledger.positions[0].quantity.toString()).toBe('1')
+  })
+})
+
 describe('receivedUnitCost', () => {
   const swap = (overrides: Partial<Transaction> = {}) =>
     makeTx({ type: 'swap', toInstrumentId: 'CRYPTO:ETH', toQuantity: '0.25', amount: '660', ...overrides })

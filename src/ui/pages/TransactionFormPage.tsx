@@ -26,6 +26,7 @@ import { FeeTaxFields } from '../components/txform/FeeTaxFields'
 import { AfterSavePanel, TotalPanel } from '../components/txform/FormSidePanels'
 import { FxRateBox } from '../components/txform/FxRateBox'
 import { InstrumentFields } from '../components/txform/InstrumentFields'
+import { ReceiveFields } from '../components/txform/ReceiveFields'
 import { SwapFields, SwapSummary } from '../components/txform/SwapFields'
 import { TransferAmountField, TransferFields } from '../components/txform/TransferFields'
 import { TypePicker } from '../components/txform/TypePicker'
@@ -148,7 +149,7 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
   const needsFx = draft.currency !== base && draft.type !== 'split'
   const openingAsset = isOpeningAsset(draft)
   const isTrade = draft.type === 'buy' || draft.type === 'sell'
-  const usesAmountField = !isTrade && !openingAsset && draft.type !== 'split' && draft.type !== 'transfer'
+  const usesAmountField = !isTrade && !openingAsset && draft.type !== 'split' && draft.type !== 'transfer' && draft.type !== 'receive_asset'
 
   const others = useMemo(() => data.transactions.filter((t) => t.id !== existing?.id), [data.transactions, existing?.id])
   const heldLedger = useMemo(() => computeLedger(others), [others])
@@ -348,7 +349,7 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
 
           {draft.type === 'transfer' && <TransferFields draft={draft} accounts={data.accounts} update={update} />}
 
-          {showsInstrument(draft) && draft.type !== 'swap' && (
+          {showsInstrument(draft) && draft.type !== 'swap' && draft.type !== 'receive_asset' && (
             <InstrumentFields
               idPrefix="tx"
               symbolLabel={draft.type === 'interest' ? 'สัญลักษณ์ (ถ้าเป็นคูปองหุ้นกู้)' : 'สัญลักษณ์'}
@@ -373,6 +374,10 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
               toHint={hintFor(draft.toMarket, draft.toSymbol)}
               setDraft={setDraft}
             />
+          )}
+
+          {draft.type === 'receive_asset' && (
+            <ReceiveFields draft={draft} instruments={data.instruments} hint={hintFor(draft.market, draft.symbol)} setDraft={setDraft} />
           )}
 
           <div className={cn('grid gap-3.5', isTrade || openingAsset ? 'grid-cols-3' : 'sm:grid-cols-2')}>
@@ -411,7 +416,9 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
             )}
           </div>
 
-          {draft.type !== 'split' && draft.type !== 'opening' && <FeeTaxFields draft={draft} update={update} />}
+          {draft.type !== 'split' && draft.type !== 'opening' && draft.type !== 'receive_asset' && (
+            <FeeTaxFields draft={draft} update={update} />
+          )}
 
           {draft.type === 'withdraw' && <WithdrawFields draft={draft} update={update} />}
 

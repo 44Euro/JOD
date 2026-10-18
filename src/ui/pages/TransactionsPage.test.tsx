@@ -314,4 +314,53 @@ describe('TransactionsPage', () => {
       expect(within(item).getByText('−52.50')).toHaveClass('text-loss')
     })
   })
+
+  describe('assets received', () => {
+    const received = (overrides = {}) =>
+      makeTx({
+        id: 'recv-1',
+        type: 'receive_asset',
+        receiveKind: 'staking',
+        instrumentId: 'CRYPTO:SOL',
+        quantity: '0.5',
+        price: '150',
+        fxRate: '35',
+        date: '2024-04-01',
+        ...overrides,
+      })
+
+    it('shows the units, the value on the day and the kind, with the income in baht as the net amount', async () => {
+      await db.transactions.add(received())
+      renderRoute('/transactions')
+      const table = await screen.findByRole('table')
+      const row = (await within(table).findByText('SOL', { selector: 'b' })).closest('tr')!
+      expect(row.cells[1]).toHaveTextContent('รับเป็นสินทรัพย์')
+      expect(row.cells[3]).toHaveTextContent(/^0\.5 × 150\.00 · Staking USD$/)
+      expect(row.cells[5]).toHaveTextContent(/^\+2,625\.00$/)
+      expect(row.cells[5]).toHaveClass('text-gain')
+    })
+
+    it('names the tax withheld and takes it and the fee out of the income', async () => {
+      await db.transactions.add(received({ receiveKind: 'stock_dividend', tax: '1', fees: '0.5' }))
+      renderRoute('/transactions')
+      const table = await screen.findByRole('table')
+      const row = (await within(table).findByText('SOL', { selector: 'b' })).closest('tr')!
+      expect(row.cells[3]).toHaveTextContent(/^0\.5 × 150\.00 · ปันผลเป็นหุ้น หัก ณ ที่จ่าย 1 USD$/)
+      expect(row.cells[5]).toHaveTextContent(/^\+2,572\.50$/)
+    })
+
+    it('reads the same on a phone', async () => {
+      vi.stubGlobal('matchMedia', (query: string) => ({
+        matches: false,
+        media: query,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      }))
+      await db.transactions.add(received())
+      renderRoute('/transactions')
+      const list = await screen.findByRole('list', { name: 'รายการทั้งหมด' })
+      const item = within(list).getByText(/^0\.5 × 150\.00 · Staking USD$/).closest('li')!
+      expect(within(item).getByText('+2,625.00')).toHaveClass('text-gain')
+    })
+  })
 })

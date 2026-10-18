@@ -534,3 +534,79 @@ describe('swaps', () => {
     expect(totalForDisplay(tx)?.toString()).toBe('660')
   })
 })
+
+describe('assets received as income', () => {
+  const sol: Instrument = { id: 'CRYPTO:SOL', market: 'CRYPTO', symbol: 'SOL', name: 'Solana', assetType: 'crypto', currency: 'USD' }
+  const receiveDraft = (overrides: Partial<Draft> = {}): Draft => ({
+    ...changeType(buyDraft({ market: 'CRYPTO', symbol: 'sol', currency: 'USD', assetType: 'crypto' }), 'receive_asset', 'THB'),
+    quantity: '0.5',
+    price: '150',
+    ...overrides,
+  })
+
+  it('starts on staking for a coin and on stock dividend for anything else', () => {
+    expect(receiveDraft().receiveKind).toBe('staking')
+    expect(changeType(buyDraft(), 'receive_asset', 'THB').receiveKind).toBe('stock_dividend')
+    expect(changeType(buyDraft({ market: 'SET' }), 'receive_asset', 'THB').receiveKind).toBe('stock_dividend')
+  })
+
+  it('keeps the kind the user picked when the type is chosen again', () => {
+    expect(changeType(receiveDraft({ receiveKind: 'airdrop' }), 'receive_asset', 'THB').receiveKind).toBe('airdrop')
+  })
+
+  it('moves the kind with the market only while it is still the default of the old market', () => {
+    const typeFirst = changeType(buyDraft(), 'receive_asset', 'THB')
+    expect(changeMarket(typeFirst, 'CRYPTO').receiveKind).toBe('staking')
+    expect(changeMarket(receiveDraft(), 'SET').receiveKind).toBe('stock_dividend')
+    expect(changeMarket(receiveDraft({ receiveKind: 'airdrop' }), 'SET').receiveKind).toBe('airdrop')
+    expect(changeMarket(buyDraft(), 'CRYPTO').receiveKind).toBe('stock_dividend')
+  })
+
+  it('builds the quantity, the value on the day, the tax and the kind but no amount', () => {
+    const { tx, errors } = draftToTransaction(receiveDraft({ tax: '1', fees: '2', amount: '99' }), ctx)
+    expect(errors).toEqual([])
+    expect(tx).toMatchObject({
+      type: 'receive_asset',
+      receiveKind: 'staking',
+      instrumentId: 'CRYPTO:SOL',
+      quantity: '0.5',
+      price: '150',
+      tax: '1',
+      fees: '0',
+      currency: 'USD',
+      fxRate: '35.1',
+    })
+    expect(tx.amount).toBeUndefined()
+  })
+
+  it('sends the kind only with an asset received', () => {
+    expect(draftToTransaction({ ...receiveDraft(), type: 'buy' }, ctx).tx.receiveKind).toBeUndefined()
+  })
+
+  it('accepts a value of zero and asks for each other missing part once', () => {
+    expect(draftToTransaction(receiveDraft({ price: '0' }), ctx).errors).toEqual([])
+    expect(draftToTransaction(receiveDraft({ symbol: '', quantity: '', price: '' }), ctx).errors).toEqual([
+      'กรุณาระบุหุ้น/สินทรัพย์',
+      'จำนวนที่ได้รับต้องเป็นตัวเลขมากกว่า 0',
+      'มูลค่าต่อหน่วยต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป',
+    ])
+  })
+
+  it('shows quantity times the value on the day as the total, without the tax', () => {
+    const { tx } = draftToTransaction(receiveDraft({ tax: '1' }), ctx)
+    expect(totalForDisplay(tx)?.toString()).toBe('75')
+  })
+
+  it('reads a saved asset received back with its kind', () => {
+    const { tx } = draftToTransaction(receiveDraft({ receiveKind: 'coin_interest', tax: '1' }), ctx)
+    expect(draftFromTransaction(tx, [sol])).toMatchObject({
+      type: 'receive_asset',
+      receiveKind: 'coin_interest',
+      market: 'CRYPTO',
+      symbol: 'SOL',
+      quantity: '0.5',
+      price: '150',
+      tax: '1',
+    })
+  })
+})

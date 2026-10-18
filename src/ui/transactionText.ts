@@ -2,6 +2,7 @@ import { D } from '../domain/decimal'
 import { acquisitionCostQuote, cashDeltaQuote } from '../domain/ledger'
 import { symbolOf, type Transaction } from '../domain/types'
 import { fmtNumber, fmtPrice, fmtSigned, fmtValue, plClass } from './format'
+import { RECEIVE_KIND_LABELS } from './labels'
 
 export function describeAmount(tx: Transaction, accountNames?: ReadonlyMap<string, string>): string {
   switch (tx.type) {
@@ -20,6 +21,10 @@ export function describeAmount(tx: Transaction, accountNames?: ReadonlyMap<strin
     }
     case 'swap':
       return `${fmtNumber(tx.quantity, 8)} ${symbolOf(tx.instrumentId)} → ${fmtNumber(tx.toQuantity, 8)} ${symbolOf(tx.toInstrumentId)}`
+    case 'receive_asset': {
+      const received = `${fmtNumber(tx.quantity, 8)} × ${fmtPrice(tx.price)} · ${RECEIVE_KIND_LABELS[tx.receiveKind ?? 'other']}`
+      return D(tx.tax).greaterThan(0) ? `${received} หัก ณ ที่จ่าย ${fmtNumber(tx.tax)}` : received
+    }
     case 'dividend':
     case 'interest':
       return D(tx.tax).greaterThan(0) ? `${fmtNumber(tx.amount)} หัก ณ ที่จ่าย ${fmtNumber(tx.tax)}` : fmtNumber(tx.amount)
@@ -39,6 +44,11 @@ export function netOf(tx: Transaction, skipped: boolean): { text: string; classN
     // Moving something to another account of your own costs nothing but the fee.
     const cost = D(tx.fees).times(D(tx.fxRate)).negated()
     return cost.isZero() ? { text: '—', className: 'text-muted-foreground' } : { text: fmtSigned(cost), className: plClass(cost) }
+  }
+  if (tx.type === 'receive_asset') {
+    // Cash only moves by the tax, but the row is about the income, so it shows what the units are worth after it.
+    const income = D(tx.quantity).times(D(tx.price)).minus(D(tx.fees)).minus(D(tx.tax)).times(D(tx.fxRate))
+    return { text: fmtSigned(income), className: plClass(income) }
   }
   const net = cashDeltaQuote(tx).times(D(tx.fxRate))
   if (tx.type === 'swap' && net.isZero()) return { text: '—', className: 'text-muted-foreground' }

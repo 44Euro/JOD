@@ -1,5 +1,5 @@
 import type { IncomeKind } from '../domain/ledger'
-import { MARKETS, type AssetType, type FxSource, type Market, type TxType } from '../domain/types'
+import { MARKETS, type AssetType, type FxSource, type Market, type ReceiveKind, type TxType } from '../domain/types'
 
 export const TX_TYPE_LABELS: Record<TxType, string> = {
   buy: 'ซื้อ',
@@ -12,12 +12,21 @@ export const TX_TYPE_LABELS: Record<TxType, string> = {
   fx_convert: 'แลกเงิน',
   transfer: 'โอนระหว่างบัญชี',
   swap: 'แลกเหรียญ',
+  receive_asset: 'รับเป็นสินทรัพย์',
   fee: 'ค่าธรรมเนียม',
   opening: 'ยอดยกมา',
 }
 
 export const PRIMARY_TX_TYPES: readonly TxType[] = ['buy', 'sell', 'dividend', 'interest', 'fx_convert', 'deposit', 'withdraw']
-export const MORE_TX_TYPES: readonly TxType[] = ['transfer', 'swap', 'split', 'fee', 'opening']
+export const MORE_TX_TYPES: readonly TxType[] = ['transfer', 'swap', 'receive_asset', 'split', 'fee', 'opening']
+
+export const RECEIVE_KIND_LABELS: Record<ReceiveKind, string> = {
+  stock_dividend: 'ปันผลเป็นหุ้น',
+  staking: 'Staking',
+  airdrop: 'Airdrop',
+  coin_interest: 'ดอกเบี้ยเป็นเหรียญ',
+  other: 'อื่นๆ',
+}
 
 export const MARKET_LABELS: Record<Market, string> = {
   US: 'สหรัฐ (US)',
@@ -55,4 +64,5 @@ export function marketOf(instrumentId: string): Market {
 export const INCOME_SERIES: Record<IncomeKind, { label: string; className: string }> = {
   dividend: { label: 'ปันผล', className: 'bg-primary' },
   interest: { label: 'ดอกเบี้ย/คูปอง', className: 'bg-income-interest' },
+  receive_asset: { label: 'รับเป็นสินทรัพย์', className: 'bg-income-asset' },
 }

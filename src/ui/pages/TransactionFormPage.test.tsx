@@ -677,4 +677,157 @@ describe('TransactionFormPage', () => {
       expect(screen.getByText(/^ต้นทุน ETH 2,640\.00 USD ต่อหน่วย/)).toBeInTheDocument()
     })
   })
+
+  describe('assets received as income', () => {
+    const provider = () => fakeFxProvider({ 'USD|THB': '35' }).provider
+
+    async function openReceive() {
+      const user = userEvent.setup()
+      const router = renderRoute('/transactions/new', provider())
+      await user.selectOptions(await screen.findByLabelText('ประเภทอื่นๆ'), 'รับเป็นสินทรัพย์')
+      return { user, router }
+    }
+
+    it('records staking income received as coins', async () => {
+      const { user, router } = await openReceive()
+      expect(screen.getByLabelText('ประเภท')).toHaveDisplayValue('ปันผลเป็นหุ้น')
+      await user.selectOptions(screen.getByLabelText('ตลาด'), 'คริปโต')
+      expect(screen.getByLabelText('ประเภท')).toHaveDisplayValue('Staking')
+      await user.type(screen.getByLabelText('สัญลักษณ์'), 'sol')
+      await user.type(screen.getByLabelText('จำนวนที่ได้รับ'), '0.5')
+      await user.type(screen.getByLabelText('มูลค่าต่อหน่วย ณ วันที่ได้รับ'), '150')
+      await waitFor(() => expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('35'))
+      expect(screen.getByText('75.00 USD')).toBeInTheDocument()
+      expect(screen.getByText('≈ 2,625.00 THB ที่เรท 35.00')).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+      await waitFor(() => expect(router.state.location.pathname).toBe('/transactions'))
+      const [saved] = await db.transactions.toArray()
+      expect(saved).toMatchObject({
+        type: 'receive_asset',
+        receiveKind: 'staking',
+        instrumentId: 'CRYPTO:SOL',
+        quantity: '0.5',
+        price: '150',
+        tax: '0',
+        currency: 'USD',
+        fxRate: '35',
+      })
+      expect(saved.amount).toBeUndefined()
+      expect(await db.instruments.get('CRYPTO:SOL')).toMatchObject({ symbol: 'SOL', currency: 'USD', assetType: 'crypto' })
+    })
+
+    it('starts on stock dividend and follows the market until the user picks a kind', async () => {
+      const { user } = await openReceive()
+      const kind = screen.getByLabelText('ประเภท')
+      expect(Array.from((kind as HTMLSelectElement).options).map((o) => o.text)).toEqual([
+        'ปันผลเป็นหุ้น',
+        'Staking',
+        'Airdrop',
+        'ดอกเบี้ยเป็นเหรียญ',
+        'อื่นๆ',
+      ])
+      await user.selectOptions(kind, 'Airdrop')
+      await user.selectOptions(screen.getByLabelText('ตลาด'), 'คริปโต')
+      expect(kind).toHaveDisplayValue('Airdrop')
+    })
+
+    it('asks for the value on the day and the tax withheld, and not for fees, an amount or a price', async () => {
+      await openReceive()
+      expect(screen.getByLabelText('จำนวนที่ได้รับ')).toHaveAttribute('id', 'tx-quantity')
+      expect(screen.getByLabelText('มูลค่าต่อหน่วย ณ วันที่ได้รับ')).toHaveAttribute('id', 'tx-price')
+      expect(screen.getByLabelText('ภาษีหัก ณ ที่จ่าย')).toHaveAttribute('id', 'tx-tax')
+      expect(screen.getByLabelText('ประเภท')).toHaveAttribute('id', 'tx-receive-kind')
+      expect(screen.queryByLabelText('ค่าธรรมเนียม')).not.toBeInTheDocument()
+      expect(screen.queryByLabelText('จำนวนเงิน')).not.toBeInTheDocument()
+      expect(screen.queryByLabelText('จำนวนหน่วย')).not.toBeInTheDocument()
+      expect(screen.queryByLabelText('ราคาต่อหน่วย')).not.toBeInTheDocument()
+    })
+
+    it('records a stock dividend with tax withheld and shows the units after saving', async () => {
+      await db.instruments.add({ id: 'SET:PTT', market: 'SET', symbol: 'PTT', name: 'ปตท.', assetType: 'stock', currency: 'THB' })
+      await db.transactions.add(
+        makeTx({ id: 'ptt-buy', instrumentId: 'SET:PTT', currency: 'THB', fxRate: '1', fxSource: 'same', quantity: '1000', price: '35', date: '2024-01-10' }),
+      )
+      const { user, router } = await openReceive()
+      await user.selectOptions(screen.getByLabelText('ตลาด'), 'ไทย (SET)')
+      await user.type(screen.getByLabelText('สัญลักษณ์'), 'ptt')
+      expect(await screen.findByText('ปตท. · ถืออยู่ 1,000 หน่วย')).toBeInTheDocument()
+      await user.type(screen.getByLabelText('จำนวนที่ได้รับ'), '100')
+      await user.type(screen.getByLabelText('มูลค่าต่อหน่วย ณ วันที่ได้รับ'), '1')
+      await user.type(screen.getByLabelText('ภาษีหัก ณ ที่จ่าย'), '10')
+      expect(screen.getByText('100.00 THB')).toBeInTheDocument()
+      expect(screen.getByText('PTT ที่ถือ').nextSibling).toHaveTextContent('1,000 → 1,100')
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+      await waitFor(() => expect(router.state.location.pathname).toBe('/transactions'))
+      expect((await db.transactions.toArray()).find((t) => t.type === 'receive_asset')).toMatchObject({
+        receiveKind: 'stock_dividend',
+        instrumentId: 'SET:PTT',
+        quantity: '100',
+        price: '1',
+        tax: '10',
+        fxRate: '1',
+      })
+    })
+
+    it('lets an airdrop with no value yet be saved with a value of zero', async () => {
+      const { user } = await openReceive()
+      await user.selectOptions(screen.getByLabelText('ตลาด'), 'คริปโต')
+      await user.selectOptions(screen.getByLabelText('ประเภท'), 'Airdrop')
+      await user.type(screen.getByLabelText('สัญลักษณ์'), 'arb')
+      await user.type(screen.getByLabelText('จำนวนที่ได้รับ'), '100')
+      await user.type(screen.getByLabelText('มูลค่าต่อหน่วย ณ วันที่ได้รับ'), '0')
+      await waitFor(() => expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('35'))
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+      await waitFor(async () => expect(await db.transactions.count()).toBe(1))
+      expect((await db.transactions.toArray())[0]).toMatchObject({ receiveKind: 'airdrop', quantity: '100', price: '0' })
+    })
+
+    it('asks for the missing parts when saved empty', async () => {
+      const { user } = await openReceive()
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+      expect(await screen.findByText('กรุณาระบุหุ้น/สินทรัพย์')).toBeInTheDocument()
+      expect(screen.getByText('จำนวนที่ได้รับต้องเป็นตัวเลขมากกว่า 0')).toBeInTheDocument()
+      expect(screen.getByText('มูลค่าต่อหน่วยต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป')).toBeInTheDocument()
+      expect(await db.transactions.count()).toBe(0)
+    })
+
+    it('opens a saved asset received with its kind, quantity, value and tax', async () => {
+      await db.transactions.add(
+        makeTx({
+          id: 'recv-1',
+          type: 'receive_asset',
+          receiveKind: 'coin_interest',
+          instrumentId: 'CRYPTO:SOL',
+          quantity: '0.5',
+          price: '150',
+          tax: '1',
+          fxRate: '35',
+          date: '2024-04-01',
+        }),
+      )
+      renderRoute('/transactions/recv-1', provider())
+      expect(await screen.findByLabelText('ประเภท')).toHaveDisplayValue('ดอกเบี้ยเป็นเหรียญ')
+      expect(screen.getByLabelText('สัญลักษณ์')).toHaveValue('SOL')
+      expect(screen.getByLabelText('จำนวนที่ได้รับ')).toHaveValue('0.5')
+      expect(screen.getByLabelText('มูลค่าต่อหน่วย ณ วันที่ได้รับ')).toHaveValue('150')
+      expect(screen.getByLabelText('ภาษีหัก ณ ที่จ่าย')).toHaveValue('1')
+      expect(screen.getByLabelText('ประเภทอื่นๆ')).toHaveDisplayValue('รับเป็นสินทรัพย์')
+    })
+
+    it('shows the value on a phone too', async () => {
+      vi.stubGlobal('matchMedia', (query: string) => ({
+        matches: false,
+        media: query,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      }))
+      const { user } = await openReceive()
+      await user.selectOptions(screen.getByLabelText('ตลาด'), 'คริปโต')
+      await user.type(screen.getByLabelText('สัญลักษณ์'), 'sol')
+      await user.type(screen.getByLabelText('จำนวนที่ได้รับ'), '0.5')
+      await user.type(screen.getByLabelText('มูลค่าต่อหน่วย ณ วันที่ได้รับ'), '150')
+      await waitFor(() => expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('35'))
+      expect(screen.getByText('75.00 USD')).toBeInTheDocument()
+    })
+  })
 })

@@ -232,6 +232,37 @@ describe('summarizeInvestor with swaps', () => {
   })
 })
 
+describe('summarizeInvestor with assets received as income', () => {
+  const staking = (overrides: Partial<Transaction> = {}) =>
+    makeTx({ type: 'receive_asset', receiveKind: 'staking', instrumentId: 'CRYPTO:SOL', quantity: '0.5', price: '150', fxRate: '35', ...overrides })
+
+  it('counts an asset received in a trade-only account as income, not as gain from price', () => {
+    const txs = [staking()]
+    const result = run(txs, { 'CRYPTO:SOL': '150' }, { USD: '35' })
+    expect(result.gain.totalBase.toString()).toBe('2625')
+    expect(result.gain.incomeBase.toString()).toBe('2625')
+    expect(result.gain.cashFxBase.toString()).toBe('0')
+  })
+
+  it('counts the tax paid on it as money put in, so the gain is the income after tax', () => {
+    const result = run([staking({ tax: '5' })], { 'CRYPTO:SOL': '150' }, { USD: '35' })
+    expect(result.invested.totalBase.toString()).toBe('175')
+    expect(result.gain.totalBase.toString()).toBe('2450')
+    expect(result.gain.incomeBase.toString()).toBe('2450')
+    expect(result.gain.cashFxBase.toString()).toBe('0')
+  })
+
+  it('keeps the parts adding up in an account that records cash', () => {
+    const deposit = makeTx({ ...thb, type: 'deposit', amount: '1000', date: '2024-01-01' })
+    const result = run([deposit, staking({ currency: 'THB', fxRate: '1', price: '4000', tax: '10', fees: '5' })], { 'CRYPTO:SOL': '4000' }, { THB: '1' })
+    expect(result.invested.totalBase.toString()).toBe('1000')
+    expect(result.worth.totalBase.toString()).toBe('2985')
+    expect(result.gain.totalBase.toString()).toBe('1985')
+    expect(result.gain.incomeBase.toString()).toBe('1985')
+    expect(result.gain.cashFxBase.toString()).toBe('0')
+  })
+})
+
 describe('dailySnapshot', () => {
   it('rounds today’s value and money invested to satang', () => {
     const summary = run(cashAccount, { 'US:AAPL': '120' }, { USD: '33' })

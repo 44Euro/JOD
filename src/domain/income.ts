@@ -9,7 +9,7 @@ export interface DateRange {
   to: string
 }
 
-export const INCOME_KINDS: readonly IncomeKind[] = ['dividend', 'interest']
+export const INCOME_KINDS: readonly IncomeKind[] = ['dividend', 'interest', 'receive_asset']
 
 // Feb 29 has no twin in a common year, so it lands on Feb 28.
 export function shiftYear(date: string, years: number): string {
