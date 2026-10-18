@@ -1,6 +1,6 @@
 import { isIsoDate, todayLocal } from './dates'
 import { D, isDecimalString } from './decimal'
-import { FEE_PAID_IN, RECEIVE_KINDS, TX_TYPES, type Thesis, type Transaction } from './types'
+import { FEE_PAID_IN, RECEIVE_KINDS, TX_TYPES, type FeeTemplate, type Thesis, type Transaction } from './types'
 
 const INSTRUMENT_REQUIRED: readonly string[] = ['buy', 'sell', 'dividend', 'split', 'receive_asset']
 
@@ -126,5 +126,21 @@ export function validateThesis(thesis: Thesis): string[] {
     errors.push('ราคาเป้าหมายต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป')
   }
   if (thesis.reviewDate && !isIsoDate(thesis.reviewDate)) errors.push('วันทบทวนไม่ถูกต้อง')
+  return errors
+}
+
+// A number field may be left empty, which reads as 0.
+export function validateFeeTemplate(template: FeeTemplate): string[] {
+  const errors: string[] = []
+  if (!/^[A-Z0-9]{2,10}$/.test(template.currency)) errors.push('สกุลเงินของสูตรไม่ถูกต้อง')
+  const number = (value: string, label: string, overLimit?: string) => {
+    if (value === '') return
+    if (!isDecimalString(value) || D(value).isNegative()) errors.push(`${label}ต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป`)
+    else if (overLimit && D(value).greaterThan(100)) errors.push(overLimit)
+  }
+  number(template.commissionPct, 'ค่าคอม', 'ค่าคอมต้องไม่เกิน 100%')
+  number(template.minimum, 'ขั้นต่ำต่อคำสั่ง')
+  number(template.vatPct, 'VAT', 'VAT ต้องไม่เกิน 100%')
+  number(template.perOrder, 'ค่าธรรมเนียมต่อคำสั่ง')
   return errors
 }

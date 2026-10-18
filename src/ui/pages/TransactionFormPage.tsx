@@ -48,6 +48,7 @@ import {
   movesNoMoney,
   pickSymbol,
   showsInstrument,
+  syncFees,
   syncReceived,
   totalForDisplay,
   withTransferTarget,
@@ -116,6 +117,7 @@ function clearEntry(draft: Draft): Draft {
     price: '',
     amount: '',
     fees: '',
+    feesSource: 'auto',
     tax: '',
     feeQuantity: '',
     splitRatio: '',
@@ -137,8 +139,18 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
   const [draft, setDraftState] = useState<Draft>(() =>
     existing ? draftFromTransaction(existing, data.instruments) : emptyDraft(data.accounts[0].id, todayLocal()),
   )
-  // Every change passes through here so the received amount of an exchange is recomputed in one place.
-  const setDraft = useCallback((change: (d: Draft) => Draft) => setDraftState((d) => syncReceived(change(d))), [])
+  // The accounts come from a live query that hands over a new array on every write, and setDraft is a dependency of
+  // the rate lookups below, so a ref keeps it stable.
+  const accountsRef = useRef(data.accounts)
+  useEffect(() => {
+    accountsRef.current = data.accounts
+  }, [data.accounts])
+  // Every change passes through here so the received amount of an exchange and the fee from the account formula are
+  // recomputed in one place.
+  const setDraft = useCallback(
+    (change: (d: Draft) => Draft) => setDraftState((d) => syncReceived(syncFees(change(d), accountsRef.current))),
+    [],
+  )
   const [errors, setErrors] = useState<string[]>([])
   const [fxMessage, setFxMessage] = useState('')
   const [noRateFor, setNoRateFor] = useState('')
@@ -422,6 +434,7 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
           {draft.type !== 'split' && draft.type !== 'opening' && draft.type !== 'receive_asset' && (
             <FeeTaxFields
               draft={draft}
+              account={data.accounts.find((a) => a.id === draft.accountId)}
               instruments={data.instruments}
               feeHint={hintFor(draft.feeMarket, draft.feeSymbol)}
               update={update}

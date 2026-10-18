@@ -10,6 +10,7 @@ import {
   saveSettings,
   saveTransaction,
   setInstrumentPrice,
+  updateAccount,
   upsertInstrument,
 } from './repo'
 
@@ -44,6 +45,43 @@ describe('accounts', () => {
     const account = await addAccount(db, { name: 'Empty', broker: '', note: '' })
     await deleteAccount(db, account.id)
     expect(await db.accounts.count()).toBe(0)
+  })
+})
+
+describe('updateAccount', () => {
+  const template = { currency: 'THB', commissionPct: '0.157', minimum: '50', vatPct: '7', perOrder: '' }
+
+  it('saves the name, broker and fee formula', async () => {
+    const account = await addAccount(db, { name: 'Streaming', broker: '', note: 'เก่า' })
+    await updateAccount(db, account.id, { name: ' Streaming SET ', broker: 'Streaming', note: 'เก่า', feeTemplate: template })
+    expect(await db.accounts.get(account.id)).toEqual({
+      ...account,
+      name: 'Streaming SET',
+      broker: 'Streaming',
+      feeTemplate: template,
+    })
+  })
+
+  it('removes the formula when none is given', async () => {
+    const account = await addAccount(db, { name: 'Streaming', broker: '', note: '' })
+    await updateAccount(db, account.id, { name: 'Streaming', broker: '', note: '', feeTemplate: template })
+    await updateAccount(db, account.id, { name: 'Streaming', broker: '', note: '', feeTemplate: undefined })
+    expect(await db.accounts.get(account.id)).not.toHaveProperty('feeTemplate')
+  })
+
+  it('refuses an empty name', async () => {
+    const account = await addAccount(db, { name: 'Streaming', broker: '', note: '' })
+    await expect(updateAccount(db, account.id, { name: '  ', broker: '', note: '', feeTemplate: undefined })).rejects.toThrow('กรุณาตั้งชื่อบัญชี')
+    expect((await db.accounts.get(account.id))?.name).toBe('Streaming')
+  })
+
+  it('refuses a wrong formula with its first problem and saves nothing', async () => {
+    const account = await addAccount(db, { name: 'Streaming', broker: '', note: '' })
+    const wrong = { ...template, commissionPct: '-1', vatPct: '200' }
+    await expect(updateAccount(db, account.id, { name: 'Renamed', broker: '', note: '', feeTemplate: wrong })).rejects.toThrow(
+      'ค่าคอมต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป',
+    )
+    expect(await db.accounts.get(account.id)).toEqual(account)
   })
 })
 

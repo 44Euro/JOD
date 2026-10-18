@@ -1245,4 +1245,119 @@ describe('TransactionFormPage', () => {
       expect(screen.getByText('ได้รับจริง 0.999 ETH')).toBeInTheDocument()
     })
   })
+
+  describe('fees from the account formula', () => {
+    const streaming = {
+      id: 'acc-2',
+      name: 'Streaming SET',
+      broker: 'Streaming',
+      note: '',
+      createdAt: '2024-01-01T00:00:00.000Z',
+      feeTemplate: { currency: 'THB', commissionPct: '0.157', minimum: '50', vatPct: '7', perOrder: '0' },
+    }
+    const summary = 'THB · 0.157% + VAT 7% · ขั้นต่ำ 50 บาท'
+    const provider = () => fakeFxProvider({ 'USD|THB': '35' }).provider
+
+    async function openSetBuy() {
+      await db.accounts.add(streaming)
+      const user = userEvent.setup()
+      const router = renderRoute('/transactions/new', provider())
+      await user.selectOptions(await screen.findByLabelText('บัญชี'), 'Streaming SET')
+      await user.selectOptions(screen.getByLabelText('ตลาด'), 'ไทย (SET)')
+      await user.type(screen.getByLabelText('สัญลักษณ์'), 'PTT')
+      await user.type(screen.getByLabelText('จำนวนหน่วย'), '100')
+      await user.type(screen.getByLabelText('ราคาต่อหน่วย'), '35')
+      return { user, router }
+    }
+
+    it('fills the fee from the account formula and lets the user put it back after typing', async () => {
+      const { user } = await openSetBuy()
+      const fee = screen.getByLabelText('ค่าธรรมเนียม')
+      expect(fee).toHaveValue('53.50')
+      expect(screen.getByText(`คำนวณจากสูตรของ Streaming SET · ${summary}`)).toBeInTheDocument()
+      await user.clear(fee)
+      await user.type(fee, '60')
+      expect(screen.queryByText(/คำนวณจากสูตรของ/)).not.toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'ใช้สูตรของบัญชี (53.50)' }))
+      expect(fee).toHaveValue('53.50')
+      expect(screen.getByText(`คำนวณจากสูตรของ Streaming SET · ${summary}`)).toBeInTheDocument()
+    })
+
+    it('follows the order until a fee is typed, and keeps the typed one', async () => {
+      const { user } = await openSetBuy()
+      const fee = screen.getByLabelText('ค่าธรรมเนียม')
+      await user.type(screen.getByLabelText('จำนวนหน่วย'), '0')
+      expect(fee).toHaveValue('58.80')
+      await user.type(fee, '1')
+      await user.type(screen.getByLabelText('จำนวนหน่วย'), '0')
+      expect(fee).toHaveValue('58.801')
+    })
+
+    it('saves the fee that was filled in', async () => {
+      const { user, router } = await openSetBuy()
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+      await waitFor(() => expect(router.state.location.pathname).toBe('/transactions'))
+      expect((await db.transactions.toArray())[0]).toMatchObject({ instrumentId: 'SET:PTT', accountId: 'acc-2', fees: '53.5' })
+    })
+
+    it('goes back to filling the fee for the next entry after save and add another', async () => {
+      const { user } = await openSetBuy()
+      await user.clear(screen.getByLabelText('ค่าธรรมเนียม'))
+      await user.type(screen.getByLabelText('ค่าธรรมเนียม'), '60')
+      await user.click(screen.getByRole('button', { name: 'บันทึกแล้วเพิ่มอีก' }))
+      expect(await screen.findByRole('status')).toHaveTextContent('บันทึกแล้ว')
+      expect(screen.getByLabelText('ค่าธรรมเนียม')).toHaveValue('')
+      await user.type(screen.getByLabelText('สัญลักษณ์'), 'AOT')
+      await user.type(screen.getByLabelText('จำนวนหน่วย'), '100')
+      await user.type(screen.getByLabelText('ราคาต่อหน่วย'), '35')
+      expect(screen.getByLabelText('ค่าธรรมเนียม')).toHaveValue('53.50')
+    })
+
+    it('does not fill over a transaction that is opened for editing', async () => {
+      await db.accounts.add(streaming)
+      await db.transactions.add(
+        makeTx({
+          id: 'set-1',
+          accountId: 'acc-2',
+          instrumentId: 'SET:PTT',
+          quantity: '100',
+          price: '35',
+          currency: 'THB',
+          fees: '10',
+          fxRate: '1',
+          fxSource: 'same',
+        }),
+      )
+      const user = userEvent.setup()
+      renderRoute('/transactions/set-1', provider())
+      const fee = await screen.findByLabelText('ค่าธรรมเนียม')
+      expect(fee).toHaveValue('10')
+      expect(screen.getByRole('button', { name: 'ใช้สูตรของบัญชี (53.50)' })).toBeInTheDocument()
+      await user.type(screen.getByLabelText('จำนวนหน่วย'), '0')
+      expect(fee).toHaveValue('10')
+    })
+
+    it('says so when the formula is in another currency, and leaves the fee empty', async () => {
+      const { user } = await openSetBuy()
+      await user.selectOptions(screen.getByLabelText('ตลาด'), 'สหรัฐ (US)')
+      expect(screen.getByLabelText('ค่าธรรมเนียม')).toHaveValue('')
+      expect(screen.getByText('สูตรของ Streaming SET ใช้กับรายการสกุล THB')).toBeInTheDocument()
+    })
+
+    it('says nothing about a formula for an account without one', async () => {
+      const user = userEvent.setup()
+      renderRoute('/transactions/new', provider())
+      await user.type(await screen.findByLabelText('สัญลักษณ์'), 'AAPL')
+      await user.type(screen.getByLabelText('จำนวนหน่วย'), '10')
+      await user.type(screen.getByLabelText('ราคาต่อหน่วย'), '100')
+      expect(screen.getByLabelText('ค่าธรรมเนียม')).toHaveValue('')
+      expect(screen.queryByText(/สูตรของ/)).not.toBeInTheDocument()
+    })
+
+    it('gives the way back to the formula a phone-sized target', async () => {
+      const { user } = await openSetBuy()
+      await user.type(screen.getByLabelText('ค่าธรรมเนียม'), '1')
+      expect(screen.getByRole('button', { name: 'ใช้สูตรของบัญชี (53.50)' })).toHaveClass('inline-flex', 'min-h-11', 'items-center', 'md:min-h-0')
+    })
+  })
 })

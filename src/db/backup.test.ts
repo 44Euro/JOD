@@ -73,6 +73,27 @@ describe('parseBackup', () => {
     expect(() => parseBackup(file({ ...paid, feePaidIn: 'gold' }))).toThrow('รายการ f ไม่ถูกต้อง: วิธีจ่ายค่าธรรมเนียมไม่ถูกต้อง')
   })
 
+  it('keeps a fee formula on an account and still reads an account without one', () => {
+    const template = { currency: 'THB', commissionPct: '0.157', minimum: '50', vatPct: '7', perOrder: '0' }
+    const file = (accounts: unknown[]) =>
+      JSON.stringify({ app: 'jod', version: 2, exportedAt: '', data: { accounts, instruments: [], settings: [], transactions: [] } })
+    expect(parseBackup(file([{ ...account, feeTemplate: template }])).data.accounts[0].feeTemplate).toEqual(template)
+    expect(parseBackup(file([account])).data.accounts[0]).not.toHaveProperty('feeTemplate')
+  })
+
+  it('rejects an account with a fee formula that does not make sense', () => {
+    const template = { currency: 'THB', commissionPct: '0.157', minimum: '50', vatPct: '7', perOrder: '0' }
+    const file = (feeTemplate: unknown) =>
+      JSON.stringify({ app: 'jod', version: 2, exportedAt: '', data: { accounts: [{ ...account, feeTemplate }], instruments: [], settings: [], transactions: [] } })
+    const message = `บัญชี ${account.name} มีสูตรค่าธรรมเนียมที่ไม่ถูกต้อง`
+    expect(() => parseBackup(file({ ...template, commissionPct: '-1' }))).toThrow(message)
+    expect(() => parseBackup(file({ ...template, currency: 'baht' }))).toThrow(message)
+    expect(() => parseBackup(file({ currency: 'THB', commissionPct: '1' }))).toThrow(message)
+    expect(() => parseBackup(file({ ...template, minimum: 50 }))).toThrow(message)
+    expect(() => parseBackup(file('free'))).toThrow(message)
+    expect(() => parseBackup(file(null))).toThrow(message)
+  })
+
   it('rejects a damaged daily value and an unknown version', () => {
     const file = { app: 'jod', version: 2, exportedAt: '', data: { accounts: [account], instruments: [], settings: [], transactions: [], dailyValues: [{ ...day, valueBase: 'abc' }] } }
     expect(() => parseBackup(JSON.stringify(file))).toThrow('พบมูลค่ารายวันที่เสียหายในไฟล์')

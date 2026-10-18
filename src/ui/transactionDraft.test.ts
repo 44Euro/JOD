@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { Account, Instrument } from '../domain/types'
+import type { Account, FeeTemplate, Instrument } from '../domain/types'
 import {
   applyReferenceRate,
   changeCurrency,
@@ -19,7 +19,9 @@ import {
   receivedAfterFee,
   receivedAmount,
   showsFeePaidIn,
+  syncFees,
   syncReceived,
+  templateFee,
   totalForDisplay,
   withTransferTarget,
   type Draft,
@@ -242,7 +244,7 @@ describe('draft helpers', () => {
     const instruments: Instrument[] = [
       { id: 'US:AAPL', market: 'US', symbol: 'AAPL', name: '', assetType: 'stock', currency: 'USD' },
     ]
-    expect(draftFromTransaction(tx, instruments)).toEqual({ ...draft, toAmountSource: 'manual' })
+    expect(draftFromTransaction(tx, instruments)).toEqual({ ...draft, toAmountSource: 'manual', feesSource: 'manual' })
   })
 
   it('keeps the saved received amount when an exchange is edited', () => {
@@ -880,4 +882,78 @@ describe('a transfer of units whose fee is taken from the units', () => {
     expect(tx).toMatchObject({ currency: 'USD', fxRate: '35', fees: '2' })
   })
 
+})
+
+describe('fees from the account formula', () => {
+  const streaming: FeeTemplate = { currency: 'THB', commissionPct: '0.157', minimum: '50', vatPct: '7', perOrder: '0' }
+  const streamingAccount: Account = {
+    id: 'streaming',
+    name: 'Streaming SET',
+    broker: '',
+    note: '',
+    createdAt: '2024-01-01T00:00:00.000Z',
+    feeTemplate: streaming,
+  }
+  const plainAccount: Account = { id: 'plain', name: 'Plain', broker: '', note: '', createdAt: '2024-01-01T00:00:00.000Z' }
+  const setBuy = buyDraft({ accountId: 'streaming', currency: 'THB', quantity: '100', price: '35' })
+
+  it('starts on automatic and reads a saved transaction as typed', () => {
+    expect(emptyDraft('acc-1', '2024-01-15').feesSource).toBe('auto')
+    const { tx } = draftToTransaction(buyDraft({ fees: '1.5' }), ctx)
+    expect(draftFromTransaction(tx, []).feesSource).toBe('manual')
+  })
+
+  it('fills the fee from the account formula until the user types one', () => {
+    const draft = { ...buyDraft(), accountId: 'streaming', currency: 'THB', quantity: '100', price: '35' }
+    expect(syncFees(draft, [streamingAccount]).fees).toBe('53.50')
+    const typed = { ...draft, fees: '60', feesSource: 'manual' as const }
+    expect(syncFees(typed, [streamingAccount]).fees).toBe('60')
+  })
+
+  it('does not fill a fee from a formula in another currency', () => {
+    const draft = { ...buyDraft(), accountId: 'streaming', currency: 'USD', quantity: '10', price: '100' }
+    expect(templateFee(draft, streamingAccount)).toBeNull()
+    expect(syncFees(draft, [streamingAccount]).fees).toBe('')
+  })
+
+  it('follows the quantity and price, and empties the fee when the order cannot be priced', () => {
+    const filled = syncFees(setBuy, [streamingAccount])
+    expect(syncFees({ ...filled, quantity: '1,000' }, [streamingAccount]).fees).toBe('58.80')
+    expect(syncFees({ ...filled, quantity: '' }, [streamingAccount]).fees).toBe('')
+    expect(syncFees({ ...filled, price: '0' }, [streamingAccount]).fees).toBe('')
+    expect(syncFees({ ...filled, quantity: 'abc' }, [streamingAccount]).fees).toBe('')
+  })
+
+  it('fills a sell as well, and nothing else', () => {
+    expect(templateFee({ ...setBuy, type: 'sell' }, streamingAccount)).toBe('53.50')
+    expect(templateFee({ ...setBuy, type: 'dividend' }, streamingAccount)).toBeNull()
+    expect(templateFee({ ...setBuy, type: 'fx_convert' }, streamingAccount)).toBeNull()
+  })
+
+  it('leaves a fee that is not paid in cash alone', () => {
+    const crypto = { ...setBuy, market: 'CRYPTO' as const }
+    expect(templateFee({ ...crypto, feePaidIn: 'received' }, streamingAccount)).toBeNull()
+    expect(templateFee({ ...crypto, feePaidIn: 'asset' }, streamingAccount)).toBeNull()
+    expect(templateFee({ ...crypto, feePaidIn: 'cash' }, streamingAccount)).toBe('53.50')
+    expect(templateFee({ ...setBuy, type: 'sell', feePaidIn: 'received' }, streamingAccount)).toBe('53.50')
+  })
+
+  it('has nothing to fill for an account without a formula or one that is not there', () => {
+    expect(templateFee({ ...setBuy, accountId: 'plain' }, plainAccount)).toBeNull()
+    expect(templateFee(setBuy, undefined)).toBeNull()
+    expect(syncFees({ ...setBuy, accountId: 'plain' }, [streamingAccount, plainAccount]).fees).toBe('')
+  })
+
+  it('leaves the fee empty when the formula comes to nothing', () => {
+    const free = { ...streamingAccount, feeTemplate: { ...streaming, commissionPct: '0', minimum: '0', vatPct: '0' } }
+    expect(templateFee(setBuy, free)).toBe('0.00')
+    expect(syncFees(setBuy, [free]).fees).toBe('')
+  })
+
+  it('changes nothing when the fee already matches', () => {
+    const filled = syncFees(setBuy, [streamingAccount])
+    expect(syncFees(filled, [streamingAccount])).toBe(filled)
+    const typed = { ...setBuy, fees: '60', feesSource: 'manual' as const }
+    expect(syncFees(typed, [streamingAccount])).toBe(typed)
+  })
 })

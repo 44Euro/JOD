@@ -1,5 +1,5 @@
 import { DEFAULT_SETTINGS, type Account, type Instrument, type Settings, type Thesis, type Transaction } from '../domain/types'
-import { validateThesis, validateTransaction } from '../domain/validation'
+import { validateFeeTemplate, validateThesis, validateTransaction } from '../domain/validation'
 import type { DailyValueRecord, JodDB } from './db'
 
 export function newId(): string {
@@ -23,6 +23,18 @@ export async function addAccount(
   const account: Account = { id: newId(), ...input, createdAt: now.toISOString() }
   await db.accounts.add(account)
   return account
+}
+
+export async function updateAccount(
+  db: JodDB,
+  id: string,
+  patch: Pick<Account, 'name' | 'broker' | 'note' | 'feeTemplate'>,
+): Promise<void> {
+  const name = patch.name.trim()
+  if (!name) throw new Error('กรุณาตั้งชื่อบัญชี')
+  const errors = patch.feeTemplate ? validateFeeTemplate(patch.feeTemplate) : []
+  if (errors.length > 0) throw new Error(errors[0])
+  await db.accounts.update(id, { name, broker: patch.broker.trim(), note: patch.note, feeTemplate: patch.feeTemplate })
 }
 
 export async function deleteAccount(db: JodDB, id: string): Promise<void> {

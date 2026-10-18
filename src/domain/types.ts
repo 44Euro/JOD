@@ -31,11 +31,22 @@ export type AssetType = (typeof ASSET_TYPES)[number]
 // manual = typed by the user, estimated = reference rate used in place of an unknown purchase rate
 export type FxSource = 'same' | 'auto' | 'manual' | 'estimated'
 
+// Decimal strings, empty = 0. minimum and perOrder are in `currency`; a formula only fills the fee of a transaction in
+// that currency.
+export interface FeeTemplate {
+  currency: string
+  commissionPct: string
+  minimum: string
+  vatPct: string
+  perOrder: string
+}
+
 export interface Account {
   id: string
   name: string
   broker: string
   note: string
+  feeTemplate?: FeeTemplate
   createdAt: string
 }
 

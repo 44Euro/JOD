@@ -1,5 +1,6 @@
 import { MARKET_CURRENCY } from '../domain/currencies'
 import { D, Decimal, parseDecimalInput } from '../domain/decimal'
+import { orderFee } from '../domain/fees'
 import { cashDeltaQuote } from '../domain/ledger'
 import {
   FEE_PAID_IN,
@@ -19,6 +20,7 @@ import { validateTransaction } from '../domain/validation'
 
 export type OpeningKind = 'asset' | 'cash'
 export type ToAmountSource = 'auto' | 'manual'
+export type FeesSource = 'auto' | 'manual'
 
 export interface Draft {
   type: TxType
@@ -43,6 +45,7 @@ export interface Draft {
   price: string
   amount: string
   fees: string
+  feesSource: FeesSource
   tax: string
   feePaidIn: FeePaidIn
   feeMarket: Market
@@ -99,6 +102,7 @@ export function emptyDraft(accountId: string, today: string): Draft {
     price: '',
     amount: '',
     fees: '',
+    feesSource: 'auto',
     tax: '',
     feePaidIn: 'cash',
     feeMarket: FEE_MARKET,
@@ -323,6 +327,25 @@ export function syncReceived(draft: Draft): Draft {
   return toAmount === draft.toAmount ? draft : { ...draft, toAmount }
 }
 
+// Only a buy or a sell whose fee is paid in cash is priced by the formula, in the currency the formula is for.
+export function templateFee(draft: Draft, account: Account | undefined): string | null {
+  const template = account?.feeTemplate
+  if (!template || (draft.type !== 'buy' && draft.type !== 'sell') || feePaidInOf(draft) !== 'cash') return null
+  if (template.currency !== draft.currency) return null
+  const quantity = parsedDecimal(draft.quantity)
+  const price = parsedDecimal(draft.price)
+  if (!quantity || !price || !quantity.greaterThan(0) || !price.greaterThan(0)) return null
+  return orderFee(template, quantity.times(price)).toFixed(2)
+}
+
+// Run after every draft change: a fee the user did not type follows the account formula.
+export function syncFees(draft: Draft, accounts: readonly Account[]): Draft {
+  if (draft.feesSource !== 'auto') return draft
+  const computed = templateFee(draft, accounts.find((a) => a.id === draft.accountId))
+  const fees = computed !== null && D(computed).greaterThan(0) ? computed : ''
+  return fees === draft.fees ? draft : { ...draft, fees }
+}
+
 // What actually arrives once the fee has taken its units out of the asset received.
 export function receivedAfterFee(draft: Draft): string | null {
   if (feePaidInOf(draft) !== 'received') return null
@@ -373,6 +396,7 @@ export function draftFromTransaction(tx: Transaction, instruments: readonly Inst
     price: tx.price ?? '',
     amount: tx.amount ?? '',
     fees: tx.fees === '0' ? '' : tx.fees,
+    feesSource: 'manual',
     tax: tx.tax === '0' ? '' : tx.tax,
     feePaidIn: tx.feePaidIn ?? 'cash',
     feeMarket: tx.feeInstrumentId ? fee.market : FEE_MARKET,

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { makeTx } from '../test/fixtures'
-import { validateTransaction } from './validation'
+import type { FeeTemplate } from './types'
+import { validateFeeTemplate, validateTransaction } from './validation'
 
 const TODAY = '2024-06-30'
 
@@ -215,5 +216,40 @@ describe('validateTransaction', () => {
     it('rejects a way of paying the fee that does not exist', () => {
       expect(validateTransaction(makeTx({ feePaidIn: 'gold' as never }), TODAY)).toEqual(['วิธีจ่ายค่าธรรมเนียมไม่ถูกต้อง'])
     })
+  })
+})
+
+describe('validateFeeTemplate', () => {
+  const template: FeeTemplate = { currency: 'THB', commissionPct: '0.157', minimum: '50', vatPct: '7', perOrder: '0' }
+
+  it('accepts a complete formula and one with empty numbers', () => {
+    expect(validateFeeTemplate(template)).toEqual([])
+    expect(validateFeeTemplate({ currency: 'USD', commissionPct: '', minimum: '', vatPct: '', perOrder: '' })).toEqual([])
+  })
+
+  it('rejects a currency that is not a code', () => {
+    expect(validateFeeTemplate({ ...template, currency: '' })).toEqual(['สกุลเงินของสูตรไม่ถูกต้อง'])
+    expect(validateFeeTemplate({ ...template, currency: 'thb' })).toEqual(['สกุลเงินของสูตรไม่ถูกต้อง'])
+  })
+
+  it('rejects numbers that are negative or not numbers, naming the field', () => {
+    expect(validateFeeTemplate({ ...template, commissionPct: '-1' })).toEqual(['ค่าคอมต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป'])
+    expect(validateFeeTemplate({ ...template, minimum: 'abc' })).toEqual(['ขั้นต่ำต่อคำสั่งต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป'])
+    expect(validateFeeTemplate({ ...template, vatPct: '1e1' })).toEqual(['VATต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป'])
+    expect(validateFeeTemplate({ ...template, perOrder: '-0.5' })).toEqual(['ค่าธรรมเนียมต่อคำสั่งต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป'])
+  })
+
+  it('rejects a percentage above 100', () => {
+    expect(validateFeeTemplate({ ...template, commissionPct: '100.5' })).toEqual(['ค่าคอมต้องไม่เกิน 100%'])
+    expect(validateFeeTemplate({ ...template, vatPct: '101' })).toEqual(['VAT ต้องไม่เกิน 100%'])
+    expect(validateFeeTemplate({ ...template, commissionPct: '100', vatPct: '100' })).toEqual([])
+  })
+
+  it('reports every problem in order', () => {
+    expect(validateFeeTemplate({ currency: 'x', commissionPct: '200', minimum: '-1', vatPct: '', perOrder: '' })).toEqual([
+      'สกุลเงินของสูตรไม่ถูกต้อง',
+      'ค่าคอมต้องไม่เกิน 100%',
+      'ขั้นต่ำต่อคำสั่งต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป',
+    ])
   })
 })

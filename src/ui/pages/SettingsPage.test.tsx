@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { db } from '../../db/db'
@@ -36,5 +36,111 @@ describe('SettingsPage', () => {
     await user.click(await screen.findByRole('button', { name: 'ลบ Dime US' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('ลบไม่ได้ บัญชีนี้ยังมี 1 รายการ')
     expect(await db.accounts.count()).toBe(1)
+  })
+
+  describe('account fee formula', () => {
+    const streaming = { id: 'acc-2', name: 'Streaming SET', broker: 'Streaming', note: '', createdAt: '2024-01-02T00:00:00.000Z' }
+    const formula = { currency: 'THB', commissionPct: '0.157', minimum: '50', vatPct: '7', perOrder: '' }
+    const editorOf = (name: string) => within(screen.getByRole('form', { name: `แก้ไข ${name}` }))
+
+    it('edits an account formula and shows its summary under the name', async () => {
+      await db.accounts.add(streaming)
+      const user = userEvent.setup()
+      renderRoute('/settings')
+      await user.click(await screen.findByRole('button', { name: 'แก้ไข Streaming SET' }))
+      const editor = editorOf('Streaming SET')
+      await user.click(editor.getByLabelText('บัญชีนี้มีค่าคอมซื้อขาย'))
+      await user.selectOptions(editor.getByLabelText('สกุลของสูตร'), 'THB')
+      await user.type(editor.getByLabelText('ค่าคอม (%)'), '0.157')
+      await user.type(editor.getByLabelText('ขั้นต่ำต่อคำสั่ง'), '50')
+      await user.type(editor.getByLabelText('VAT (%)'), '7')
+      await user.click(editor.getByRole('button', { name: 'บันทึก' }))
+      expect(await screen.findByText('THB · 0.157% + VAT 7% · ขั้นต่ำ 50 บาท')).toBeInTheDocument()
+      expect(screen.queryByRole('form', { name: 'แก้ไข Streaming SET' })).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'แก้ไข Streaming SET' })).toBeInTheDocument()
+      expect((await db.accounts.get('acc-2'))?.feeTemplate).toEqual({
+        currency: 'THB',
+        commissionPct: '0.157',
+        minimum: '50',
+        vatPct: '7',
+        perOrder: '',
+      })
+    })
+
+    it('shows the broker under the name of an account without a formula', async () => {
+      await db.accounts.bulkAdd([streaming, { ...account, feeTemplate: formula }])
+      renderRoute('/settings')
+      expect(await screen.findByText('Streaming')).toBeInTheDocument()
+      expect(screen.getByText('THB · 0.157% + VAT 7% · ขั้นต่ำ 50 บาท')).toBeInTheDocument()
+      expect(screen.queryByText('Dime')).not.toBeInTheDocument()
+    })
+
+    it('opens with what is stored, and takes the formula away when it is unticked', async () => {
+      await db.accounts.add({ ...streaming, feeTemplate: formula })
+      const user = userEvent.setup()
+      renderRoute('/settings')
+      await user.click(await screen.findByRole('button', { name: 'แก้ไข Streaming SET' }))
+      const editor = editorOf('Streaming SET')
+      expect(editor.getByLabelText('ชื่อบัญชี')).toHaveValue('Streaming SET')
+      expect(editor.getByLabelText('โบรกเกอร์')).toHaveValue('Streaming')
+      expect(editor.getByLabelText('บัญชีนี้มีค่าคอมซื้อขาย')).toBeChecked()
+      expect(editor.getByLabelText('ค่าคอม (%)')).toHaveValue('0.157')
+      expect(editor.getByLabelText('ขั้นต่ำต่อคำสั่ง')).toHaveValue('50')
+      expect(editor.getByLabelText('VAT (%)')).toHaveValue('7')
+      expect(editor.getByLabelText('ค่าธรรมเนียมต่อคำสั่ง')).toHaveValue('')
+      await user.click(editor.getByLabelText('บัญชีนี้มีค่าคอมซื้อขาย'))
+      expect(editor.queryByLabelText('ค่าคอม (%)')).not.toBeInTheDocument()
+      await user.click(editor.getByRole('button', { name: 'บันทึก' }))
+      expect(await screen.findByText('Streaming')).toBeInTheDocument()
+      expect(await db.accounts.get('acc-2')).not.toHaveProperty('feeTemplate')
+    })
+
+    it('renames an account and keeps it listed in place of its editor', async () => {
+      await db.accounts.add(streaming)
+      const user = userEvent.setup()
+      renderRoute('/settings')
+      await user.click(await screen.findByRole('button', { name: 'แก้ไข Streaming SET' }))
+      const editor = editorOf('Streaming SET')
+      await user.clear(editor.getByLabelText('ชื่อบัญชี'))
+      await user.type(editor.getByLabelText('ชื่อบัญชี'), 'Streaming ใหม่')
+      await user.clear(editor.getByLabelText('โบรกเกอร์'))
+      await user.click(editor.getByRole('button', { name: 'บันทึก' }))
+      expect(await screen.findByText('Streaming ใหม่')).toBeInTheDocument()
+      expect(await db.accounts.get('acc-2')).toMatchObject({ name: 'Streaming ใหม่', broker: '' })
+    })
+
+    it('says what is wrong under the form and keeps it open', async () => {
+      await db.accounts.add(streaming)
+      const user = userEvent.setup()
+      renderRoute('/settings')
+      await user.click(await screen.findByRole('button', { name: 'แก้ไข Streaming SET' }))
+      const editor = editorOf('Streaming SET')
+      await user.click(editor.getByLabelText('บัญชีนี้มีค่าคอมซื้อขาย'))
+      await user.type(editor.getByLabelText('ค่าคอม (%)'), '-1')
+      await user.click(editor.getByRole('button', { name: 'บันทึก' }))
+      expect(await editor.findByRole('alert')).toHaveTextContent('ค่าคอมต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป')
+      expect(await db.accounts.get('acc-2')).not.toHaveProperty('feeTemplate')
+      await user.clear(editor.getByLabelText('ชื่อบัญชี'))
+      await user.click(editor.getByRole('button', { name: 'บันทึก' }))
+      expect(await editor.findByRole('alert')).toHaveTextContent('กรุณาตั้งชื่อบัญชี')
+    })
+
+    it('closes the editor without saving when cancelled', async () => {
+      await db.accounts.add(streaming)
+      const user = userEvent.setup()
+      renderRoute('/settings')
+      await user.click(await screen.findByRole('button', { name: 'แก้ไข Streaming SET' }))
+      await user.type(editorOf('Streaming SET').getByLabelText('ชื่อบัญชี'), ' X')
+      await user.click(editorOf('Streaming SET').getByRole('button', { name: 'ยกเลิก' }))
+      expect(screen.queryByRole('form', { name: 'แก้ไข Streaming SET' })).not.toBeInTheDocument()
+      expect(screen.getByText('Streaming SET')).toBeInTheDocument()
+      expect((await db.accounts.get('acc-2'))?.name).toBe('Streaming SET')
+    })
+
+    it('gives the edit button a phone-sized target', async () => {
+      await db.accounts.add(streaming)
+      renderRoute('/settings')
+      expect(await screen.findByRole('button', { name: 'แก้ไข Streaming SET' })).toHaveClass('size-11', 'md:size-10')
+    })
   })
 })

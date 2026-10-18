@@ -1,10 +1,19 @@
+import type { ReactNode } from 'react'
 import { Field } from '../../../components/ui/field'
 import { Input, NativeSelect } from '../../../components/ui/input'
-import type { FeePaidIn, Instrument, TxType } from '../../../domain/types'
+import { feeTemplateSummary } from '../../../domain/fees'
+import type { Account, FeePaidIn, Instrument, TxType } from '../../../domain/types'
 import { cn } from '../../../lib/cn'
 import { fmtNumber } from '../../format'
 import { FEE_PAID_IN_LABELS } from '../../labels'
-import { feePaidInOf, feePaidInOptions, receivedAfterFee, showsFeePaidIn, type Draft } from '../../transactionDraft'
+import {
+  feePaidInOf,
+  feePaidInOptions,
+  receivedAfterFee,
+  showsFeePaidIn,
+  templateFee,
+  type Draft,
+} from '../../transactionDraft'
 import { FieldGroup } from './FieldGroup'
 import { InstrumentFields } from './InstrumentFields'
 
@@ -13,16 +22,36 @@ function feeLabel(type: TxType): string {
   return type === 'transfer' ? 'ค่าธรรมเนียมการโอน' : 'ค่าธรรมเนียม'
 }
 
+function formulaHint(draft: Draft, account: Account | undefined, restoreFormula: () => void): ReactNode {
+  const template = account?.feeTemplate
+  if (!account || !template || (draft.type !== 'buy' && draft.type !== 'sell')) return undefined
+  if (template.currency !== draft.currency) return `สูตรของ ${account.name} ใช้กับรายการสกุล ${template.currency}`
+  const computed = templateFee(draft, account)
+  if (computed === null) return undefined
+  if (draft.feesSource === 'auto') return `คำนวณจากสูตรของ ${account.name} · ${feeTemplateSummary(template)}`
+  return (
+    <button
+      type="button"
+      className="inline-flex min-h-11 items-center text-[13px] font-semibold text-primary underline underline-offset-[3px] md:min-h-0"
+      onClick={restoreFormula}
+    >
+      ใช้สูตรของบัญชี ({computed})
+    </button>
+  )
+}
+
 // The fee asset has to be held already, so the name and type that InstrumentFields asks of a new one are never shown.
 const heldOnly = { name: '', assetType: 'other', onName: () => {}, onAssetType: () => {} } as const
 
 export function FeeTaxFields({
   draft,
+  account,
   instruments,
   feeHint,
   update,
 }: {
   draft: Draft
+  account: Account | undefined
   instruments: readonly Instrument[]
   feeHint?: string
   update(patch: Partial<Draft>): void
@@ -48,8 +77,14 @@ export function FeeTaxFields({
           </Field>
         )}
         {paidIn === 'cash' && (
-          <Field id="tx-fees" label={feeLabel(draft.type)}>
-            <Input id="tx-fees" inputMode="decimal" placeholder="0" value={draft.fees} onChange={(e) => update({ fees: e.target.value })} />
+          <Field id="tx-fees" label={feeLabel(draft.type)} hint={formulaHint(draft, account, () => update({ feesSource: 'auto' }))}>
+            <Input
+              id="tx-fees"
+              inputMode="decimal"
+              placeholder="0"
+              value={draft.fees}
+              onChange={(e) => update({ fees: e.target.value, feesSource: 'manual' })}
+            />
           </Field>
         )}
         {paidIn === 'received' && (
@@ -93,7 +128,12 @@ export function FeeTaxFields({
               <Input id="tx-fee-quantity" inputMode="decimal" value={draft.feeQuantity} onChange={(e) => update({ feeQuantity: e.target.value })} />
             </Field>
             <Field id="tx-fees" label={`มูลค่าค่าธรรมเนียม (${draft.currency})`}>
-              <Input id="tx-fees" inputMode="decimal" value={draft.fees} onChange={(e) => update({ fees: e.target.value })} />
+              <Input
+                id="tx-fees"
+                inputMode="decimal"
+                value={draft.fees}
+                onChange={(e) => update({ fees: e.target.value, feesSource: 'manual' })}
+              />
             </Field>
           </div>
         </FieldGroup>

@@ -1,4 +1,4 @@
-import { Lock, Trash2 } from 'lucide-react'
+import { Lock, Pencil, Trash2 } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Alert } from '../../components/ui/alert'
 import { Button } from '../../components/ui/button'
@@ -8,6 +8,8 @@ import { Input, NativeSelect } from '../../components/ui/input'
 import { db } from '../../db/db'
 import { addAccount, deleteAccount, saveSettings } from '../../db/repo'
 import { AUTO_FX_CURRENCIES } from '../../domain/currencies'
+import { feeTemplateSummary } from '../../domain/fees'
+import { AccountEditor } from '../components/AccountEditor'
 import { DataSection } from '../components/DataSection'
 import { PageHeader } from '../components/PageHeader'
 import { useAppData } from '../hooks'
@@ -17,6 +19,7 @@ export function SettingsPage() {
   const [name, setName] = useState('')
   const [broker, setBroker] = useState('')
   const [message, setMessage] = useState('')
+  const [editingId, setEditingId] = useState<string | null>(null)
 
   if (!data) return <p className="text-muted-foreground">กำลังโหลด…</p>
   const hasTransactions = data.transactions.length > 0
@@ -81,20 +84,41 @@ export function SettingsPage() {
             ) : (
               <ul>
                 {data.accounts.map((account) => (
-                  <li key={account.id} className="flex items-center justify-between gap-2 border-t border-muted py-3 first:border-t-0">
-                    <span className="min-w-0">
-                      <b className="block font-display text-base font-semibold">{account.name}</b>
-                      {account.broker && <span className="text-[12.5px] text-muted-foreground">{account.broker}</span>}
-                    </span>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      aria-label={`ลบ ${account.name}`}
-                      onClick={() => void handleDeleteAccount(account.id)}
-                    >
-                      <Trash2 aria-hidden />
-                    </Button>
+                  <li key={account.id} className="border-t border-muted py-3 first:border-t-0">
+                    {editingId === account.id ? (
+                      <AccountEditor account={account} onDone={() => setEditingId(null)} />
+                    ) : (
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="min-w-0">
+                          <b className="block font-display text-base font-semibold">{account.name}</b>
+                          {(account.feeTemplate || account.broker) && (
+                            <span className="text-[12.5px] text-muted-foreground">
+                              {account.feeTemplate ? feeTemplateSummary(account.feeTemplate) : account.broker}
+                            </span>
+                          )}
+                        </span>
+                        <span className="flex shrink-0">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`แก้ไข ${account.name}`}
+                            onClick={() => setEditingId(account.id)}
+                          >
+                            <Pencil aria-hidden />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`ลบ ${account.name}`}
+                            onClick={() => void handleDeleteAccount(account.id)}
+                          >
+                            <Trash2 aria-hidden />
+                          </Button>
+                        </span>
+                      </div>
+                    )}
                   </li>
                 ))}
               </ul>

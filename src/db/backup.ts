@@ -1,8 +1,8 @@
 import { isIsoDate } from '../domain/dates'
 import { D, isDecimalString } from '../domain/decimal'
 import { cashDeltaQuote, sortTransactions } from '../domain/ledger'
-import type { Account, Instrument, Transaction } from '../domain/types'
-import { validateTransaction } from '../domain/validation'
+import type { Account, FeeTemplate, Instrument, Transaction } from '../domain/types'
+import { validateFeeTemplate, validateTransaction } from '../domain/validation'
 import type { DailyValueRecord, JodDB, SettingsRecord } from './db'
 
 // Version 2 adds dailyValues. Version 1 files (from before the daily value table) still restore.
@@ -39,6 +39,15 @@ export async function exportBackup(db: JodDB, now: Date = new Date()): Promise<B
   }
 }
 
+const FEE_TEMPLATE_FIELDS = ['currency', 'commissionPct', 'minimum', 'vatPct', 'perOrder'] as const
+
+function isValidFeeTemplate(value: unknown): value is FeeTemplate {
+  if (typeof value !== 'object' || value === null) return false
+  const template = value as Record<string, unknown>
+  if (!FEE_TEMPLATE_FIELDS.every((field) => typeof template[field] === 'string')) return false
+  return validateFeeTemplate(value as FeeTemplate).length === 0
+}
+
 export function parseBackup(text: string): BackupFile {
   let parsed: unknown
   try {
@@ -53,6 +62,11 @@ export function parseBackup(text: string): BackupFile {
   const { accounts, instruments, transactions, settings } = file.data
   if (![accounts, instruments, transactions, settings].every(Array.isArray)) {
     throw new BackupError('ข้อมูลในไฟล์สำรองไม่ครบ')
+  }
+  for (const account of accounts) {
+    if (account.feeTemplate !== undefined && !isValidFeeTemplate(account.feeTemplate)) {
+      throw new BackupError(`บัญชี ${account.name} มีสูตรค่าธรรมเนียมที่ไม่ถูกต้อง`)
+    }
   }
   const accountIds = new Set(accounts.map((a) => a.id))
   for (const tx of transactions) {
