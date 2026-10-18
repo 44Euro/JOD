@@ -3,10 +3,12 @@ import type { Account, FeeTemplate, Instrument } from '../domain/types'
 import { makeTx } from '../test/fixtures'
 import {
   applyReferenceRate,
+  changeAssetType,
   changeCurrency,
   changeDate,
   changeMarket,
   changeOpeningKind,
+  changeToAssetType,
   changeToMarket,
   changeType,
   draftFromTransaction,
@@ -284,11 +286,62 @@ describe('draft helpers', () => {
     expect(changeMarket(buyDraft(), 'CRYPTO').assetType).toBe('crypto')
   })
 
+  it('starts gold in baht, as gold counted in baht-weight', () => {
+    expect(changeMarket(buyDraft(), 'GOLD')).toMatchObject({ market: 'GOLD', currency: 'THB', assetType: 'gold', unit: 'baht_gold' })
+  })
+
+  it('starts a bond or a fund as units, in baht', () => {
+    expect(changeMarket(buyDraft(), 'BOND')).toMatchObject({ currency: 'THB', assetType: 'bond', unit: 'unit' })
+    expect(changeMarket(buyDraft(), 'FUND')).toMatchObject({ currency: 'THB', assetType: 'fund', unit: 'unit' })
+  })
+
+  it('goes back to a stock counted in shares when leaving a market that fixes the type', () => {
+    const gold = changeMarket(buyDraft(), 'GOLD')
+    expect(changeMarket(gold, 'US')).toMatchObject({ market: 'US', currency: 'USD', assetType: 'stock', unit: 'share' })
+    expect(changeMarket(changeMarket(buyDraft(), 'CRYPTO'), 'SET')).toMatchObject({ assetType: 'stock', unit: 'share' })
+    expect(changeMarket(changeMarket(buyDraft(), 'FUND'), 'SET')).toMatchObject({ assetType: 'stock', unit: 'share' })
+  })
+
+  it('keeps an ETF or a DR picked by hand while the market moves between stock markets', () => {
+    const etf = changeAssetType(buyDraft(), 'etf')
+    expect(changeMarket(etf, 'SET')).toMatchObject({ assetType: 'etf', unit: 'unit' })
+    const dr = changeAssetType(buyDraft({ market: 'SET' }), 'dr')
+    expect(changeMarket(dr, 'US')).toMatchObject({ assetType: 'dr', unit: 'share' })
+  })
+
+  it('puts the unit back to the default of a type when the type changes', () => {
+    const gram = { ...changeMarket(buyDraft(), 'GOLD'), unit: 'gram' as const }
+    expect(changeAssetType(gram, 'gold')).toMatchObject({ assetType: 'gold', unit: 'baht_gold' })
+    expect(changeAssetType(gram, 'fund')).toMatchObject({ assetType: 'fund', unit: 'unit' })
+    expect(changeAssetType(buyDraft(), 'crypto')).toMatchObject({ assetType: 'crypto', unit: 'coin' })
+  })
+
+  it('does the same for the coin received in a swap without touching the coin given up', () => {
+    const next = changeToAssetType(buyDraft({ unit: 'gram' }), 'gold')
+    expect(next).toMatchObject({ toAssetType: 'gold', toUnit: 'baht_gold', assetType: 'stock', unit: 'gram' })
+  })
+
   it('fills currency and name from a known instrument', () => {
     const known: Instrument = { id: 'CRYPTO:BTC', market: 'CRYPTO', symbol: 'BTC', name: 'Bitcoin', assetType: 'crypto', currency: 'USDT' }
     const next = pickSymbol(buyDraft({ market: 'CRYPTO', symbol: '' }), 'btc', [known])
     expect(next.currency).toBe('USDT')
     expect(next.instrumentName).toBe('Bitcoin')
+  })
+
+  it('round-trips the unit of the instrument and falls back to the one of its type', () => {
+    const gold: Instrument = {
+      id: 'GOLD:96.5',
+      market: 'GOLD',
+      symbol: '96.5',
+      name: 'ทอง 96.5%',
+      assetType: 'gold',
+      currency: 'THB',
+      unit: 'gram',
+    }
+    const { tx } = draftToTransaction(buyDraft({ market: 'GOLD', symbol: '96.5', currency: 'THB', unit: 'gram', assetType: 'gold' }), ctx)
+    expect(draftFromTransaction(tx, [gold])).toMatchObject({ assetType: 'gold', unit: 'gram' })
+    expect(draftFromTransaction(tx, [{ ...gold, unit: undefined }])).toMatchObject({ assetType: 'gold', unit: 'baht_gold' })
+    expect(draftFromTransaction(tx, [])).toMatchObject({ assetType: 'stock', unit: 'share' })
   })
 
   it('shows the amount a transaction moves, or the cost of an opening holding', () => {
@@ -323,6 +376,49 @@ describe('looked-up names', () => {
   it('picks up the name and currency of a symbol known in the new market', () => {
     const next = changeMarket(buyDraft({ symbol: 'btc' }), 'CRYPTO', [btc])
     expect(next).toMatchObject({ market: 'CRYPTO', instrumentName: 'Bitcoin', currency: 'USDT', assetType: 'crypto' })
+  })
+})
+
+describe('units of looked-up instruments', () => {
+  const gold: Instrument = {
+    id: 'GOLD:96.5',
+    market: 'GOLD',
+    symbol: '96.5',
+    name: 'ทอง 96.5%',
+    assetType: 'gold',
+    currency: 'THB',
+    unit: 'gram',
+  }
+  const fund: Instrument = { id: 'FUND:SCBS&P500', market: 'FUND', symbol: 'SCBS&P500', name: 'SCB S&P500', assetType: 'fund', currency: 'THB' }
+
+  it('takes the unit of a known instrument, or the one of its type when it has none', () => {
+    const onGold = changeMarket(buyDraft({ symbol: '' }), 'GOLD')
+    expect(pickSymbol(onGold, '96.5', [gold])).toMatchObject({ instrumentName: 'ทอง 96.5%', assetType: 'gold', unit: 'gram' })
+    const onFund = changeMarket(buyDraft({ symbol: '' }), 'FUND')
+    expect(pickSymbol(onFund, 'scbs&p500', [fund])).toMatchObject({ assetType: 'fund', unit: 'unit' })
+  })
+
+  it('goes back to the default unit once the symbol stops matching', () => {
+    const matched = pickSymbol(changeMarket(buyDraft({ symbol: '' }), 'GOLD'), '96.5', [gold])
+    expect(pickSymbol(matched, '99.99', [gold])).toMatchObject({ instrumentName: '', assetType: 'gold', unit: 'baht_gold' })
+  })
+
+  it('keeps the unit typed for a symbol that was never looked up', () => {
+    const typed = { ...changeMarket(buyDraft({ symbol: '96' }), 'GOLD'), unit: 'gram' as const }
+    expect(pickSymbol(typed, '96.5', [])).toMatchObject({ symbol: '96.5', assetType: 'gold', unit: 'gram' })
+  })
+
+  it('clears a unit looked up in the old market when the market changes', () => {
+    const onGold = pickSymbol(changeMarket(buyDraft({ symbol: '' }), 'GOLD'), '96.5', [gold])
+    expect(changeMarket(onGold, 'HK', [gold])).toMatchObject({ market: 'HK', assetType: 'stock', unit: 'share' })
+  })
+
+  it('picks the coin received like the main one without touching the unit of the coin given up', () => {
+    const swapping = changeType(buyDraft({ market: 'CRYPTO', symbol: 'btc', assetType: 'crypto', unit: 'coin', currency: 'USD' }), 'swap', 'THB')
+    expect(swapping).toMatchObject({ unit: 'coin', toUnit: 'coin' })
+    const toGold = changeToMarket(swapping, 'GOLD')
+    expect(toGold).toMatchObject({ toMarket: 'GOLD', toAssetType: 'gold', toUnit: 'baht_gold', unit: 'coin', currency: 'USD' })
+    expect(pickToSymbol(toGold, '96.5', [gold])).toMatchObject({ toAssetType: 'gold', toUnit: 'gram', unit: 'coin' })
   })
 })
 
@@ -416,7 +512,15 @@ describe('swaps', () => {
       'swap',
       'THB',
     )
-    expect(next).toMatchObject({ type: 'swap', toMarket: 'CRYPTO', toSymbol: '', toQuantity: '', toInstrumentName: '', toAssetType: 'crypto' })
+    expect(next).toMatchObject({
+      type: 'swap',
+      toMarket: 'CRYPTO',
+      toSymbol: '',
+      toQuantity: '',
+      toInstrumentName: '',
+      toAssetType: 'crypto',
+      toUnit: 'coin',
+    })
   })
 
   it('starts a swap on crypto in both markets, in the crypto currency, with the rate started over', () => {
@@ -426,6 +530,8 @@ describe('swaps', () => {
       toMarket: 'CRYPTO',
       assetType: 'crypto',
       toAssetType: 'crypto',
+      unit: 'coin',
+      toUnit: 'coin',
       currency: 'USD',
       fxRate: '',
       fxSource: 'auto',

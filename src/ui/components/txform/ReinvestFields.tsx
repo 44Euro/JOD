@@ -13,9 +13,12 @@ function ReinvestSummary({ dividend, buy }: { dividend: Transaction; buy: Transa
     <p className="rounded-2xl bg-muted px-[18px] py-3 text-[13px]">
       ซื้อ {fmtNumber(buy.quantity, 8)} × {fmtPrice(buy.price)} = {fmtMoney(D(buy.quantity).times(D(buy.price)), buy.currency)}
       {fees.greaterThan(0) && ` + ค่าธรรมเนียม ${fmtMoney(fees, buy.currency)}`}
-      {left.isNegative()
-        ? ` · ใช้เงินสดเพิ่ม ${fmtMoney(left.abs(), buy.currency)}`
-        : ` · เหลือเงินสด ${fmtMoney(left, buy.currency)}`}
+      {' '}
+      <span className="whitespace-nowrap">
+        {left.isNegative()
+          ? `· ใช้เงินสดเพิ่ม ${fmtMoney(left.abs(), buy.currency)}`
+          : `· เหลือเงินสด ${fmtMoney(left, buy.currency)}`}
+      </span>
     </p>
   )
 }
@@ -34,7 +37,7 @@ export function ReinvestFields({
       <label className="flex min-h-11 items-center gap-2.5 text-sm">
         <input
           type="checkbox"
-          className="size-5 accent-primary"
+          className="size-5 shrink-0 accent-primary"
           checked={draft.reinvest}
           onChange={(e) => update({ reinvest: e.target.checked })}
         />
@@ -42,7 +45,7 @@ export function ReinvestFields({
       </label>
       {draft.reinvest && (
         <>
-          <div className="grid gap-3.5 sm:grid-cols-3">
+          <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3">
             <Field id="tx-reinvest-quantity" label="จำนวนหน่วยที่ซื้อ">
               <Input
                 id="tx-reinvest-quantity"
@@ -59,7 +62,7 @@ export function ReinvestFields({
                 onChange={(e) => update({ reinvestPrice: e.target.value })}
               />
             </Field>
-            <Field id="tx-reinvest-fees" label="ค่าธรรมเนียมซื้อ">
+            <Field id="tx-reinvest-fees" label="ค่าธรรมเนียมซื้อ" className="col-span-2 sm:col-span-1">
               <Input
                 id="tx-reinvest-fees"
                 inputMode="decimal"

@@ -4,8 +4,10 @@ import { orderFee } from '../domain/fees'
 import { cashDeltaQuote } from '../domain/ledger'
 import {
   FEE_PAID_IN,
+  defaultUnit,
   findInstrument,
   instrumentKey,
+  unitOf,
   type Account,
   type AssetType,
   type FeePaidIn,
@@ -15,6 +17,7 @@ import {
   type ReceiveKind,
   type Transaction,
   type TxType,
+  type Unit,
 } from '../domain/types'
 import { validateTransaction } from '../domain/validation'
 
@@ -31,10 +34,12 @@ export interface Draft {
   symbol: string
   instrumentName: string
   assetType: AssetType
+  unit: Unit
   toMarket: Market
   toSymbol: string
   toInstrumentName: string
   toAssetType: AssetType
+  toUnit: Unit
   toQuantity: string
   openingKind: OpeningKind
   toAccountId: string
@@ -92,10 +97,12 @@ export function emptyDraft(accountId: string, today: string): Draft {
     symbol: '',
     instrumentName: '',
     assetType: 'stock',
+    unit: 'share',
     toMarket: 'US',
     toSymbol: '',
     toInstrumentName: '',
     toAssetType: 'stock',
+    toUnit: 'share',
     toQuantity: '',
     openingKind: 'asset',
     toAccountId: '',
@@ -230,10 +237,18 @@ function applyType(draft: Draft, type: TxType, baseCurrency: string): Draft {
     changed.market === 'CRYPTO'
       ? changed
       : changeCurrency(
-          { ...changed, market: 'CRYPTO', symbol: '', instrumentName: '', assetType: 'crypto' },
+          { ...changed, market: 'CRYPTO', symbol: '', instrumentName: '', assetType: 'crypto', unit: defaultUnit('crypto') },
           MARKET_CURRENCY.CRYPTO,
         )
-  return { ...onCrypto, toMarket: 'CRYPTO', toSymbol: '', toInstrumentName: '', toAssetType: 'crypto', toQuantity: '' }
+  return {
+    ...onCrypto,
+    toMarket: 'CRYPTO',
+    toSymbol: '',
+    toInstrumentName: '',
+    toAssetType: 'crypto',
+    toUnit: defaultUnit('crypto'),
+    toQuantity: '',
+  }
 }
 
 export function changeType(draft: Draft, type: TxType, baseCurrency: string): Draft {
@@ -246,31 +261,40 @@ export function changeOpeningKind(draft: Draft, openingKind: OpeningKind): Draft
   return isOpeningAsset(next) !== isOpeningAsset(draft) ? restartRate(next) : next
 }
 
+const MARKET_ASSET_TYPE: Partial<Record<Market, AssetType>> = { FUND: 'fund', BOND: 'bond', GOLD: 'gold', CRYPTO: 'crypto' }
+
 function defaultAssetType(market: Market): AssetType {
-  return market === 'CRYPTO' ? 'crypto' : 'stock'
+  return MARKET_ASSET_TYPE[market] ?? 'stock'
+}
+
+// The unit goes back to the default of the type, so a unit picked by hand does not outlive the type it was picked for.
+export function changeAssetType(draft: Draft, assetType: AssetType): Draft {
+  return { ...draft, assetType, unit: defaultUnit(assetType) }
 }
 
 export function changeMarket(draft: Draft, market: Market, instruments: readonly Instrument[] = []): Draft {
   const lookedUp = findInstrument(instruments, draft.market, draft.symbol) !== undefined
-  const assetType = market === 'CRYPTO' ? 'crypto' : draft.assetType === 'crypto' ? 'stock' : draft.assetType
+  // A fund, bond, gold or crypto market fixes the type. Leaving one turns the type it gave back into stock, while a type
+  // the user picked stays as the market moves between the others.
+  const assetType = MARKET_ASSET_TYPE[market] ?? (draft.assetType === MARKET_ASSET_TYPE[draft.market] ? 'stock' : draft.assetType)
   // The kind only follows the market while it is still the one the old market starts with, so a kind the user
   // picked is kept.
   const receiveKind =
     draft.type === 'receive_asset' && draft.receiveKind === defaultReceiveKind(draft.market) ? defaultReceiveKind(market) : draft.receiveKind
-  const switched = changeCurrency(
-    lookedUp
-      ? { ...draft, market, receiveKind, instrumentName: '', assetType: defaultAssetType(market) }
-      : { ...draft, market, receiveKind, assetType },
-    MARKET_CURRENCY[market],
-  )
+  const moved = lookedUp
+    ? changeAssetType({ ...draft, market, receiveKind, instrumentName: '' }, defaultAssetType(market))
+    : changeAssetType({ ...draft, market, receiveKind }, assetType)
+  const switched = changeCurrency(moved, MARKET_CURRENCY[market])
   return draft.symbol ? pickSymbol(switched, draft.symbol, instruments) : switched
 }
 
 export function pickSymbol(draft: Draft, symbol: string, instruments: readonly Instrument[]): Draft {
   const found = findInstrument(instruments, draft.market, symbol)
-  if (found) return changeCurrency({ ...draft, symbol, instrumentName: found.name, assetType: found.assetType }, found.currency)
+  if (found) {
+    return changeCurrency({ ...draft, symbol, instrumentName: found.name, assetType: found.assetType, unit: unitOf(found) }, found.currency)
+  }
   if (findInstrument(instruments, draft.market, draft.symbol)) {
-    return { ...draft, symbol, instrumentName: '', assetType: defaultAssetType(draft.market) }
+    return changeAssetType({ ...draft, symbol, instrumentName: '' }, defaultAssetType(draft.market))
   }
   return { ...draft, symbol }
 }
@@ -284,6 +308,7 @@ function viaMain(draft: Draft, change: (main: Draft) => Draft): Draft {
     symbol: draft.toSymbol,
     instrumentName: draft.toInstrumentName,
     assetType: draft.toAssetType,
+    unit: draft.toUnit,
   })
   return {
     ...draft,
@@ -291,6 +316,7 @@ function viaMain(draft: Draft, change: (main: Draft) => Draft): Draft {
     toSymbol: changed.symbol,
     toInstrumentName: changed.instrumentName,
     toAssetType: changed.assetType,
+    toUnit: changed.unit,
   }
 }
 
@@ -300,6 +326,10 @@ export function changeToMarket(draft: Draft, market: Market, instruments: readon
 
 export function pickToSymbol(draft: Draft, symbol: string, instruments: readonly Instrument[]): Draft {
   return viaMain(draft, (main) => pickSymbol(main, symbol, instruments))
+}
+
+export function changeToAssetType(draft: Draft, assetType: AssetType): Draft {
+  return viaMain(draft, (main) => changeAssetType(main, assetType))
 }
 
 // An opening holding needs the user's own average purchase rate, so the reference rate is offered but never filled in.
@@ -366,14 +396,16 @@ export function receivedAfterFee(draft: Draft): string | null {
 function instrumentFields(
   instrumentId: string | undefined,
   instruments: readonly Instrument[],
-): { market: Market; symbol: string; name: string; assetType: AssetType } {
+): { market: Market; symbol: string; name: string; assetType: AssetType; unit: Unit } {
   const instrument = instruments.find((i) => i.id === instrumentId)
   const separator = instrumentId?.indexOf(':') ?? -1
+  const assetType = instrument?.assetType ?? 'stock'
   return {
     market: (instrument?.market ?? (separator > 0 ? instrumentId?.slice(0, separator) : 'US')) as Market,
     symbol: instrument?.symbol ?? (separator > 0 ? (instrumentId?.slice(separator + 1) ?? '') : ''),
     name: instrument?.name ?? '',
-    assetType: instrument?.assetType ?? 'stock',
+    assetType,
+    unit: instrument?.unit ?? defaultUnit(assetType),
   }
 }
 
@@ -390,10 +422,12 @@ export function draftFromTransaction(tx: Transaction, instruments: readonly Inst
     symbol: main.symbol,
     instrumentName: main.name,
     assetType: main.assetType,
+    unit: main.unit,
     toMarket: received.market,
     toSymbol: received.symbol,
     toInstrumentName: received.name,
     toAssetType: received.assetType,
+    toUnit: received.unit,
     toQuantity: tx.toQuantity ?? '',
     openingKind: tx.type === 'opening' && !tx.instrumentId ? 'cash' : 'asset',
     toAccountId: tx.toAccountId ?? '',

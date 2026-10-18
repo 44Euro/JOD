@@ -34,9 +34,10 @@ import { TypePicker } from '../components/txform/TypePicker'
 import { WithdrawFields } from '../components/txform/WithdrawFields'
 import { fmtDate, fmtMoney, fmtNumber, fmtPrice } from '../format'
 import { useAppData, type AppData } from '../hooks'
-import { TX_TYPE_LABELS } from '../labels'
+import { TX_TYPE_LABELS, unitLabel } from '../labels'
 import {
   applyReferenceRate,
+  changeAssetType,
   changeCurrency,
   changeDate,
   changeMarket,
@@ -252,9 +253,8 @@ function TransactionForm({ data, existing, copyOf }: { data: AppData; existing?:
     const entered = typed.trim()
     if (!entered) return undefined
     const held = heldLedger.positions.find((p) => p.key === positionKey(draft.accountId, instrumentKey(market, entered)))
-    const hint = [findInstrument(data.instruments, market, entered)?.name, held && `ถืออยู่ ${fmtNumber(held.quantity, 8)} หน่วย`]
-      .filter(Boolean)
-      .join(' · ')
+    const instrument = findInstrument(data.instruments, market, entered)
+    const hint = [instrument?.name, held && `ถืออยู่ ${fmtNumber(held.quantity, 8)} ${unitLabel(instrument)}`].filter(Boolean).join(' · ')
     return hint || undefined
   }
 
@@ -295,13 +295,14 @@ function TransactionForm({ data, existing, copyOf }: { data: AppData; existing?:
       // A dividend can be paid in another currency than the one the instrument trades in, so a known
       // instrument keeps what is stored for it.
       const entered = [
-        { id: tx.instrumentId, market: draft.market, symbol, name: draft.instrumentName, assetType: draft.assetType },
+        { id: tx.instrumentId, market: draft.market, symbol, name: draft.instrumentName, assetType: draft.assetType, unit: draft.unit },
         {
           id: tx.toInstrumentId,
           market: draft.toMarket,
           symbol: draft.toSymbol.trim().toUpperCase(),
           name: draft.toInstrumentName,
           assetType: draft.toAssetType,
+          unit: draft.toUnit,
         },
       ]
       for (const { id, name, ...instrument } of entered) {
@@ -412,12 +413,14 @@ function TransactionForm({ data, existing, copyOf }: { data: AppData; existing?:
               symbol={draft.symbol}
               name={draft.instrumentName}
               assetType={draft.assetType}
+              unit={draft.unit}
               instruments={data.instruments}
               hint={hintFor(draft.market, draft.symbol)}
               onMarket={(market) => setDraft((d) => changeMarket(d, market, data.instruments))}
               onSymbol={(value) => setDraft((d) => pickSymbol(d, value, data.instruments))}
               onName={(instrumentName) => update({ instrumentName })}
-              onAssetType={(assetType) => update({ assetType })}
+              onAssetType={(assetType) => setDraft((d) => changeAssetType(d, assetType))}
+              onUnit={(unit) => update({ unit })}
             />
           )}
 

@@ -15,7 +15,7 @@ import type { PositionValuation } from '../../domain/valuation'
 import { cn } from '../../lib/cn'
 import { fmtNumber, fmtPrice, fmtRate, fmtSigned, fmtSignedPct, fmtValue, fmtYield, plClass } from '../format'
 import type { RateInfo } from '../hooks'
-import { marketOf } from '../labels'
+import { marketOf, unitLabel } from '../labels'
 import { assetPath } from '../nav'
 import { useIsDesktop } from '../useIsDesktop'
 import { MarketPill } from './MarketPill'
@@ -130,7 +130,7 @@ export function HoldingsTable({ valuations, instruments, accountNames, base, rat
                   </>
                 ) : (
                   <>
-                    <span className="whitespace-nowrap">{fmtNumber(p.quantity, 8)} หน่วย</span>{' '}
+                    <span className="whitespace-nowrap">{fmtNumber(p.quantity, 8)} {unitLabel(instrument)}</span>{' '}
                     <span className="whitespace-nowrap">
                       · หุ้น <span className={plClass(v.priceEffectBase)}>{fmtSigned(v.priceEffectBase, 0)}</span>
                     </span>

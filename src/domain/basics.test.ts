@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { CURRENCY_OPTIONS, supportsAutoFx } from './currencies'
+import { CURRENCY_OPTIONS, MARKET_CURRENCY, supportsAutoFx } from './currencies'
 import { daysBetween, isIsoDate, monthKey, todayLocal } from './dates'
 import { D, parseDecimalInput, sumBy } from './decimal'
-import { instrumentKey } from './types'
+import { ASSET_TYPES, defaultUnit, instrumentKey, MARKETS, UNITS } from './types'
 
 describe('parseDecimalInput', () => {
   it('accepts thousand separators and surrounding spaces', () => {
@@ -66,6 +66,33 @@ describe('instruments and currencies', () => {
   it('builds a normalized instrument key', () => {
     expect(instrumentKey('US', ' aapl ')).toBe('US:AAPL')
     expect(instrumentKey('HK', '0700')).toBe('HK:0700')
+  })
+
+  it('keys Thai funds, bonds and gold like every other market', () => {
+    expect(instrumentKey('FUND', 'scbs&p500')).toBe('FUND:SCBS&P500')
+    expect(instrumentKey('BOND', 'cpall26na')).toBe('BOND:CPALL26NA')
+    expect(instrumentKey('GOLD', ' 96.5 ')).toBe('GOLD:96.5')
+    expect(instrumentKey('SET', 'aapl80')).toBe('SET:AAPL80')
+  })
+
+  it('trades Thai funds, bonds and gold in baht', () => {
+    expect(MARKETS).toEqual(expect.arrayContaining(['FUND', 'BOND', 'GOLD']))
+    expect(ASSET_TYPES).toEqual(['stock', 'etf', 'dr', 'fund', 'bond', 'gold', 'crypto', 'other'])
+    expect([MARKET_CURRENCY.FUND, MARKET_CURRENCY.BOND, MARKET_CURRENCY.GOLD]).toEqual(['THB', 'THB', 'THB'])
+  })
+
+  it('counts a stock or a DR in shares, a coin in coins, gold in baht-weight and every other holding in units', () => {
+    expect(UNITS).toEqual(['share', 'unit', 'coin', 'baht_gold', 'gram'])
+    expect(ASSET_TYPES.map((t) => [t, defaultUnit(t)])).toEqual([
+      ['stock', 'share'],
+      ['etf', 'unit'],
+      ['dr', 'share'],
+      ['fund', 'unit'],
+      ['bond', 'unit'],
+      ['gold', 'baht_gold'],
+      ['crypto', 'coin'],
+      ['other', 'unit'],
+    ])
   })
 
   it('knows which currencies have automatic FX rates', () => {

@@ -17,7 +17,7 @@ import { Stat, SummaryPanel } from '../components/Summary'
 import { ThesisCard } from '../components/ThesisCard'
 import { fmtDate, fmtHeadline, fmtNumber, fmtPrice, fmtSigned, fmtSignedPct, fmtValue, fmtYield, plClass } from '../format'
 import { useAppData, usePortfolio } from '../hooks'
-import { FEE_PAID_ROW_LABEL, TX_TYPE_LABELS, marketOf } from '../labels'
+import { FEE_PAID_ROW_LABEL, TX_TYPE_LABELS, marketOf, unitLabel } from '../labels'
 import { assetRoute } from '../moneyRoutes'
 import { describeAmount, describeFeePaid, feePaidNet, netOf } from '../transactionText'
 import { useIsDesktop } from '../useIsDesktop'
@@ -94,7 +94,7 @@ export function AssetPage() {
           label={
             stats.quantity.isZero()
               ? 'ขายหมดแล้ว'
-              : `มูลค่าวันนี้ · ${fmtNumber(stats.quantity, 8)} หน่วย × ${fmtPrice(lastPrice)} ${stats.currency}`
+              : `มูลค่าวันนี้ · ${fmtNumber(stats.quantity, 8)} ${unitLabel(instrument)} × ${fmtPrice(lastPrice)} ${stats.currency}`
           }
           value={fmtHeadline(stats.valueBase, base)}
           footer={

@@ -16,7 +16,7 @@ export function WithdrawFields({ draft, update }: { draft: Draft; update(patch: 
       <label className="flex min-h-11 items-center gap-2.5 text-sm">
         <input
           type="checkbox"
-          className="size-5 accent-primary"
+          className="size-5 shrink-0 accent-primary"
           checked={draft.remitToThailand}
           onChange={(e) => update({ remitToThailand: e.target.checked })}
         />

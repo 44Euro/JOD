@@ -5,6 +5,9 @@ import { MARKET_LABELS } from '../labels'
 const PILLS: Record<Market, { label: string; className: string }> = {
   US: { label: 'US', className: 'bg-market-us' },
   SET: { label: 'SET', className: 'bg-market-set' },
+  FUND: { label: 'FUND', className: 'bg-market-fund' },
+  BOND: { label: 'BOND', className: 'bg-market-fund' },
+  GOLD: { label: 'GOLD', className: 'bg-market-fund' },
   HK: { label: 'HK', className: 'bg-market-intl' },
   JP: { label: 'JP', className: 'bg-market-intl' },
   SG: { label: 'SG', className: 'bg-market-intl' },

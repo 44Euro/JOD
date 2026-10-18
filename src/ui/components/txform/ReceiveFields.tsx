@@ -2,7 +2,7 @@ import { Field } from '../../../components/ui/field'
 import { Input, NativeSelect } from '../../../components/ui/input'
 import { RECEIVE_KINDS, type Instrument, type ReceiveKind } from '../../../domain/types'
 import { RECEIVE_KIND_LABELS } from '../../labels'
-import { changeMarket, pickSymbol, type Draft } from '../../transactionDraft'
+import { changeAssetType, changeMarket, pickSymbol, type Draft } from '../../transactionDraft'
 import { InstrumentFields } from './InstrumentFields'
 
 export function ReceiveFields({
@@ -35,12 +35,14 @@ export function ReceiveFields({
         symbol={draft.symbol}
         name={draft.instrumentName}
         assetType={draft.assetType}
+        unit={draft.unit}
         instruments={instruments}
         hint={hint}
         onMarket={(market) => setDraft((d) => changeMarket(d, market, instruments))}
         onSymbol={(symbol) => setDraft((d) => pickSymbol(d, symbol, instruments))}
         onName={(instrumentName) => update({ instrumentName })}
-        onAssetType={(assetType) => update({ assetType })}
+        onAssetType={(assetType) => setDraft((d) => changeAssetType(d, assetType))}
+        onUnit={(unit) => update({ unit })}
       />
       <div className="grid gap-3.5 sm:grid-cols-2">
         <Field id="tx-quantity" label="จำนวนที่ได้รับ">

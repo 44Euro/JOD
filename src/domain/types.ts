@@ -21,11 +21,29 @@ export type ReceiveKind = (typeof RECEIVE_KINDS)[number]
 export const FEE_PAID_IN = ['cash', 'received', 'asset'] as const
 export type FeePaidIn = (typeof FEE_PAID_IN)[number]
 
-export const MARKETS = ['US', 'SET', 'HK', 'JP', 'SG', 'CN', 'EU', 'UK', 'CRYPTO', 'OTHER'] as const
+export const MARKETS = ['US', 'SET', 'FUND', 'BOND', 'GOLD', 'HK', 'JP', 'SG', 'CN', 'EU', 'UK', 'CRYPTO', 'OTHER'] as const
 export type Market = (typeof MARKETS)[number]
 
-export const ASSET_TYPES = ['stock', 'etf', 'fund', 'crypto', 'other'] as const
+export const ASSET_TYPES = ['stock', 'etf', 'dr', 'fund', 'bond', 'gold', 'crypto', 'other'] as const
 export type AssetType = (typeof ASSET_TYPES)[number]
+
+export const UNITS = ['share', 'unit', 'coin', 'baht_gold', 'gram'] as const
+export type Unit = (typeof UNITS)[number]
+
+// An ETF is counted in units like a fund, although it trades like a share.
+export function defaultUnit(assetType: AssetType): Unit {
+  switch (assetType) {
+    case 'stock':
+    case 'dr':
+      return 'share'
+    case 'crypto':
+      return 'coin'
+    case 'gold':
+      return 'baht_gold'
+    default:
+      return 'unit'
+  }
+}
 
 // same = currency equals the base currency, auto = fetched reference rate,
 // manual = typed by the user, estimated = reference rate used in place of an unknown purchase rate
@@ -57,11 +75,16 @@ export interface Instrument {
   name: string
   assetType: AssetType
   currency: string
+  unit?: Unit
   lastPrice?: string
   lastPriceAt?: string
   holdReason?: string
   targetPrice?: string
   reviewDate?: string
+}
+
+export function unitOf(instrument: Pick<Instrument, 'assetType' | 'unit'>): Unit {
+  return instrument.unit ?? defaultUnit(instrument.assetType)
 }
 
 export interface Thesis {

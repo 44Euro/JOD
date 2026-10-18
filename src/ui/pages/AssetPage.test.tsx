@@ -53,6 +53,24 @@ describe('AssetPage', () => {
     expect(screen.getByText('400.20', { selector: 'p' })).toBeInTheDocument()
   })
 
+  it('counts the value of gold in the unit it is held in', async () => {
+    await db.instruments.add({
+      id: 'GOLD:96.5',
+      market: 'GOLD',
+      symbol: '96.5',
+      name: 'ทอง 96.5%',
+      assetType: 'gold',
+      currency: 'THB',
+      unit: 'baht_gold',
+      lastPrice: '42000',
+    })
+    await db.transactions.add(
+      makeTx({ instrumentId: 'GOLD:96.5', currency: 'THB', fxRate: '1', fxSource: 'same', quantity: '2', price: '41000', date: '2024-02-01' }),
+    )
+    renderRoute('/assets/GOLD%3A96.5', usd)
+    expect(await screen.findByText('มูลค่าวันนี้ · 2 บาททองคำ × 42,000.00 THB')).toBeInTheDocument()
+  })
+
   it('draws the six-station route and the three badges under it', async () => {
     await db.instruments.add(voo)
     renderRoute('/assets/US%3AVOO', usd)

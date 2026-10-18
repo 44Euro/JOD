@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '../../db/db'
@@ -33,7 +33,93 @@ describe('TransactionFormPage', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe('/transactions'))
     const [saved] = await db.transactions.toArray()
     expect(saved).toMatchObject({ instrumentId: 'US:AAPL', quantity: '2', price: '100', fxRate: '35.1', fxSource: 'auto' })
-    expect(await db.instruments.get('US:AAPL')).toMatchObject({ symbol: 'AAPL', currency: 'USD' })
+    expect(await db.instruments.get('US:AAPL')).toMatchObject({ symbol: 'AAPL', currency: 'USD', assetType: 'stock', unit: 'share' })
+  })
+
+  describe('Thai assets and units', () => {
+    const noRates = () => fakeFxProvider({}).provider
+    const openGold = async (user: ReturnType<typeof userEvent.setup>) => {
+      await user.selectOptions(await screen.findByLabelText('ตลาด'), 'ทองคำ (GOLD)')
+      await user.type(screen.getByLabelText('สัญลักษณ์'), '96.5')
+    }
+
+    it('records a gold buy in baht-weight and says how much is held in that unit', async () => {
+      const user = userEvent.setup()
+      const router = renderRoute('/transactions/new', noRates())
+      await openGold(user)
+      expect(screen.getByLabelText('สกุลเงิน')).toHaveValue('THB')
+      expect(screen.getByLabelText('ประเภทสินทรัพย์')).toHaveDisplayValue('ทองคำ')
+      expect(screen.getByLabelText('หน่วยนับ')).toHaveDisplayValue('บาททองคำ')
+      await user.type(screen.getByLabelText('ชื่อ (ไม่บังคับ)'), 'ทอง 96.5%')
+      await user.selectOptions(screen.getByLabelText('ประเภทสินทรัพย์'), 'ทองคำ')
+      await user.selectOptions(screen.getByLabelText('หน่วยนับ'), 'บาททองคำ')
+      await user.type(screen.getByLabelText('จำนวนหน่วย'), '2')
+      await user.type(screen.getByLabelText('ราคาต่อหน่วย'), '41000')
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+      await waitFor(() => expect(router.state.location.pathname).toBe('/transactions'))
+      expect(await db.instruments.get('GOLD:96.5')).toMatchObject({
+        market: 'GOLD',
+        symbol: '96.5',
+        name: 'ทอง 96.5%',
+        assetType: 'gold',
+        currency: 'THB',
+        unit: 'baht_gold',
+      })
+
+      await screen.findByRole('heading', { name: 'รายการทั้งหมด' })
+      await act(() => router.navigate('/transactions/new'))
+      await openGold(user)
+      expect(await screen.findByText('ทอง 96.5% · ถืออยู่ 2 บาททองคำ')).toBeInTheDocument()
+      expect(screen.queryByLabelText('หน่วยนับ')).not.toBeInTheDocument()
+    })
+
+    it('keeps the unit picked by hand and offers the default of the type again when the type changes', async () => {
+      const user = userEvent.setup()
+      const router = renderRoute('/transactions/new', noRates())
+      await openGold(user)
+      await user.selectOptions(screen.getByLabelText('หน่วยนับ'), 'กรัม')
+      await user.selectOptions(screen.getByLabelText('ประเภทสินทรัพย์'), 'กองทุนรวม')
+      expect(screen.getByLabelText('หน่วยนับ')).toHaveDisplayValue('หน่วย')
+      await user.selectOptions(screen.getByLabelText('ประเภทสินทรัพย์'), 'ทองคำ')
+      await user.selectOptions(screen.getByLabelText('หน่วยนับ'), 'กรัม')
+      await user.type(screen.getByLabelText('จำนวนหน่วย'), '15')
+      await user.type(screen.getByLabelText('ราคาต่อหน่วย'), '2700')
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+      await waitFor(() => expect(router.state.location.pathname).toBe('/transactions'))
+      expect(await db.instruments.get('GOLD:96.5')).toMatchObject({ assetType: 'gold', unit: 'gram', name: '96.5' })
+    })
+
+    it.each([
+      ['FUND', 'กองทุนรวม (FUND)', 'SCBS&P500', 'FUND:SCBS&P500', 'fund'],
+      ['BOND', 'หุ้นกู้/พันธบัตร (BOND)', 'CPALL26NA', 'BOND:CPALL26NA', 'bond'],
+    ] as const)('records a %s in baht as units', async (_market, label, symbol, id, assetType) => {
+      const user = userEvent.setup()
+      const router = renderRoute('/transactions/new', noRates())
+      await user.selectOptions(await screen.findByLabelText('ตลาด'), label)
+      expect(screen.getByLabelText('สัญลักษณ์')).toHaveAttribute('placeholder', symbol)
+      expect(screen.getByLabelText('สกุลเงิน')).toHaveValue('THB')
+      expect(screen.getByLabelText('หน่วยนับ')).toHaveDisplayValue('หน่วย')
+      await user.type(screen.getByLabelText('สัญลักษณ์'), symbol)
+      await user.type(screen.getByLabelText('จำนวนหน่วย'), '1200')
+      await user.type(screen.getByLabelText('ราคาต่อหน่วย'), '16.1')
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+      await waitFor(() => expect(router.state.location.pathname).toBe('/transactions'))
+      expect(await db.instruments.get(id)).toMatchObject({ currency: 'THB', assetType, unit: 'unit' })
+    })
+
+    it('saves a DR of the Thai market counted in shares', async () => {
+      const user = userEvent.setup()
+      const router = renderRoute('/transactions/new', noRates())
+      await user.selectOptions(await screen.findByLabelText('ตลาด'), 'ไทย (SET)')
+      await user.type(screen.getByLabelText('สัญลักษณ์'), 'aapl80')
+      await user.selectOptions(screen.getByLabelText('ประเภทสินทรัพย์'), 'DR')
+      expect(screen.getByLabelText('หน่วยนับ')).toHaveDisplayValue('หุ้น')
+      await user.type(screen.getByLabelText('จำนวนหน่วย'), '500')
+      await user.type(screen.getByLabelText('ราคาต่อหน่วย'), '8.5')
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+      await waitFor(() => expect(router.state.location.pathname).toBe('/transactions'))
+      expect(await db.instruments.get('SET:AAPL80')).toMatchObject({ assetType: 'dr', currency: 'THB', unit: 'share' })
+    })
   })
 
   describe('layout by width', () => {
@@ -604,7 +690,13 @@ describe('TransactionFormPage', () => {
         fxRate: '35',
       })
       expect(saved?.price).toBeUndefined()
-      expect(await db.instruments.get('CRYPTO:ETH')).toMatchObject({ symbol: 'ETH', currency: 'USD', assetType: 'crypto', name: 'ETH' })
+      expect(await db.instruments.get('CRYPTO:ETH')).toMatchObject({
+        symbol: 'ETH',
+        currency: 'USD',
+        assetType: 'crypto',
+        name: 'ETH',
+        unit: 'coin',
+      })
     })
 
     it('puts the fee into the cost of the coin received and keeps the new coin’s name and type', async () => {
@@ -617,6 +709,16 @@ describe('TransactionFormPage', () => {
       await user.click(screen.getByRole('button', { name: 'บันทึก' }))
       await waitFor(async () => expect(await db.instruments.get('CRYPTO:ETH')).toMatchObject({ name: 'Ethereum', assetType: 'crypto' }))
       expect((await db.transactions.toArray()).find((t) => t.type === 'swap')).toMatchObject({ fees: '1.5' })
+    })
+
+    it('counts a new coin received in coins unless another unit is picked for it', async () => {
+      const { user } = await openSwap()
+      await fillSwap(user)
+      expect(document.getElementById('tx-to-unit')).toHaveDisplayValue('เหรียญ')
+      expect(document.getElementById('tx-unit')).toBeNull()
+      await user.selectOptions(document.getElementById('tx-to-unit') as HTMLElement, 'หน่วย')
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+      await waitFor(async () => expect(await db.instruments.get('CRYPTO:ETH')).toMatchObject({ assetType: 'crypto', unit: 'unit' }))
     })
 
     it('asks only for the parts of a swap that make sense and not for a price', async () => {
@@ -676,8 +778,8 @@ describe('TransactionFormPage', () => {
       await user.selectOptions(toMarket, 'คริปโต')
       await user.type(screen.getByLabelText('สินทรัพย์ที่แลกออก'), 'btc')
       await user.type(screen.getByLabelText('สินทรัพย์ที่ได้รับ'), 'eth')
-      expect(await screen.findByText('Bitcoin · ถืออยู่ 0.01 หน่วย')).toBeInTheDocument()
-      expect(screen.getByText('Ethereum · ถืออยู่ 2 หน่วย')).toBeInTheDocument()
+      expect(await screen.findByText('Bitcoin · ถืออยู่ 0.01 เหรียญ')).toBeInTheDocument()
+      expect(screen.getByText('Ethereum · ถืออยู่ 2 เหรียญ')).toBeInTheDocument()
       expect(document.getElementById('tx-to-name')).toBeNull()
     })
 
@@ -784,7 +886,7 @@ describe('TransactionFormPage', () => {
         fxRate: '35',
       })
       expect(saved.amount).toBeUndefined()
-      expect(await db.instruments.get('CRYPTO:SOL')).toMatchObject({ symbol: 'SOL', currency: 'USD', assetType: 'crypto' })
+      expect(await db.instruments.get('CRYPTO:SOL')).toMatchObject({ symbol: 'SOL', currency: 'USD', assetType: 'crypto', unit: 'coin' })
     })
 
     it('starts on stock dividend and follows the market until the user picks a kind', async () => {
@@ -834,7 +936,7 @@ describe('TransactionFormPage', () => {
       const { user, router } = await openReceive()
       await user.selectOptions(screen.getByLabelText('ตลาด'), 'ไทย (SET)')
       await user.type(screen.getByLabelText('สัญลักษณ์'), 'ptt')
-      expect(await screen.findByText('ปตท. · ถืออยู่ 1,000 หน่วย')).toBeInTheDocument()
+      expect(await screen.findByText('ปตท. · ถืออยู่ 1,000 หุ้น')).toBeInTheDocument()
       await user.type(screen.getByLabelText('จำนวนที่ได้รับ'), '100')
       await user.type(screen.getByLabelText('มูลค่าต่อหน่วย ณ วันที่ได้รับ'), '1')
       await user.type(screen.getByLabelText('ภาษีหัก ณ ที่จ่าย'), '10')
@@ -929,6 +1031,14 @@ describe('TransactionFormPage', () => {
       await user.type(screen.getByLabelText('ราคาต่อหน่วย'), '2000')
       return { user, router }
     }
+
+    it('says how much of the fee asset is held in the unit of that asset', async () => {
+      await db.instruments.add({ id: 'CRYPTO:BNB', market: 'CRYPTO', symbol: 'BNB', name: 'BNB', assetType: 'crypto', currency: 'USD' })
+      const { user } = await openEthBuy()
+      await user.selectOptions(screen.getByLabelText('จ่ายเป็น'), 'สินทรัพย์อื่น')
+      await user.type(screen.getByLabelText('สินทรัพย์ที่ใช้จ่าย'), 'bnb')
+      expect(await screen.findByText('BNB · ถืออยู่ 1 เหรียญ')).toBeInTheDocument()
+    })
 
     it('records a buy whose fee was paid in BNB', async () => {
       const { user, router } = await openEthBuy()
@@ -1501,6 +1611,8 @@ describe('TransactionFormPage', () => {
       await user.type(screen.getByLabelText('ราคาต่อหน่วย'), '500')
     }
 
+    const reinvestSummary = () => screen.getByText(/^ซื้อ 0\.016 × 500\.00/)
+
     it('opens a copy of an earlier buy for today', async () => {
       await db.transactions.add(earlierBuy())
       renderRoute('/transactions/new?from=aapl-buy', provider())
@@ -1568,7 +1680,7 @@ describe('TransactionFormPage', () => {
     it('records a dividend and the buy it paid for in one go', async () => {
       const { user, router } = await openDividend()
       await fillReinvest(user)
-      expect(screen.getByText('ซื้อ 0.016 × 500.00 = 8.00 USD · เหลือเงินสด 0.50 USD')).toBeInTheDocument()
+      expect(reinvestSummary()).toHaveTextContent('ซื้อ 0.016 × 500.00 = 8.00 USD · เหลือเงินสด 0.50 USD')
       await user.click(screen.getByRole('button', { name: 'บันทึก' }))
       await waitFor(() => expect(router.state.location.pathname).toBe('/transactions'))
       const saved = await db.transactions.toArray()
@@ -1695,14 +1807,41 @@ describe('TransactionFormPage', () => {
       const { user } = await openDividend()
       await fillReinvest(user)
       await user.type(screen.getByLabelText('ค่าธรรมเนียมซื้อ'), '1')
-      expect(screen.getByText('ซื้อ 0.016 × 500.00 = 8.00 USD + ค่าธรรมเนียม 1.00 USD · ใช้เงินสดเพิ่ม 0.50 USD')).toBeInTheDocument()
+      expect(reinvestSummary()).toHaveTextContent('ซื้อ 0.016 × 500.00 = 8.00 USD + ค่าธรรมเนียม 1.00 USD · ใช้เงินสดเพิ่ม 0.50 USD')
+      expect(within(reinvestSummary()).getByText(/ใช้เงินสดเพิ่ม/)).toHaveClass('whitespace-nowrap')
+    })
+
+    it('keeps the cash left after the buy in one piece when the summary wraps', async () => {
+      const { user } = await openDividend()
+      await fillReinvest(user)
+      const tail = within(reinvestSummary()).getByText(/เหลือเงินสด/)
+      expect(tail).toHaveTextContent(/^· เหลือเงินสด 0\.50 USD$/)
+      expect(tail).toHaveClass('whitespace-nowrap')
+      expect(reinvestSummary()).not.toBe(tail)
+    })
+
+    it('puts the fee of the buy under the quantity and price on a phone, and in the same row from sm up', async () => {
+      const { user } = await openDividend()
+      await user.click(tick())
+      const row = screen.getByLabelText('จำนวนหน่วยที่ซื้อ').closest('[class*="grid-cols"]')!
+      expect(row).toHaveClass('grid-cols-2', 'sm:grid-cols-3')
+      expect(row).toContainElement(screen.getByLabelText('ราคาต่อหน่วย'))
+      expect(screen.getByLabelText('ค่าธรรมเนียมซื้อ').parentElement).toHaveClass('col-span-2', 'sm:col-span-1')
+      expect(screen.getByLabelText('จำนวนหน่วยที่ซื้อ').parentElement).not.toHaveClass('col-span-2')
+    })
+
+    it('keeps the tick boxes at their size beside a long label', async () => {
+      const { user } = await openDividend()
+      expect(tick()).toHaveClass('size-5', 'shrink-0')
+      await user.click(screen.getByRole('button', { name: 'ถอนเงิน' }))
+      expect(screen.getByRole('checkbox', { name: /โอนกลับเข้าไทย/ })).toHaveClass('size-5', 'shrink-0')
     })
 
     it('shows the choice and its summary on a phone too', async () => {
       phone()
       const { user } = await openDividend()
       await fillReinvest(user)
-      expect(screen.getByText('ซื้อ 0.016 × 500.00 = 8.00 USD · เหลือเงินสด 0.50 USD')).toBeInTheDocument()
+      expect(reinvestSummary()).toHaveTextContent('ซื้อ 0.016 × 500.00 = 8.00 USD · เหลือเงินสด 0.50 USD')
       expect(tick().closest('label')).toHaveClass('min-h-11')
     })
   })

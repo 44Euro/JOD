@@ -3,7 +3,15 @@ import { Input } from '../../../components/ui/input'
 import type { Instrument } from '../../../domain/types'
 import type { SwapOutcome } from '../../afterSave'
 import { fmtPrice, fmtSigned, plClass } from '../../format'
-import { changeMarket, changeToMarket, pickSymbol, pickToSymbol, type Draft } from '../../transactionDraft'
+import {
+  changeAssetType,
+  changeMarket,
+  changeToAssetType,
+  changeToMarket,
+  pickSymbol,
+  pickToSymbol,
+  type Draft,
+} from '../../transactionDraft'
 import { FieldGroup } from './FieldGroup'
 import { InstrumentFields } from './InstrumentFields'
 
@@ -31,12 +39,14 @@ export function SwapFields({
           symbol={draft.symbol}
           name={draft.instrumentName}
           assetType={draft.assetType}
+          unit={draft.unit}
           instruments={instruments}
           hint={fromHint}
           onMarket={(market) => setDraft((d) => changeMarket(d, market, instruments))}
           onSymbol={(symbol) => setDraft((d) => pickSymbol(d, symbol, instruments))}
           onName={(instrumentName) => update({ instrumentName })}
-          onAssetType={(assetType) => update({ assetType })}
+          onAssetType={(assetType) => setDraft((d) => changeAssetType(d, assetType))}
+          onUnit={(unit) => update({ unit })}
         />
         <div className="grid gap-3.5 sm:grid-cols-2">
           <Field id="tx-quantity" label="จำนวนที่แลกออก">
@@ -52,12 +62,14 @@ export function SwapFields({
           symbol={draft.toSymbol}
           name={draft.toInstrumentName}
           assetType={draft.toAssetType}
+          unit={draft.toUnit}
           instruments={instruments}
           hint={toHint}
           onMarket={(toMarket) => setDraft((d) => changeToMarket(d, toMarket, instruments))}
           onSymbol={(toSymbol) => setDraft((d) => pickToSymbol(d, toSymbol, instruments))}
           onName={(toInstrumentName) => update({ toInstrumentName })}
-          onAssetType={(toAssetType) => update({ toAssetType })}
+          onAssetType={(toAssetType) => setDraft((d) => changeToAssetType(d, toAssetType))}
+          onUnit={(toUnit) => update({ toUnit })}
         />
         <div className="grid gap-3.5 sm:grid-cols-2">
           <Field id="tx-to-quantity" label="จำนวนที่ได้รับ">

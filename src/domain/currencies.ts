@@ -14,6 +14,9 @@ export const CURRENCY_OPTIONS: string[] = [...new Set<string>([...COMMON_CURRENC
 export const MARKET_CURRENCY: Record<Market, string> = {
   US: 'USD',
   SET: 'THB',
+  FUND: 'THB',
+  BOND: 'THB',
+  GOLD: 'THB',
   HK: 'HKD',
   JP: 'JPY',
   SG: 'SGD',

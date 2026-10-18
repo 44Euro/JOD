@@ -1,7 +1,9 @@
 import { Field } from '../../../components/ui/field'
 import { Input, NativeSelect } from '../../../components/ui/input'
-import { ASSET_TYPES, MARKETS, findInstrument, type AssetType, type Instrument, type Market } from '../../../domain/types'
-import { ASSET_TYPE_LABELS, MARKET_LABELS } from '../../labels'
+import { ASSET_TYPES, MARKETS, UNITS, findInstrument, type AssetType, type Instrument, type Market, type Unit } from '../../../domain/types'
+import { ASSET_TYPE_LABELS, MARKET_LABELS, UNIT_LABELS } from '../../labels'
+
+const SYMBOL_PLACEHOLDERS: Partial<Record<Market, string>> = { FUND: 'SCBS&P500', BOND: 'CPALL26NA', GOLD: '96.5' }
 
 export interface InstrumentFieldsProps {
   idPrefix: string
@@ -10,6 +12,7 @@ export interface InstrumentFieldsProps {
   symbol: string
   name: string
   assetType: AssetType
+  unit: Unit
   instruments: readonly Instrument[]
   hint?: string
   allowNew?: boolean
@@ -17,6 +20,7 @@ export interface InstrumentFieldsProps {
   onSymbol(symbol: string): void
   onName(name: string): void
   onAssetType(assetType: AssetType): void
+  onUnit(unit: Unit): void
 }
 
 export function InstrumentFields({
@@ -26,6 +30,7 @@ export function InstrumentFields({
   symbol,
   name,
   assetType,
+  unit,
   instruments,
   hint,
   allowNew = true,
@@ -33,6 +38,7 @@ export function InstrumentFields({
   onSymbol,
   onName,
   onAssetType,
+  onUnit,
 }: InstrumentFieldsProps) {
   const known = findInstrument(instruments, market, symbol) !== undefined
   const listId = `${idPrefix}-symbols`
@@ -52,7 +58,7 @@ export function InstrumentFields({
           id={`${idPrefix}-symbol`}
           list={listId}
           autoCapitalize="characters"
-          placeholder="AAPL, PTT, BTC"
+          placeholder={SYMBOL_PLACEHOLDERS[market] ?? 'AAPL, PTT, BTC'}
           value={symbol}
           onChange={(e) => onSymbol(e.target.value)}
         />
@@ -76,6 +82,15 @@ export function InstrumentFields({
               {ASSET_TYPES.map((t) => (
                 <option key={t} value={t}>
                   {ASSET_TYPE_LABELS[t]}
+                </option>
+              ))}
+            </NativeSelect>
+          </Field>
+          <Field id={`${idPrefix}-unit`} label="หน่วยนับ">
+            <NativeSelect id={`${idPrefix}-unit`} value={unit} onChange={(e) => onUnit(e.target.value as Unit)}>
+              {UNITS.map((u) => (
+                <option key={u} value={u}>
+                  {UNIT_LABELS[u]}
                 </option>
               ))}
             </NativeSelect>

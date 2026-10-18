@@ -318,6 +318,39 @@ describe('PortfolioPage', () => {
     expect(screen.queryByRole('columnheader', { name: /≈/ })).not.toBeInTheDocument()
   })
 
+  it('marks Thai funds, bonds and gold on a phone with the colour of funds, whatever the unit they are counted in', async () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: false,
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    }))
+    await db.instruments.bulkAdd([
+      { id: 'FUND:SCBS&P500', market: 'FUND', symbol: 'SCBS&P500', name: 'SCB S&P500', assetType: 'fund', currency: 'THB', lastPrice: '18.42' },
+      { id: 'BOND:CPALL26NA', market: 'BOND', symbol: 'CPALL26NA', name: 'CPALL26NA', assetType: 'bond', currency: 'THB', lastPrice: '1010' },
+      { id: 'GOLD:96.5', market: 'GOLD', symbol: '96.5', name: 'ทอง 96.5%', assetType: 'gold', currency: 'THB', unit: 'baht_gold', lastPrice: '42000' },
+    ])
+    const thb = { currency: 'THB', fxRate: '1', fxSource: 'same' as const }
+    await db.transactions.bulkAdd([
+      makeTx({ ...thb, instrumentId: 'FUND:SCBS&P500', quantity: '1200', price: '16.1' }),
+      makeTx({ ...thb, instrumentId: 'BOND:CPALL26NA', quantity: '10', price: '1000' }),
+      makeTx({ ...thb, instrumentId: 'GOLD:96.5', quantity: '2', price: '41000' }),
+    ])
+    renderRoute('/portfolio', fakeFxProvider({}).provider)
+    const holdings = await screen.findByRole('list', { name: 'สินทรัพย์ที่ถืออยู่' })
+    const rows = within(holdings).getAllByRole('listitem')
+    for (const [symbol, pill, name] of [
+      ['SCBS&P500', 'FUND', 'กองทุนรวม (FUND)'],
+      ['CPALL26NA', 'BOND', 'หุ้นกู้/พันธบัตร (BOND)'],
+      ['96.5', 'GOLD', 'ทองคำ (GOLD)'],
+    ]) {
+      const row = rows.find((r) => within(r).queryByText(symbol))!
+      expect(within(row).getByText(pill)).toHaveClass('bg-market-fund')
+      expect(within(row).getByText(pill)).toHaveAttribute('title', name)
+    }
+    await waitFor(() => expect(rows[0]).toHaveTextContent('ยังไม่ขาย'))
+  })
+
   it('shows no price hint when nothing is held', async () => {
     await db.transactions.add(
       makeTx({ type: 'deposit', instrumentId: undefined, quantity: undefined, price: undefined, amount: '1000', fxRate: '35' }),

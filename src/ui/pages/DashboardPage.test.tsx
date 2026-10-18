@@ -253,17 +253,47 @@ describe('DashboardPage', () => {
     renderRoute('/', usd())
     const holdings = await screen.findByRole('list', { name: 'สินทรัพย์ที่ถืออยู่' })
     const item = within(holdings).getAllByRole('listitem')[0]
-    await waitFor(() => expect(item).toHaveTextContent('3 หน่วย · หุ้น +2,020 · ค่าเงิน −360'))
+    await waitFor(() => expect(item).toHaveTextContent('3 หุ้น · หุ้น +2,020 · ค่าเงิน −360'))
     for (const [label, text] of [
-      ['หุ้น', '· หุ้น +2,020'],
+      ['· หุ้น', '· หุ้น +2,020'],
       ['ค่าเงิน', '· ค่าเงิน −360'],
     ]) {
       const wrapper = within(item).getByText(new RegExp(label))
       expect(wrapper).toHaveTextContent(text)
       expect(wrapper).toHaveClass('whitespace-nowrap')
     }
-    expect(within(item).getByText('3 หน่วย')).toHaveClass('whitespace-nowrap')
-    expect(within(item).getByText('3 หน่วย')).not.toHaveTextContent(/·/)
+    expect(within(item).getByText('3 หุ้น')).toHaveClass('whitespace-nowrap')
+    expect(within(item).getByText('3 หุ้น')).not.toHaveTextContent(/·/)
+  })
+
+  it('counts each holding on the phone in the unit of its own asset', async () => {
+    setToday(2024, 6, 1)
+    await db.accounts.add(account)
+    await db.instruments.bulkAdd([
+      { id: 'FUND:SCBS&P500', market: 'FUND', symbol: 'SCBS&P500', name: 'SCB S&P500', assetType: 'fund', currency: 'THB', lastPrice: '18.42' },
+      { id: 'GOLD:96.5', market: 'GOLD', symbol: '96.5', name: 'ทอง 96.5%', assetType: 'gold', currency: 'THB', unit: 'baht_gold', lastPrice: '42000' },
+      { id: 'GOLD:99.99', market: 'GOLD', symbol: '99.99', name: 'ทอง 99.99%', assetType: 'gold', currency: 'THB', unit: 'gram', lastPrice: '2700' },
+    ])
+    await db.transactions.bulkAdd([
+      makeTx({ ...thb, instrumentId: 'FUND:SCBS&P500', quantity: '1200', price: '16.1' }),
+      makeTx({ ...thb, instrumentId: 'GOLD:96.5', quantity: '2', price: '41000' }),
+      makeTx({ ...thb, instrumentId: 'GOLD:99.99', quantity: '15', price: '2650' }),
+      makeTx({ ...thb, instrumentId: 'SET:AAPL80', quantity: '3000', price: '8' }),
+    ])
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: false,
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    }))
+    renderRoute('/', usd())
+    const holdings = await screen.findByRole('list', { name: 'สินทรัพย์ที่ถืออยู่' })
+    const rows = within(holdings).getAllByRole('listitem')
+    const row = (symbol: string) => rows.find((r) => within(r).queryByText(symbol))!
+    await waitFor(() => expect(row('SCBS&P500')).toHaveTextContent('1,200 หน่วย · หุ้น +2,784'))
+    expect(row('96.5')).toHaveTextContent('2 บาททองคำ · หุ้น +2,000')
+    expect(row('99.99')).toHaveTextContent('15 กรัม · หุ้น +750')
+    expect(row('SET:AAPL80')).toHaveTextContent('3,000 หน่วย')
   })
 
   describe('phone touch targets', () => {

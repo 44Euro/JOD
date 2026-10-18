@@ -1,5 +1,16 @@
 import type { IncomeKind } from '../domain/ledger'
-import { MARKETS, type AssetType, type FeePaidIn, type FxSource, type Market, type ReceiveKind, type TxType } from '../domain/types'
+import {
+  MARKETS,
+  unitOf,
+  type AssetType,
+  type FeePaidIn,
+  type FxSource,
+  type Instrument,
+  type Market,
+  type ReceiveKind,
+  type TxType,
+  type Unit,
+} from '../domain/types'
 
 export const TX_TYPE_LABELS: Record<TxType, string> = {
   buy: 'ซื้อ',
@@ -49,6 +60,9 @@ export const FEE_PAID_IN_LABELS: Record<FeePaidIn, string> = {
 export const MARKET_LABELS: Record<Market, string> = {
   US: 'สหรัฐ (US)',
   SET: 'ไทย (SET)',
+  FUND: 'กองทุนรวม (FUND)',
+  BOND: 'หุ้นกู้/พันธบัตร (BOND)',
+  GOLD: 'ทองคำ (GOLD)',
   HK: 'ฮ่องกง (HK)',
   JP: 'ญี่ปุ่น (JP)',
   SG: 'สิงคโปร์ (SG)',
@@ -62,9 +76,24 @@ export const MARKET_LABELS: Record<Market, string> = {
 export const ASSET_TYPE_LABELS: Record<AssetType, string> = {
   stock: 'หุ้น',
   etf: 'ETF',
-  fund: 'กองทุน',
+  dr: 'DR',
+  fund: 'กองทุนรวม',
+  bond: 'หุ้นกู้/พันธบัตร',
+  gold: 'ทองคำ',
   crypto: 'คริปโต',
   other: 'อื่นๆ',
+}
+
+export const UNIT_LABELS: Record<Unit, string> = {
+  share: 'หุ้น',
+  unit: 'หน่วย',
+  coin: 'เหรียญ',
+  baht_gold: 'บาททองคำ',
+  gram: 'กรัม',
+}
+
+export function unitLabel(instrument: Instrument | undefined): string {
+  return UNIT_LABELS[instrument ? unitOf(instrument) : 'unit']
 }
 
 export const FX_SOURCE_LABELS: Record<FxSource, string> = {

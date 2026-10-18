@@ -53,8 +53,8 @@ function formulaHint(draft: Draft, account: Account | undefined, restoreFormula:
   )
 }
 
-// The fee asset has to be held already, so the name and type that InstrumentFields asks of a new one are never shown.
-const heldOnly = { name: '', assetType: 'other', onName: () => {}, onAssetType: () => {} } as const
+// The fee asset has to be held already, so the name, type and unit that InstrumentFields asks of a new one are never shown.
+const heldOnly = { name: '', assetType: 'other', unit: 'unit', onName: () => {}, onAssetType: () => {}, onUnit: () => {} } as const
 
 export function FeeTaxFields({
   draft,
