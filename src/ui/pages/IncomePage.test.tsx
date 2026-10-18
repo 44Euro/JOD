@@ -47,7 +47,10 @@ describe('IncomePage', () => {
     const group = await screen.findByRole('group', { name: 'ช่วงเวลา' })
     expect(group).toHaveClass('max-md:w-full')
     expect(group).not.toHaveClass('max-[380px]:grid')
-    for (const button of within(group).getAllByRole('button')) expect(button).toHaveClass('h-11', 'min-w-11', 'max-md:flex-1', 'max-md:px-2')
+    for (const button of within(group).getAllByRole('button')) {
+      expect(button).toHaveClass('h-11', 'min-w-11', 'shrink-0', 'max-md:grow', 'max-md:px-2')
+      expect(button).not.toHaveClass('max-md:flex-1')
+    }
   })
 
   it('sums this year after tax and compares it with the same days last year', async () => {

@@ -149,6 +149,28 @@ export function feePaidInOf(draft: Draft): FeePaidIn {
   return feePaidInOptions(draft).includes(draft.feePaidIn) ? draft.feePaidIn : 'cash'
 }
 
+// The select is left out where a unit fee is not plausible, so a share keeps its plain fee and tax row; a draft that
+// already pays another way keeps it, so a saved transaction can be edited.
+export function showsFeePaidIn(draft: Draft): boolean {
+  if (feePaidInOptions(draft).length < 2) return false
+  const coin = draft.market === 'CRYPTO' || (draft.type === 'swap' && draft.toMarket === 'CRYPTO')
+  return coin || feePaidInOf(draft) !== 'cash'
+}
+
+// A transfer of units whose fee comes out of the units moves no money, so it has no currency to value anything in.
+export function movesNoMoney(draft: Draft): boolean {
+  return draft.type === 'transfer' && draft.transferKind === 'asset' && feePaidInOf(draft) === 'received'
+}
+
+// Moving into or out of a transfer that moves no money swaps the currency between the base currency and the
+// instrument's own, and starts the rate over.
+export function changeFeePaidIn(draft: Draft, feePaidIn: FeePaidIn, baseCurrency: string, instruments: readonly Instrument[]): Draft {
+  const next = { ...draft, feePaidIn }
+  if (movesNoMoney(next) === movesNoMoney(draft)) return next
+  if (movesNoMoney(next)) return changeCurrency(next, baseCurrency)
+  return changeCurrency(next, findInstrument(instruments, next.market, next.symbol)?.currency ?? MARKET_CURRENCY[next.market])
+}
+
 // A transfer needs a receiving account other than the sending one, so one is picked until the user chooses.
 export function withTransferTarget(draft: Draft, accounts: readonly Account[]): Draft {
   if (draft.type !== 'transfer' || (draft.toAccountId !== '' && draft.toAccountId !== draft.accountId)) return draft
@@ -392,8 +414,9 @@ export function draftToTransaction(draft: Draft, ctx: DraftContext): { tx: Trans
   const isConvert = draft.type === 'fx_convert'
   const remit = draft.type === 'withdraw' && draft.remitToThailand
   const feePaidIn = feePaidInOf(draft)
-  // A split moves no money, so it never needs an exchange rate.
-  const noFx = draft.currency === ctx.baseCurrency || draft.type === 'split'
+  const unitsOnly = movesNoMoney(draft)
+  // A split and a transfer that moves only units move no money, so they never need an exchange rate.
+  const noFx = draft.currency === ctx.baseCurrency || draft.type === 'split' || unitsOnly
 
   const tx: Transaction = {
     id: ctx.id,
@@ -408,7 +431,7 @@ export function draftToTransaction(draft: Draft, ctx: DraftContext): { tx: Trans
     toQuantity: isSwap ? num(draft.toQuantity) : undefined,
     price: holding || isReceive ? num(draft.price) : undefined,
     amount: usesAmount ? num(draft.amount) : undefined,
-    currency: draft.currency,
+    currency: unitsOnly ? ctx.baseCurrency : draft.currency,
     // An asset received has no fee field, and a fee taken from the units received is counted in units, so a fee
     // typed before the type or the way of paying changed must not come along.
     fees: isReceive || feePaidIn === 'received' ? '0' : (num(draft.fees) ?? '0'),

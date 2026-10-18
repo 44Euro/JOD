@@ -4,7 +4,7 @@ import type { FeePaidIn, Instrument, TxType } from '../../../domain/types'
 import { cn } from '../../../lib/cn'
 import { fmtNumber } from '../../format'
 import { FEE_PAID_IN_LABELS } from '../../labels'
-import { feePaidInOf, feePaidInOptions, receivedAfterFee, type Draft } from '../../transactionDraft'
+import { feePaidInOf, feePaidInOptions, receivedAfterFee, showsFeePaidIn, type Draft } from '../../transactionDraft'
 import { FieldGroup } from './FieldGroup'
 import { InstrumentFields } from './InstrumentFields'
 
@@ -21,25 +21,27 @@ export function FeeTaxFields({
   instruments,
   feeHint,
   update,
+  onPaidIn,
 }: {
   draft: Draft
   instruments: readonly Instrument[]
   feeHint?: string
   update(patch: Partial<Draft>): void
+  onPaidIn(feePaidIn: FeePaidIn): void
 }) {
-  const options = feePaidInOptions(draft)
   const paidIn = feePaidInOf(draft)
+  const showsSelect = showsFeePaidIn(draft)
   const showsTax = draft.type !== 'fx_convert' && draft.type !== 'deposit' && draft.type !== 'transfer'
-  const cells = Number(options.length > 1) + Number(paidIn !== 'asset') + Number(showsTax)
+  const cells = Number(showsSelect) + Number(paidIn !== 'asset') + Number(showsTax)
   const receivedSymbol = (draft.type === 'swap' ? draft.toSymbol : draft.symbol).trim().toUpperCase()
   const arrives = receivedAfterFee(draft)
   return (
     <div className="grid gap-3.5">
       <div className={cn('grid grid-cols-2 gap-3.5', cells === 3 && 'sm:grid-cols-3')}>
-        {options.length > 1 && (
-          <Field id="tx-fee-paid-in" label="จ่ายเป็น">
-            <NativeSelect id="tx-fee-paid-in" value={paidIn} onChange={(e) => update({ feePaidIn: e.target.value as FeePaidIn })}>
-              {options.map((option) => (
+        {showsSelect && (
+          <Field id="tx-fee-paid-in" label="จ่ายเป็น" className={cn(paidIn !== 'cash' && 'col-span-2 sm:col-span-1')}>
+            <NativeSelect id="tx-fee-paid-in" value={paidIn} onChange={(e) => onPaidIn(e.target.value as FeePaidIn)}>
+              {feePaidInOptions(draft).map((option) => (
                 <option key={option} value={option}>
                   {FEE_PAID_IN_LABELS[option]}
                 </option>
@@ -57,6 +59,7 @@ export function FeeTaxFields({
             id="tx-fee-quantity"
             label={receivedSymbol ? `จำนวนที่ถูกหัก (${receivedSymbol})` : 'จำนวนที่ถูกหัก'}
             hint={arrives && `ได้รับจริง ${fmtNumber(arrives, 8)} ${receivedSymbol}`.trim()}
+            className="col-span-2 sm:col-span-1"
           >
             <Input
               id="tx-fee-quantity"
@@ -74,7 +77,7 @@ export function FeeTaxFields({
         )}
       </div>
       {paidIn === 'asset' && (
-        <FieldGroup legend="ค่าธรรมเนียมที่จ่ายเป็นสินทรัพย์">
+        <FieldGroup legend="ค่าธรรมเนียมที่จ่ายเป็นสินทรัพย์" divided>
           <InstrumentFields
             {...heldOnly}
             idPrefix="tx-fee"

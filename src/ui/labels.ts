@@ -23,7 +23,11 @@ export const TX_TYPE_SHORT_LABELS: Partial<Record<TxType, string>> = {
   receive_asset: 'รับสินทรัพย์',
   split: 'แตกพาร์',
   interest: 'ดอกเบี้ย',
+  opening: 'ยกมา',
 }
+
+// On the page of the asset that only paid the fee of a trade, the row is that payment.
+export const FEE_PAID_ROW_LABEL = 'จ่ายค่าธรรมเนียม'
 
 export const PRIMARY_TX_TYPES: readonly TxType[] = ['buy', 'sell', 'dividend', 'interest', 'fx_convert', 'deposit', 'withdraw']
 export const MORE_TX_TYPES: readonly TxType[] = ['transfer', 'swap', 'receive_asset', 'split', 'fee', 'opening']
@@ -37,7 +41,7 @@ export const RECEIVE_KIND_LABELS: Record<ReceiveKind, string> = {
 }
 
 export const FEE_PAID_IN_LABELS: Record<FeePaidIn, string> = {
-  cash: 'สกุลเงิน',
+  cash: 'เงินสด',
   received: 'หักจากที่ได้รับ',
   asset: 'สินทรัพย์อื่น',
 }

@@ -16,9 +16,9 @@ import { Stat, SummaryPanel } from '../components/Summary'
 import { ThesisCard } from '../components/ThesisCard'
 import { fmtDate, fmtHeadline, fmtNumber, fmtPrice, fmtSigned, fmtSignedPct, fmtValue, fmtYield, plClass } from '../format'
 import { useAppData, usePortfolio } from '../hooks'
-import { TX_TYPE_LABELS, marketOf } from '../labels'
+import { FEE_PAID_ROW_LABEL, TX_TYPE_LABELS, marketOf } from '../labels'
 import { assetRoute } from '../moneyRoutes'
-import { describeAmount, netOf } from '../transactionText'
+import { describeAmount, describeFeePaid, feePaidNet, netOf } from '../transactionText'
 import { useIsDesktop } from '../useIsDesktop'
 
 function badgeOf(value: Decimal | null): 'ok' | 'loss' | 'default' {
@@ -58,7 +58,7 @@ export function AssetPage() {
   const transactions = sortTransactions(
     data.transactions.filter((t) => t.instrumentId === id || t.toInstrumentId === id || t.feeInstrumentId === id),
   ).reverse()
-  // On the page of the asset that only paid a fee, the tax of the trade is not its own.
+  // On the page of an asset that only paid a fee, the row is that payment, and the tax of the trade is not its own.
   const feeOnly = (t: Transaction) => t.instrumentId !== id && t.toInstrumentId !== id
   const fees = sumBy(
     transactions.filter((t) => !issues.has(t.id)),
@@ -138,7 +138,8 @@ export function AssetPage() {
               <tbody>
                 {transactions.map((tx) => {
                   const issue = issues.get(tx.id)
-                  const net = netOf(tx, issue !== undefined)
+                  const feeRow = feeOnly(tx)
+                  const net = feeRow ? feePaidNet(tx, issue !== undefined) : netOf(tx, issue !== undefined)
                   return (
                     <tr key={tx.id} className={cn(issue && 'bg-warning-bg [&>td]:border-transparent')}>
                       <Td>
@@ -146,9 +147,9 @@ export function AssetPage() {
                           {fmtDate(tx.date)}
                         </Link>
                       </Td>
-                      <Td>{TX_TYPE_LABELS[tx.type]}</Td>
+                      <Td>{feeRow ? FEE_PAID_ROW_LABEL : TX_TYPE_LABELS[tx.type]}</Td>
                       <Td className="max-w-64 truncate">
-                        {describeAmount(tx, accountNames)}
+                        {feeRow ? describeFeePaid(tx) : describeAmount(tx, accountNames)}
                         {tx.note && <span className="text-muted-foreground"> · {tx.note}</span>}
                       </Td>
                       <Td>
@@ -163,14 +164,15 @@ export function AssetPage() {
           ) : (
             <ul aria-label={`ทุกรายการของ ${symbol}`}>
               {transactions.map((tx) => {
-                const net = netOf(tx, issues.has(tx.id))
+                const feeRow = feeOnly(tx)
+                const net = feeRow ? feePaidNet(tx, issues.has(tx.id)) : netOf(tx, issues.has(tx.id))
                 return (
                   <li key={tx.id} className="border-t border-muted first:border-t-0">
                     <Link to={`/transactions/${tx.id}`} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2.5 py-3">
                       <span>{fmtDate(tx.date)}</span>
                       <span className={cn('font-display font-semibold', net.className)}>{net.text}</span>
                       <span className="col-span-2 text-[12.5px] text-muted-foreground">
-                        {TX_TYPE_LABELS[tx.type]} {describeAmount(tx, accountNames)}
+                        {feeRow ? `${FEE_PAID_ROW_LABEL} ${describeFeePaid(tx)}` : `${TX_TYPE_LABELS[tx.type]} ${describeAmount(tx, accountNames)}`}
                         {tx.fxSource !== 'same' && ` · ${tx.fxSource === 'estimated' ? 'เรทประมาณ' : 'เรท'} ${fmtPrice(tx.fxRate)}`}
                       </span>
                     </Link>

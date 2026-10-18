@@ -36,7 +36,9 @@ export function Segmented<T extends string>({
           aria-pressed={option.value === value}
           onClick={() => onChange(option.value)}
           className={cn(
-            'h-11 min-w-11 shrink-0 whitespace-nowrap rounded-[9px] px-3.5 text-[13.5px] text-ink-2 transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/35 max-md:flex-1 max-md:px-2 md:h-8',
+            // min-w-11 replaces the content minimum of a flex item, so on a phone each segment starts from its text and
+            // only the spare room is shared; an equal share of the row would print a long label over its neighbour.
+            'h-11 min-w-11 shrink-0 whitespace-nowrap rounded-[9px] px-3.5 text-[13.5px] text-ink-2 transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/35 max-md:grow max-md:px-2 md:h-8',
             option.value === value && 'bg-card font-semibold text-foreground shadow-sm shadow-foreground/10',
           )}
         >

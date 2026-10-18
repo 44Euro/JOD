@@ -23,23 +23,23 @@ import { downloadText } from '../download'
 import { fmtDate, fmtDay } from '../format'
 import { useAppData, useLedger } from '../hooks'
 import { MARKET_LABELS, TX_TYPE_LABELS, TX_TYPE_SHORT_LABELS, marketOf } from '../labels'
-import { describeAmount, netOf } from '../transactionText'
+import { describeBody, feeNote, netOf } from '../transactionText'
 import { useIsDesktop } from '../useIsDesktop'
 
 function AssetLabel({ tx, instrument, accountName }: { tx: Transaction; instrument?: Instrument; accountName: string }) {
   if (!tx.instrumentId) {
     return (
-      <span className="flex min-w-0 items-center gap-2.5">
+      <span className="flex min-w-0 items-center gap-2.5 overflow-hidden">
         <CashPill label={tx.type === 'fx_convert' ? `${tx.currency}→${tx.toCurrency ?? ''}` : tx.currency} />
         <b className="truncate font-display text-base font-semibold">{accountName}</b>
       </span>
     )
   }
   return (
-    <span className="flex min-w-0 items-center gap-2.5">
+    <span className="flex min-w-0 items-center gap-2.5 overflow-hidden">
       <MarketPill market={instrument?.market ?? marketOf(tx.instrumentId)} assetType={instrument?.assetType} />
       <b className="font-display text-base font-semibold">{instrument?.symbol ?? tx.instrumentId.split(':')[1]}</b>
-      <span className="min-w-[3.5rem] truncate text-[12.5px] text-muted-foreground">{accountName}</span>
+      <span className="truncate text-[12.5px] text-muted-foreground">{accountName}</span>
     </span>
   )
 }
@@ -56,7 +56,7 @@ function feeFreeTransfer(tx: Transaction): boolean {
 }
 
 function instrumentIds(tx: Transaction): string[] {
-  return [tx.instrumentId, tx.toInstrumentId].filter((id): id is string => id !== undefined)
+  return [tx.instrumentId, tx.toInstrumentId, tx.feeInstrumentId].filter((id): id is string => id !== undefined)
 }
 
 export function TransactionsPage() {
@@ -217,8 +217,9 @@ export function TransactionsPage() {
                         </span>
                       </Td>
                       <Td>
-                        {describeAmount(tx, accountNames)}
+                        {describeBody(tx, accountNames)}
                         {!namesCurrency(tx) && <span className="text-muted-foreground"> {tx.currency}</span>}
+                        {feeNote(tx)}
                       </Td>
                       <Td>{feeFreeTransfer(tx) ? <span className="text-muted-foreground">—</span> : <RateCell tx={tx} />}</Td>
                       <Td className={cn('text-right font-display font-semibold', net.className)}>{net.text}</Td>
@@ -275,8 +276,9 @@ export function TransactionsPage() {
                       <span className={cn('font-display font-semibold', net.className)}>{net.text}</span>
                       <span className="col-span-2 flex flex-wrap items-center gap-x-1.5 text-[12.5px] text-muted-foreground">
                         <span>
-                          {describeAmount(tx, accountNames)}
+                          {describeBody(tx, accountNames)}
                           {!namesCurrency(tx) && ` ${tx.currency}`}
+                          {feeNote(tx)}
                         </span>
                         {(tx.type === 'fx_convert' || tx.fxSource !== 'same') && !feeFreeTransfer(tx) && (
                           <>

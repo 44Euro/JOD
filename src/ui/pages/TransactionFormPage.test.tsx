@@ -917,32 +917,79 @@ describe('TransactionFormPage', () => {
     it('offers each type only the ways of paying that make sense', async () => {
       const user = userEvent.setup()
       renderRoute('/transactions/new', provider())
-      await screen.findByLabelText('จ่ายเป็น')
-      expect(optionsOf('จ่ายเป็น')).toEqual(['สกุลเงิน', 'หักจากที่ได้รับ', 'สินทรัพย์อื่น'])
+      await user.selectOptions(await screen.findByLabelText('ตลาด'), 'คริปโต')
+      expect(optionsOf('จ่ายเป็น')).toEqual(['เงินสด', 'หักจากที่ได้รับ', 'สินทรัพย์อื่น'])
       await user.click(screen.getByRole('button', { name: 'ขาย' }))
-      expect(optionsOf('จ่ายเป็น')).toEqual(['สกุลเงิน', 'สินทรัพย์อื่น'])
+      expect(optionsOf('จ่ายเป็น')).toEqual(['เงินสด', 'สินทรัพย์อื่น'])
       await user.selectOptions(screen.getByLabelText('ประเภทอื่นๆ'), 'แลกเหรียญ')
-      expect(optionsOf('จ่ายเป็น')).toEqual(['สกุลเงิน', 'หักจากที่ได้รับ', 'สินทรัพย์อื่น'])
+      expect(optionsOf('จ่ายเป็น')).toEqual(['เงินสด', 'หักจากที่ได้รับ', 'สินทรัพย์อื่น'])
       await user.click(screen.getByRole('button', { name: 'ปันผล' }))
       expect(screen.queryByLabelText('จ่ายเป็น')).not.toBeInTheDocument()
       await user.click(screen.getByRole('button', { name: 'ฝากเงิน' }))
       expect(screen.queryByLabelText('จ่ายเป็น')).not.toBeInTheDocument()
     })
 
-    it('starts on the currency and puts the money fee beside it', async () => {
+    it('starts on cash and puts the money fee beside it', async () => {
+      const user = userEvent.setup()
       renderRoute('/transactions/new', provider())
-      expect(await screen.findByLabelText('จ่ายเป็น')).toHaveDisplayValue('สกุลเงิน')
+      await user.selectOptions(await screen.findByLabelText('ตลาด'), 'คริปโต')
+      expect(screen.getByLabelText('จ่ายเป็น')).toHaveDisplayValue('เงินสด')
       expect(screen.getByLabelText('ค่าธรรมเนียม')).toBeInTheDocument()
       expect(screen.getByLabelText('ภาษี / VAT')).toBeInTheDocument()
       expect(screen.queryByLabelText('จำนวนที่ถูกหัก (ETH)')).not.toBeInTheDocument()
       expect(screen.queryByRole('group', { name: 'ค่าธรรมเนียมที่จ่ายเป็นสินทรัพย์' })).not.toBeInTheDocument()
     })
 
+    it.each(['สหรัฐ (US)', 'ไทย (SET)'])('leaves a %s share with the plain fee and tax row and no way of paying', async (market) => {
+      const user = userEvent.setup()
+      renderRoute('/transactions/new', provider())
+      await user.selectOptions(await screen.findByLabelText('ตลาด'), market)
+      expect(screen.queryByLabelText('จ่ายเป็น')).not.toBeInTheDocument()
+      const row = screen.getByLabelText('ค่าธรรมเนียม').closest('div[class*="grid-cols-2"]')!
+      expect(row).toHaveClass('grid', 'grid-cols-2')
+      expect(row).not.toHaveClass('sm:grid-cols-3')
+      expect(Array.from(row.children).map((cell) => cell.querySelector('label')?.textContent)).toEqual(['ค่าธรรมเนียม', 'ภาษี / VAT'])
+      await user.click(screen.getByRole('button', { name: 'ขาย' }))
+      expect(screen.queryByLabelText('จ่ายเป็น')).not.toBeInTheDocument()
+    })
+
+    it('offers the way of paying again as soon as the market becomes crypto', async () => {
+      const user = userEvent.setup()
+      renderRoute('/transactions/new', provider())
+      await user.selectOptions(await screen.findByLabelText('ตลาด'), 'คริปโต')
+      expect(screen.getByLabelText('จ่ายเป็น')).toBeInTheDocument()
+      await user.selectOptions(screen.getByLabelText('ตลาด'), 'สหรัฐ (US)')
+      expect(screen.queryByLabelText('จ่ายเป็น')).not.toBeInTheDocument()
+    })
+
+    it('keeps the way of paying visible when a saved share was paid for another way', async () => {
+      await db.transactions.add(makeTx({ id: 'odd', quantity: '1', date: '2024-01-12', feePaidIn: 'received', feeQuantity: '0.1' }))
+      renderRoute('/transactions/odd', provider())
+      expect(await screen.findByLabelText('จ่ายเป็น')).toHaveDisplayValue('หักจากที่ได้รับ')
+    })
+
+    it('gives the way of paying a row of its own on a phone once the fee is not paid in cash, and lets the units field have one too', async () => {
+      const { user } = await openEthBuy()
+      const cell = (id: string) => document.getElementById(id)!.parentElement!
+      const row = cell('tx-fee-paid-in').parentElement!
+      expect(row).toHaveClass('grid-cols-2', 'sm:grid-cols-3')
+      expect(cell('tx-fee-paid-in')).not.toHaveClass('col-span-2')
+      await user.selectOptions(screen.getByLabelText('จ่ายเป็น'), 'หักจากที่ได้รับ')
+      expect(cell('tx-fee-paid-in')).toHaveClass('col-span-2', 'sm:col-span-1')
+      expect(cell('tx-fee-quantity')).toHaveClass('col-span-2', 'sm:col-span-1')
+      expect(cell('tx-tax')).not.toHaveClass('col-span-2')
+      await user.selectOptions(screen.getByLabelText('จ่ายเป็น'), 'สินทรัพย์อื่น')
+      expect(cell('tx-fee-paid-in')).toHaveClass('col-span-2', 'sm:col-span-1')
+      await user.selectOptions(screen.getByLabelText('จ่ายเป็น'), 'เงินสด')
+      expect(cell('tx-fee-paid-in')).not.toHaveClass('col-span-2')
+      expect(cell('tx-fees')).not.toHaveClass('col-span-2')
+    })
+
     it('goes back to the currency when the new type cannot pay the way that was chosen', async () => {
       const { user } = await openEthBuy()
       await user.selectOptions(screen.getByLabelText('จ่ายเป็น'), 'หักจากที่ได้รับ')
       await user.click(screen.getByRole('button', { name: 'ขาย' }))
-      expect(screen.getByLabelText('จ่ายเป็น')).toHaveDisplayValue('สกุลเงิน')
+      expect(screen.getByLabelText('จ่ายเป็น')).toHaveDisplayValue('เงินสด')
       expect(screen.getByLabelText('ค่าธรรมเนียม')).toBeInTheDocument()
     })
 
@@ -950,6 +997,7 @@ describe('TransactionFormPage', () => {
       const { user } = await openEthBuy()
       await user.selectOptions(screen.getByLabelText('จ่ายเป็น'), 'สินทรัพย์อื่น')
       const group = screen.getByRole('group', { name: 'ค่าธรรมเนียมที่จ่ายเป็นสินทรัพย์' })
+      expect(group.parentElement).toHaveClass('border-t', 'pt-4')
       expect(within(group).getByLabelText('ตลาด')).toHaveDisplayValue('คริปโต')
       expect(within(group).getByLabelText('สินทรัพย์ที่ใช้จ่าย')).toHaveAttribute('id', 'tx-fee-symbol')
       expect(within(group).getByLabelText('จำนวน')).toHaveAttribute('id', 'tx-fee-quantity')
@@ -1029,28 +1077,74 @@ describe('TransactionFormPage', () => {
       expect(screen.getByText(/^ต้นทุน ETH 2,666\.6667 USD ต่อหน่วย/)).toBeInTheDocument()
     })
 
-    it('takes the fee of a transfer of units from the units that arrive, and leaves a cash transfer alone', async () => {
+    it('takes the fee of a transfer of coins from the units that arrive, and then asks for no money at all', async () => {
       await db.accounts.add({ id: 'acc-2', name: 'IBKR', broker: 'IBKR', note: '', createdAt: '2024-01-01T00:00:00.000Z' })
-      await db.transactions.add(makeTx({ id: 'buy-1', quantity: '10', date: '2024-01-15' }))
+      await db.transactions.add(makeTx({ id: 'btc-buy', instrumentId: 'CRYPTO:BTC', quantity: '1', price: '58000', fxRate: '34', date: '2024-01-15' }))
       const user = userEvent.setup()
       const router = renderRoute('/transactions/new', provider())
       await user.selectOptions(await screen.findByLabelText('ประเภทอื่นๆ'), 'โอนระหว่างบัญชี')
-      expect(optionsOf('จ่ายเป็น')).toEqual(['สกุลเงิน', 'หักจากที่ได้รับ'])
-      await user.type(screen.getByLabelText('สัญลักษณ์'), 'aapl')
-      await user.type(screen.getByLabelText('จำนวนหน่วยที่โอน'), '4')
-      await user.selectOptions(screen.getByLabelText('จ่ายเป็น'), 'หักจากที่ได้รับ')
-      await user.type(screen.getByLabelText('จำนวนที่ถูกหัก (AAPL)'), '0.5')
-      expect(screen.getByText('ได้รับจริง 3.5 AAPL')).toBeInTheDocument()
+      await user.selectOptions(screen.getByLabelText('ตลาด'), 'คริปโต')
+      expect(optionsOf('จ่ายเป็น')).toEqual(['เงินสด', 'หักจากที่ได้รับ'])
+      await user.type(screen.getByLabelText('สัญลักษณ์'), 'btc')
+      await user.type(screen.getByLabelText('จำนวนหน่วยที่โอน'), '0.4')
       await waitFor(() => expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('35'))
-      expect(screen.getByText('AAPL · IBKR').nextSibling).toHaveTextContent('0 → 3.5')
+      expect(screen.getByLabelText('สกุลเงินของค่าธรรมเนียม')).toHaveValue('USD')
+      await user.selectOptions(screen.getByLabelText('จ่ายเป็น'), 'หักจากที่ได้รับ')
+      await user.type(screen.getByLabelText('จำนวนที่ถูกหัก (BTC)'), '0.1')
+      expect(screen.getByText('ได้รับจริง 0.3 BTC')).toBeInTheDocument()
+      expect(screen.queryByLabelText('สกุลเงินของค่าธรรมเนียม')).not.toBeInTheDocument()
+      expect(screen.queryByLabelText(/เรทแลกเปลี่ยน/)).not.toBeInTheDocument()
+      expect(screen.getByText('BTC · IBKR').nextSibling).toHaveTextContent('0 → 0.3')
       await user.click(screen.getByRole('button', { name: 'บันทึก' }))
       await waitFor(() => expect(router.state.location.pathname).toBe('/transactions'))
       expect((await db.transactions.toArray()).find((t) => t.type === 'transfer')).toMatchObject({
-        instrumentId: 'US:AAPL',
-        quantity: '4',
+        instrumentId: 'CRYPTO:BTC',
+        quantity: '0.4',
         feePaidIn: 'received',
-        feeQuantity: '0.5',
+        feeQuantity: '0.1',
         fees: '0',
+        currency: 'THB',
+        fxRate: '1',
+        fxSource: 'same',
+      })
+    })
+
+    it('brings the currency of the coin and its rate back when the fee goes back to cash', async () => {
+      await db.accounts.add({ id: 'acc-2', name: 'IBKR', broker: 'IBKR', note: '', createdAt: '2024-01-01T00:00:00.000Z' })
+      const user = userEvent.setup()
+      renderRoute('/transactions/new', provider())
+      await user.selectOptions(await screen.findByLabelText('ประเภทอื่นๆ'), 'โอนระหว่างบัญชี')
+      await user.selectOptions(screen.getByLabelText('ตลาด'), 'คริปโต')
+      await user.type(screen.getByLabelText('สัญลักษณ์'), 'btc')
+      await waitFor(() => expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('35'))
+      await user.selectOptions(screen.getByLabelText('จ่ายเป็น'), 'หักจากที่ได้รับ')
+      expect(screen.queryByLabelText(/เรทแลกเปลี่ยน/)).not.toBeInTheDocument()
+      await user.selectOptions(screen.getByLabelText('จ่ายเป็น'), 'เงินสด')
+      expect(screen.getByLabelText('สกุลเงินของค่าธรรมเนียม')).toHaveValue('USD')
+      await waitFor(() => expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('35'))
+    })
+
+    it('opens a saved transfer of VOO with 0.1 taken from the units, saves it in baht with no rate and shows no money fields', async () => {
+      await db.accounts.add({ id: 'acc-2', name: 'IBKR', broker: 'IBKR', note: '', createdAt: '2024-01-01T00:00:00.000Z' })
+      await db.transactions.bulkAdd([
+        makeTx({ id: 'voo-buy', instrumentId: 'US:VOO', quantity: '10', price: '400', fxRate: '35', date: '2024-01-10' }),
+        makeTx({ id: 'voo-move', type: 'transfer', instrumentId: 'US:VOO', toAccountId: 'acc-2', quantity: '4', price: undefined, fxRate: '35', date: '2024-01-20', feePaidIn: 'received', feeQuantity: '0.1' }),
+      ])
+      const user = userEvent.setup()
+      const router = renderRoute('/transactions/voo-move', provider())
+      expect(await screen.findByLabelText('จ่ายเป็น')).toHaveDisplayValue('หักจากที่ได้รับ')
+      expect(screen.getByLabelText('จำนวนที่ถูกหัก (VOO)')).toHaveValue('0.1')
+      expect(screen.queryByLabelText('สกุลเงินของค่าธรรมเนียม')).not.toBeInTheDocument()
+      expect(screen.queryByLabelText(/เรทแลกเปลี่ยน/)).not.toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+      await waitFor(() => expect(router.state.location.pathname).toBe('/transactions'))
+      expect(await db.transactions.get('voo-move')).toMatchObject({
+        feePaidIn: 'received',
+        feeQuantity: '0.1',
+        fees: '0',
+        currency: 'THB',
+        fxSource: 'same',
+        fxRate: '1',
       })
     })
 

@@ -203,13 +203,36 @@ describe('AssetPage', () => {
     ])
     const router = renderRoute('/assets/CRYPTO%3ABNB', usd)
     expect(await screen.findByRole('heading', { name: 'BNB' })).toBeInTheDocument()
-    expect(await screen.findByText('1 × 2,000.00 · ค่าธรรมเนียม 0.001 BNB')).toBeInTheDocument()
+    const row = (await screen.findByText('ซื้อ ETH · 0.001 BNB')).closest('tr')!
+    expect(row.cells[1]).toHaveTextContent(/^จ่ายค่าธรรมเนียม$/)
+    expect(row.cells[4]).toHaveTextContent(/^−20\.40$/)
+    expect(row.cells[4]).toHaveClass('text-loss')
+    expect(screen.queryByText(/1 × 2,000\.00/)).not.toBeInTheDocument()
     expect(screen.getByText('ทั้งหมด 2 รายการ')).toBeInTheDocument()
     expect(screen.getByText('ค่าธรรมเนียมรวม').nextSibling).toHaveTextContent('20')
     await act(() => router.navigate('/assets/CRYPTO%3AETH'))
     expect(await screen.findByRole('heading', { name: 'ETH' })).toBeInTheDocument()
     expect(await screen.findByText('1 × 2,100.00 · หัก 0.002 ETH')).toBeInTheDocument()
     expect(screen.getByText('ทั้งหมด 2 รายการ')).toBeInTheDocument()
+  })
+
+  it('describes the payment of a fee the same way on a phone, in the loss colour', async () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: false,
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    }))
+    await db.instruments.add({ id: 'CRYPTO:BNB', market: 'CRYPTO', symbol: 'BNB', name: 'BNB', assetType: 'crypto', currency: 'USD' })
+    await db.transactions.bulkAdd([
+      makeTx({ instrumentId: 'CRYPTO:BNB', quantity: '1', price: '500', fxRate: '34', date: '2024-01-10' }),
+      makeTx({ instrumentId: 'CRYPTO:ETH', quantity: '1', price: '2000', fxRate: '34', date: '2024-01-11', feePaidIn: 'asset', feeInstrumentId: 'CRYPTO:BNB', feeQuantity: '0.001', fees: '0.6' }),
+    ])
+    renderRoute('/assets/CRYPTO%3ABNB', usd)
+    const list = await screen.findByRole('list', { name: 'ทุกรายการของ BNB' })
+    const item = within(list).getByText(/^จ่ายค่าธรรมเนียม ซื้อ ETH · 0\.001 BNB/).closest('li')!
+    expect(within(item).getByText('−20.40')).toHaveClass('text-loss')
+    expect(within(list).getByText(/^ซื้อ 1 × 500\.00/)).toBeInTheDocument()
   })
 
   it('says so when the asset does not exist', async () => {

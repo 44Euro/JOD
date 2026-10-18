@@ -232,6 +232,42 @@ describe('summarizeInvestor with swaps', () => {
   })
 })
 
+describe('summarizeInvestor with a fee paid in an asset', () => {
+  // A trade-only account: 1 BNB at 500, then 1 ETH at 2,000 whose fee is 0.001 BNB, worth 0.60 USD, all at rate 34.
+  const buyBnb = makeTx({ instrumentId: 'CRYPTO:BNB', quantity: '1', price: '500', fxRate: '34', date: '2024-01-10' })
+  const buyEth = makeTx({
+    instrumentId: 'CRYPTO:ETH',
+    quantity: '1',
+    price: '2000',
+    fxRate: '34',
+    date: '2024-01-11',
+    feePaidIn: 'asset',
+    feeInstrumentId: 'CRYPTO:BNB',
+    feeQuantity: '0.001',
+    fees: '0.6',
+  })
+
+  it('keeps the parts of the gain adding up exactly, with the BNB sold at the value of the fee', () => {
+    const result = run([buyBnb, buyEth], { 'CRYPTO:ETH': '2100', 'CRYPTO:BNB': '600' }, { USD: '34' })
+    // Money put in: BNB 500 x 34 = 17,000, ETH paid in cash 2,000 x 34 = 68,000. The fee leaves no cash behind.
+    expect(result.flows.map((f) => f.amountBase.toString())).toEqual(['17000', '68000'])
+    expect(result.invested.totalBase.toString()).toBe('85000')
+    // Worth: ETH 2,100 x 34 = 71,400, and 0.999 BNB x 600 x 34 = 20,379.6.
+    expect(result.worth.totalBase.toString()).toBe('91779.6')
+    expect(result.gain.totalBase.toString()).toBe('6779.6')
+    // Unrealized: ETH costs 2,000.6 x 34 = 68,020.4, so 71,400 - 68,020.4 = 3,379.6; 0.999 BNB costs 16,983,
+    // so 20,379.6 - 16,983 = 3,396.6; together 6,776.2, all from price because the rate never moved.
+    expect(result.gain.unrealizedPriceBase.toString()).toBe('6776.2')
+    expect(result.gain.unrealizedFxBase.toString()).toBe('0')
+    // Realized: 0.001 BNB sold at 0.60 USD = 20.4, cost 17, so 3.4.
+    expect(result.gain.realizedBase.toString()).toBe('3.4')
+    // 6,776.2 + 3.4 = 6,779.6 is the whole gain, so nothing is left for fees, income or the currency of cash.
+    expect(result.gain.otherFeesBase.toString()).toBe('0')
+    expect(result.gain.incomeBase.toString()).toBe('0')
+    expect(result.gain.cashFxBase.toString()).toBe('0')
+  })
+})
+
 describe('summarizeInvestor with assets received as income', () => {
   const staking = (overrides: Partial<Transaction> = {}) =>
     makeTx({ type: 'receive_asset', receiveKind: 'staking', instrumentId: 'CRYPTO:SOL', quantity: '0.5', price: '150', fxRate: '35', ...overrides })

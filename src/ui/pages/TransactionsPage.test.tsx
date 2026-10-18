@@ -183,7 +183,46 @@ describe('TransactionsPage', () => {
       expect(within(list).queryByText('ดอกเบี้ย/คูปอง')).not.toBeInTheDocument()
       expect(within(list).queryByText('แตกพาร์/รวมหุ้น')).not.toBeInTheDocument()
       const buy = within(list).getByText('ซื้อ').closest('a')!
-      expect(within(buy).getByText('Dime US')).toHaveClass('min-w-[3.5rem]')
+      const account = within(buy).getByText('Dime US')
+      expect(account).toHaveClass('truncate')
+      expect(account).not.toHaveClass('min-w-[3.5rem]')
+    })
+
+    it('lets the asset block shrink and clip inside the phone row, so the type label never lands on the account', async () => {
+      vi.stubGlobal('matchMedia', (query: string) => ({
+        matches: false,
+        media: query,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      }))
+      renderRoute('/transactions')
+      const list = await screen.findByRole('list', { name: 'รายการทั้งหมด' })
+      const buy = within(list).getByText('ซื้อ').closest('a')!
+      const block = within(buy).getByText('Dime US').parentElement!
+      expect(block).toHaveClass('min-w-0', 'overflow-hidden')
+      const row = block.parentElement!
+      expect(row).toHaveClass('min-w-0')
+      expect(within(buy).getByText('ซื้อ')).toHaveClass('shrink-0')
+    })
+
+    it('shortens the opening balance to ยกมา in the phone row and keeps the full name in the table', async () => {
+      await db.transactions.add(makeTx({ id: 'open', type: 'opening', date: '2024-01-08', quantity: '1', price: '100' }))
+      renderRoute('/transactions')
+      expect(within(await screen.findByRole('table')).getByText('ยอดยกมา')).toBeInTheDocument()
+    })
+
+    it('shortens the opening balance to ยกมา in the phone row', async () => {
+      vi.stubGlobal('matchMedia', (query: string) => ({
+        matches: false,
+        media: query,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      }))
+      await db.transactions.add(makeTx({ id: 'open', type: 'opening', date: '2024-01-08', quantity: '1', price: '100' }))
+      renderRoute('/transactions')
+      const list = await screen.findByRole('list', { name: 'รายการทั้งหมด' })
+      expect(within(list).getByText('ยกมา')).toBeInTheDocument()
+      expect(within(list).queryByText('ยอดยกมา')).not.toBeInTheDocument()
     })
   })
 
@@ -398,7 +437,76 @@ describe('TransactionsPage', () => {
       expect(within(item).getByText('+2,625.00')).toHaveClass('text-gain')
       expect(within(item).getByText('รับสินทรัพย์')).toBeInTheDocument()
       expect(within(item).queryByText('รับเป็นสินทรัพย์')).not.toBeInTheDocument()
-      expect(within(item).getByText('Dime US')).toHaveClass('min-w-[3.5rem]')
+      expect(within(item).getByText('Dime US')).toHaveClass('truncate')
+    })
+  })
+
+  describe('fees paid in something else', () => {
+    const buyBnb = makeTx({ id: 'buy-bnb', instrumentId: 'CRYPTO:BNB', quantity: '1', price: '500', fxRate: '34', date: '2024-01-10' })
+    const paidInBnb = makeTx({
+      id: 'paid',
+      instrumentId: 'CRYPTO:ETH',
+      quantity: '0.5',
+      price: '2600',
+      fxRate: '34',
+      date: '2024-01-11',
+      feePaidIn: 'asset',
+      feeInstrumentId: 'CRYPTO:BNB',
+      feeQuantity: '0.001',
+      fees: '0.6',
+    })
+    const taken = makeTx({
+      id: 'taken',
+      instrumentId: 'CRYPTO:ETH',
+      quantity: '1',
+      price: '2000',
+      fxRate: '34',
+      date: '2024-01-12',
+      feePaidIn: 'received',
+      feeQuantity: '0.002',
+    })
+    const phone = () =>
+      vi.stubGlobal('matchMedia', (query: string) => ({
+        matches: false,
+        media: query,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      }))
+
+    it('puts the currency before the fee note, not after it', async () => {
+      await db.transactions.bulkAdd([buyBnb, paidInBnb, taken])
+      renderRoute('/transactions')
+      const table = await screen.findByRole('table')
+      const paid = (await within(table).findByText(/ค่าธรรมเนียม 0\.001 BNB/)).closest('td')!
+      expect(paid).toHaveTextContent(/^0\.5 × 2,600\.00 USD · ค่าธรรมเนียม 0\.001 BNB$/)
+      expect(within(paid).getByText('USD')).toHaveClass('text-muted-foreground')
+      expect(within(table).getByText(/หัก 0\.002 ETH/).closest('td')).toHaveTextContent(/^1 × 2,000\.00 USD · หัก 0\.002 ETH$/)
+    })
+
+    it('does the same in the phone row', async () => {
+      phone()
+      await db.transactions.bulkAdd([buyBnb, paidInBnb, taken])
+      renderRoute('/transactions')
+      const list = await screen.findByRole('list', { name: 'รายการทั้งหมด' })
+      expect(within(list).getByText('0.5 × 2,600.00 USD · ค่าธรรมเนียม 0.001 BNB')).toBeInTheDocument()
+      expect(within(list).getByText('1 × 2,000.00 USD · หัก 0.002 ETH')).toBeInTheDocument()
+    })
+
+    it('finds a trade by the asset its fee was paid in, and under the market of that asset', async () => {
+      const usStock = makeTx({ id: 'us-paid', quantity: '2', price: '100', fxRate: '35', date: '2024-01-13', feePaidIn: 'asset', feeInstrumentId: 'CRYPTO:BNB', feeQuantity: '0.001', fees: '0.6' })
+      const plain = makeTx({ id: 'plain', quantity: '3', price: '100', fxRate: '35', date: '2024-01-14' })
+      await db.transactions.bulkAdd([buyBnb, paidInBnb, usStock, plain])
+      const user = userEvent.setup()
+      renderRoute('/transactions')
+      const table = await screen.findByRole('table')
+      await user.type(screen.getByLabelText('ค้นหา'), 'bnb')
+      expect(within(table).getByText('2 × 100.00 · ค่าธรรมเนียม 0.001 BNB')).toBeInTheDocument()
+      expect(within(table).getByText(/^0\.5 × 2,600\.00/)).toBeInTheDocument()
+      expect(within(table).queryByText('3 × 100.00')).not.toBeInTheDocument()
+      await user.clear(screen.getByLabelText('ค้นหา'))
+      await user.selectOptions(screen.getByLabelText('กรองตามตลาด'), 'CRYPTO')
+      expect(within(table).getByText('2 × 100.00 · ค่าธรรมเนียม 0.001 BNB')).toBeInTheDocument()
+      expect(within(table).queryByText('3 × 100.00')).not.toBeInTheDocument()
     })
   })
 })

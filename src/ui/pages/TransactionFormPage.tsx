@@ -38,6 +38,7 @@ import {
   applyReferenceRate,
   changeCurrency,
   changeDate,
+  changeFeePaidIn,
   changeMarket,
   changeOpeningKind,
   changeType,
@@ -45,6 +46,7 @@ import {
   draftToTransaction,
   emptyDraft,
   isOpeningAsset,
+  movesNoMoney,
   pickSymbol,
   showsInstrument,
   syncReceived,
@@ -147,7 +149,7 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
   const savingRef = useRef(false)
   const update = (patch: Partial<Draft>) => setDraft((d) => ({ ...d, ...patch }))
 
-  const needsFx = draft.currency !== base && draft.type !== 'split'
+  const needsFx = draft.currency !== base && draft.type !== 'split' && !movesNoMoney(draft)
   const openingAsset = isOpeningAsset(draft)
   const isTrade = draft.type === 'buy' || draft.type === 'sell'
   const usesAmountField = !isTrade && !openingAsset && draft.type !== 'split' && draft.type !== 'transfer' && draft.type !== 'receive_asset'
@@ -382,7 +384,7 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
           )}
 
           <div className={cn('grid gap-3.5', isTrade || openingAsset ? 'grid-cols-3' : 'sm:grid-cols-2')}>
-            {draft.type !== 'split' && (
+            {draft.type !== 'split' && !movesNoMoney(draft) && (
               <Field id="tx-currency" label={currencyLabel(draft)}>
                 <NativeSelect id="tx-currency" value={draft.currency} onChange={(e) => setDraft((d) => changeCurrency(d, e.target.value))}>
                   {CURRENCY_OPTIONS.map((c) => (
@@ -424,6 +426,7 @@ function TransactionForm({ data, existing }: { data: AppData; existing?: Transac
               instruments={data.instruments}
               feeHint={hintFor(draft.feeMarket, draft.feeSymbol)}
               update={update}
+              onPaidIn={(feePaidIn) => setDraft((d) => changeFeePaidIn(d, feePaidIn, base, data.instruments))}
             />
           )}
 

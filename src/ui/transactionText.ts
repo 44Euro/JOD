@@ -2,10 +2,10 @@ import { D } from '../domain/decimal'
 import { acquisitionCostQuote, cashDeltaQuote } from '../domain/ledger'
 import { symbolOf, type Transaction } from '../domain/types'
 import { fmtNumber, fmtPrice, fmtSigned, fmtValue, plClass } from './format'
-import { RECEIVE_KIND_LABELS } from './labels'
+import { RECEIVE_KIND_LABELS, TX_TYPE_LABELS } from './labels'
 
 // A fee paid in cash is in the net column; one paid in units is not, so the row says how many.
-function feeNote(tx: Transaction): string {
+export function feeNote(tx: Transaction): string {
   if (tx.feePaidIn === 'received') {
     return ` · หัก ${fmtNumber(tx.feeQuantity, 8)} ${symbolOf(tx.type === 'swap' ? tx.toInstrumentId : tx.instrumentId)}`
   }
@@ -16,7 +16,8 @@ export function describeAmount(tx: Transaction, accountNames?: ReadonlyMap<strin
   return describeBody(tx, accountNames) + feeNote(tx)
 }
 
-function describeBody(tx: Transaction, accountNames?: ReadonlyMap<string, string>): string {
+// The part of the description before the fee note, for a list that writes the currency between the two.
+export function describeBody(tx: Transaction, accountNames?: ReadonlyMap<string, string>): string {
   switch (tx.type) {
     case 'buy':
     case 'sell':
@@ -43,6 +44,17 @@ function describeBody(tx: Transaction, accountNames?: ReadonlyMap<string, string
     default:
       return fmtNumber(tx.amount)
   }
+}
+
+// The page of the asset that paid a fee shows the fee, not the trade it was paid for.
+export function describeFeePaid(tx: Transaction): string {
+  return `${TX_TYPE_LABELS[tx.type]} ${symbolOf(tx.instrumentId)} · ${fmtNumber(tx.feeQuantity, 8)} ${symbolOf(tx.feeInstrumentId)}`
+}
+
+export function feePaidNet(tx: Transaction, skipped: boolean): { text: string; className: string } {
+  if (skipped) return { text: '—', className: 'text-muted-foreground' }
+  const cost = D(tx.fees).times(D(tx.fxRate)).negated()
+  return { text: fmtSigned(cost), className: plClass(cost) }
 }
 
 // A transaction the ledger skipped moves no cash, so showing its amount would mislead. An opening holding was
