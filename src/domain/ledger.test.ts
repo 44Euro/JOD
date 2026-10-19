@@ -859,12 +859,29 @@ describe('computeLedger cash cost', () => {
     ])
   })
 
+  it('costs the part of a cash transfer the sender does not hold at the rate of the transfer', () => {
+    const short = makeTx({ type: 'buy', quantity: '5', price: '100', fees: '1', fxRate: '34', date: '2024-01-04' })
+    const send = makeTx({ type: 'transfer', toAccountId: 'acc-2', instrumentId: undefined, quantity: undefined, price: undefined, amount: '1000', fxRate: '34', date: '2024-01-05' })
+    expect(cashOf([short, send])).toEqual([
+      ['acc-1', 'USD', '-1501', '0'],
+      ['acc-2', 'USD', '1000', '34000'],
+    ])
+  })
+
+  it('carries the cost the sender holds and costs only the rest of a transfer at its rate', () => {
+    const send = makeTx({ type: 'transfer', toAccountId: 'acc-2', instrumentId: undefined, quantity: undefined, price: undefined, amount: '1000', fxRate: '33', date: '2024-01-05' })
+    expect(cashOf([...usdCash, send]).filter((c) => c[1] === 'USD')).toEqual([
+      ['acc-1', 'USD', '-501', '0'],
+      ['acc-2', 'USD', '1000', '33499'],
+    ])
+  })
+
   it('costs the target of an exchange from a foreign currency at everything paid and takes the source cost in proportion', () => {
-    const toYen = makeTx({ ...thb, type: 'fx_convert', currency: 'USD', fxRate: '34', amount: '100', toCurrency: 'JPY', toAmount: '14000', date: '2024-01-05' })
+    const toYen = makeTx({ ...thb, type: 'fx_convert', currency: 'USD', fxRate: '35', amount: '100', toCurrency: 'JPY', toAmount: '14000', date: '2024-01-05' })
     expect(cashOf([makeTx({ ...thb, type: 'deposit', amount: '35000', date: '2024-01-02' }), convert('34000', '1000', '2024-01-03'), toYen])).toEqual([
       ['acc-1', 'THB', '1000', '1000'],
       ['acc-1', 'USD', '900', '30600'],
-      ['acc-1', 'JPY', '14000', '3400'],
+      ['acc-1', 'JPY', '14000', '3500'],
     ])
   })
 

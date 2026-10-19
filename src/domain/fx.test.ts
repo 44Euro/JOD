@@ -98,6 +98,17 @@ describe('cashFxRows', () => {
     expect(cashFxRows(cash, ledger, 'THB')).toEqual([])
   })
 
+  it('shows no gain for cash that was sent in by an account that could not cover it', () => {
+    const short = makeTx({ type: 'buy', quantity: '5', price: '100', fees: '1', fxRate: '34', date: '2024-01-04' })
+    const send = makeTx({ type: 'transfer', toAccountId: 'acc-2', instrumentId: undefined, quantity: undefined, price: undefined, amount: '1000', fxRate: '34', date: '2024-01-05' })
+    const ledger = computeLedger([short, send])
+    const cash = ledger.cash.map((c) => ({ accountId: c.accountId, currency: c.currency, amount: c.amount, base: c.amount.times(33) }))
+    const rows = cashFxRows(cash, ledger, 'THB')
+    expect(rows.map((r) => [r.accountId, r.costBase.toString(), r.valueBase?.toString(), r.effectBase?.toString()])).toEqual([
+      ['acc-2', '34000', '33000', '-1000'],
+    ])
+  })
+
   it('shows a gain when the foreign currency rose', () => {
     const ledger = computeLedger(held)
     const [row] = cashFxRows([{ accountId: 'acc-1', currency: 'USD', amount: D(499), base: D(499).times(35) }], ledger, 'THB')

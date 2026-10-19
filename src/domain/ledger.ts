@@ -510,8 +510,11 @@ export function computeLedger(transactions: readonly Transaction[]): Ledger {
       if (cashDelta.lessThan(0)) payCash(tx.accountId, tx.currency, cashDelta.negated())
       else receiveCash(tx.accountId, tx.currency, cashDelta, cashDelta.times(rate))
     } else {
-      // The cost of the cash sent goes with it; the cost of a fee paid on top goes with the fee.
-      const moved = payCash(tx.accountId, tx.currency, cashIn)
+      // The cost of the cash sent goes with it; the cost of a fee paid on top goes with the fee. What the sender does not
+      // hold arrives as money from outside, costed at the rate of the transfer.
+      const held = Decimal.max(cashRow(tx.accountId, tx.currency).amount, 0)
+      const uncovered = Decimal.max(cashIn.minus(held), 0)
+      const moved = payCash(tx.accountId, tx.currency, cashIn).plus(uncovered.times(rate))
       payCash(tx.accountId, tx.currency, cashDelta.negated().minus(cashIn))
       receiveCash(tx.toAccountId ?? '', tx.currency, cashIn, moved)
     }
