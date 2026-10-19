@@ -18,11 +18,10 @@ describe('parseDecimalInput', () => {
     expect(parseDecimalInput('1234,567')).toBeNull()
   })
 
-  it('reads a decimal comma after a leading zero as a decimal point, never as a thousand separator', () => {
-    expect(parseDecimalInput('0,001')).toBe('0.001')
-    expect(parseDecimalInput('0,5')).toBe('0.5')
+  it('rejects a comma after a leading zero instead of reading it as a thousand separator', () => {
+    expect(parseDecimalInput('0,001')).toBeNull()
+    expect(parseDecimalInput('0,5')).toBeNull()
     expect(parseDecimalInput('1,000')).toBe('1000')
-    expect(parseDecimalInput('0,001,000')).toBeNull()
   })
 
   it('keeps tiny values out of exponential notation', () => {
