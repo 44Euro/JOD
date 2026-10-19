@@ -766,3 +766,76 @@ describe('computeLedger position moves', () => {
     expect(shape(ledger)).toEqual([[buy.id, 'acc-1', 'US:AAPL', '0', '10', false]])
   })
 })
+
+describe('computeLedger cash cost', () => {
+  const thb = { currency: 'THB', fxRate: '1', fxSource: 'same' as const, instrumentId: undefined, quantity: undefined, price: undefined }
+  const convert = (amount: string, toAmount: string, date: string) =>
+    makeTx({ ...thb, type: 'fx_convert', amount, toCurrency: 'USD', toAmount, marketRate: '33.5', date })
+  const usdCash = [
+    makeTx({ ...thb, type: 'deposit', amount: '35000', date: '2024-01-02' }),
+    convert('34000', '1000', '2024-01-03'),
+    makeTx({ type: 'buy', quantity: '5', price: '100', fees: '1', fxRate: '34', date: '2024-01-04' }),
+  ]
+  const cashOf = (txs: Transaction[]) => computeLedger(txs).cash.map((c) => [c.accountId, c.currency, c.amount.toString(), c.costBase.toString()])
+
+  it('moves the cost of cash with a transfer', () => {
+    const txs = [
+      ...usdCash,
+      makeTx({ type: 'transfer', toAccountId: 'acc-2', instrumentId: undefined, quantity: undefined, price: undefined, amount: '200', fxRate: '33', date: '2024-01-05' }),
+    ]
+    const usd = computeLedger(txs).cash.filter((c) => c.currency === 'USD')
+    expect(usd.map((c) => [c.accountId, c.amount.toString(), c.costBase.toString()])).toEqual([
+      ['acc-1', '299', '10166'],
+      ['acc-2', '200', '6800'],
+    ])
+  })
+
+  it('lets the cost of a transfer fee go with the fee instead of moving it', () => {
+    const txs = [
+      ...usdCash,
+      makeTx({ type: 'transfer', toAccountId: 'acc-2', instrumentId: undefined, quantity: undefined, price: undefined, amount: '200', fees: '99', fxRate: '33', date: '2024-01-05' }),
+    ]
+    expect(cashOf(txs).filter((c) => c[1] === 'USD')).toEqual([
+      ['acc-1', 'USD', '200', '6800'],
+      ['acc-2', 'USD', '200', '6800'],
+    ])
+  })
+
+  it('gives a negative balance no cost', () => {
+    const txs = [makeTx({ type: 'buy', quantity: '5', price: '100', fees: '1', fxRate: '34' })]
+    const [usd] = computeLedger(txs).cash
+    expect([usd.amount.toString(), usd.costBase.toString()]).toEqual(['-501', '0'])
+  })
+
+  it('takes all the cost when more leaves than the balance holds and carries no cost into the shortfall', () => {
+    const txs = [
+      ...usdCash,
+      makeTx({ type: 'buy', quantity: '6', price: '100', fees: '0', fxRate: '36', date: '2024-01-05' }),
+    ]
+    const [usd] = computeLedger(txs).cash.filter((c) => c.currency === 'USD')
+    expect([usd.amount.toString(), usd.costBase.toString()]).toEqual(['-101', '0'])
+  })
+
+  it('costs money in at the rate of the transaction, opening cash and income included', () => {
+    const txs = [
+      makeTx({ type: 'opening', instrumentId: undefined, quantity: undefined, price: undefined, amount: '1000', fxRate: '34', date: '2024-01-01' }),
+      makeTx({ type: 'dividend', amount: '50', fees: '5', fxRate: '36', date: '2024-01-02' }),
+    ]
+    expect(cashOf(txs)).toEqual([['acc-1', 'USD', '1045', '35620']])
+  })
+
+  it('costs the target of an exchange at everything paid for it, fee included', () => {
+    const txs = [makeTx({ ...thb, type: 'deposit', amount: '35000', date: '2024-01-02' }), convert('34000', '999', '2024-01-03')]
+    expect(cashOf(txs)).toEqual([
+      ['acc-1', 'THB', '1000', '1000'],
+      ['acc-1', 'USD', '999', '34000'],
+    ])
+  })
+
+  it('leaves the cost of cash alone for a transaction the ledger skips', () => {
+    const oversell = makeTx({ type: 'sell', quantity: '15', price: '100', date: '2024-01-11' })
+    const ledger = computeLedger([...usdCash, oversell])
+    expect(ledger.issues).toHaveLength(1)
+    expect(cashOf([...usdCash])).toEqual(ledger.cash.map((c) => [c.accountId, c.currency, c.amount.toString(), c.costBase.toString()]))
+  })
+})

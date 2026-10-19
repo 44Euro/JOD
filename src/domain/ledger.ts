@@ -64,6 +64,8 @@ export interface CashBalance {
   accountId: string
   currency: string
   amount: Decimal
+  // What the cash cost in the base currency, as an average. A negative balance has no cost.
+  costBase: Decimal
 }
 
 export interface LedgerIssue {
@@ -253,11 +255,28 @@ export function computeLedger(transactions: readonly Transaction[]): Ledger {
   const moves: PositionMove[] = []
   let feesBase = D(0)
 
-  const addCash = (accountId: string, currency: string, delta: Decimal) => {
+  const cashRow = (accountId: string, currency: string): CashBalance => {
     const key = `${accountId}|${currency}`
-    const row = cash.get(key) ?? { accountId, currency, amount: D(0) }
-    row.amount = row.amount.plus(delta)
+    const row = cash.get(key) ?? { accountId, currency, amount: D(0), costBase: D(0) }
     cash.set(key, row)
+    return row
+  }
+
+  const receiveCash = (accountId: string, currency: string, delta: Decimal, costBase: Decimal) => {
+    const row = cashRow(accountId, currency)
+    row.amount = row.amount.plus(delta)
+    row.costBase = row.costBase.plus(costBase)
+  }
+
+  // The cost leaves in proportion to the balance, all of it when the whole balance goes; money paid out of a balance
+  // that is not above zero carries no cost.
+  const payCash = (accountId: string, currency: string, out: Decimal): Decimal => {
+    const row = cashRow(accountId, currency)
+    let taken = D(0)
+    if (row.amount.greaterThan(0)) taken = out.greaterThanOrEqualTo(row.amount) ? row.costBase : row.costBase.times(out).div(row.amount)
+    row.amount = row.amount.minus(out)
+    row.costBase = row.costBase.minus(taken)
+    return taken
   }
 
   const recordMove = (tx: Transaction, position: Position, before: Decimal, after: Decimal, transfer = false) => {
@@ -481,10 +500,18 @@ export function computeLedger(transactions: readonly Transaction[]): Ledger {
       })
     }
 
-    addCash(tx.accountId, tx.currency, cashDeltaQuote(tx))
+    const cashDelta = cashDeltaQuote(tx)
     const cashIn = transferInQuote(tx)
-    if (!cashIn.isZero()) addCash(tx.toAccountId ?? '', tx.currency, cashIn)
-    if (tx.type === 'fx_convert' && tx.toCurrency) addCash(tx.accountId, tx.toCurrency, D(tx.toAmount))
+    if (cashIn.isZero()) {
+      if (cashDelta.lessThan(0)) payCash(tx.accountId, tx.currency, cashDelta.negated())
+      else receiveCash(tx.accountId, tx.currency, cashDelta, cashDelta.times(rate))
+    } else {
+      // The cost of the cash sent goes with it; the cost of a fee paid on top goes with the fee.
+      const moved = payCash(tx.accountId, tx.currency, cashIn)
+      payCash(tx.accountId, tx.currency, cashDelta.negated().minus(cashIn))
+      receiveCash(tx.toAccountId ?? '', tx.currency, cashIn, moved)
+    }
+    if (tx.type === 'fx_convert' && tx.toCurrency) receiveCash(tx.accountId, tx.toCurrency, D(tx.toAmount), D(tx.amount).times(rate))
     feesBase = feesBase.plus(feesQuote(tx).times(rate))
   }
 

@@ -2,6 +2,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useEffect, useMemo, useState } from 'react'
 import { db } from '../db/db'
 import { getSettings } from '../db/repo'
+import { USD_PEGGED } from '../domain/currencies'
 import { summarizeInvestor } from '../domain/investor'
 import { computeLedger } from '../domain/ledger'
 import type { Transaction } from '../domain/types'
@@ -56,6 +57,13 @@ function ecbRate(quote: FxQuote): RateInfo {
   return { rate: quote.rate, note: `ECB ${fmtDate(quote.rateDate)}` }
 }
 
+// A dollar-pegged currency may borrow the dollar rate, so the dollar has to be looked up whenever one is asked for.
+function withPegAnchor(currencies: readonly string[]): string[] {
+  const wanted = new Set(currencies)
+  if (USD_PEGGED.some((currency) => wanted.has(currency))) wanted.add('USD')
+  return [...wanted].sort()
+}
+
 function sameRate(a: RateInfo | undefined, b: RateInfo | null): boolean {
   return a === undefined ? b === null : b !== null && a.rate === b.rate && a.note === b.note
 }
@@ -67,7 +75,8 @@ export function useLatestRates(
 ): LatestRates {
   const provider = useFxProvider()
   const [lookup, setLookup] = useState<Lookup>({ base: baseCurrency, rates: {}, settled: [], confirmed: [] })
-  const wanted = [...new Set(currencies)].sort().join(',')
+  const asked = [...new Set(currencies)].sort().join(',')
+  const wanted = withPegAnchor(currencies).join(',')
   const known = lookup.base === baseCurrency ? lookup : null
 
   useEffect(() => {
@@ -114,18 +123,21 @@ export function useLatestRates(
   }, [wanted, baseCurrency, provider, transactions])
 
   return useMemo(() => {
-    const list = wanted ? wanted.split(',') : []
+    const lookups = wanted ? wanted.split(',') : []
+    const rateOf = (currency: string) => (currency === baseCurrency ? BASE_RATE : known?.rates[currency])
     const rates: Record<string, RateInfo> = {}
-    for (const currency of list) {
-      const info = currency === baseCurrency ? BASE_RATE : known?.rates[currency]
+    for (const currency of asked ? asked.split(',') : []) {
+      const own = rateOf(currency)
+      const dollar = USD_PEGGED.includes(currency) ? rateOf('USD') : undefined
+      const info = own ?? (dollar && { rate: dollar.rate, note: 'ใช้เรท USD' })
       if (info) rates[currency] = info
     }
     return {
       rates,
-      ready: list.every((c) => c === baseCurrency || known?.settled.includes(c)),
-      confirmed: list.every((c) => c === baseCurrency || known?.confirmed.includes(c)),
+      ready: lookups.every((c) => c === baseCurrency || known?.settled.includes(c)),
+      confirmed: lookups.every((c) => c === baseCurrency || known?.confirmed.includes(c)),
     }
-  }, [wanted, baseCurrency, known])
+  }, [asked, wanted, baseCurrency, known])
 }
 
 export function usePortfolio(data: AppData | undefined) {
