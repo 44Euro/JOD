@@ -150,7 +150,8 @@ export function HoldingsTable({ valuations, instruments, accountNames, base, rat
               </span>
               {editablePrice && instrument && (
                 <span className="col-span-2 flex items-center gap-2 text-[12.5px] text-muted-foreground">
-                  ราคาล่าสุด <PriceInput key={priceInputKey(instrument)} instrument={instrument} rowCurrency={p.currency} />
+                  <span className="shrink-0 whitespace-nowrap">ราคาล่าสุด</span>
+                  <PriceInput key={priceInputKey(instrument)} instrument={instrument} rowCurrency={p.currency} />
                 </span>
               )}
             </li>

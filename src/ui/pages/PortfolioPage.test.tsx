@@ -83,6 +83,21 @@ describe('PortfolioPage', () => {
       expect(within(binance).queryByText('+1,110')).not.toBeInTheDocument()
     })
 
+    it('keeps the label of the price whole on a phone, so only the input and its badges wrap', async () => {
+      vi.stubGlobal('matchMedia', (query: string) => ({
+        matches: false,
+        media: query,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      }))
+      await db.instruments.update('CRYPTO:ETH', { lastPriceAt: '2020-01-01T00:00:00.000Z' })
+      renderRoute('/portfolio', fakeFxProvider({ 'USD|THB': '33' }).provider)
+      const holdings = await screen.findByRole('list', { name: 'สินทรัพย์ที่ถืออยู่' })
+      const [label] = await within(holdings).findAllByText('ราคาล่าสุด')
+      expect(label).toHaveClass('shrink-0', 'whitespace-nowrap')
+      expect(label).not.toContainElement(within(holdings).getAllByLabelText('ราคาล่าสุด ETH')[0])
+    })
+
     it('names the baht beside the price typed for the dollar holding only, and stores what is typed as it is', async () => {
       const user = userEvent.setup()
       renderRoute('/portfolio', fakeFxProvider({ 'USD|THB': '33' }).provider)

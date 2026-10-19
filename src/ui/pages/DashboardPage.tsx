@@ -70,6 +70,8 @@ export function DashboardPage() {
   const largestId = largestInstrument(valuations)
   const largest = largestId ? instrumentStats(largestId, valuations, ledger, today) : null
   const largestSymbol = largestId ? (instruments.get(largestId)?.symbol ?? largestId.split(':')[1]) : ''
+  const showRoute = largest !== null && largest.currency !== null && largestId !== null && !largest.quantity.isZero()
+  const hasSideColumn = showRoute || unpriced > 0 || stale.length > 0 || worth.missingRates.length > 0 || dueReviews.length > 0
 
   return (
     <>
@@ -128,40 +130,47 @@ export function DashboardPage() {
         )}
       </SummaryPanel>
 
-      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-3.5 md:gap-[22px] xl:grid-cols-[minmax(0,1fr)_340px]">
+      <div
+        className={cn(
+          'grid grid-cols-[minmax(0,1fr)] items-start gap-3.5 md:gap-[22px]',
+          hasSideColumn && 'xl:grid-cols-[minmax(0,1fr)_340px]',
+        )}
+      >
         {board.length > 0 && <RateBoard rows={board} base={base} />}
-        <div className="grid min-w-0 content-start gap-4">
-          {largest && largest.currency !== null && largestId && !largest.quantity.isZero() && (
-            <Link to={assetPath(largestId)} className="block rounded-[18px] border bg-card p-4 hover:bg-muted md:rounded-[20px] md:px-[26px] md:py-[22px]">
-              <h2 className="mb-4 text-lg font-semibold">เส้นทางเงิน · {largestSymbol}</h2>
-              <MiniRoute
-                from={base === 'THB' ? 'บาท' : base}
-                via={
-                  largest.currency === base
-                    ? 'ไม่ต้องแลกเงิน'
-                    : `แลกที่ ${fmtRate(largest.costQuote.isZero() ? null : largest.costBase.div(largest.costQuote))}`
-                }
-                to={`${largestSymbol} @${fmtPrice(largest.costQuote.div(largest.quantity))}`}
-              />
-            </Link>
-          )}
-          {unpriced > 0 && (
-            <Alert role="note">
-              ยังไม่มีราคาล่าสุด {unpriced} ตัว (นับที่ทุนไปก่อน) · <Link to="/portfolio">กรอกราคา</Link>
-            </Alert>
-          )}
-          {stale.length > 0 && (
-            <Alert role="note">
-              ราคา {stale.length} ตัวไม่ได้อัปเดตเกิน 7 วัน · <Link to="/portfolio">อัปเดตราคา</Link>
-            </Alert>
-          )}
-          <MissingRatesNote currencies={worth.missingRates} />
-          {dueReviews.map((instrument) => (
-            <Alert key={instrument.id} role="note" icon={CalendarClock}>
-              ถึงวันทบทวนเหตุผลที่ถือ {instrument.symbol} · <Link to={assetPath(instrument.id)}>เปิดดู</Link>
-            </Alert>
-          ))}
-        </div>
+        {hasSideColumn && (
+          <div className="grid min-w-0 content-start gap-4">
+            {showRoute && (
+              <Link to={assetPath(largestId)} className="block rounded-[18px] border bg-card p-4 hover:bg-muted md:rounded-[20px] md:px-[26px] md:py-[22px]">
+                <h2 className="mb-4 text-lg font-semibold">เส้นทางเงิน · {largestSymbol}</h2>
+                <MiniRoute
+                  from={base === 'THB' ? 'บาท' : base}
+                  via={
+                    largest.currency === base
+                      ? 'ไม่ต้องแลกเงิน'
+                      : `แลกที่ ${fmtRate(largest.costQuote.isZero() ? null : largest.costBase.div(largest.costQuote))}`
+                  }
+                  to={`${largestSymbol} @${fmtPrice(largest.costQuote.div(largest.quantity))}`}
+                />
+              </Link>
+            )}
+            {unpriced > 0 && (
+              <Alert role="note">
+                ยังไม่มีราคาล่าสุด {unpriced} ตัว (นับที่ทุนไปก่อน) · <Link to="/portfolio">กรอกราคา</Link>
+              </Alert>
+            )}
+            {stale.length > 0 && (
+              <Alert role="note">
+                ราคา {stale.length} ตัวไม่ได้อัปเดตเกิน 7 วัน · <Link to="/portfolio">อัปเดตราคา</Link>
+              </Alert>
+            )}
+            <MissingRatesNote currencies={worth.missingRates} />
+            {dueReviews.map((instrument) => (
+              <Alert key={instrument.id} role="note" icon={CalendarClock}>
+                ถึงวันทบทวนเหตุผลที่ถือ {instrument.symbol} · <Link to={assetPath(instrument.id)}>เปิดดู</Link>
+              </Alert>
+            ))}
+          </div>
+        )}
       </div>
 
       {top.length > 0 && (

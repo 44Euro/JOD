@@ -81,7 +81,7 @@ export interface DraftContext {
   baseCurrency: string
   today: string
   // The instruments the symbols are looked up in; one that is not among them is created by saving, so its symbol is checked.
-  instruments?: readonly Instrument[]
+  instruments: readonly Instrument[]
 }
 
 // A fee paid in another asset is nearly always paid in a coin, such as BNB on an exchange.
@@ -574,7 +574,7 @@ export function draftToTransaction(draft: Draft, ctx: DraftContext): { tx: Trans
 }
 
 function newSymbolErrors(market: Market, symbol: string, ctx: DraftContext): string[] {
-  return findInstrument(ctx.instruments ?? [], market, symbol) ? [] : validateSymbol(symbol)
+  return findInstrument(ctx.instruments, market, symbol) ? [] : validateSymbol(symbol)
 }
 
 // The buy shares the dividend's account, time, instrument and rate, so the two read as one event. The caller gives it a

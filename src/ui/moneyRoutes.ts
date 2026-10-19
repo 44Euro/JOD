@@ -53,7 +53,7 @@ function rateDirection(average: Decimal | null, today: Decimal | null, base: str
 
 // Spec S5: money in → average exchange rate → average cost → today's price → today's rate → value today.
 // These stations are prices and rates, not amounts, so unlike the overview route they do not add up.
-// An asset held in more than one currency has no single rate or cost, so only the two baht stations are left.
+// An asset held in more than one currency has no single rate or cost, so only the two base-currency stations are left.
 export function assetRoute(
   stats: HoldingStats,
   lastPrice: Decimal | null,

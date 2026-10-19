@@ -139,6 +139,32 @@ describe('DashboardPage', () => {
     expect(screen.queryByText(/แลกที่/)).not.toBeInTheDocument()
   })
 
+  it('gives the rate board the whole width when nothing is left for a right-hand column', async () => {
+    setToday(2024, 6, 1)
+    await db.accounts.bulkAdd([
+      { id: 'bitkub', name: 'Bitkub', broker: 'Bitkub', note: '', createdAt: '2024-01-01T00:00:00.000Z' },
+      { id: 'binance', name: 'Binance', broker: 'Binance', note: '', createdAt: '2024-01-01T00:00:00.000Z' },
+    ])
+    await db.instruments.add({ id: 'CRYPTO:ETH', market: 'CRYPTO', symbol: 'ETH', name: 'Ethereum', assetType: 'crypto', currency: 'THB', lastPrice: '120000' })
+    await db.transactions.bulkAdd([
+      makeTx({ accountId: 'bitkub', instrumentId: 'CRYPTO:ETH', currency: 'THB', fxRate: '1', fxSource: 'same', quantity: '0.1', price: '110000', date: '2024-01-10' }),
+      makeTx({ accountId: 'binance', instrumentId: 'CRYPTO:ETH', currency: 'USD', fxRate: '33', quantity: '0.1', price: '3300', date: '2024-02-10' }),
+    ])
+    renderRoute('/', usd())
+    const board = (await screen.findByRole('region', { name: 'กระดานเรทของคุณ' })).parentElement!
+    expect(board.children).toHaveLength(1)
+    expect(board).not.toHaveClass('xl:grid-cols-[minmax(0,1fr)_340px]')
+  })
+
+  it('keeps the two columns while the short route or a note has something to say', async () => {
+    setToday(2024, 6, 1)
+    await seedDime()
+    renderRoute('/', usd())
+    const board = (await screen.findByRole('region', { name: 'กระดานเรทของคุณ' })).parentElement!
+    expect(board.children).toHaveLength(2)
+    expect(board).toHaveClass('xl:grid-cols-[minmax(0,1fr)_340px]')
+  })
+
   it('counts a holding without a price at cost and says so', async () => {
     setToday(2024, 6, 1)
     await seedDime({ lastPrice: '' })

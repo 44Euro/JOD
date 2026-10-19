@@ -32,7 +32,7 @@ import {
   type Draft,
 } from './transactionDraft'
 
-const ctx = { id: 'tx-1', createdAt: '2024-01-15T09:00:00.000Z', baseCurrency: 'THB', today: '2024-06-30' }
+const ctx = { id: 'tx-1', createdAt: '2024-01-15T09:00:00.000Z', baseCurrency: 'THB', today: '2024-06-30', instruments: [] }
 
 function buyDraft(overrides: Partial<Draft> = {}): Draft {
   return {
