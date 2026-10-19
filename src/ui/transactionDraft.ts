@@ -371,12 +371,13 @@ export function changeToAssetType(draft: Draft, assetType: AssetType): Draft {
 }
 
 // An opening holding needs the user's own average purchase rate, so the reference rate is offered but never filled in.
-export function applyReferenceRate(draft: Draft, quote: { rate: string; rateDate: string }): Draft {
+// A borrowed rate is another currency's, so it is an estimate and not an automatic rate of this one.
+export function applyReferenceRate(draft: Draft, quote: { rate: string; rateDate: string }, borrowed = false): Draft {
   const next = { ...draft, referenceFxRate: quote.rate, fxRateDate: quote.rateDate }
   if (draft.fxSource === 'manual') return next
   if (draft.fxSource === 'estimated') return { ...next, fxRate: quote.rate }
   if (isOpeningAsset(draft)) return next
-  return { ...next, fxRate: quote.rate, fxSource: 'auto' }
+  return { ...next, fxRate: quote.rate, fxSource: borrowed ? 'estimated' : 'auto' }
 }
 
 function parsedDecimal(raw: string): Decimal | null {

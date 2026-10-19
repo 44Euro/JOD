@@ -223,7 +223,9 @@ describe('FxPage', () => {
       const rateOf = (row: HTMLElement) => row.children[1].children[0]
       expect(within(rows[0]).getByText('0.216348')).toBeInTheDocument()
       expect(rateOf(rows[0])).toHaveClass('text-base', '@min-[800px]:text-2xl', 'leading-tight')
-      expect(rateOf(rows[0])).not.toHaveClass('text-lg', 'text-[22px]', '@min-[800px]:text-[34px]')
+      expect(rateOf(rows[0])).not.toHaveClass('text-lg')
+      expect(rateOf(rows[0])).not.toHaveClass('text-[22px]')
+      expect(rateOf(rows[0])).not.toHaveClass('@min-[800px]:text-[34px]')
       expect(rateOf(rows[1])).toHaveClass('text-[22px]', '@min-[800px]:text-[34px]', 'leading-tight')
     })
   })
@@ -268,6 +270,15 @@ describe('FxPage', () => {
       const name = within(row).getByText('Interactive Brokers (Thailand) Securities Company')
       expect(name).toHaveClass('line-clamp-2', 'break-words')
       expect(name.parentElement).toHaveClass('flex-wrap')
+    })
+
+    it('says under the heading that only the cash still held is counted', async () => {
+      await seedFx()
+      renderRoute('/fx', usd())
+      const cash = await card('เงินสดต่างประเทศ')
+      const hint = within(cash).getByText('เฉพาะเงินสดที่ยังถืออยู่ · ไม่รวมส่วนที่ใช้ไปแล้ว')
+      expect(hint).toHaveClass('text-muted-foreground')
+      expect(hint.previousElementSibling).toContainElement(within(cash).getByRole('heading', { name: 'เงินสดต่างประเทศ' }))
     })
 
     it('is left out when the only cash is in baht', async () => {
@@ -323,15 +334,32 @@ describe('FxPage', () => {
       expect(within(summary).getByText('≈ 680 บาท')).toHaveClass('text-loss')
     })
 
-    it('leaves room between one pair and the next', async () => {
+    it('puts the rule and the room between one pair and the next, and none above the first', async () => {
       await seedFx()
       await db.transactions.add(makeTx({ ...baht, type: 'fx_convert', amount: '10000', toCurrency: 'JPY', toAmount: '45000', date: '2026-09-10' }))
       renderRoute('/fx', usd())
       const summary = await card('สรุปการแลกเงิน')
       const pairs = summary.querySelectorAll('dl')
       expect(pairs).toHaveLength(2)
-      expect(pairs[0]).toHaveClass('first:mt-0')
-      expect(pairs[1]).toHaveClass('mt-3')
+      const wrapper = pairs[0].parentElement!
+      expect(pairs[1].parentElement).toBe(wrapper)
+      expect(wrapper.firstElementChild).toBe(pairs[0])
+      expect(wrapper).toHaveClass('[&>dl+dl]:mt-3', '[&>dl+dl]:border-t', '[&>dl+dl]:border-muted')
+      expect([...wrapper.querySelectorAll(':scope > dl + dl')]).toEqual([pairs[1]])
+      expect(pairs[0]).not.toHaveClass('mt-3')
+      expect(pairs[0]).not.toHaveClass('border-t')
+    })
+
+    it('says cheaper than the mid rate, with the size of it, when the average spread is negative', async () => {
+      await db.accounts.add(account)
+      await db.transactions.bulkAdd([
+        makeTx({ ...baht, type: 'deposit', amount: '100000', date: '2026-08-01' }),
+        exchange('33000', '33.5', '2026-10-16'),
+      ])
+      renderRoute('/fx', usd())
+      const summary = await card('สรุปการแลกเงิน')
+      expect(figure(summary, 'ถูกกว่าเรทกลางเฉลี่ย')).toHaveTextContent(/^1\.49%$/)
+      expect(within(summary).queryByText('แพงกว่าเรทกลางเฉลี่ย')).not.toBeInTheDocument()
     })
 
     it('shows a dash for the spread when no exchange had a market rate', async () => {

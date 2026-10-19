@@ -1,6 +1,7 @@
 import { Badge } from '../../../components/ui/badge'
 import { Field } from '../../../components/ui/field'
 import { Input } from '../../../components/ui/input'
+import { USD_PEGGED } from '../../../domain/currencies'
 import type { Decimal } from '../../../domain/decimal'
 import { fmtNumber } from '../../format'
 import { FX_SOURCE_LABELS } from '../../labels'
@@ -20,6 +21,7 @@ export function FxRateBox({
   update(patch: Partial<Draft>): void
 }) {
   const openingAsset = isOpeningAsset(draft)
+  const estimates = openingAsset || USD_PEGGED.includes(draft.currency)
   const baseWord = base === 'THB' ? 'บาท' : ` ${base} `
   return (
     <div className="grid gap-2 rounded-2xl bg-fx-soft px-[18px] py-4">
@@ -51,7 +53,7 @@ export function FxRateBox({
         <button
           type="button"
           className="-my-3 inline-flex min-h-11 items-center justify-self-start text-[13px] leading-5 font-semibold text-fx underline underline-offset-[3px] md:my-0 md:min-h-0"
-          onClick={() => update({ fxRate: draft.referenceFxRate, fxSource: openingAsset ? 'estimated' : 'auto' })}
+          onClick={() => update({ fxRate: draft.referenceFxRate, fxSource: estimates ? 'estimated' : 'auto' })}
         >
           {openingAsset ? `ใช้เรทกลาง ${draft.referenceFxRate} เป็นค่าประมาณ` : `กลับไปใช้เรทกลาง ${draft.referenceFxRate}`}
         </button>

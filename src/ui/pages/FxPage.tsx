@@ -12,7 +12,7 @@ import { cn } from '../../lib/cn'
 import { CashPill } from '../components/MarketPill'
 import { PageHeader } from '../components/PageHeader'
 import { RateBoard } from '../components/RateBoard'
-import { currencyMark, fmtAmount, fmtDate, fmtHeadline, fmtNumber, fmtRate, fmtSigned, fmtSignedPct } from '../format'
+import { currencyMark, fmtAmount, fmtDate, fmtHeadline, fmtNumber, fmtPct, fmtRate, fmtSigned, fmtSignedPct } from '../format'
 import { useAppData, useInvestor } from '../hooks'
 import { buildRateBoard } from '../rateBoard'
 import { useIsDesktop } from '../useIsDesktop'
@@ -257,6 +257,7 @@ export function FxPage() {
       {cashRows.length > 0 && (
         <Section id="fx-cash-title" title="เงินสดต่างประเทศ">
           {board.length === 0 && caption && <p className="mb-3 text-[13px] text-muted-foreground">{caption}</p>}
+          <p className="mb-3 text-[13px] text-muted-foreground">เฉพาะเงินสดที่ยังถืออยู่ · ไม่รวมส่วนที่ใช้ไปแล้ว</p>
           <CashRows rows={cashRows} accountNames={accountNames} mark={mark} isDesktop={isDesktop} />
         </Section>
       )}
@@ -265,24 +266,31 @@ export function FxPage() {
         <div className="grid items-start gap-3.5 md:gap-[22px] xl:grid-cols-2">
           {summaries.length > 0 && (
             <Section id="fx-summary-title" title="สรุปการแลกเงิน">
-              {summaries.map((pair) => (
-                <dl key={`${pair.from}|${pair.to}`} className="mt-3 border-t border-muted first:mt-0 first:border-t-0">
-                  <Line label={`${pair.from} → ${pair.to}`}>
-                    {`${pair.count} ครั้ง · ${fmtAmount(pair.fromTotal)} → ${fmtAmount(pair.toTotal)}`}
-                  </Line>
-                  <Line label="เรทเฉลี่ยที่ได้">
-                    <span className="font-display font-semibold">{fmtRate(pair.avgRate)}</span>
-                  </Line>
-                  <Line label="แพงกว่าเรทกลางเฉลี่ย">
-                    <span className="font-display font-semibold text-fx">{fmtSignedPct(pair.avgSpreadPct, 2)}</span>
-                  </Line>
-                  <Line label="spread ที่เสียไปรวม">
-                    <span className={cn('font-display font-semibold', pair.spreadLostBase?.greaterThan(0) && 'text-loss')}>
-                      {pair.spreadLostBase ? `≈ ${fmtNumber(pair.spreadLostBase, 0)} ${lostWord}` : '—'}
-                    </span>
-                  </Line>
-                </dl>
-              ))}
+              <div className="[&>dl+dl]:mt-3 [&>dl+dl]:border-t [&>dl+dl]:border-muted">
+                {summaries.map((pair) => {
+                  const cheaper = pair.avgSpreadPct?.toDecimalPlaces(2).lessThan(0) === true
+                  return (
+                    <dl key={`${pair.from}|${pair.to}`}>
+                      <Line label={`${pair.from} → ${pair.to}`}>
+                        {`${pair.count} ครั้ง · ${fmtAmount(pair.fromTotal)} → ${fmtAmount(pair.toTotal)}`}
+                      </Line>
+                      <Line label="เรทเฉลี่ยที่ได้">
+                        <span className="font-display font-semibold">{fmtRate(pair.avgRate)}</span>
+                      </Line>
+                      <Line label={cheaper ? 'ถูกกว่าเรทกลางเฉลี่ย' : 'แพงกว่าเรทกลางเฉลี่ย'}>
+                        <span className="font-display font-semibold text-fx">
+                          {cheaper ? fmtPct(pair.avgSpreadPct?.abs(), 2, 2) : fmtSignedPct(pair.avgSpreadPct, 2)}
+                        </span>
+                      </Line>
+                      <Line label="spread ที่เสียไปรวม">
+                        <span className={cn('font-display font-semibold', pair.spreadLostBase?.greaterThan(0) && 'text-loss')}>
+                          {pair.spreadLostBase ? `≈ ${fmtNumber(pair.spreadLostBase, 0)} ${lostWord}` : '—'}
+                        </span>
+                      </Line>
+                    </dl>
+                  )
+                })}
+              </div>
             </Section>
           )}
           {remittances.length > 0 && (

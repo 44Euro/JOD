@@ -43,7 +43,7 @@ const LAYOUTS = {
 interface RateBoardProps {
   rows: readonly RateBoardRow[]
   base: string
-  // The currency page adds what is held and writes the effect in whole baht.
+  // The currency page adds what is held.
   full?: boolean
   caption?: ReactNode
 }

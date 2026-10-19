@@ -471,7 +471,8 @@ describe('TransactionFormPage', () => {
       await pickCurrency(fakeFxProvider({ 'USD|THB': '33' }).provider, 'USDT')
       await waitFor(() => expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('33'))
       expect(screen.getByText(/^ใช้เรท USD/)).toBeInTheDocument()
-      expect(screen.getByText('อัตโนมัติ')).toBeInTheDocument()
+      expect(screen.getByText('ประมาณ')).toBeInTheDocument()
+      expect(screen.queryByText('อัตโนมัติ')).not.toBeInTheDocument()
       expect(screen.queryByText(/ไม่มีเรทอัตโนมัติ/)).not.toBeInTheDocument()
     })
 
@@ -487,7 +488,7 @@ describe('TransactionFormPage', () => {
       expect(screen.queryByText(/ECB 15 ม.ค. 2024/)).not.toBeInTheDocument()
     })
 
-    it('saves a coin bought in it with the dollar rate as an automatic rate', async () => {
+    it('saves a coin bought in it with the dollar rate as an estimate', async () => {
       const user = userEvent.setup()
       renderRoute('/transactions/new', fakeFxProvider({ 'USD|THB': '33' }).provider)
       await user.selectOptions(await screen.findByLabelText('ตลาด'), 'CRYPTO')
@@ -498,7 +499,7 @@ describe('TransactionFormPage', () => {
       await waitFor(() => expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('33'))
       await user.click(screen.getByRole('button', { name: 'บันทึก' }))
       await waitFor(async () => expect(await db.transactions.count()).toBe(1))
-      expect((await db.transactions.toArray())[0]).toMatchObject({ instrumentId: 'CRYPTO:BTC', currency: 'USDT', fxRate: '33', fxSource: 'auto' })
+      expect((await db.transactions.toArray())[0]).toMatchObject({ instrumentId: 'CRYPTO:BTC', currency: 'USDT', fxRate: '33', fxSource: 'estimated' })
     })
 
     it('keeps a rate typed by hand over the dollar rate', async () => {
@@ -509,6 +510,34 @@ describe('TransactionFormPage', () => {
       expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('34.1')
       expect(screen.getByText('กรอกเอง')).toBeInTheDocument()
       expect(screen.getByRole('button', { name: 'กลับไปใช้เรทกลาง 33' })).toBeInTheDocument()
+    })
+
+    it('saves a rate typed over the dollar rate as typed by hand, and the dollar rate again as an estimate', async () => {
+      const user = userEvent.setup()
+      renderRoute('/transactions/new', fakeFxProvider({ 'USD|THB': '33' }).provider)
+      await user.selectOptions(await screen.findByLabelText('ตลาด'), 'CRYPTO')
+      await user.selectOptions(screen.getByLabelText('สกุลเงิน'), 'USDT')
+      await user.type(screen.getByLabelText('สัญลักษณ์'), 'btc')
+      await user.type(screen.getByLabelText('จำนวนหน่วย'), '0.01')
+      await user.type(screen.getByLabelText('ราคาต่อหน่วย'), '60000')
+      await waitFor(() => expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('33'))
+      await user.clear(screen.getByLabelText(/เรทแลกเปลี่ยน/))
+      await user.type(screen.getByLabelText(/เรทแลกเปลี่ยน/), '34.1')
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+      await waitFor(async () => expect(await db.transactions.count()).toBe(1))
+      expect((await db.transactions.toArray())[0]).toMatchObject({ fxRate: '34.1', fxSource: 'manual' })
+    })
+
+    it('goes back to the dollar rate as an estimate, not as an automatic rate', async () => {
+      const user = await pickCurrency(fakeFxProvider({ 'USD|THB': '33' }).provider, 'USDT')
+      await waitFor(() => expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('33'))
+      await user.clear(screen.getByLabelText(/เรทแลกเปลี่ยน/))
+      await user.type(screen.getByLabelText(/เรทแลกเปลี่ยน/), '34.1')
+      expect(screen.getByText('กรอกเอง')).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'กลับไปใช้เรทกลาง 33' }))
+      expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('33')
+      expect(screen.getByText('ประมาณ')).toBeInTheDocument()
+      expect(screen.queryByText('อัตโนมัติ')).not.toBeInTheDocument()
     })
 
     it('says why there is no rate when the dollar has none either', async () => {

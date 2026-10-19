@@ -1,7 +1,8 @@
 import { Badge } from '../../components/ui/badge'
 import { SPREAD_WARNING_PCT, fxConvertSummary } from '../../domain/fxConvert'
 import type { Transaction } from '../../domain/types'
-import { fmtNumber, fmtPrice } from '../format'
+import { fmtPrice } from '../format'
+import { spreadText } from '../fxText'
 import { FX_SOURCE_LABELS } from '../labels'
 
 export function RateCell({ tx }: { tx: Transaction }) {
@@ -10,10 +11,8 @@ export function RateCell({ tx }: { tx: Transaction }) {
     return (
       <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
         {fmtPrice(effectiveRate)}
-        {spreadPct && !spreadPct.isZero() && (
-          <Badge variant={spreadPct.greaterThan(SPREAD_WARNING_PCT) ? 'warning' : 'default'}>
-            {spreadPct.greaterThan(0) ? 'แพงกว่า' : 'ถูกกว่า'}ตลาด {fmtNumber(spreadPct.abs())}%
-          </Badge>
+        {spreadPct && (
+          <Badge variant={spreadPct.greaterThan(SPREAD_WARNING_PCT) ? 'warning' : 'default'}>{spreadText(spreadPct)}</Badge>
         )}
       </span>
     )

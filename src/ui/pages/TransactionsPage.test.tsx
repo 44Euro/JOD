@@ -124,6 +124,30 @@ describe('TransactionsPage', () => {
     expect(within(table).getByText('ถูกกว่าตลาด 1.49%')).not.toHaveClass('bg-warning-bg')
   })
 
+  it('calls an exchange at the market rate when its spread rounds to nothing, instead of a cheaper or dearer one by 0%', async () => {
+    const exchange = (id: string, amount: string, date: string) =>
+      makeTx({
+        id,
+        type: 'fx_convert',
+        instrumentId: undefined,
+        quantity: undefined,
+        price: undefined,
+        currency: 'THB',
+        amount,
+        toCurrency: 'USD',
+        toAmount: '1000',
+        marketRate: '33.5',
+        fxRate: '1',
+        fxSource: 'same',
+        date,
+      })
+    await db.transactions.bulkAdd([exchange('tiny', '33500.1', '2024-01-11'), exchange('exact', '33500', '2024-01-10')])
+    renderRoute('/transactions')
+    const table = await screen.findByRole('table')
+    expect(await within(table).findAllByText('เท่าตลาด')).toHaveLength(2)
+    expect(within(table).queryByText(/ตลาด 0%/)).not.toBeInTheDocument()
+  })
+
   it('keeps the rate of an exchange and its badge on one line, however wide the amount column gets', async () => {
     await db.transactions.add(
       makeTx({

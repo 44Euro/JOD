@@ -130,14 +130,16 @@ export function useLatestRates(
     const rates: Record<string, RateInfo> = {}
     for (const currency of asked ? asked.split(',') : []) {
       let info = rateOf(currency)
-      // A pegged currency takes its own live rate, then the dollar's, then the one recorded for it, each only once the
-      // lookups before it have finished, or the rate would flip to a lower choice and back.
+      // A pegged currency takes its own live rate, then the dollar's live rate, then the one recorded for it, each only
+      // once the lookups before it have finished, or the rate would flip to a lower choice and back. A dollar rate that
+      // is only a recorded one is no live rate to borrow, and keeps its own caveat if nothing better is left.
       if (!info && USD_PEGGED.includes(currency) && settledOf(currency)) {
         const dollar = rateOf('USD')
-        if (dollar) info = { rate: dollar.rate, note: 'ใช้เรท USD' }
+        if (dollar && (baseCurrency === 'USD' || dollar.note.startsWith('ECB'))) info = { rate: dollar.rate, note: 'ใช้เรท USD' }
         else if (settledOf('USD')) {
           const recorded = latestRecordedRate(transactions, currency)
           if (recorded) info = { rate: recorded, note: 'เรทล่าสุดที่บันทึกไว้' }
+          else info = dollar
         }
       }
       if (info) rates[currency] = info

@@ -162,6 +162,22 @@ describe('applyReferenceRate', () => {
     })
   })
 
+  it('marks a rate borrowed from another currency as an estimate', () => {
+    expect(applyReferenceRate(buyDraft({ fxRate: '', fxSource: 'auto' }), quote, true)).toMatchObject({
+      fxRate: '35.2',
+      fxSource: 'estimated',
+      fxRateDate: '2024-01-12',
+    })
+  })
+
+  it('keeps a typed rate typed when the reference is a borrowed one', () => {
+    expect(applyReferenceRate(buyDraft({ fxRate: '35.6', fxSource: 'manual' }), quote, true)).toMatchObject({
+      fxRate: '35.6',
+      fxSource: 'manual',
+      referenceFxRate: '35.2',
+    })
+  })
+
   it('moves an estimated rate to the new date', () => {
     const draft = buyDraft({ type: 'opening', symbol: 'VOO', fxRate: '34', fxSource: 'estimated' })
     expect(applyReferenceRate(draft, quote)).toMatchObject({ fxRate: '35.2', fxSource: 'estimated' })

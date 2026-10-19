@@ -230,7 +230,7 @@ function TransactionForm({
         if (cancelled) return
         const day = `ECB ${fmtDate(quote.rateDate)}`
         setFxMessage(borrowed ? `ใช้เรท USD${quote.rateDate === draft.date ? '' : ` · ${day}`}` : `เรทกลาง ${day}`)
-        setDraft((d) => applyReferenceRate(d, quote))
+        setDraft((d) => applyReferenceRate(d, quote, borrowed))
       })
       .catch((error: Error) => {
         if (!cancelled) setFxMessage(error.message)
