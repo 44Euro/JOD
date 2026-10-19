@@ -175,8 +175,9 @@ describe('AssetPage', () => {
     it('puts the strategy and the emotion in a dim line under the description of a row on a computer', async () => {
       await db.transactions.add(journaled({ strategy: 'Breakout', emotion: 'fomo', confidence: 4 }))
       renderRoute('/assets/US%3AVOO', usd)
-      const line = await screen.findByText('Breakout · FOMO')
-      expect(line).toHaveClass('text-[12.5px]', 'text-muted-foreground')
+      const line = (await screen.findByText('Breakout')).parentElement!
+      expect(line).toHaveClass('flex', 'min-w-0', 'text-[12.5px]', 'text-muted-foreground')
+      expect(line).toHaveTextContent(/^Breakout · FOMO$/)
       const [, , description] = within(line.closest('tr')!).getAllByRole('cell')
       expect(description).toHaveTextContent('1 × 410.00Breakout · FOMO')
       expect(line.parentElement).toBe(description)
@@ -189,13 +190,14 @@ describe('AssetPage', () => {
         journaled({ reason: 'cheap', confidence: 2 }, '2024-02-04'),
       ])
       renderRoute('/assets/US%3AVOO', usd)
-      expect(await screen.findByText('DCA')).toHaveClass('text-muted-foreground')
-      expect(screen.getByText('โลภ')).toHaveClass('text-muted-foreground')
+      expect((await screen.findByText('DCA')).parentElement).toHaveClass('text-muted-foreground')
+      expect(screen.getByText('โลภ').parentElement).toHaveClass('text-muted-foreground')
       const rows = within(screen.getAllByRole('table').at(-1)!).getAllByRole('row')
       expect(rows).toHaveLength(7)
       expect(rows[3]).toHaveTextContent(/^4 ก\.พ\. 2024ซื้อ1 × 410\.00/)
       expect(rows[3]).not.toHaveTextContent('·')
       expect(rows[4]).toHaveTextContent('1 × 410.00โลภ')
+      expect(rows[4]).not.toHaveTextContent('·')
       expect(rows[5]).toHaveTextContent('1 × 410.00DCA')
     })
 
@@ -204,10 +206,38 @@ describe('AssetPage', () => {
       await db.transactions.add(journaled({ strategy: 'Breakout', emotion: 'fomo' }))
       renderRoute('/assets/US%3AVOO', usd)
       const list = await screen.findByRole('list', { name: 'ทุกรายการของ VOO' })
-      const line = within(list).getByText('Breakout · FOMO')
-      expect(line).toHaveClass('col-span-2', 'text-[12.5px]', 'text-muted-foreground')
+      const line = within(list).getByText('Breakout').parentElement!
+      expect(line).toHaveClass('col-span-2', 'flex', 'min-w-0', 'text-[12.5px]', 'text-muted-foreground')
+      expect(line).toHaveTextContent(/^Breakout · FOMO$/)
       expect(line.previousElementSibling).toHaveTextContent('ซื้อ 1 × 410.00 · เรท 34.00')
       expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    })
+
+    describe('a strategy too long for the row', () => {
+      const long = 'Breakout from a long consolidation on rising volume after the earnings gap'
+
+      const expectEmotionKept = (strategy: HTMLElement) => {
+        expect(strategy).toHaveAttribute('title', long)
+        expect(strategy).toHaveClass('min-w-0', 'truncate')
+        expect(strategy.nextElementSibling).toHaveClass('shrink-0')
+        expect(strategy.nextElementSibling).toHaveTextContent('· FOMO')
+      }
+
+      it('is cut short on a computer while the emotion stays whole', async () => {
+        await db.transactions.add(journaled({ strategy: long, emotion: 'fomo' }))
+        renderRoute('/assets/US%3AVOO', usd)
+        expectEmotionKept(await screen.findByText(long))
+      })
+
+      it('is cut short on a phone too, and the line stays a single line', async () => {
+        phone()
+        await db.transactions.add(journaled({ strategy: long, emotion: 'fomo' }))
+        renderRoute('/assets/US%3AVOO', usd)
+        const strategy = within(await screen.findByRole('list', { name: 'ทุกรายการของ VOO' })).getByText(long)
+        expectEmotionKept(strategy)
+        expect(strategy.parentElement).toHaveClass('col-span-2', 'flex', 'min-w-0')
+        expect(strategy.parentElement).not.toHaveClass('flex-wrap')
+      })
     })
 
     it('is left off the row of the asset that only paid the fee of the trade', async () => {

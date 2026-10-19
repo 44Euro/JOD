@@ -29,9 +29,21 @@ function badgeOf(value: Decimal | null): 'ok' | 'loss' | 'default' {
   return value.greaterThan(0) ? 'ok' : value.lessThan(0) ? 'loss' : 'default'
 }
 
-function journalLine(tx: Transaction): string {
-  const { strategy, emotion } = tx.journal ?? {}
-  return [strategy, emotion && EMOTION_LABELS[emotion]].filter(Boolean).join(' · ')
+// A long strategy gives way to the emotion, which is short and is what the line is mostly for.
+function JournalLine({ journal, className }: { journal: Transaction['journal']; className?: string }) {
+  const strategy = journal?.strategy
+  const emotion = journal?.emotion && EMOTION_LABELS[journal.emotion]
+  if (!strategy && !emotion) return null
+  return (
+    <span className={cn('flex min-w-0 gap-1 text-[12.5px] text-muted-foreground', className)}>
+      {strategy && (
+        <span title={strategy} className="min-w-0 truncate">
+          {strategy}
+        </span>
+      )}
+      {emotion && <span className="shrink-0">{strategy ? ` · ${emotion}` : emotion}</span>}
+    </span>
+  )
 }
 
 export function AssetPage() {
@@ -192,7 +204,6 @@ export function AssetPage() {
                   const issue = issues.get(tx.id)
                   const feeRow = feeOnly(tx)
                   const net = feeRow ? feePaidNet(tx, issue !== undefined) : netOf(tx, issue !== undefined)
-                  const journal = feeRow ? '' : journalLine(tx)
                   return (
                     <tr key={tx.id} className={cn(issue && 'bg-warning-bg [&>td]:border-transparent')}>
                       <Td>
@@ -204,7 +215,7 @@ export function AssetPage() {
                       <Td className="max-w-64 truncate">
                         {feeRow ? describeFeePaid(tx) : describeAmount(tx, accountNames, instruments)}
                         {tx.note && <span className="text-muted-foreground"> · {tx.note}</span>}
-                        {journal && <span className="block truncate text-[12.5px] text-muted-foreground">{journal}</span>}
+                        {!feeRow && <JournalLine journal={tx.journal} />}
                       </Td>
                       <Td>{feeFreeTransfer(tx) ? <span className="text-muted-foreground">—</span> : <RateCell tx={tx} />}</Td>
                       <Td className={cn('text-right font-display font-semibold', net.className)}>{net.text}</Td>
@@ -218,7 +229,6 @@ export function AssetPage() {
               {transactions.map((tx) => {
                 const feeRow = feeOnly(tx)
                 const net = feeRow ? feePaidNet(tx, issues.has(tx.id)) : netOf(tx, issues.has(tx.id))
-                const journal = feeRow ? '' : journalLine(tx)
                 return (
                   <li key={tx.id} className="border-t border-muted first:border-t-0">
                     <Link to={`/transactions/${tx.id}`} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2.5 py-3">
@@ -228,7 +238,7 @@ export function AssetPage() {
                         {feeRow ? `${FEE_PAID_ROW_LABEL} ${describeFeePaid(tx)}` : `${TX_TYPE_LABELS[tx.type]} ${describeAmount(tx, accountNames, instruments)}`}
                         {tx.fxSource !== 'same' && !feeFreeTransfer(tx) && ` · ${tx.fxSource === 'estimated' ? 'เรทประมาณ' : 'เรท'} ${fmtPrice(tx.fxRate)}`}
                       </span>
-                      {journal && <span className="col-span-2 text-[12.5px] text-muted-foreground">{journal}</span>}
+                      {!feeRow && <JournalLine journal={tx.journal} className="col-span-2" />}
                     </Link>
                   </li>
                 )

@@ -34,11 +34,13 @@ describe('validateTransaction', () => {
     expect(validateTransaction({ ...buy, journal: { confidence: 1, score: 5 } }, TODAY)).toEqual([])
   })
 
-  it('reads a journal that is not an object, or has text of the wrong kind, as damaged', () => {
+  it('reads a journal that is not an object (an array is not one), or has text of the wrong kind, as damaged', () => {
     const buy = makeTx({})
     const damaged = 'บันทึกเทรดไม่ถูกต้อง'
     expect(validateTransaction({ ...buy, journal: null as never }, TODAY)).toContain(damaged)
     expect(validateTransaction({ ...buy, journal: 'x' as never }, TODAY)).toContain(damaged)
+    expect(validateTransaction({ ...buy, journal: [] as never }, TODAY)).toContain(damaged)
+    expect(validateTransaction({ ...buy, journal: ['Breakout'] as never }, TODAY)).toContain(damaged)
     expect(validateTransaction({ ...buy, journal: { strategy: 5 as never } }, TODAY)).toContain(damaged)
     expect(validateTransaction({ ...buy, journal: { tags: 'gap' as never } }, TODAY)).toContain(damaged)
     expect(validateTransaction({ ...buy, journal: { tags: [1 as never] } }, TODAY)).toContain(damaged)

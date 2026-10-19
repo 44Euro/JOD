@@ -1,4 +1,4 @@
-import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '../../db/db'
@@ -6,6 +6,8 @@ import { FxUnavailableError, type FxProvider } from '../../fx/frankfurter'
 import { fakeFxProvider } from '../../test/fakeFx'
 import { makeTx } from '../../test/fixtures'
 import { renderRoute, resetDb } from '../../test/render'
+import { TradeJournalFields } from '../components/txform/TradeJournalFields'
+import { emptyDraft, type Draft } from '../transactionDraft'
 
 const account = { id: 'acc-1', name: 'Dime US', broker: 'Dime', note: '', createdAt: '2024-01-01T00:00:00.000Z' }
 
@@ -1943,13 +1945,6 @@ describe('TransactionFormPage', () => {
 
   describe('the trade journal', () => {
     const provider = () => fakeFxProvider({ 'USD|THB': '35' }).provider
-    const phone = () =>
-      vi.stubGlobal('matchMedia', (query: string) => ({
-        matches: false,
-        media: query,
-        addEventListener: () => {},
-        removeEventListener: () => {},
-      }))
     const toggle = () => screen.getByRole('button', { name: 'บันทึกการเทรด (ไม่บังคับ)' })
     const group = (name: string) => screen.getByRole('group', { name })
     const pick = (name: string, option: string) => within(group(name)).getByRole('button', { name: option })
@@ -2027,11 +2022,11 @@ describe('TransactionFormPage', () => {
       expect(screen.getByLabelText('กลยุทธ์')).toHaveValue('Breakout')
     })
 
-    it('sits after the fee and tax and before the exchange rate', async () => {
+    it('sits after the exchange rate and before the note, as in the mock', async () => {
       await openBuy()
       const follows = (a: HTMLElement, b: HTMLElement) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
-      expect(follows(screen.getByLabelText('ภาษี / VAT'), toggle())).toBe(true)
-      expect(follows(toggle(), screen.getByLabelText(/เรทแลกเปลี่ยน/))).toBe(true)
+      expect(follows(screen.getByLabelText('ภาษี / VAT'), screen.getByLabelText(/เรทแลกเปลี่ยน/))).toBe(true)
+      expect(follows(screen.getByLabelText(/เรทแลกเปลี่ยน/), toggle())).toBe(true)
       expect(follows(toggle(), screen.getByLabelText('หมายเหตุ'))).toBe(true)
     })
 
@@ -2132,7 +2127,7 @@ describe('TransactionFormPage', () => {
       await user.click(pick('ความมั่นใจ', '3'))
       expect(pick('ความมั่นใจ', '3')).toHaveAttribute('aria-pressed', 'true')
       const clear = screen.getByRole('button', { name: 'ล้าง' })
-      expect(clear).toHaveClass('min-h-11')
+      expect(clear).toHaveClass('min-h-11', 'min-w-11', 'justify-center')
       expect(clear).toHaveAccessibleDescription('ความมั่นใจ')
       await user.click(clear)
       expect(pick('ความมั่นใจ', '3')).toHaveAttribute('aria-pressed', 'false')
@@ -2249,13 +2244,87 @@ describe('TransactionFormPage', () => {
     })
 
     it('gives the row and the buttons of the section a phone-sized touch target', async () => {
-      phone()
       const { user } = await openBuy()
       expect(toggle()).toHaveClass('min-h-11', 'w-full')
       await user.click(toggle())
       await user.click(pick('ความมั่นใจ', '2'))
-      expect(screen.getByRole('button', { name: 'ล้าง' })).toHaveClass('min-h-11')
+      expect(screen.getByRole('button', { name: 'ล้าง' })).toHaveClass('min-h-11', 'min-w-11')
       expect(within(group('อารมณ์ตอนเข้า')).getAllByRole('button')[0]).toHaveClass('h-11')
+    })
+
+    it('keeps the five numbers of a scale in one row on the narrowest phone, each 44px at least', async () => {
+      const { user } = await openBuy()
+      await user.click(screen.getByRole('button', { name: 'ขาย' }))
+      await user.click(toggle())
+      for (const name of ['ความมั่นใจ', 'คะแนนการลงมือ']) {
+        const scale = group(name)
+        expect(scale).not.toHaveClass('max-[380px]:grid', 'max-[380px]:grid-cols-2')
+        expect(scale).toHaveClass('max-[359px]:gap-0', 'max-[359px]:p-0.5')
+        const numbers = within(scale).getAllByRole('button')
+        expect(numbers.map((n) => n.textContent)).toEqual(['1', '2', '3', '4', '5'])
+        for (const number of numbers) expect(number).toHaveClass('h-11', 'min-w-11')
+      }
+      expect(toggle().nextElementSibling).toHaveClass('p-3', 'min-[360px]:p-4')
+    })
+
+    it('lets a scale be as wide as its numbers on a computer, with the clear button right after it', async () => {
+      const { user } = await openBuy()
+      await user.click(toggle())
+      await user.click(pick('ความมั่นใจ', '3'))
+      const scale = group('ความมั่นใจ')
+      expect(scale).toHaveClass('md:w-fit', 'md:col-start-1', 'md:row-start-2')
+      expect(screen.getByRole('button', { name: 'ล้าง' })).toHaveClass('md:col-start-2', 'md:row-start-2', 'md:min-h-0', 'md:min-w-0')
+      expect(scale.parentElement).toHaveClass('grid', 'md:grid-cols-[auto_1fr]')
+    })
+
+    it('stacks Stop loss over Target below 360px', async () => {
+      const { user } = await openBuy()
+      await user.click(toggle())
+      const row = screen.getByLabelText('Stop loss').parentElement!.parentElement!
+      expect(row).toHaveClass('grid', 'grid-cols-1', 'min-[360px]:grid-cols-2')
+      expect(row).toContainElement(screen.getByLabelText('Target'))
+    })
+
+    it('keeps the dot of the folded hint with the word after it, so a line never ends on the dot', async () => {
+      await openBuy()
+      expect(toggle().textContent).toContain('·\u00a0กลยุทธ์ เหตุผล อารมณ์ Stop loss')
+    })
+  })
+
+  describe('the choices of the journal, pressed before the form has drawn the last one', () => {
+    const applied = (changes: ((d: Draft) => Draft)[], draft: Draft) => changes.reduce((d, change) => change(d), draft).journal
+
+    async function openJournal(type: 'buy' | 'sell') {
+      const user = userEvent.setup()
+      const changes: ((d: Draft) => Draft)[] = []
+      const draft = { ...emptyDraft('acc-1', '2024-06-01'), type }
+      render(<TradeJournalFields draft={draft} strategies={[]} setDraft={(change) => changes.push(change)} />)
+      await user.click(screen.getByRole('button', { name: 'บันทึกการเทรด (ไม่บังคับ)' }))
+      return { user, changes, draft }
+    }
+
+    it('takes an emotion back when it is pressed twice, whatever the draft held when they were pressed', async () => {
+      const { user, changes, draft } = await openJournal('buy')
+      const fomo = screen.getByRole('button', { name: 'FOMO' })
+      await user.click(fomo)
+      await user.click(fomo)
+      expect(applied(changes, draft).emotion).toBe('')
+    })
+
+    it('moves from one emotion to the next', async () => {
+      const { user, changes, draft } = await openJournal('buy')
+      await user.click(screen.getByRole('button', { name: 'FOMO' }))
+      await user.click(screen.getByRole('button', { name: 'กลัว' }))
+      expect(applied(changes, draft).emotion).toBe('fear')
+    })
+
+    it('adds each mistake to the ones pressed before it, and takes one away when it is pressed again', async () => {
+      const { user, changes, draft } = await openJournal('sell')
+      await user.click(screen.getByRole('button', { name: 'ไล่ราคา' }))
+      await user.click(screen.getByRole('button', { name: 'ซื้อเกินแผน' }))
+      await user.click(screen.getByRole('button', { name: 'ไล่ราคา' }))
+      expect(applied(changes.slice(0, 2), draft).mistakes).toEqual(['chased', 'oversized'])
+      expect(applied(changes, draft).mistakes).toEqual(['oversized'])
     })
   })
 })

@@ -149,7 +149,7 @@ function isTextList(value: unknown): boolean {
 // Every field may be left out; whatever is filled in has to make sense. A backup file can hold anything, so the shape
 // is checked as well as the values.
 export function validateJournal(journal: TradeJournal): string[] {
-  if (typeof journal !== 'object' || journal === null) return ['บันทึกเทรดไม่ถูกต้อง']
+  if (typeof journal !== 'object' || journal === null || Array.isArray(journal)) return ['บันทึกเทรดไม่ถูกต้อง']
   const errors: string[] = []
   const price = (value: string | undefined, label: string) => {
     if (value !== undefined && (typeof value !== 'string' || !isDecimalString(value) || D(value).isNegative())) {

@@ -503,9 +503,9 @@ function TransactionForm({ data, existing, copyOf }: { data: AppData; existing?:
 
           {draft.type === 'withdraw' && <WithdrawFields draft={draft} update={update} />}
 
-          {isTrade && <TradeJournalFields draft={draft} strategies={strategies} setDraft={setDraft} />}
-
           {needsFx && <FxRateBox draft={draft} base={base} fxMessage={fxMessage} rateSpread={rateSpread} update={update} />}
+
+          {isTrade && <TradeJournalFields draft={draft} strategies={strategies} setDraft={setDraft} />}
 
           {convert && <ConvertSummary draft={draft} summary={convert} />}
 
