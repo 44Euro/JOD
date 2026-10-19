@@ -119,6 +119,15 @@ describe('parseBackup', () => {
     expect(() => parseBackup(file(null))).toThrow(message)
   })
 
+  it('keeps the hide-numbers setting and rejects one that is not true or false', () => {
+    const file = (setting: unknown) =>
+      JSON.stringify({ app: 'jod', version: 2, exportedAt: '', data: { accounts: [account], instruments: [], settings: [{ key: 'app', baseCurrency: 'THB', ...(setting as object) }], transactions: [] } })
+    expect(parseBackup(file({ hideNumbersOnLaunch: true })).data.settings[0]).toMatchObject({ hideNumbersOnLaunch: true })
+    expect(parseBackup(file({})).data.settings[0]).not.toHaveProperty('hideNumbersOnLaunch')
+    expect(() => parseBackup(file({ hideNumbersOnLaunch: 'yes' }))).toThrow(BackupError)
+    expect(() => parseBackup(file({ hideNumbersOnLaunch: 'yes' }))).toThrow('การตั้งค่าในไฟล์สำรองไม่ถูกต้อง')
+  })
+
   it('rejects a damaged daily value and an unknown version', () => {
     const file = { app: 'jod', version: 2, exportedAt: '', data: { accounts: [account], instruments: [], settings: [], transactions: [], dailyValues: [{ ...day, valueBase: 'abc' }] } }
     expect(() => parseBackup(JSON.stringify(file))).toThrow('พบมูลค่ารายวันที่เสียหายในไฟล์')

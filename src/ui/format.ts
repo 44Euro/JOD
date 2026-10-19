@@ -6,6 +6,16 @@ const MINUS = '−'
 const WEEKDAYS = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์']
 const MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
 
+export const HIDDEN_NUMBER = '•••'
+
+// The formatters are plain functions, not hooks, so the privacy switch reaches them through this flag; PrivacyProvider sets it
+// and the layout remounts the page when it changes.
+let numbersHidden = false
+
+export function setNumbersHidden(hidden: boolean): void {
+  numbersHidden = hidden
+}
+
 const formats = new Map<string, Intl.NumberFormat>()
 
 function numberFormat(minDigits: number, maxDigits: number): Intl.NumberFormat {
@@ -34,12 +44,14 @@ function isEmpty(value: Value): value is null | undefined | '' {
 }
 
 export function fmtNumber(value: Value, maxDigits = 2): string {
-  return isEmpty(value) ? '—' : format(D(value), 0, maxDigits)
+  if (isEmpty(value)) return '—'
+  return numbersHidden ? HIDDEN_NUMBER : format(D(value), 0, maxDigits)
 }
 
 // An amount that was exchanged reads as the broker wrote it: whole numbers bare, anything else with both decimals.
 export function fmtAmount(value: Value): string {
   if (isEmpty(value)) return '—'
+  if (numbersHidden) return HIDDEN_NUMBER
   const rounded = D(value).toDecimalPlaces(2)
   return rounded.isInteger() ? format(rounded, 0, 0) : format(rounded, 2, 2)
 }
@@ -50,12 +62,13 @@ export function currencyMark(base: string): string {
 
 export function fmtMoney(value: Value, currency?: string): string {
   if (isEmpty(value)) return '—'
-  const text = format(D(value), 2, 2)
+  const text = numbersHidden ? HIDDEN_NUMBER : format(D(value), 2, 2)
   return currency ? `${text} ${currency}` : text
 }
 
 export function fmtSigned(value: Value, digits = 2): string {
-  return isEmpty(value) ? '—' : format(D(value), digits, digits, true)
+  if (isEmpty(value)) return '—'
+  return numbersHidden ? HIDDEN_NUMBER : format(D(value), digits, digits, true)
 }
 
 // Some crypto tokens cost a tiny fraction of a unit, so prices below one keep up to 8 decimals.
@@ -73,7 +86,13 @@ export function fmtRate(value: Value): string {
 }
 
 export function fmtValue(value: Value): string {
-  return isEmpty(value) ? '—' : format(D(value), 0, 0)
+  if (isEmpty(value)) return '—'
+  return numbersHidden ? HIDDEN_NUMBER : format(D(value), 0, 0)
+}
+
+// A ratio such as the profit factor says nothing about how much money there is, so it stays visible.
+export function fmtRatio(value: Value): string {
+  return isEmpty(value) ? '—' : format(D(value), 2, 2)
 }
 
 export function fmtPct(value: Value, digits = 2, minDigits = 0): string {
@@ -81,7 +100,7 @@ export function fmtPct(value: Value, digits = 2, minDigits = 0): string {
 }
 
 export function fmtSignedPct(value: Value, digits = 1): string {
-  return isEmpty(value) ? '—' : `${fmtSigned(value, digits)}%`
+  return isEmpty(value) ? '—' : `${format(D(value), digits, digits, true)}%`
 }
 
 // No income in the last twelve months reads as "—" like in the mocks, not as a misleading "0%"; the mocks
@@ -98,7 +117,7 @@ export function plClass(value: Value): string {
 
 export function fmtHeadline(value: Value, currency: string): string {
   if (isEmpty(value)) return '—'
-  const [sign, digits] = parts(D(value), 0, 0)
+  const [sign, digits] = numbersHidden ? ['', HIDDEN_NUMBER] : parts(D(value), 0, 0)
   return currency === 'THB' ? `${sign}฿${digits}` : `${sign}${digits} ${currency}`
 }
 

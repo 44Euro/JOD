@@ -29,6 +29,14 @@ describe('settings', () => {
     await saveSettings(db, { baseCurrency: 'USD', lastBackupAt: '2024-06-01T00:00:00.000Z' })
     expect(await getSettings(db)).toEqual({ baseCurrency: 'USD', lastBackupAt: '2024-06-01T00:00:00.000Z' })
   })
+
+  it('remembers whether to hide the numbers on launch', async () => {
+    expect((await getSettings(db)).hideNumbersOnLaunch).toBeFalsy()
+    await saveSettings(db, { baseCurrency: 'THB', hideNumbersOnLaunch: true })
+    expect((await getSettings(db)).hideNumbersOnLaunch).toBe(true)
+    await saveSettings(db, { baseCurrency: 'THB', hideNumbersOnLaunch: false })
+    expect((await getSettings(db)).hideNumbersOnLaunch).toBe(false)
+  })
 })
 
 describe('accounts', () => {

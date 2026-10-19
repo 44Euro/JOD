@@ -169,6 +169,7 @@ export interface Transaction {
 export interface Settings {
   baseCurrency: string
   lastBackupAt?: string
+  hideNumbersOnLaunch?: boolean
 }
 
 export const DEFAULT_SETTINGS: Settings = { baseCurrency: 'THB' }

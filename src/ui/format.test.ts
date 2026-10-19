@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import {
+  HIDDEN_NUMBER,
   currencyMark,
   fmtAmount,
   fmtDate,
@@ -11,14 +12,18 @@ import {
   fmtPct,
   fmtPrice,
   fmtRate,
+  fmtRatio,
   fmtSigned,
   fmtSignedPct,
   fmtValue,
   fmtYield,
   plClass,
+  setNumbersHidden,
 } from './format'
 
 describe('format', () => {
+  afterEach(() => setNumbersHidden(false))
+
   it('formats money with two decimals, Thai grouping and a real minus sign', () => {
     expect(fmtMoney('1234.5', 'THB')).toBe('1,234.50 THB')
     expect(fmtMoney('-500', 'USD')).toBe('−500.00 USD')
@@ -127,5 +132,41 @@ describe('format', () => {
     expect(fmtYield('1.04')).toBe('1.0%')
     expect(fmtYield('0')).toBe('—')
     expect(fmtYield(null)).toBe('—')
+  })
+
+  it('hides amounts but not prices, rates or percentages', () => {
+    setNumbersHidden(true)
+    expect([fmtNumber('1234.5'), fmtSigned('-20'), fmtHeadline('1296100', 'THB')]).toEqual(['•••', '•••', '฿•••'])
+    for (const shown of [fmtRate('33.8'), fmtPrice('512.3'), fmtSignedPct('2.5'), fmtDate('2026-10-16')]) expect(shown).not.toContain('•')
+    setNumbersHidden(false)
+    expect(fmtNumber('1234.5')).toBe('1,234.5')
+  })
+
+  it('hides every other money figure too and keeps the currency it was shown in', () => {
+    setNumbersHidden(true)
+    expect(HIDDEN_NUMBER).toBe('•••')
+    expect([fmtMoney('1234.5'), fmtValue('721666.76'), fmtAmount('210000'), fmtAmount('6185.4')]).toEqual(['•••', '•••', '•••', '•••'])
+    expect(fmtMoney('1234.5', 'USD')).toBe('••• USD')
+    expect(fmtHeadline('1200.4', 'USD')).toBe('••• USD')
+    expect(fmtHeadline('-1200.4', 'THB')).toBe('฿•••')
+  })
+
+  it('shows no sign while hidden, so a figure does not even say whether it is a gain', () => {
+    setNumbersHidden(true)
+    expect([fmtSigned('7000'), fmtSigned('-2400', 0), fmtNumber('-3')]).toEqual(['•••', '•••', '•••'])
+  })
+
+  it('keeps ratios, percentages and the dash for a missing figure while hidden', () => {
+    setNumbersHidden(true)
+    expect([fmtPct('6.6', 1), fmtSignedPct('11.44'), fmtSignedPct('-5.71', 2), fmtYield('3')]).toEqual(['6.6%', '+11.4%', '−5.71%', '3.0%'])
+    expect([fmtNumber(null), fmtMoney(undefined, 'THB'), fmtHeadline('', 'THB'), fmtAmount(null)]).toEqual(['—', '—', '—', '—'])
+  })
+
+  it('writes a ratio with two decimals', () => {
+    expect(fmtRatio('2.4')).toBe('2.40')
+    expect(fmtRatio('1234.5')).toBe('1,234.50')
+    expect(fmtRatio(null)).toBe('—')
+    setNumbersHidden(true)
+    expect(fmtRatio('2.4')).toBe('2.40')
   })
 })

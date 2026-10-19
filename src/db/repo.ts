@@ -19,7 +19,9 @@ export function newId(): string {
 
 export async function getSettings(db: JodDB): Promise<Settings> {
   const row = await db.settings.get('app')
-  return row ? { baseCurrency: row.baseCurrency, lastBackupAt: row.lastBackupAt } : DEFAULT_SETTINGS
+  return row
+    ? { baseCurrency: row.baseCurrency, lastBackupAt: row.lastBackupAt, hideNumbersOnLaunch: row.hideNumbersOnLaunch }
+    : DEFAULT_SETTINGS
 }
 
 export async function saveSettings(db: JodDB, settings: Settings): Promise<void> {

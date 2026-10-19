@@ -19,6 +19,7 @@ import { fmtDate, fmtHeadline, fmtNumber, fmtPrice, fmtRate, fmtSigned, fmtSigne
 import { useAppData, useInvestor } from '../hooks'
 import { investorRoute } from '../moneyRoutes'
 import { assetPath } from '../nav'
+import { EyeButton } from '../privacy'
 import { buildRateBoard } from '../rateBoard'
 
 function byValue(a: PositionValuation, b: PositionValuation): number {
@@ -76,6 +77,7 @@ export function DashboardPage() {
   return (
     <>
       <PageHeader title="ภาพรวม" note={rateNote ? `เรทวันนี้ ${rateNote}` : undefined}>
+        <EyeButton />
         <Link to="/transactions/new" className={cn(buttonVariants({ size: 'sm' }), 'max-md:hidden')}>
           <Plus aria-hidden />
           บันทึกรายการ

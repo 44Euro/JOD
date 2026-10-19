@@ -5,6 +5,7 @@ import { Button } from '../../components/ui/button'
 import { Card } from '../../components/ui/card'
 import { Field } from '../../components/ui/field'
 import { Input, NativeSelect } from '../../components/ui/input'
+import { Switch } from '../../components/ui/switch'
 import { db } from '../../db/db'
 import { addAccount, deleteAccount, saveSettings } from '../../db/repo'
 import { AUTO_FX_CURRENCIES } from '../../domain/currencies'
@@ -166,6 +167,26 @@ export function SettingsPage() {
         </div>
         <div className="grid content-start gap-3.5 md:gap-4">
           <DataSection data={data} />
+
+          <Card className="grid gap-3">
+            <h2 className="text-lg font-semibold">ความเป็นส่วนตัว</h2>
+            <div className="flex items-center justify-between gap-3">
+              <span className="min-w-0">
+                <span id="hide-numbers-label" className="block">
+                  ซ่อนตัวเลขทุกครั้งที่เปิดแอป
+                </span>
+                <span id="hide-numbers-hint" className="block text-[12.5px] text-muted-foreground">
+                  แสดงเป็น ••• จนกว่าจะแตะรูปตา
+                </span>
+              </span>
+              <Switch
+                checked={data.settings.hideNumbersOnLaunch === true}
+                aria-labelledby="hide-numbers-label"
+                aria-describedby="hide-numbers-hint"
+                onCheckedChange={(hide) => void saveSettings(db, { ...data.settings, hideNumbersOnLaunch: hide })}
+              />
+            </div>
+          </Card>
         </div>
       </div>
     </>

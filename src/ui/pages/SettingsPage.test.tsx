@@ -2,6 +2,7 @@ import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { db } from '../../db/db'
+import { getSettings } from '../../db/repo'
 import { makeTx } from '../../test/fixtures'
 import { renderRoute, resetDb } from '../../test/render'
 
@@ -18,6 +19,35 @@ describe('SettingsPage', () => {
     await user.click(screen.getByRole('button', { name: 'เพิ่มบัญชี' }))
     expect(await screen.findByText('Dime US')).toBeInTheDocument()
     expect(await db.accounts.count()).toBe(1)
+  })
+
+  it('saves at once whether to hide the numbers on launch', async () => {
+    await db.accounts.add(account)
+    const user = userEvent.setup()
+    renderRoute('/settings')
+    const toggle = await screen.findByRole('switch', { name: 'ซ่อนตัวเลขทุกครั้งที่เปิดแอป' })
+    expect(screen.getByRole('heading', { name: 'ความเป็นส่วนตัว' })).toBeInTheDocument()
+    expect(screen.getByText('แสดงเป็น ••• จนกว่าจะแตะรูปตา')).toBeInTheDocument()
+    expect(toggle).toHaveAttribute('aria-checked', 'false')
+    expect(toggle).toHaveClass('h-11', 'min-w-11')
+
+    await user.click(toggle)
+    expect(await screen.findByRole('switch', { name: 'ซ่อนตัวเลขทุกครั้งที่เปิดแอป', checked: true })).toHaveAttribute('aria-checked', 'true')
+    expect(await getSettings(db)).toEqual({ baseCurrency: 'THB', hideNumbersOnLaunch: true })
+
+    await user.click(screen.getByRole('switch', { name: 'ซ่อนตัวเลขทุกครั้งที่เปิดแอป' }))
+    expect(await screen.findByRole('switch', { name: 'ซ่อนตัวเลขทุกครั้งที่เปิดแอป', checked: false })).toHaveAttribute('aria-checked', 'false')
+    expect((await getSettings(db)).hideNumbersOnLaunch).toBe(false)
+  })
+
+  it('leaves the numbers showing for the rest of this visit when the setting is turned on', async () => {
+    await db.accounts.add(account)
+    const user = userEvent.setup()
+    renderRoute('/settings')
+    await user.click(await screen.findByRole('switch', { name: 'ซ่อนตัวเลขทุกครั้งที่เปิดแอป' }))
+    await screen.findByRole('switch', { name: 'ซ่อนตัวเลขทุกครั้งที่เปิดแอป', checked: true })
+    await user.click(within(screen.getByRole('navigation', { name: 'เมนูหลัก' })).getByRole('link', { name: 'ภาพรวม' }))
+    expect(await screen.findByRole('button', { name: 'ซ่อนตัวเลข' })).toHaveAttribute('aria-pressed', 'false')
   })
 
   it('locks the base currency once transactions exist', async () => {

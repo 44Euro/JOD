@@ -77,6 +77,11 @@ export function parseBackup(text: string): BackupFile {
       throw new BackupError(`รายการ ${tx.id} อ้างถึงบัญชีที่ไม่มีในไฟล์`)
     }
   }
+  for (const row of settings) {
+    if (row?.hideNumbersOnLaunch !== undefined && typeof row.hideNumbersOnLaunch !== 'boolean') {
+      throw new BackupError('การตั้งค่าในไฟล์สำรองไม่ถูกต้อง')
+    }
+  }
   const { dailyValues = [] } = file.data
   if (!Array.isArray(dailyValues)) throw new BackupError('ข้อมูลในไฟล์สำรองไม่ครบ')
   for (const row of dailyValues) {

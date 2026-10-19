@@ -1,6 +1,8 @@
 import { cleanup, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '../../db/db'
+import { getSettings, saveSettings } from '../../db/repo'
 import { fakeFxProvider, lateFxProvider } from '../../test/fakeFx'
 import { makeTx } from '../../test/fixtures'
 import { renderRoute, resetDb } from '../../test/render'
@@ -424,6 +426,79 @@ describe('DashboardPage', () => {
       expect(rates).toHaveClass('whitespace-nowrap', 'leading-tight', 'text-[22px]', '@min-[680px]:text-[34px]')
       expect(effect).toHaveClass('ml-auto', 'text-right', '@min-[680px]:order-2')
       expect(effect).toHaveTextContent('−360 ฿')
+    })
+  })
+
+  describe('hiding the numbers', () => {
+    const THOUSANDS = /\d{1,3}(,\d{3})+/
+    const sidebarLink = async (name: string) => within(await screen.findByRole('navigation', { name: 'เมนูหลัก' })).getByRole('link', { name })
+
+    async function seedHundredThousand() {
+      await db.accounts.add(account)
+      await db.instruments.add({ id: 'US:AAPL', market: 'US', symbol: 'AAPL', name: 'Apple', assetType: 'stock', currency: 'USD', lastPrice: '120' })
+      await db.transactions.bulkAdd([
+        makeTx({ ...thb, type: 'deposit', amount: '100000', date: '2024-01-02' }),
+        makeTx({ ...thb, type: 'fx_convert', amount: '70000', toCurrency: 'USD', toAmount: '2000', marketRate: '35', date: '2024-01-03' }),
+        makeTx({ type: 'buy', quantity: '10', price: '100', fxRate: '35', date: '2024-01-04' }),
+      ])
+    }
+
+    it('hides every money figure on the overview and portfolio', async () => {
+      setToday(2024, 6, 1)
+      await seedHundredThousand()
+      const user = userEvent.setup()
+      renderRoute('/', usd())
+      const main = await screen.findByRole('main')
+      expect(await screen.findByText('ฝาก 100,000 · ถอน 0')).toBeInTheDocument()
+      expect(await screen.findByRole('button', { name: 'ซ่อนตัวเลข' })).toHaveAttribute('aria-pressed', 'false')
+
+      await user.click(screen.getByRole('button', { name: 'ซ่อนตัวเลข' }))
+      expect(await screen.findByRole('button', { name: 'แสดงตัวเลข' })).toHaveAttribute('aria-pressed', 'true')
+      expect(await screen.findByText('ฝาก ••• · ถอน •••')).toBeInTheDocument()
+      expect(main.textContent).not.toMatch(THOUSANDS)
+      expect(main.textContent).not.toContain('100,000')
+
+      await user.click(await sidebarLink('พอร์ต'))
+      expect(await screen.findByRole('heading', { name: 'พอร์ต' })).toBeInTheDocument()
+      expect(await screen.findByText('Apple')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'แสดงตัวเลข' })).toHaveAttribute('aria-pressed', 'true')
+      expect(main.textContent).toContain('•••')
+      expect(main.textContent).not.toMatch(THOUSANDS)
+
+      await user.click(screen.getByRole('button', { name: 'แสดงตัวเลข' }))
+      expect(await screen.findByRole('button', { name: 'ซ่อนตัวเลข' })).toHaveAttribute('aria-pressed', 'false')
+      expect(await screen.findByText('฿39,600')).toBeInTheDocument()
+      expect(main.textContent).toMatch(THOUSANDS)
+    })
+
+    it('puts the eye before the other actions of the header, and keeps it focused after a press', async () => {
+      await seedHundredThousand()
+      const user = userEvent.setup()
+      renderRoute('/', usd())
+      const eye = await screen.findByRole('button', { name: 'ซ่อนตัวเลข' })
+      const record = within(eye.parentElement!).getByRole('link', { name: 'บันทึกรายการ' })
+      expect(eye.compareDocumentPosition(record) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      expect(eye).toHaveClass('size-11')
+      await user.click(eye)
+      await waitFor(() => expect(screen.getByRole('button', { name: 'แสดงตัวเลข' })).toHaveFocus())
+    })
+
+    it('opens with the numbers hidden when the setting asks for it', async () => {
+      await seedHundredThousand()
+      await saveSettings(db, { baseCurrency: 'THB', hideNumbersOnLaunch: true })
+      renderRoute('/', usd())
+      expect(await screen.findByRole('button', { name: 'แสดงตัวเลข' })).toHaveAttribute('aria-pressed', 'true')
+      expect(await screen.findByText('ฝาก ••• · ถอน •••')).toBeInTheDocument()
+      expect((await screen.findByRole('main')).textContent).not.toMatch(THOUSANDS)
+    })
+
+    it('does not save the choice made with the eye, so the next launch follows the setting', async () => {
+      await seedHundredThousand()
+      const user = userEvent.setup()
+      renderRoute('/', usd())
+      await user.click(await screen.findByRole('button', { name: 'ซ่อนตัวเลข' }))
+      expect(await screen.findByRole('button', { name: 'แสดงตัวเลข' })).toBeInTheDocument()
+      expect((await getSettings(db)).hideNumbersOnLaunch).toBeFalsy()
     })
   })
 })

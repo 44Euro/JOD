@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router'
 import { buttonVariants } from '../components/ui/button'
 import { cn } from '../lib/cn'
 import { DailyValueRecorder } from './DailyValueRecorder'
+import { usePrivacy } from './hooks'
 import {
   HOME,
   MORE,
@@ -16,6 +17,7 @@ import {
   isTransactionEdit,
   type NavItem,
 } from './nav'
+import { PrivacyProvider } from './privacy'
 
 const LEGEND = [
   { label: 'หุ้นสหรัฐ', className: 'bg-market-us' },
@@ -76,8 +78,9 @@ function TabLink({ to, label, icon: Icon, active }: NavItem & { active?: boolean
   )
 }
 
-export function Layout() {
+function Shell() {
   const { pathname } = useLocation()
+  const { hidden } = usePrivacy()
   const inMore = isMoreTab(pathname)
   const inAssets = pathname.startsWith('/assets/')
   const editingTransaction = isTransactionEdit(pathname)
@@ -113,7 +116,8 @@ export function Layout() {
         </div>
       </aside>
       <main className="min-w-0 px-4 pt-3.5 pb-[calc(112px+env(safe-area-inset-bottom))] md:px-11 md:pt-[30px] md:pb-16">
-        <div className="mx-auto grid max-w-[1240px] content-start gap-3.5 md:gap-[22px] [&>*]:min-w-0">
+        {/* Number formatters are plain functions, not hooks, so a page only picks up a new hidden state by being rendered again from scratch. */}
+        <div key={hidden ? 'hidden' : 'shown'} className="mx-auto grid max-w-[1240px] content-start gap-3.5 md:gap-[22px] [&>*]:min-w-0">
           <Outlet />
         </div>
       </main>
@@ -133,5 +137,13 @@ export function Layout() {
         <TabLink {...MORE} active={inMore} />
       </nav>
     </div>
+  )
+}
+
+export function Layout() {
+  return (
+    <PrivacyProvider>
+      <Shell />
+    </PrivacyProvider>
   )
 }

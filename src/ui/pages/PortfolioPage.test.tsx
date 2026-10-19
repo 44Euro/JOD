@@ -115,6 +115,24 @@ describe('PortfolioPage', () => {
     })
   })
 
+  it('hides the value and the effects with the eye in its header', async () => {
+    await db.instruments.add({ id: 'US:AAPL', market: 'US', symbol: 'AAPL', name: 'Apple', assetType: 'stock', currency: 'USD', lastPrice: '120' })
+    await db.transactions.add(makeTx({ quantity: '10', price: '100', fxRate: '35' }))
+    const user = userEvent.setup()
+    renderRoute('/portfolio', fakeFxProvider({ 'USD|THB': '33' }).provider)
+    expect(await screen.findByText('฿39,600')).toBeInTheDocument()
+    const eye = screen.getByRole('button', { name: 'ซ่อนตัวเลข' })
+    expect(eye.parentElement!.firstElementChild).toBe(eye)
+
+    await user.click(eye)
+    expect(await screen.findByRole('button', { name: 'แสดงตัวเลข' })).toHaveAttribute('aria-pressed', 'true')
+    expect((await screen.findAllByText('฿•••')).length).toBeGreaterThan(0)
+    expect(screen.queryByText('฿39,600')).not.toBeInTheDocument()
+    const row = (await screen.findByText('Apple')).closest('tr')!
+    expect(within(row).getAllByText('•••').length).toBeGreaterThan(0)
+    expect(row.textContent).not.toMatch(/\d{1,3}(,\d{3})+/)
+  })
+
   it('links the asset name to its page with a phone-sized touch target that paints above the line under it', async () => {
     await db.instruments.add({ id: 'US:AAPL', market: 'US', symbol: 'AAPL', name: 'Apple', assetType: 'stock', currency: 'USD' })
     await db.transactions.add(makeTx({ quantity: '10', price: '100', fxRate: '35' }))

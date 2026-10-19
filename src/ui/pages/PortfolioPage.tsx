@@ -17,6 +17,7 @@ import { Stat, SummaryPanel } from '../components/Summary'
 import { fmtHeadline, fmtMoney, fmtSigned, fmtValue, plClass } from '../format'
 import { useAppData, useInvestor } from '../hooks'
 import { marketOf } from '../labels'
+import { EyeButton } from '../privacy'
 import { useIsDesktop } from '../useIsDesktop'
 
 type View = 'asset' | 'account' | 'market' | 'currency'
@@ -57,7 +58,9 @@ export function PortfolioPage() {
 
   return (
     <>
-      <PageHeader title="พอร์ต" />
+      <PageHeader title="พอร์ต">
+        <EyeButton />
+      </PageHeader>
 
       <SummaryPanel label="มูลค่าสินทรัพย์ · ไม่รวมเงินสด" value={fmtHeadline(summary.marketValueBase, base)}>
         <Stat label="ยังไม่ขาย" value={fmtSigned(summary.unrealizedBase, 0)} tone={plClass(summary.unrealizedBase)} />

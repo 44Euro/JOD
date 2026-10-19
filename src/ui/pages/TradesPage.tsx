@@ -26,7 +26,7 @@ import { MarketPill } from '../components/MarketPill'
 import { PageHeader } from '../components/PageHeader'
 import { Stat } from '../components/Summary'
 import { TradeReviewForm } from '../components/TradeReviewForm'
-import { currencyMark, fmtDate, fmtMoney, fmtMonth, fmtNumber, fmtPct, fmtSigned, plClass } from '../format'
+import { currencyMark, fmtDate, fmtMonth, fmtNumber, fmtPct, fmtRatio, fmtSigned, plClass } from '../format'
 import { useAppData, useLedger, type AppData } from '../hooks'
 import { EMOTION_LABELS, MISTAKE_LABELS, TRADE_PERIOD_LABELS, marketOf } from '../labels'
 import { useIsDesktop } from '../useIsDesktop'
@@ -379,7 +379,7 @@ function TradesView({ data, ledger }: { data: AppData; ledger: Ledger }) {
         <Stat label="Win rate" value={fmtPct(stats.winRatePct, 0)} valueClassName={TILE_VALUE} note={`ชนะ ${stats.wins} · แพ้ ${stats.losses}`} />
         <Stat
           label="Profit factor"
-          value={fmtMoney(stats.profitFactor)}
+          value={fmtRatio(stats.profitFactor)}
           valueClassName={TILE_VALUE}
           note={<Dotted parts={[`ชนะเฉลี่ย ${fmtNumber(stats.avgWinBase, 0)}`, `แพ้เฉลี่ย ${fmtNumber(stats.avgLossBase, 0)}`]} />}
         />
