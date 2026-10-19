@@ -131,7 +131,7 @@ export function DashboardPage() {
       <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-3.5 md:gap-[22px] xl:grid-cols-[minmax(0,1fr)_340px]">
         {board.length > 0 && <RateBoard rows={board} base={base} />}
         <div className="grid min-w-0 content-start gap-4">
-          {largest && largestId && !largest.quantity.isZero() && (
+          {largest && largest.currency !== null && largestId && !largest.quantity.isZero() && (
             <Link to={assetPath(largestId)} className="block rounded-[18px] border bg-card p-4 hover:bg-muted md:rounded-[20px] md:px-[26px] md:py-[22px]">
               <h2 className="mb-4 text-lg font-semibold">เส้นทางเงิน · {largestSymbol}</h2>
               <MiniRoute

@@ -72,8 +72,12 @@ export function AssetPage() {
     transactions.filter((t) => !issues.has(t.id)),
     (t) => (feeOnly(t) ? D(t.fees) : feesQuote(t)).times(D(t.fxRate)),
   )
-  const lastPrice = instrument?.lastPrice ? D(instrument.lastPrice) : null
-  const todayRate = stats && rates[stats.currency] ? D(rates[stats.currency].rate) : null
+  // Held in one currency, the price is the one the valuation used, already in that currency. Held in several, it is
+  // the instrument's own.
+  const ownPrice = instrument?.lastPrice ? D(instrument.lastPrice) : null
+  const lastPrice = stats?.currency === null ? ownPrice : (valuations.find((v) => v.position.instrumentId === id)?.lastPrice ?? null)
+  const priceCurrency = stats?.currency ?? instrument?.currency ?? ''
+  const todayRate = stats?.currency && rates[stats.currency] ? D(rates[stats.currency].rate) : null
   const route = stats ? assetRoute(stats, lastPrice, todayRate, base, instrument) : []
 
   return (
@@ -125,7 +129,7 @@ export function AssetPage() {
           label={
             stats.quantity.isZero()
               ? 'ขายหมดแล้ว'
-              : `มูลค่าวันนี้ · ${fmtNumber(stats.quantity, 8)} ${unitLabel(instrument)} × ${fmtPrice(lastPrice)} ${stats.currency}`
+              : `มูลค่าวันนี้ · ${fmtNumber(stats.quantity, 8)} ${unitLabel(instrument)} × ${fmtPrice(lastPrice)} ${priceCurrency}`
           }
           value={fmtHeadline(stats.valueBase, base)}
           footer={
@@ -155,8 +159,8 @@ export function AssetPage() {
           />
           <Stat
             label="ทุนเฉลี่ย"
-            value={stats.quantity.isZero() ? '—' : fmtPrice(stats.costQuote.div(stats.quantity))}
-            note={`${stats.currency} ต่อหน่วย`}
+            value={stats.quantity.isZero() || stats.currency === null ? '—' : fmtPrice(stats.costQuote.div(stats.quantity))}
+            note={stats.currency === null ? 'ถือหลายสกุลเงิน' : `${stats.currency} ต่อหน่วย`}
           />
         </SummaryPanel>
       )}

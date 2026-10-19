@@ -8,7 +8,8 @@ export interface HoldingStats {
   key: string
   accountId: string
   instrumentId: string
-  currency: string
+  // Null for an instrument held in more than one currency: its quote-currency sums have no unit.
+  currency: string | null
   quantity: Decimal
   costQuote: Decimal
   costBase: Decimal
@@ -28,7 +29,8 @@ function pctOf(part: Decimal | null, whole: Decimal): Decimal | null {
   return part && whole.greaterThan(0) ? part.div(whole).times(100) : null
 }
 
-// Every position of an instrument shares one price and one rate, so they are either all valued or none.
+// Positions of one instrument may be held in different currencies, each with its own rate, so one of them can be
+// missing a rate while the others are valued. Then there is no honest total.
 function sumValued(valuations: readonly PositionValuation[], pick: (v: PositionValuation) => Decimal | null): Decimal | null {
   if (valuations.some((v) => pick(v) === null)) return null
   return sumBy(valuations, (v) => pick(v) ?? D(0))
@@ -38,7 +40,7 @@ function stats(
   key: string,
   accountId: string,
   instrumentId: string,
-  currency: string,
+  currency: string | null,
   valuations: readonly PositionValuation[],
   realized: readonly RealizedEvent[],
   income: readonly IncomeEvent[],
@@ -96,8 +98,9 @@ export function instrumentStats(
   const held = valuations.filter((v) => v.position.instrumentId === instrumentId)
   const realized = ledger.realized.filter((e) => e.instrumentId === instrumentId)
   const income = ledger.income.filter((e) => e.instrumentId === instrumentId)
-  const currency = held[0]?.position.currency ?? realized[0]?.currency ?? income[0]?.currency
-  if (!currency) return null
+  const heldCurrencies = new Set(held.map((v) => v.position.currency))
+  const currency = heldCurrencies.size > 1 ? null : (held[0]?.position.currency ?? realized[0]?.currency ?? income[0]?.currency)
+  if (currency === undefined) return null
   return stats(instrumentId, '', instrumentId, currency, held, realized, income, new Set(lastTwelveMonths(today)))
 }
 

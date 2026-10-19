@@ -89,6 +89,25 @@ describe('instrumentStats', () => {
   })
 })
 
+describe('instrumentStats across currencies', () => {
+  const eth = { instrumentId: 'CRYPTO:ETH', quantity: '0.1' }
+  const bitkub = makeTx({ ...eth, accountId: 'bitkub', currency: 'THB', price: '110000', fxRate: '1', fxSource: 'same', date: '2024-01-10' })
+  const binance = makeTx({ ...eth, accountId: 'binance', currency: 'USD', price: '3300', fxRate: '33', date: '2024-02-10' })
+
+  it('has no single currency once the instrument is held in two', () => {
+    const { ledger, valuations } = setup([bitkub, binance], '120')
+    const stats = instrumentStats('CRYPTO:ETH', valuations, ledger, '2024-10-16')
+    expect(stats?.currency).toBeNull()
+    expect(stats?.quantity.toString()).toBe('0.2')
+    expect(stats?.costBase.toString()).toBe('21890')
+  })
+
+  it('keeps the currency while every holding is in the same one', () => {
+    const { ledger, valuations } = setup([bitkub], '120')
+    expect(instrumentStats('CRYPTO:ETH', valuations, ledger, '2024-10-16')?.currency).toBe('THB')
+  })
+})
+
 describe('yield on cost with assets received', () => {
   const sol = { instrumentId: 'CRYPTO:SOL', fxRate: '35' }
   const bought = makeTx({ ...sol, quantity: '10', price: '100', date: '2024-01-10' })

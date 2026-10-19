@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { makeTx } from '../test/fixtures'
 import { D } from './decimal'
 import type { Position } from './ledger'
-import { avgFxByCurrency, latestRecordedRate, summarizePortfolio, unpricedInstrumentCount, valuePosition } from './valuation'
+import { avgFxByCurrency, latestRecordedRate, priceInCurrency, summarizePortfolio, unpricedInstrumentCount, valuePosition } from './valuation'
 
 function position(overrides: Partial<Position> = {}): Position {
   return {
@@ -41,6 +41,21 @@ describe('valuePosition', () => {
     const v = valuePosition(position(), '120', undefined)
     expect(v.unrealizedQuote?.toString()).toBe('200')
     expect(v.marketValueBase).toBeNull()
+  })
+})
+
+describe('priceInCurrency', () => {
+  it('turns a baht price into the dollars of a position held in USD', () => {
+    expect(D(priceInCurrency('120000', '1', '33')!).toFixed(2)).toBe('3636.36')
+  })
+
+  it('turns a dollar price into the baht of a position held in THB', () => {
+    expect(priceInCurrency('100', '34', '1')).toBe('3400')
+  })
+
+  it('has no price while either rate is missing', () => {
+    expect(priceInCurrency('100', undefined, '1')).toBeUndefined()
+    expect(priceInCurrency('100', '34', undefined)).toBeUndefined()
   })
 })
 

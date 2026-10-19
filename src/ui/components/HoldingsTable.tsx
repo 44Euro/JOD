@@ -62,7 +62,9 @@ function priceInputKey(instrument: Instrument) {
   return `${instrument.id}:${instrument.lastPrice ?? ''}`
 }
 
-function PriceInput({ instrument }: { instrument: Instrument }) {
+// The price is always the instrument's own, in its own currency. When the row is held in another currency the
+// currency is named beside the input, so the number is not taken for one in the row's currency.
+function PriceInput({ instrument, rowCurrency }: { instrument: Instrument; rowCurrency: string }) {
   const [value, setValue] = useState(instrument.lastPrice ?? '')
   const [invalid, setInvalid] = useState(false)
   // Typing the same price again is how someone says it has not moved, and that is what clears the old-price warning;
@@ -96,6 +98,7 @@ function PriceInput({ instrument }: { instrument: Instrument }) {
           if (e.key === 'Enter') void commit()
         }}
       />
+      {instrument.currency !== rowCurrency && <span className="text-[12.5px] text-muted-foreground">{instrument.currency}</span>}
       {age !== null && age > STALE_PRICE_DAYS && <Badge variant="warning">{age} วันก่อน</Badge>}
     </span>
   )
@@ -147,7 +150,7 @@ export function HoldingsTable({ valuations, instruments, accountNames, base, rat
               </span>
               {editablePrice && instrument && (
                 <span className="col-span-2 flex items-center gap-2 text-[12.5px] text-muted-foreground">
-                  ราคาล่าสุด <PriceInput key={priceInputKey(instrument)} instrument={instrument} />
+                  ราคาล่าสุด <PriceInput key={priceInputKey(instrument)} instrument={instrument} rowCurrency={p.currency} />
                 </span>
               )}
             </li>
@@ -203,7 +206,9 @@ export function HoldingsTable({ valuations, instruments, accountNames, base, rat
                 {fmtPrice(v.avgCostQuote)} <span className="text-muted-foreground">{p.currency}</span>
               </Td>
               {editablePrice && (
-                <Td className="text-right">{instrument ? <PriceInput key={priceInputKey(instrument)} instrument={instrument} /> : '—'}</Td>
+                <Td className="text-right">
+                  {instrument ? <PriceInput key={priceInputKey(instrument)} instrument={instrument} rowCurrency={p.currency} /> : '—'}
+                </Td>
               )}
               <Td className={cn('text-right', foreign ? 'text-fx' : 'text-muted-foreground')}>
                 {foreign ? `${fmtRate(v.avgFxRate)} → ${fmtRate(v.currentFxRate)}` : '—'}

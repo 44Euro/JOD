@@ -106,6 +106,44 @@ describe('AssetPage', () => {
     expect(screen.getByText('ปันผล +578')).toBeInTheDocument()
   })
 
+  describe('a coin whose price is quoted in another currency than some of its holdings', () => {
+    const eth = { id: 'CRYPTO:ETH', market: 'CRYPTO', symbol: 'ETH', name: 'Ethereum', assetType: 'crypto', currency: 'THB', lastPrice: '120000' } as const
+    const bitkub = () =>
+      makeTx({ accountId: 'bitkub', instrumentId: 'CRYPTO:ETH', currency: 'THB', fxRate: '1', fxSource: 'same', quantity: '0.1', price: '110000', date: '2024-01-10' })
+    const binance = () =>
+      makeTx({ accountId: 'binance', instrumentId: 'CRYPTO:ETH', currency: 'USD', fxRate: '33', quantity: '0.1', price: '3300', date: '2024-02-10' })
+
+    beforeEach(async () => {
+      await db.accounts.bulkAdd([
+        { id: 'bitkub', name: 'Bitkub', broker: 'Bitkub', note: '', createdAt: '2024-01-01T00:00:00.000Z' },
+        { id: 'binance', name: 'Binance', broker: 'Binance', note: '', createdAt: '2024-01-01T00:00:00.000Z' },
+      ])
+      await db.instruments.add(eth)
+    })
+
+    it('shows the price in its own currency, no average cost, and only the stations that are in baht when it is held in two currencies', async () => {
+      await db.transactions.bulkAdd([bitkub(), binance()])
+      renderRoute('/assets/CRYPTO%3AETH', usd)
+      expect(await screen.findByText('฿24,000', { selector: 'p' })).toBeInTheDocument()
+      expect(screen.getByText('มูลค่าวันนี้ · 0.2 เหรียญ × 120,000.00 THB')).toBeInTheDocument()
+      const cost = screen.getByText('ทุนเฉลี่ย').parentElement!
+      expect(cost).toHaveTextContent('—')
+      expect(cost).not.toHaveTextContent('USD')
+      const route = screen.getByRole('list', { name: 'เส้นทางเงินของ ETH' })
+      expect(within(route).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['฿21,890บาทที่ลงไป', '฿24,000มูลค่าวันนี้'])
+    })
+
+    it('turns the stored price into the currency of the only holding there is', async () => {
+      await db.transactions.add(binance())
+      renderRoute('/assets/CRYPTO%3AETH', usd)
+      expect(await screen.findByText('฿12,000', { selector: 'p' })).toBeInTheDocument()
+      expect(screen.getByText('มูลค่าวันนี้ · 0.1 เหรียญ × 3,636.3636 USD')).toBeInTheDocument()
+      const route = screen.getByRole('list', { name: 'เส้นทางเงินของ ETH' })
+      expect(within(route).getByText('3,636.3636')).toBeInTheDocument()
+      expect(within(route).getByText('ราคาวันนี้ · +10.2%')).toBeInTheDocument()
+    })
+  })
+
   it('lists every transaction of the asset and the summary of realized gain and fees', async () => {
     await db.instruments.add(voo)
     renderRoute('/assets/US%3AVOO', usd)

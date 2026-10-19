@@ -53,6 +53,7 @@ function rateDirection(average: Decimal | null, today: Decimal | null, base: str
 
 // Spec S5: money in → average exchange rate → average cost → today's price → today's rate → value today.
 // These stations are prices and rates, not amounts, so unlike the overview route they do not add up.
+// An asset held in more than one currency has no single rate or cost, so only the two baht stations are left.
 export function assetRoute(
   stats: HoldingStats,
   lastPrice: Decimal | null,
@@ -61,12 +62,15 @@ export function assetRoute(
   instrument?: Instrument,
 ): Station[] {
   if (stats.quantity.isZero()) return []
+  const moneyIn: Station = { value: fmtHeadline(stats.costBase, base), label: `${home(base)}ที่ลงไป`, neutral: true }
+  const worthToday: Station = { value: fmtHeadline(stats.valueBase, base), label: 'มูลค่าวันนี้' }
+  if (stats.currency === null) return [moneyIn, worthToday]
   const foreign = stats.currency !== base
   const avgCost = stats.costQuote.div(stats.quantity)
   const avgRate = stats.costQuote.isZero() ? null : stats.costBase.div(stats.costQuote)
   const change = lastPrice && !avgCost.isZero() ? lastPrice.minus(avgCost).div(avgCost).times(100) : null
   return [
-    { value: fmtHeadline(stats.costBase, base), label: `${home(base)}ที่ลงไป`, neutral: true },
+    moneyIn,
     ...(foreign ? [{ value: fmtRate(avgRate), label: `แลกเป็น ${stats.currency} · เรทเฉลี่ย`, tone: 'fx' as const, fx: true }] : []),
     { value: fmtPrice(avgCost), label: `ซื้อ ${fmtNumber(stats.quantity, 8)} ${unitLabel(instrument)} · ทุนเฉลี่ย` },
     {
@@ -77,6 +81,6 @@ export function assetRoute(
     ...(foreign
       ? [{ value: fmtRate(todayRate), label: `เรทวันนี้ · ${rateDirection(avgRate, todayRate, base)}`, tone: 'fx' as const, fx: true }]
       : []),
-    { value: fmtHeadline(stats.valueBase, base), label: 'มูลค่าวันนี้' },
+    worthToday,
   ]
 }

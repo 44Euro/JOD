@@ -122,6 +122,23 @@ describe('DashboardPage', () => {
     expect(screen.getByText(/ถึงวันทบทวนเหตุผลที่ถือ AAPL/)).toBeInTheDocument()
   })
 
+  it('leaves out the short route of an asset held in two currencies, because its rate and cost have no single value', async () => {
+    setToday(2024, 6, 1)
+    await db.accounts.bulkAdd([
+      { id: 'bitkub', name: 'Bitkub', broker: 'Bitkub', note: '', createdAt: '2024-01-01T00:00:00.000Z' },
+      { id: 'binance', name: 'Binance', broker: 'Binance', note: '', createdAt: '2024-01-01T00:00:00.000Z' },
+    ])
+    await db.instruments.add({ id: 'CRYPTO:ETH', market: 'CRYPTO', symbol: 'ETH', name: 'Ethereum', assetType: 'crypto', currency: 'THB', lastPrice: '120000' })
+    await db.transactions.bulkAdd([
+      makeTx({ accountId: 'bitkub', instrumentId: 'CRYPTO:ETH', currency: 'THB', fxRate: '1', fxSource: 'same', quantity: '0.1', price: '110000', date: '2024-01-10' }),
+      makeTx({ accountId: 'binance', instrumentId: 'CRYPTO:ETH', currency: 'USD', fxRate: '33', quantity: '0.1', price: '3300', date: '2024-02-10' }),
+    ])
+    renderRoute('/', usd())
+    expect(await screen.findByText('฿24,000', { selector: 'p' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /เส้นทางเงิน · ETH/ })).not.toBeInTheDocument()
+    expect(screen.queryByText(/แลกที่/)).not.toBeInTheDocument()
+  })
+
   it('counts a holding without a price at cost and says so', async () => {
     setToday(2024, 6, 1)
     await seedDime({ lastPrice: '' })

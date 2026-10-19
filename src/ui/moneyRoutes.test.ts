@@ -57,6 +57,21 @@ describe('assetRoute', () => {
   })
 })
 
+describe('assetRoute across currencies', () => {
+  it('keeps the baht stations only, because the rates and costs of the holdings cannot be averaged', () => {
+    const ledger = computeLedger([
+      makeTx({ accountId: 'bitkub', instrumentId: 'CRYPTO:ETH', currency: 'THB', quantity: '0.1', price: '110000', fxRate: '1', fxSource: 'same' }),
+      makeTx({ accountId: 'binance', instrumentId: 'CRYPTO:ETH', currency: 'USD', quantity: '0.1', price: '3300', fxRate: '33' }),
+    ])
+    const valuations = ledger.positions.map((p) => valuePosition(p, p.currency === 'THB' ? '120000' : '3636.3636', p.currency === 'THB' ? '1' : '33'))
+    const stats = instrumentStats('CRYPTO:ETH', valuations, ledger, '2024-10-16')!
+    expect(assetRoute(stats, D(120000), D(33), 'THB').map((s) => [s.value, s.label])).toEqual([
+      ['฿21,890', 'บาทที่ลงไป'],
+      ['฿24,000', 'มูลค่าวันนี้'],
+    ])
+  })
+})
+
 describe('assetRoute units', () => {
   const held = (instrumentId: string, currency: string) =>
     computeLedger([makeTx({ instrumentId, currency, quantity: '2', price: '41000', fxRate: '1', fxSource: 'same' })])

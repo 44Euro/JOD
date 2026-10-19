@@ -16,6 +16,13 @@ export interface PositionValuation {
   fxEffectBase: Decimal | null
 }
 
+// A position can be held in a currency other than the one its instrument's price is quoted in, e.g. a coin
+// quoted in THB that was swapped into on an exchange that trades in USD. Both rates are against the base currency.
+export function priceInCurrency(price: string, priceRate: string | undefined, positionRate: string | undefined): string | undefined {
+  if (!priceRate || !positionRate) return undefined
+  return D(price).times(D(priceRate)).div(D(positionRate)).toString()
+}
+
 export function valuePosition(position: Position, lastPrice?: string, currentFxRate?: string): PositionValuation {
   const result: PositionValuation = {
     position,

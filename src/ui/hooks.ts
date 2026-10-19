@@ -5,7 +5,7 @@ import { getSettings } from '../db/repo'
 import { summarizeInvestor } from '../domain/investor'
 import { computeLedger } from '../domain/ledger'
 import type { Transaction } from '../domain/types'
-import { latestRecordedRate, summarizePortfolio, valuePosition } from '../domain/valuation'
+import { latestRecordedRate, priceInCurrency, summarizePortfolio, valuePosition } from '../domain/valuation'
 import { useFxProvider } from '../fx/context'
 import { getFxQuote, peekCachedQuote, type FxQuote } from '../fx/fxService'
 import { fmtDate } from './format'
@@ -130,9 +130,18 @@ export function useLatestRates(
 
 export function usePortfolio(data: AppData | undefined) {
   const ledger = useLedger(data)
+  const instrumentsById = useMemo(() => new Map((data?.instruments ?? []).map((i) => [i.id, i])), [data?.instruments])
+  // The price of an instrument is quoted in its own currency, which a position of it need not be held in.
   const currencies = useMemo(
-    () => (ledger ? [...ledger.positions.map((p) => p.currency), ...ledger.cash.map((c) => c.currency)] : []),
-    [ledger],
+    () =>
+      ledger
+        ? [
+            ...ledger.positions.map((p) => p.currency),
+            ...ledger.positions.flatMap((p) => instrumentsById.get(p.instrumentId)?.currency ?? []),
+            ...ledger.cash.map((c) => c.currency),
+          ]
+        : [],
+    [ledger, instrumentsById],
   )
   const { rates, ready, confirmed } = useLatestRates(
     currencies,
@@ -140,10 +149,16 @@ export function usePortfolio(data: AppData | undefined) {
     data?.transactions ?? NO_TRANSACTIONS,
   )
   const valuations = useMemo(() => {
-    if (!ledger || !data) return []
-    const prices = new Map(data.instruments.map((i) => [i.id, i.lastPrice]))
-    return ledger.positions.map((p) => valuePosition(p, prices.get(p.instrumentId), rates[p.currency]?.rate))
-  }, [ledger, data, rates])
+    if (!ledger) return []
+    return ledger.positions.map((p) => {
+      const instrument = instrumentsById.get(p.instrumentId)
+      const price =
+        instrument?.lastPrice && instrument.currency !== p.currency
+          ? priceInCurrency(instrument.lastPrice, rates[instrument.currency]?.rate, rates[p.currency]?.rate)
+          : instrument?.lastPrice
+      return valuePosition(p, price, rates[p.currency]?.rate)
+    })
+  }, [ledger, instrumentsById, rates])
   const summary = useMemo(() => summarizePortfolio(valuations), [valuations])
   return { ledger, valuations, summary, rates, ready, confirmed }
 }

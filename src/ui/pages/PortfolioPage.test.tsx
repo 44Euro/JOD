@@ -53,6 +53,53 @@ describe('PortfolioPage', () => {
     expect((await db.instruments.get('US:AAPL'))?.lastPrice).toBe('120')
   })
 
+  describe('a coin held in two currencies', () => {
+    beforeEach(async () => {
+      await db.accounts.bulkAdd([
+        { id: 'bitkub', name: 'Bitkub', broker: 'Bitkub', note: '', createdAt: '2024-01-01T00:00:00.000Z' },
+        { id: 'binance', name: 'Binance', broker: 'Binance', note: '', createdAt: '2024-01-01T00:00:00.000Z' },
+      ])
+      await db.instruments.add({ id: 'CRYPTO:ETH', market: 'CRYPTO', symbol: 'ETH', name: 'Ethereum', assetType: 'crypto', currency: 'THB', lastPrice: '120000' })
+      await db.transactions.bulkAdd([
+        makeTx({ accountId: 'bitkub', instrumentId: 'CRYPTO:ETH', currency: 'THB', fxRate: '1', fxSource: 'same', quantity: '0.1', price: '110000', date: '2024-01-10' }),
+        makeTx({ accountId: 'binance', instrumentId: 'CRYPTO:ETH', currency: 'USD', fxRate: '33', quantity: '0.1', price: '3300', date: '2024-02-10' }),
+      ])
+    })
+
+    it('values both holdings from the one stored price instead of reading the baht price as dollars', async () => {
+      renderRoute('/portfolio', fakeFxProvider({ 'USD|THB': '33' }).provider)
+      expect(await screen.findByText('฿24,000', { selector: 'p' })).toBeInTheDocument()
+      const binance = screen.getByText('Binance').closest('tr')!
+      expect(within(binance).getByText('12,000')).toBeInTheDocument()
+      expect(within(binance).getAllByText('+1,110')).toHaveLength(2)
+    })
+
+    it('counts a holding at cost, and says its price is missing, when the currency of the stored price has no rate', async () => {
+      await db.instruments.update('CRYPTO:ETH', { currency: 'VND', lastPrice: '3000000' })
+      renderRoute('/portfolio', fakeFxProvider({ 'USD|THB': '33' }).provider)
+      expect(await screen.findByText(/ยังไม่มีราคาล่าสุด 1 ตัว/)).toBeInTheDocument()
+      const binance = screen.getByText('Binance').closest('tr')!
+      expect(within(binance).queryByText('12,000')).not.toBeInTheDocument()
+      expect(within(binance).queryByText('+1,110')).not.toBeInTheDocument()
+    })
+
+    it('names the baht beside the price typed for the dollar holding only, and stores what is typed as it is', async () => {
+      const user = userEvent.setup()
+      renderRoute('/portfolio', fakeFxProvider({ 'USD|THB': '33' }).provider)
+      await screen.findByText('฿24,000', { selector: 'p' })
+      const binance = screen.getByText('Binance').closest('tr')!
+      const bitkub = screen.getByText('Bitkub').closest('tr')!
+      expect(within(binance).getByText('THB')).toBeInTheDocument()
+      expect(within(bitkub).getAllByText('THB')).toHaveLength(1)
+      const input = within(binance).getByLabelText('ราคาล่าสุด ETH')
+      expect(input).toHaveValue('120000')
+      await user.clear(input)
+      await user.type(input, '125000{Enter}')
+      await waitFor(async () => expect((await db.instruments.get('CRYPTO:ETH'))?.lastPrice).toBe('125000'))
+      expect(await screen.findByText('฿25,000', { selector: 'p' })).toBeInTheDocument()
+    })
+  })
+
   it('links the asset name to its page with a phone-sized touch target that paints above the line under it', async () => {
     await db.instruments.add({ id: 'US:AAPL', market: 'US', symbol: 'AAPL', name: 'Apple', assetType: 'stock', currency: 'USD' })
     await db.transactions.add(makeTx({ quantity: '10', price: '100', fxRate: '35' }))
