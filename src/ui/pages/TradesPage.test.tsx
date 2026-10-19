@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '../../db/db'
@@ -284,6 +284,11 @@ describe('TradesPage', () => {
         await user.click(button)
         await user.click(screen.getByRole('button', { name: 'บันทึก' }))
         await waitFor(() => expect(screen.queryByRole('form')).not.toBeInTheDocument())
+        // The page only reacts to the save once the live query hands it new data. A trade added afterwards reaches the
+        // count in that same data (or a later one), so by the time the count changes the page has had its say.
+        await seedTrade('T0', '2024-01-15', '2024-01-31', '120')
+        await screen.findByRole('button', { name: 'ยังไม่ได้รีวิว 4' })
+        await act(async () => {})
         expect(button).toHaveFocus()
       })
     })

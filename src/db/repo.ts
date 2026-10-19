@@ -145,8 +145,7 @@ export async function saveTransactions(db: JodDB, txs: readonly Transaction[], n
 
 // The review is written on the sell that closed the trade, next to whatever that sell's journal already says. What the
 // review leaves empty is removed from the journal, so clearing a field in the form clears it in the record. Only a sell
-// takes one: a review belongs to the sell that closed the trade, and a swap has no journal to take it, since a restore
-// refuses a journal on anything but a buy or a sell.
+// takes one: a swap has no journal to take it, since a restore refuses a journal on anything but a buy or a sell.
 export async function saveTradeReview(
   db: JodDB,
   txId: string,

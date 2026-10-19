@@ -35,8 +35,8 @@ const PERIODS = (['month', 'year', 'all'] as const).map((value) => ({ value, lab
 
 const RECENT_COUNT = 10
 
-// At 768px a tile is about 112px wide, which holds +7,171,435 at 20px but not at the 28px the tile has from 881px up. The
-// width from lg is the safe step, and the size is the same in all five tiles.
+// A tile is about 112px wide at 768px, which holds +7,171,435 at 20px. 28px only fits from about 881px, so lg is the safe
+// step. All five tiles share the size.
 const TILE_VALUE = 'md:text-[20px] lg:text-[28px]'
 
 // The sidebar takes 240px from 768px up, which leaves a table card about 440px, too narrow for these tables.
