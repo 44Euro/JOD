@@ -1,4 +1,5 @@
 import type { IncomeKind } from '../domain/ledger'
+import type { TradePeriod } from '../domain/tradeStats'
 import {
   MARKETS,
   unitOf,
@@ -70,6 +71,8 @@ export const MISTAKE_LABELS: Record<Mistake, string> = {
   sold_early: 'ขายเร็วเกิน',
   moved_stop: 'เลื่อน Stop loss',
 }
+
+export const TRADE_PERIOD_LABELS: Record<TradePeriod, string> = { month: 'เดือนนี้', year: 'ปีนี้', all: 'ทั้งหมด' }
 
 export const FEE_PAID_IN_LABELS: Record<FeePaidIn, string> = {
   cash: 'เงินสด',

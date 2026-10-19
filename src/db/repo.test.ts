@@ -9,6 +9,7 @@ import {
   renameInstrument,
   saveInstrumentThesis,
   saveSettings,
+  saveTradeReview,
   saveTransaction,
   saveTransactions,
   setInstrumentPrice,
@@ -297,5 +298,54 @@ describe('daily values', () => {
     expect(await db.dailyValues.toArray()).toEqual([
       { date: '2024-07-01', valueBase: '51000.00', netInvestedBase: '50000.00', recordedAt: '2024-07-01T09:00:00.000Z' },
     ])
+  })
+})
+
+describe('saveTradeReview', () => {
+  const now = new Date('2024-06-02T08:00:00Z')
+
+  it('adds the review, mistakes and score to the journal the sell already has', async () => {
+    const sell = makeTx({ type: 'sell', journal: { strategy: 'Breakout', emotion: 'calm' } })
+    await db.transactions.add(sell)
+    await saveTradeReview(db, sell.id, { review: ' ออกเร็วไป ', mistakes: ['chased', 'sold_early'], score: 3 }, now)
+    expect(await db.transactions.get(sell.id)).toEqual({
+      ...sell,
+      journal: { strategy: 'Breakout', emotion: 'calm', review: 'ออกเร็วไป', mistakes: ['chased', 'sold_early'], score: 3 },
+      updatedAt: '2024-06-02T08:00:00.000Z',
+    })
+  })
+
+  it('starts a journal on a sell that has none', async () => {
+    const sell = makeTx({ type: 'sell' })
+    await db.transactions.add(sell)
+    await saveTradeReview(db, sell.id, { review: 'ok', mistakes: [] })
+    expect((await db.transactions.get(sell.id))?.journal).toEqual({ review: 'ok' })
+  })
+
+  it('removes what the review no longer says and leaves the rest', async () => {
+    const sell = makeTx({ type: 'sell', journal: { strategy: 'Breakout', review: 'เก่า', mistakes: ['chased'], score: 2 } })
+    await db.transactions.add(sell)
+    await saveTradeReview(db, sell.id, { review: '  ', mistakes: [] })
+    const journal = (await db.transactions.get(sell.id))?.journal
+    expect(journal).toEqual({ strategy: 'Breakout' })
+    expect(journal).not.toHaveProperty('score')
+  })
+
+  it('leaves no journal behind when nothing is left in it', async () => {
+    const sell = makeTx({ type: 'sell', journal: { review: 'เก่า' } })
+    await db.transactions.add(sell)
+    await saveTradeReview(db, sell.id, { review: '', mistakes: [] })
+    expect(await db.transactions.get(sell.id)).not.toHaveProperty('journal')
+  })
+
+  it('refuses a score outside 1–5 and writes nothing', async () => {
+    const sell = makeTx({ type: 'sell', journal: { strategy: 'Breakout' } })
+    await db.transactions.add(sell)
+    await expect(saveTradeReview(db, sell.id, { review: 'x', mistakes: [], score: 7 })).rejects.toThrow('คะแนนการลงมือต้องเป็น 1–5')
+    expect(await db.transactions.get(sell.id)).toEqual(sell)
+  })
+
+  it('says so when the transaction is not there', async () => {
+    await expect(saveTradeReview(db, 'missing', { review: 'x', mistakes: [] })).rejects.toThrow('ไม่พบรายการนี้')
   })
 })

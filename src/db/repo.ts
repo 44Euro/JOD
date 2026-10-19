@@ -1,5 +1,16 @@
-import { DEFAULT_SETTINGS, instrumentKey, type Account, type Instrument, type Settings, type Thesis, type Transaction, type Unit } from '../domain/types'
-import { validateFeeTemplate, validateSymbol, validateThesis, validateTransaction } from '../domain/validation'
+import {
+  DEFAULT_SETTINGS,
+  instrumentKey,
+  type Account,
+  type Instrument,
+  type Mistake,
+  type Settings,
+  type Thesis,
+  type TradeJournal,
+  type Transaction,
+  type Unit,
+} from '../domain/types'
+import { validateFeeTemplate, validateJournal, validateSymbol, validateThesis, validateTransaction } from '../domain/validation'
 import type { DailyValueRecord, JodDB } from './db'
 
 export function newId(): string {
@@ -129,6 +140,34 @@ export async function saveTransactions(db: JodDB, txs: readonly Transaction[], n
   const updatedAt = now.toISOString()
   await db.transaction('rw', db.transactions, async () => {
     for (const tx of txs) await db.transactions.put({ ...tx, updatedAt })
+  })
+}
+
+// The review is written on the sell that closed the trade, next to whatever that sell's journal already says. What the
+// review leaves empty is removed from the journal, so clearing a field in the form clears it in the record.
+export async function saveTradeReview(
+  db: JodDB,
+  txId: string,
+  review: { review: string; mistakes: Mistake[]; score?: number },
+  now: Date = new Date(),
+): Promise<void> {
+  await db.transaction('rw', db.transactions, async () => {
+    const tx = await db.transactions.get(txId)
+    if (!tx) throw new Error('ไม่พบรายการนี้')
+    const journal: TradeJournal = { ...tx.journal }
+    const text = review.review.trim()
+    if (text) journal.review = text
+    else delete journal.review
+    if (review.mistakes.length > 0) journal.mistakes = [...review.mistakes]
+    else delete journal.mistakes
+    if (review.score !== undefined) journal.score = review.score
+    else delete journal.score
+    const errors = validateJournal(journal)
+    if (errors.length > 0) throw new Error(errors[0])
+    await db.transactions.update(txId, {
+      journal: Object.keys(journal).length > 0 ? journal : undefined,
+      updatedAt: now.toISOString(),
+    })
   })
 }
 
