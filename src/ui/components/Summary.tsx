@@ -38,12 +38,15 @@ export function Stat({
   label,
   value,
   tone,
+  valueClassName,
   note,
   flag,
 }: {
   label: string
   value: string
   tone?: string
+  // For a page whose tiles are narrower than the default number size allows.
+  valueClassName?: string
   note?: ReactNode
   flag?: string
 }) {
@@ -51,7 +54,7 @@ export function Stat({
     <div className="rounded-[14px] border p-2.5 md:border-0 md:p-0">
       <p className="text-[13px] text-muted-foreground">{label}</p>
       <div className="flex flex-wrap items-center gap-x-2">
-        <p className={cn('font-display text-[19px] font-semibold leading-tight md:text-[28px]', tone)}>{value}</p>
+        <p className={cn('font-display text-[19px] font-semibold leading-tight md:text-[28px]', tone, valueClassName)}>{value}</p>
         {flag && <Badge variant="warning">{flag}</Badge>}
       </div>
       {note && <p className="text-[12.5px] text-muted-foreground max-md:hidden">{note}</p>}

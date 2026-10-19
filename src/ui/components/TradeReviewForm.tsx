@@ -18,11 +18,13 @@ export function TradeReviewForm({
   name,
   txId,
   journal,
+  onSaved,
   onClose,
 }: {
   name: string
   txId: string
   journal: TradeJournal | undefined
+  onSaved(): void
   onClose(): void
 }) {
   const id = useId()
@@ -41,7 +43,7 @@ export function TradeReviewForm({
     setSaving(true)
     try {
       await saveTradeReview(db, txId, { review, mistakes, score: score ? Number(score) : undefined })
-      onClose()
+      onSaved()
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
       setSaving(false)

@@ -1,5 +1,5 @@
 import { Check } from 'lucide-react'
-import { Fragment, useMemo, useRef, useState, type ReactNode, type Ref } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode, type Ref } from 'react'
 import { Link } from 'react-router'
 import { Alert } from '../../components/ui/alert'
 import { Badge } from '../../components/ui/badge'
@@ -8,6 +8,7 @@ import { Card } from '../../components/ui/card'
 import { Segmented } from '../../components/ui/segmented'
 import { Table, Td, Th } from '../../components/ui/table'
 import { daysBetween, todayLocal } from '../../domain/dates'
+import type { Ledger } from '../../domain/ledger'
 import { matchTrades, type Trade } from '../../domain/trades'
 import {
   closedInPeriod,
@@ -26,13 +27,17 @@ import { PageHeader } from '../components/PageHeader'
 import { Stat } from '../components/Summary'
 import { TradeReviewForm } from '../components/TradeReviewForm'
 import { fmtDate, fmtMoney, fmtMonth, fmtNumber, fmtPct, fmtSigned, plClass } from '../format'
-import { useAppData, useLedger } from '../hooks'
+import { useAppData, useLedger, type AppData } from '../hooks'
 import { EMOTION_LABELS, MISTAKE_LABELS, TRADE_PERIOD_LABELS, marketOf } from '../labels'
 import { useIsDesktop } from '../useIsDesktop'
 
 const PERIODS = (['month', 'year', 'all'] as const).map((value) => ({ value, label: TRADE_PERIOD_LABELS[value] }))
 
 const RECENT_COUNT = 10
+
+// At 768px a tile is about 112px wide, which holds +7,171,435 at 20px but not at the 28px the tile has from 881px up. The
+// width from lg is the safe step, and the size is the same in all five tiles.
+const TILE_VALUE = 'md:text-[20px] lg:text-[28px]'
 
 // The sidebar takes 240px from 768px up, which leaves a table card about 440px, too narrow for these tables.
 const TABLE_MIN_WIDTH = 1024
@@ -51,12 +56,14 @@ function observationText({ by, group }: Observation): string {
   return `${subject} ชนะแค่ ${fmtPct(group.winRatePct, 0)} และขาดทุนรวม ${fmtSigned(group.totalBase, 0)}${noStop}`
 }
 
-function Pair({ first, second }: { first: string; second: string }) {
-  return (
-    <>
-      <span className="whitespace-nowrap">{first}</span> · <span className="whitespace-nowrap">{second}</span>
-    </>
-  )
+// Each part stays whole and the dot stays with the part before it, so a line can end on a dot but never start with one.
+function Dotted({ parts }: { parts: readonly string[] }) {
+  return parts.map((part, i) => (
+    <Fragment key={part}>
+      {i > 0 && ' '}
+      <span className="whitespace-nowrap">{i < parts.length - 1 ? `${part} ·` : part}</span>
+    </Fragment>
+  ))
 }
 
 function AssetLabel({ instrumentId, instrument }: { instrumentId: string; instrument?: Instrument }) {
@@ -145,6 +152,7 @@ const listTarget = 'min-h-11 min-w-11 justify-end -my-3'
 function ReviewButton({
   ref,
   symbol,
+  closed,
   reviewed,
   open,
   list,
@@ -152,6 +160,7 @@ function ReviewButton({
 }: {
   ref: Ref<HTMLButtonElement>
   symbol: string
+  closed: string
   reviewed: boolean
   open: boolean
   list: boolean
@@ -161,7 +170,7 @@ function ReviewButton({
     <button
       ref={ref}
       type="button"
-      aria-label={`${reviewed ? 'แก้รีวิว' : 'รีวิว'} ${symbol}`}
+      aria-label={`${reviewed ? 'แก้รีวิว' : 'รีวิว'} ${symbol} ปิด ${closed}`}
       aria-expanded={open}
       onClick={onClick}
       className={cn('inline-flex items-center justify-center rounded-lg', focusRing, list && listTarget)}
@@ -180,9 +189,22 @@ function ReviewButton({
   )
 }
 
-function UnreviewedToggle({ count, pressed, list, onClick }: { count: number; pressed: boolean; list: boolean; onClick(): void }) {
+function UnreviewedToggle({
+  ref,
+  count,
+  pressed,
+  list,
+  onClick,
+}: {
+  ref: Ref<HTMLButtonElement>
+  count: number
+  pressed: boolean
+  list: boolean
+  onClick(): void
+}) {
   return (
     <button
+      ref={ref}
       type="button"
       aria-pressed={pressed}
       onClick={onClick}
@@ -198,14 +220,59 @@ function UnreviewedToggle({ count, pressed, list, onClick }: { count: number; pr
 export function TradesPage() {
   const data = useAppData()
   const ledger = useLedger(data)
+  if (!data || !ledger) return <p className="text-muted-foreground">กำลังโหลด…</p>
+  return <TradesView data={data} ledger={ledger} />
+}
+
+function TradesView({ data, ledger }: { data: AppData; ledger: Ledger }) {
   const isDesktop = useIsDesktop(TABLE_MIN_WIDTH)
   const [period, setPeriod] = useState<TradePeriod>('year')
   const [reviewing, setReviewing] = useState<string | null>(null)
   const [onlyUnreviewed, setOnlyUnreviewed] = useState(false)
   const reviewButtons = useRef(new Map<string, HTMLButtonElement>())
-  const trades = useMemo(() => (data && ledger ? matchTrades(data.transactions, ledger) : []), [data, ledger])
+  const toggle = useRef<HTMLButtonElement>(null)
+  const recentHeading = useRef<HTMLHeadingElement>(null)
+  // Set when a review is saved from the list of trades still to review, where the saved row may be about to leave it.
+  const afterSave = useRef<{ savedId: string; nextId: string | undefined; data: AppData } | null>(null)
+  const trades = useMemo(() => matchTrades(data.transactions, ledger), [data, ledger])
 
-  if (!data || !ledger) return <p className="text-muted-foreground">กำลังโหลด…</p>
+  const today = todayLocal()
+  const currencyMark = data.settings.baseCurrency === 'THB' ? '฿' : data.settings.baseCurrency
+  const instruments = new Map(data.instruments.map((i) => [i.id, i]))
+  const transactions = new Map<string, Transaction>(data.transactions.map((tx) => [tx.id, tx]))
+  const open = trades.filter((trade) => trade.closeDate === null)
+  const closed = closedInPeriod(trades, period, today)
+  const stats = tradeStats(closed)
+  const [warning] = observations(closed)
+  const mistakes = mistakeCounts(closed)
+
+  // The review is written on the sell that closed the trade. A swap holds no journal, and a trade that closed by paying
+  // another asset's fee has no sell of its own, so neither can be reviewed.
+  const closingSell = (trade: Trade) => {
+    const tx = trade.closingTxId ? transactions.get(trade.closingTxId) : undefined
+    return tx?.type === 'sell' && tx.instrumentId === trade.instrumentId ? tx : undefined
+  }
+  const newestFirst = [...closed].sort((a, b) => (b.closeDate ?? '').localeCompare(a.closeDate ?? ''))
+  const unreviewed = newestFirst.filter((trade) => !trade.reviewed && closingSell(trade) !== undefined)
+  // Once the last one is reviewed there is nothing left to filter to, so the list falls back to the latest trades and
+  // the filter is switched off, or it would come back by itself the next time a trade is left unreviewed.
+  const showUnreviewed = onlyUnreviewed && unreviewed.length > 0
+  if (onlyUnreviewed && unreviewed.length === 0) setOnlyUnreviewed(false)
+  const recent = showUnreviewed ? unreviewed : newestFirst.slice(0, RECENT_COUNT)
+  const recentTitle = showUnreviewed ? 'ยังไม่ได้รีวิว' : 'เทรดที่ปิดล่าสุด'
+
+  // The write reaches the page as new data. A saved row that has left the list of trades still to review takes the focus
+  // with it, so the focus goes to the next row, else the toggle, else the heading of the card, which is always there.
+  useEffect(() => {
+    const saved = afterSave.current
+    if (!saved || saved.data === data) return
+    afterSave.current = null
+    if (unreviewed.some((trade) => trade.id === saved.savedId)) return
+    const next = saved.nextId ? reviewButtons.current.get(saved.nextId) : undefined
+    const target = next ?? toggle.current ?? recentHeading.current
+    target?.focus()
+  })
+
   const header = (
     <PageHeader title="เทรด">
       <Segmented
@@ -236,49 +303,32 @@ export function TradesPage() {
     )
   }
 
-  const today = todayLocal()
-  const currencyMark = data.settings.baseCurrency === 'THB' ? '฿' : data.settings.baseCurrency
-  const instruments = new Map(data.instruments.map((i) => [i.id, i]))
-  const transactions = new Map<string, Transaction>(data.transactions.map((tx) => [tx.id, tx]))
-  const open = trades.filter((trade) => trade.closeDate === null)
-  const closed = closedInPeriod(trades, period, today)
-  const stats = tradeStats(closed)
-  const [warning] = observations(closed)
-  const mistakes = mistakeCounts(closed)
-
-  // The review is written on the sell that closed the trade. A swap holds no journal, and a trade that closed by paying
-  // another asset's fee has no sell of its own, so neither can be reviewed.
-  const closingSell = (trade: Trade) => {
-    const tx = trade.closingTxId ? transactions.get(trade.closingTxId) : undefined
-    return tx?.type === 'sell' && tx.instrumentId === trade.instrumentId ? tx : undefined
-  }
-  const newestFirst = [...closed].sort((a, b) => (b.closeDate ?? '').localeCompare(a.closeDate ?? ''))
-  const unreviewed = newestFirst.filter((trade) => !trade.reviewed && closingSell(trade) !== undefined)
-  // Once the last one is reviewed there is nothing left to filter to, so the list falls back to the latest trades.
-  const showUnreviewed = onlyUnreviewed && unreviewed.length > 0
-  const recent = showUnreviewed ? unreviewed : newestFirst.slice(0, RECENT_COUNT)
-
   const days = (value: number | null) => (value === null ? '—' : `${value} วัน`)
-  const recentLine = (trade: Trade) =>
-    [trade.strategy ?? '—', days(trade.holdingDays), trade.emotion && EMOTION_LABELS[trade.emotion]].filter(Boolean).join(' · ')
   const extremes = [
     stats.maxLossStreak > 0 && `แพ้ติดกันมากสุด ${stats.maxLossStreak} ครั้ง`,
     stats.best?.realizedBase.greaterThan(0) && `เทรดดีสุด ${fmtSigned(stats.best.realizedBase, 0)} (${symbolOf(stats.best.instrumentId)})`,
     stats.worst?.realizedBase.lessThanOrEqualTo(0) && `แย่สุด ${fmtSigned(stats.worst.realizedBase, 0)} (${symbolOf(stats.worst.instrumentId)})`,
-  ]
-    .filter(Boolean)
-    .join(' · ')
+  ].filter((part): part is string => typeof part === 'string')
 
   const toggleReview = (trade: Trade) => setReviewing((current) => (current === trade.id ? null : trade.id))
   // The form is gone by the time a keyboard user looks for their place, so focus goes back to the button that opened it.
-  const closeReview = (trade: Trade) => {
+  const closeReview = (trade: Trade, saved: boolean) => {
     setReviewing(null)
     reviewButtons.current.get(trade.id)?.focus()
+    if (saved && showUnreviewed) afterSave.current = { savedId: trade.id, nextId: recent[recent.indexOf(trade) + 1]?.id, data }
   }
   const reviewForm = (trade: Trade): ReactNode => {
     const sell = closingSell(trade)
     if (reviewing !== trade.id || !sell) return null
-    return <TradeReviewForm name={symbolOf(trade.instrumentId)} txId={sell.id} journal={sell.journal} onClose={() => closeReview(trade)} />
+    return (
+      <TradeReviewForm
+        name={symbolOf(trade.instrumentId)}
+        txId={sell.id}
+        journal={sell.journal}
+        onSaved={() => closeReview(trade, true)}
+        onClose={() => closeReview(trade, false)}
+      />
+    )
   }
   const reviewButton = (trade: Trade): ReactNode =>
     closingSell(trade) ? (
@@ -288,6 +338,7 @@ export function TradesPage() {
           else reviewButtons.current.delete(trade.id)
         }}
         symbol={symbolOf(trade.instrumentId)}
+        closed={fmtDate(trade.closeDate ?? undefined)}
         reviewed={trade.reviewed}
         open={reviewing === trade.id}
         list={!isDesktop}
@@ -301,18 +352,20 @@ export function TradesPage() {
       {header}
 
       <Card className="grid grid-cols-2 gap-2 max-md:[&>:first-child]:col-span-2 md:grid-cols-3 md:gap-x-6 md:gap-y-5 xl:grid-cols-5">
-        <Stat label="เทรดที่ปิดแล้ว" value={String(stats.closed)} note={`เปิดอยู่ ${open.length}`} />
-        <Stat label="Win rate" value={fmtPct(stats.winRatePct, 0)} note={`ชนะ ${stats.wins} · แพ้ ${stats.losses}`} />
+        <Stat label="เทรดที่ปิดแล้ว" value={String(stats.closed)} valueClassName={TILE_VALUE} note={`เปิดอยู่ ${open.length}`} />
+        <Stat label="Win rate" value={fmtPct(stats.winRatePct, 0)} valueClassName={TILE_VALUE} note={`ชนะ ${stats.wins} · แพ้ ${stats.losses}`} />
         <Stat
           label="Profit factor"
           value={fmtMoney(stats.profitFactor)}
-          note={<Pair first={`ชนะเฉลี่ย ${fmtNumber(stats.avgWinBase, 0)}`} second={`แพ้เฉลี่ย ${fmtNumber(stats.avgLossBase, 0)}`} />}
+          valueClassName={TILE_VALUE}
+          note={<Dotted parts={[`ชนะเฉลี่ย ${fmtNumber(stats.avgWinBase, 0)}`, `แพ้เฉลี่ย ${fmtNumber(stats.avgLossBase, 0)}`]} />}
         />
         <div className="max-md:hidden">
           <Stat
             label="ได้ต่อเทรด"
             value={fmtSigned(stats.expectancyBase, 0)}
             tone={plClass(stats.expectancyBase)}
+            valueClassName={TILE_VALUE}
             note={stats.closed > 0 ? `รวม ${fmtSigned(stats.totalBase, 0)}` : undefined}
           />
         </div>
@@ -320,7 +373,8 @@ export function TradesPage() {
           <Stat
             label="ถือเฉลี่ย"
             value={days(stats.avgHoldDays)}
-            note={<Pair first={`ชนะ ${days(stats.avgHoldWinDays)}`} second={`แพ้ ${days(stats.avgHoldLossDays)}`} />}
+            valueClassName={TILE_VALUE}
+            note={<Dotted parts={[`ชนะ ${days(stats.avgHoldWinDays)}`, `แพ้ ${days(stats.avgHoldLossDays)}`]} />}
           />
         </div>
       </Card>
@@ -364,9 +418,12 @@ export function TradesPage() {
           <div className="grid items-start gap-3.5 md:gap-[22px] xl:grid-cols-[minmax(0,1fr)_340px]">
             <Card>
               <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                <h2 className="text-lg font-semibold">{showUnreviewed ? 'ยังไม่ได้รีวิว' : 'เทรดที่ปิดล่าสุด'}</h2>
+                <h2 ref={recentHeading} tabIndex={-1} className="text-lg font-semibold focus:outline-none">
+                  {recentTitle}
+                </h2>
                 {unreviewed.length > 0 && (
                   <UnreviewedToggle
+                    ref={toggle}
                     count={unreviewed.length}
                     pressed={showUnreviewed}
                     list={!isDesktop}
@@ -416,7 +473,7 @@ export function TradesPage() {
                   </tbody>
                 </Table>
               ) : (
-                <ul aria-label="เทรดที่ปิดล่าสุด">
+                <ul aria-label={recentTitle}>
                   {recent.map((trade) => {
                     const form = reviewForm(trade)
                     return (
@@ -426,8 +483,13 @@ export function TradesPage() {
                           <span className={cn('justify-self-end font-display font-semibold', plClass(trade.realizedBase))}>
                             {fmtSigned(trade.realizedBase, 0)}
                           </span>
-                          <span className="min-w-0 truncate text-[12.5px] text-muted-foreground" title={recentLine(trade)}>
-                            {recentLine(trade)}
+                          <span className="flex min-w-0 gap-1 text-[12.5px] text-muted-foreground">
+                            <span className="min-w-0 truncate" title={trade.strategy}>
+                              {trade.strategy ?? '—'}
+                            </span>
+                            <span className="shrink-0 whitespace-nowrap">
+                              {` · ${[days(trade.holdingDays), trade.emotion && EMOTION_LABELS[trade.emotion]].filter(Boolean).join(' · ')}`}
+                            </span>
                           </span>
                           <span className="justify-self-end">{reviewButton(trade)}</span>
                         </div>
@@ -453,7 +515,9 @@ export function TradesPage() {
                   ))}
                 </ul>
               )}
-              <p className="mt-2.5 text-[12.5px] text-muted-foreground">{extremes}</p>
+              <p className="mt-2.5 text-[12.5px] text-muted-foreground">
+                <Dotted parts={extremes} />
+              </p>
             </Card>
           </div>
         </>
