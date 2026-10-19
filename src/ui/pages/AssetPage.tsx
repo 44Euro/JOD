@@ -19,7 +19,7 @@ import { Stat, SummaryPanel } from '../components/Summary'
 import { ThesisCard } from '../components/ThesisCard'
 import { fmtDate, fmtHeadline, fmtNumber, fmtPrice, fmtSigned, fmtSignedPct, fmtValue, fmtYield, plClass } from '../format'
 import { useAppData, usePortfolio } from '../hooks'
-import { FEE_PAID_ROW_LABEL, TX_TYPE_LABELS, marketOf, unitLabel } from '../labels'
+import { EMOTION_LABELS, FEE_PAID_ROW_LABEL, TX_TYPE_LABELS, marketOf, unitLabel } from '../labels'
 import { assetRoute } from '../moneyRoutes'
 import { describeAmount, describeFeePaid, feeFreeTransfer, feePaidNet, netOf } from '../transactionText'
 import { useIsDesktop } from '../useIsDesktop'
@@ -27,6 +27,11 @@ import { useIsDesktop } from '../useIsDesktop'
 function badgeOf(value: Decimal | null): 'ok' | 'loss' | 'default' {
   if (!value) return 'default'
   return value.greaterThan(0) ? 'ok' : value.lessThan(0) ? 'loss' : 'default'
+}
+
+function journalLine(tx: Transaction): string {
+  const { strategy, emotion } = tx.journal ?? {}
+  return [strategy, emotion && EMOTION_LABELS[emotion]].filter(Boolean).join(' · ')
 }
 
 export function AssetPage() {
@@ -187,6 +192,7 @@ export function AssetPage() {
                   const issue = issues.get(tx.id)
                   const feeRow = feeOnly(tx)
                   const net = feeRow ? feePaidNet(tx, issue !== undefined) : netOf(tx, issue !== undefined)
+                  const journal = feeRow ? '' : journalLine(tx)
                   return (
                     <tr key={tx.id} className={cn(issue && 'bg-warning-bg [&>td]:border-transparent')}>
                       <Td>
@@ -198,6 +204,7 @@ export function AssetPage() {
                       <Td className="max-w-64 truncate">
                         {feeRow ? describeFeePaid(tx) : describeAmount(tx, accountNames, instruments)}
                         {tx.note && <span className="text-muted-foreground"> · {tx.note}</span>}
+                        {journal && <span className="block truncate text-[12.5px] text-muted-foreground">{journal}</span>}
                       </Td>
                       <Td>{feeFreeTransfer(tx) ? <span className="text-muted-foreground">—</span> : <RateCell tx={tx} />}</Td>
                       <Td className={cn('text-right font-display font-semibold', net.className)}>{net.text}</Td>
@@ -211,6 +218,7 @@ export function AssetPage() {
               {transactions.map((tx) => {
                 const feeRow = feeOnly(tx)
                 const net = feeRow ? feePaidNet(tx, issues.has(tx.id)) : netOf(tx, issues.has(tx.id))
+                const journal = feeRow ? '' : journalLine(tx)
                 return (
                   <li key={tx.id} className="border-t border-muted first:border-t-0">
                     <Link to={`/transactions/${tx.id}`} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2.5 py-3">
@@ -220,6 +228,7 @@ export function AssetPage() {
                         {feeRow ? `${FEE_PAID_ROW_LABEL} ${describeFeePaid(tx)}` : `${TX_TYPE_LABELS[tx.type]} ${describeAmount(tx, accountNames, instruments)}`}
                         {tx.fxSource !== 'same' && !feeFreeTransfer(tx) && ` · ${tx.fxSource === 'estimated' ? 'เรทประมาณ' : 'เรท'} ${fmtPrice(tx.fxRate)}`}
                       </span>
+                      {journal && <span className="col-span-2 text-[12.5px] text-muted-foreground">{journal}</span>}
                     </Link>
                   </li>
                 )

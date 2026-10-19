@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
+import type { TradeJournal } from '../domain/types'
 import { makeTx } from '../test/fixtures'
 import { BackupError, exportBackup, parseBackup, restoreBackup, transactionsToCsv } from './backup'
 import { createDb, type JodDB } from './db'
@@ -15,6 +16,14 @@ beforeEach(async () => {
 const day = { date: '2024-06-01', valueBase: '35788.50', netInvestedBase: '34000.00', recordedAt: '2024-06-01T10:00:00.000Z' }
 
 describe('backup round trip', () => {
+  it('brings the journal of a trade back', async () => {
+    const journal: TradeJournal = { strategy: 'Pullback', tags: ['gap', 'earnings'], emotion: 'calm', confidence: 3, review: 'ok', mistakes: ['chased'], score: 2 }
+    await db.transactions.add(makeTx({ id: 'journaled', journal }))
+    const target = createDb(`test-${crypto.randomUUID()}`)
+    await restoreBackup(target, parseBackup(JSON.stringify(await exportBackup(db))))
+    expect((await target.transactions.get('journaled'))?.journal).toEqual(journal)
+  })
+
   it('restores exactly what was exported', async () => {
     const backup = await exportBackup(db, new Date('2024-06-01T00:00:00Z'))
     const target = createDb(`test-${crypto.randomUUID()}`)
@@ -71,6 +80,22 @@ describe('parseBackup', () => {
     const file = (tx: unknown) => JSON.stringify({ app: 'jod', version: 2, exportedAt: '', data: { accounts: [account], instruments: [], settings: [], transactions: [tx] } })
     expect(parseBackup(file(paid)).data.transactions[0]).toMatchObject({ feePaidIn: 'asset', feeInstrumentId: 'CRYPTO:BNB', feeQuantity: '0.001' })
     expect(() => parseBackup(file({ ...paid, feePaidIn: 'gold' }))).toThrow('รายการ f ไม่ถูกต้อง: วิธีจ่ายค่าธรรมเนียมไม่ถูกต้อง')
+  })
+
+  it('keeps the journal of a trade and rejects one with a value out of range', () => {
+    const journal: TradeJournal = { strategy: 'Breakout', tags: ['gap'], emotion: 'fomo', confidence: 4, stopLoss: '95', target: '130' }
+    const file = (tx: unknown) => JSON.stringify({ app: 'jod', version: 2, exportedAt: '', data: { accounts: [account], instruments: [], settings: [], transactions: [tx] } })
+    const trade = makeTx({ id: 'j', journal })
+    expect(parseBackup(file(trade)).data.transactions[0].journal).toEqual(journal)
+    expect(() => parseBackup(file({ ...trade, journal: { confidence: 9 } }))).toThrow(BackupError)
+    expect(() => parseBackup(file({ ...trade, journal: { confidence: 9 } }))).toThrow('รายการ j ไม่ถูกต้อง: ความมั่นใจต้องเป็น 1–5')
+    expect(() => parseBackup(file({ ...trade, journal: null }))).toThrow('รายการ j ไม่ถูกต้อง: บันทึกเทรดไม่ถูกต้อง')
+  })
+
+  it('rejects a journal on a transaction that is not a buy or a sell', () => {
+    const deposit = makeTx({ id: 'd', type: 'deposit', instrumentId: undefined, quantity: undefined, price: undefined, amount: '100', journal: { strategy: 'x' } })
+    const file = JSON.stringify({ app: 'jod', version: 2, exportedAt: '', data: { accounts: [account], instruments: [], settings: [], transactions: [deposit] } })
+    expect(() => parseBackup(file)).toThrow('รายการ d ไม่ถูกต้อง: บันทึกเทรดใช้ได้กับการซื้อและขาย')
   })
 
   it('keeps a fee formula on an account and still reads an account without one', () => {
@@ -131,9 +156,9 @@ describe('transactionsToCsv', () => {
       .replace('\uFEFF', '')
       .trimEnd()
       .split('\r\n')
-    expect(header.endsWith(',tax_year,to_account,to_instrument,to_quantity,receive_kind,fee_paid_in,fee_instrument,fee_quantity,note')).toBe(true)
-    expect(row.endsWith(',,IBKR,,,,,,,move')).toBe(true)
-    expect(plain.endsWith(',,,,,,,,,')).toBe(true)
+    expect(header.endsWith(',tax_year,to_account,to_instrument,to_quantity,receive_kind,fee_paid_in,fee_instrument,fee_quantity,strategy,emotion,note')).toBe(true)
+    expect(row.endsWith(',,IBKR,,,,,,,,,move')).toBe(true)
+    expect(plain.endsWith(',,,,,,,,,,,')).toBe(true)
   })
 
   it('names the coin received in a swap and how much of it just before the received kind and the note', () => {
@@ -149,7 +174,7 @@ describe('transactionsToCsv', () => {
       note: 'rotate',
     })
     const [, row] = transactionsToCsv([swap], [account], 'THB').replace('\uFEFF', '').trimEnd().split('\r\n')
-    expect(row).toBe('2024-01-15,,swap,Dime US,CRYPTO:BTC,0.01,,660,USD,1.5,0,35,manual,-1.5,-52.5,,,,CRYPTO:ETH,0.25,,,,,rotate')
+    expect(row).toBe('2024-01-15,,swap,Dime US,CRYPTO:BTC,0.01,,660,USD,1.5,0,35,manual,-1.5,-52.5,,,,CRYPTO:ETH,0.25,,,,,,,rotate')
   })
 
   it('writes the kind of an asset received just before the note', () => {
@@ -162,7 +187,18 @@ describe('transactionsToCsv', () => {
       note: 'reward',
     })
     const [, row] = transactionsToCsv([received], [account], 'THB').replace('\uFEFF', '').trimEnd().split('\r\n')
-    expect(row).toBe('2024-01-15,,receive_asset,Dime US,CRYPTO:SOL,0.5,150,,USD,0,0,35,manual,0,0,,,,,,staking,,,,reward')
+    expect(row).toBe('2024-01-15,,receive_asset,Dime US,CRYPTO:SOL,0.5,150,,USD,0,0,35,manual,0,0,,,,,,staking,,,,,,reward')
+  })
+})
+
+describe('transactionsToCsv for a trade journal', () => {
+  it('writes the strategy and the emotion as its code just before the note, and leaves them empty without a journal', () => {
+    const journaled = makeTx({ journal: { strategy: 'Break, out', emotion: 'fomo', confidence: 4 }, note: 'gap up' })
+    const plain = makeTx({ date: '2024-01-16' })
+    const [header, row, bare] = transactionsToCsv([journaled, plain], [account], 'THB').replace('\uFEFF', '').trimEnd().split('\r\n')
+    expect(header.endsWith(',fee_quantity,strategy,emotion,note')).toBe(true)
+    expect(row.endsWith(',,,,,,,"Break, out",fomo,gap up')).toBe(true)
+    expect(bare.endsWith(',,,,,,,,,,,')).toBe(true)
   })
 })
 
@@ -181,9 +217,9 @@ describe('transactionsToCsv for a fee paid in something else', () => {
     const taken = makeTx({ instrumentId: 'CRYPTO:ETH', quantity: '1', price: '2000', feePaidIn: 'received', feeQuantity: '0.001', date: '2024-01-16' })
     const cash = makeTx({ date: '2024-01-17' })
     const [, bnbRow, takenRow, cashRow] = transactionsToCsv([paidInBnb, taken, cash], [account], 'THB').replace('\uFEFF', '').trimEnd().split('\r\n')
-    expect(bnbRow).toBe('2024-01-15,,buy,Dime US,CRYPTO:ETH,1,2000,,USD,0.6,0,35,manual,-2000,-70000,,,,,,,asset,CRYPTO:BNB,0.001,gas')
-    expect(takenRow).toBe('2024-01-16,,buy,Dime US,CRYPTO:ETH,1,2000,,USD,0,0,35,manual,-2000,-70000,,,,,,,received,,0.001,')
-    expect(cashRow.endsWith(',,,,,,,,,')).toBe(true)
+    expect(bnbRow).toBe('2024-01-15,,buy,Dime US,CRYPTO:ETH,1,2000,,USD,0.6,0,35,manual,-2000,-70000,,,,,,,asset,CRYPTO:BNB,0.001,,,gas')
+    expect(takenRow).toBe('2024-01-16,,buy,Dime US,CRYPTO:ETH,1,2000,,USD,0,0,35,manual,-2000,-70000,,,,,,,received,,0.001,,,')
+    expect(cashRow.endsWith(',,,,,,,,,,,')).toBe(true)
   })
 })
 

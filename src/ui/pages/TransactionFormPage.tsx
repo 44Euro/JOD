@@ -29,6 +29,7 @@ import { InstrumentFields } from '../components/txform/InstrumentFields'
 import { ReceiveFields, ReceiveTaxField } from '../components/txform/ReceiveFields'
 import { ReinvestFields } from '../components/txform/ReinvestFields'
 import { SwapFields, SwapSummary } from '../components/txform/SwapFields'
+import { TradeJournalFields } from '../components/txform/TradeJournalFields'
 import { TransferAmountField, TransferFields } from '../components/txform/TransferFields'
 import { TypePicker } from '../components/txform/TypePicker'
 import { WithdrawFields } from '../components/txform/WithdrawFields'
@@ -47,7 +48,9 @@ import {
   draftToTransaction,
   duplicateDraft,
   emptyDraft,
+  emptyJournalDraft,
   isOpeningAsset,
+  knownStrategies,
   movesNoMoney,
   pickSymbol,
   reinvestTransaction,
@@ -110,10 +113,12 @@ function amountLabel(draft: Draft): string {
   }
 }
 
-// Keeps account, date, type, market, currency and rate so several lines from one statement go in quickly.
+// Keeps account, date, type, market, currency and rate so several lines from one statement go in quickly, and the
+// strategy of the journal because the next line is often another trade of the same plan.
 function clearEntry(draft: Draft): Draft {
   return {
     ...draft,
+    journal: { ...emptyJournalDraft(), strategy: draft.journal.strategy },
     time: '',
     symbol: '',
     instrumentName: '',
@@ -181,6 +186,7 @@ function TransactionForm({ data, existing, copyOf }: { data: AppData; existing?:
 
   const others = useMemo(() => data.transactions.filter((t) => t.id !== existing?.id), [data.transactions, existing?.id])
   const heldLedger = useMemo(() => computeLedger(others), [others])
+  const strategies = useMemo(() => knownStrategies(data.transactions), [data.transactions])
 
   useEffect(() => {
     if (!needsFx || !isIsoDate(draft.date)) return
@@ -496,6 +502,8 @@ function TransactionForm({ data, existing, copyOf }: { data: AppData; existing?:
           )}
 
           {draft.type === 'withdraw' && <WithdrawFields draft={draft} update={update} />}
+
+          {isTrade && <TradeJournalFields draft={draft} strategies={strategies} setDraft={setDraft} />}
 
           {needsFx && <FxRateBox draft={draft} base={base} fxMessage={fxMessage} rateSpread={rateSpread} update={update} />}
 

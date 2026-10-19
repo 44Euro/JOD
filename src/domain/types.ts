@@ -30,6 +30,12 @@ export type AssetType = (typeof ASSET_TYPES)[number]
 export const UNITS = ['share', 'unit', 'coin', 'baht_gold', 'gram'] as const
 export type Unit = (typeof UNITS)[number]
 
+export const EMOTIONS = ['calm', 'confident', 'fomo', 'fear', 'greed', 'revenge', 'bored'] as const
+export type Emotion = (typeof EMOTIONS)[number]
+
+export const MISTAKES = ['chased', 'no_stop', 'oversized', 'sold_early', 'moved_stop'] as const
+export type Mistake = (typeof MISTAKES)[number]
+
 // An ETF is counted in units like a fund, although it trades like a share.
 export function defaultUnit(assetType: AssetType): Unit {
   switch (assetType) {
@@ -94,6 +100,22 @@ export interface Thesis {
   reviewDate: string
 }
 
+// The optional notes of a buy or a sell. stopLoss and target are prices per unit in the currency of the transaction;
+// confidence and score are whole numbers from 1 to 5. review, mistakes and score are written about a trade once it is
+// closed, so they belong to the sell.
+export interface TradeJournal {
+  strategy?: string
+  tags?: string[]
+  reason?: string
+  emotion?: Emotion
+  confidence?: number
+  stopLoss?: string
+  target?: string
+  review?: string
+  mistakes?: Mistake[]
+  score?: number
+}
+
 // Amounts are decimal strings in `currency`; fxRate is the value of 1 `currency` in the base currency.
 // opening with instrumentId = a holding carried in at average cost (price) and average purchase rate (fxRate);
 // opening without instrumentId = a cash balance carried in (amount).
@@ -138,6 +160,7 @@ export interface Transaction {
   referenceFxRate?: string
   remitToThailand?: boolean
   taxYear?: number
+  journal?: TradeJournal
   note: string
   createdAt: string
   updatedAt: string

@@ -1940,4 +1940,322 @@ describe('TransactionFormPage', () => {
       expect(screen.getByLabelText('สกุลเงิน')).toHaveValue('THB')
     })
   })
+
+  describe('the trade journal', () => {
+    const provider = () => fakeFxProvider({ 'USD|THB': '35' }).provider
+    const phone = () =>
+      vi.stubGlobal('matchMedia', (query: string) => ({
+        matches: false,
+        media: query,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      }))
+    const toggle = () => screen.getByRole('button', { name: 'บันทึกการเทรด (ไม่บังคับ)' })
+    const group = (name: string) => screen.getByRole('group', { name })
+    const pick = (name: string, option: string) => within(group(name)).getByRole('button', { name: option })
+    const strategies = () => Array.from(document.querySelectorAll<HTMLOptionElement>('datalist#trade-strategies option')).map((o) => o.value)
+
+    async function fillBuy(user: ReturnType<typeof userEvent.setup>) {
+      await user.type(await screen.findByLabelText('สัญลักษณ์'), 'aapl')
+      await user.type(screen.getByLabelText('จำนวนหน่วย'), '2')
+      await user.type(screen.getByLabelText('ราคาต่อหน่วย'), '100')
+      await waitFor(() => expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('35'))
+    }
+
+    async function openBuy() {
+      const user = userEvent.setup()
+      const router = renderRoute('/transactions/new', provider())
+      await fillBuy(user)
+      return { user, router }
+    }
+
+    it('records a trade journal on a buy', async () => {
+      const { user, router } = await openBuy()
+      expect(toggle()).toHaveAttribute('aria-expanded', 'false')
+      expect(screen.queryByLabelText('กลยุทธ์')).not.toBeInTheDocument()
+      await user.click(toggle())
+      expect(toggle()).toHaveAttribute('aria-expanded', 'true')
+      await user.type(screen.getByLabelText('กลยุทธ์'), 'Breakout')
+      await user.click(pick('อารมณ์ตอนเข้า', 'FOMO'))
+      await user.click(pick('ความมั่นใจ', '4'))
+      await user.type(screen.getByLabelText('Stop loss'), '95')
+      await user.type(screen.getByLabelText('Target'), '130')
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+      await waitFor(() => expect(router.state.location.pathname).toBe('/transactions'))
+      const [saved] = await db.transactions.toArray()
+      expect(saved.journal).toEqual({ strategy: 'Breakout', emotion: 'fomo', confidence: 4, stopLoss: '95', target: '130' })
+    })
+
+    it('saves tags, the reason and the price of a stop loss written the way the other prices are', async () => {
+      const { user, router } = await openBuy()
+      await user.click(toggle())
+      await user.type(screen.getByLabelText('แท็ก'), 'earnings, gap ,')
+      await user.type(screen.getByLabelText('เหตุผลที่เข้า'), 'new high on volume')
+      await user.type(screen.getByLabelText('Stop loss'), '1,095.50')
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+      await waitFor(() => expect(router.state.location.pathname).toBe('/transactions'))
+      const [saved] = await db.transactions.toArray()
+      expect(saved.journal).toEqual({ tags: ['earnings', 'gap'], reason: 'new high on volume', stopLoss: '1095.5' })
+    })
+
+    it('saves no journal when the section was opened and nothing was written', async () => {
+      const { user, router } = await openBuy()
+      await user.click(toggle())
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+      await waitFor(() => expect(router.state.location.pathname).toBe('/transactions'))
+      const [saved] = await db.transactions.toArray()
+      expect(saved.journal).toBeUndefined()
+    })
+
+    it('refuses a stop loss that is not a number and saves nothing', async () => {
+      const { user } = await openBuy()
+      await user.click(toggle())
+      await user.type(screen.getByLabelText('Stop loss'), 'abc')
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+      expect(await screen.findByText('Stop loss ต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป')).toBeInTheDocument()
+      expect(await db.transactions.count()).toBe(0)
+    })
+
+    it('folds back up without losing what was written', async () => {
+      const { user } = await openBuy()
+      await user.click(toggle())
+      await user.type(screen.getByLabelText('กลยุทธ์'), 'Breakout')
+      await user.click(toggle())
+      expect(toggle()).toHaveAttribute('aria-expanded', 'false')
+      expect(screen.queryByLabelText('กลยุทธ์')).not.toBeInTheDocument()
+      await user.click(toggle())
+      expect(screen.getByLabelText('กลยุทธ์')).toHaveValue('Breakout')
+    })
+
+    it('sits after the fee and tax and before the exchange rate', async () => {
+      await openBuy()
+      const follows = (a: HTMLElement, b: HTMLElement) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
+      expect(follows(screen.getByLabelText('ภาษี / VAT'), toggle())).toBe(true)
+      expect(follows(toggle(), screen.getByLabelText(/เรทแลกเปลี่ยน/))).toBe(true)
+      expect(follows(toggle(), screen.getByLabelText('หมายเหตุ'))).toBe(true)
+    })
+
+    it('asks for the review, the mistakes and the score on a sell and not on a buy', async () => {
+      const user = userEvent.setup()
+      renderRoute('/transactions/new', provider())
+      await user.click(await screen.findByRole('button', { name: 'บันทึกการเทรด (ไม่บังคับ)' }))
+      expect(screen.getByLabelText('เหตุผลที่เข้า')).toBeInTheDocument()
+      expect(screen.queryByLabelText('รีวิวหลังปิด')).not.toBeInTheDocument()
+      expect(screen.queryByRole('group', { name: 'ข้อผิดพลาดที่ทำ' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('group', { name: 'คะแนนการลงมือ' })).not.toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'ขาย' }))
+      expect(screen.getByLabelText('รีวิวหลังปิด')).toBeInTheDocument()
+      expect(group('ข้อผิดพลาดที่ทำ')).toBeInTheDocument()
+      expect(group('คะแนนการลงมือ')).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'ซื้อ' }))
+      expect(screen.queryByLabelText('รีวิวหลังปิด')).not.toBeInTheDocument()
+    })
+
+    it('records the review of a sell, with any number of mistakes', async () => {
+      await db.transactions.add(makeTx({ quantity: '5', date: '2024-01-15' }))
+      const user = userEvent.setup()
+      const router = renderRoute('/transactions/new', provider())
+      await user.click(await screen.findByRole('button', { name: 'ขาย' }))
+      await user.type(screen.getByLabelText('สัญลักษณ์'), 'aapl')
+      await user.type(screen.getByLabelText('จำนวนหน่วย'), '2')
+      await user.type(screen.getByLabelText('ราคาต่อหน่วย'), '90')
+      await waitFor(() => expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('35'))
+      await user.click(screen.getByRole('button', { name: 'บันทึกการเทรด (ไม่บังคับ)' }))
+      await user.type(screen.getByLabelText('รีวิวหลังปิด'), 'sold in a panic')
+      await user.click(pick('ข้อผิดพลาดที่ทำ', 'ขายเร็วเกิน'))
+      await user.click(pick('ข้อผิดพลาดที่ทำ', 'ไม่ตั้ง Stop loss'))
+      await user.click(pick('ข้อผิดพลาดที่ทำ', 'ขายเร็วเกิน'))
+      await user.click(pick('ข้อผิดพลาดที่ทำ', 'เลื่อน Stop loss'))
+      await user.click(pick('คะแนนการลงมือ', '2'))
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+      await waitFor(() => expect(router.state.location.pathname).toBe('/transactions'))
+      const sell = (await db.transactions.toArray()).find((t) => t.type === 'sell')
+      expect(sell?.journal).toEqual({ review: 'sold in a panic', mistakes: ['no_stop', 'moved_stop'], score: 2 })
+    })
+
+    it('shows the journal only for a buy or a sell, and finds it again when the type comes back', async () => {
+      const { user } = await openBuy()
+      await user.click(toggle())
+      await user.type(screen.getByLabelText('กลยุทธ์'), 'Breakout')
+      await user.click(screen.getByRole('button', { name: 'ปันผล' }))
+      expect(screen.queryByRole('button', { name: 'บันทึกการเทรด (ไม่บังคับ)' })).not.toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'ซื้อ' }))
+      expect(toggle()).toHaveAttribute('aria-expanded', 'true')
+      expect(screen.getByLabelText('กลยุทธ์')).toHaveValue('Breakout')
+      await user.selectOptions(screen.getByLabelText('ประเภทอื่นๆ'), 'opening')
+      expect(screen.queryByRole('button', { name: 'บันทึกการเทรด (ไม่บังคับ)' })).not.toBeInTheDocument()
+    })
+
+    it('saves nothing of the journal in a dividend that was a buy a moment ago', async () => {
+      const { user, router } = await openBuy()
+      await user.click(toggle())
+      await user.type(screen.getByLabelText('กลยุทธ์'), 'Breakout')
+      await user.click(screen.getByRole('button', { name: 'ปันผล' }))
+      await user.type(screen.getByLabelText('ปันผลก่อนหักภาษี'), '10')
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+      await waitFor(() => expect(router.state.location.pathname).toBe('/transactions'))
+      const [saved] = await db.transactions.toArray()
+      expect(saved).toMatchObject({ type: 'dividend' })
+      expect(saved.journal).toBeUndefined()
+    })
+
+    it('takes the emotion back by pressing it again, and picks one at a time', async () => {
+      const { user } = await openBuy()
+      await user.click(toggle())
+      await user.click(pick('อารมณ์ตอนเข้า', 'FOMO'))
+      expect(pick('อารมณ์ตอนเข้า', 'FOMO')).toHaveAttribute('aria-pressed', 'true')
+      await user.click(pick('อารมณ์ตอนเข้า', 'กลัว'))
+      expect(pick('อารมณ์ตอนเข้า', 'FOMO')).toHaveAttribute('aria-pressed', 'false')
+      expect(pick('อารมณ์ตอนเข้า', 'กลัว')).toHaveAttribute('aria-pressed', 'true')
+      await user.click(pick('อารมณ์ตอนเข้า', 'กลัว'))
+      expect(within(group('อารมณ์ตอนเข้า')).getAllByRole('button').filter((b) => b.getAttribute('aria-pressed') === 'true')).toHaveLength(0)
+    })
+
+    it('offers all seven emotions in the words of the list', async () => {
+      const { user } = await openBuy()
+      await user.click(toggle())
+      expect(within(group('อารมณ์ตอนเข้า')).getAllByRole('button').map((b) => b.textContent)).toEqual([
+        'นิ่ง มีแผน',
+        'มั่นใจ',
+        'FOMO',
+        'กลัว',
+        'โลภ',
+        'อยากเอาคืน',
+        'เบื่อ',
+      ])
+    })
+
+    it('clears the confidence with its own button, which shows only while one is chosen', async () => {
+      const { user } = await openBuy()
+      await user.click(toggle())
+      expect(screen.queryByRole('button', { name: 'ล้าง' })).not.toBeInTheDocument()
+      await user.click(pick('ความมั่นใจ', '3'))
+      expect(pick('ความมั่นใจ', '3')).toHaveAttribute('aria-pressed', 'true')
+      const clear = screen.getByRole('button', { name: 'ล้าง' })
+      expect(clear).toHaveClass('min-h-11')
+      expect(clear).toHaveAccessibleDescription('ความมั่นใจ')
+      await user.click(clear)
+      expect(pick('ความมั่นใจ', '3')).toHaveAttribute('aria-pressed', 'false')
+      expect(screen.queryByRole('button', { name: 'ล้าง' })).not.toBeInTheDocument()
+    })
+
+    it('clears the score of a sell the same way, apart from the confidence', async () => {
+      const { user } = await openBuy()
+      await user.click(screen.getByRole('button', { name: 'ขาย' }))
+      await user.click(toggle())
+      await user.click(pick('ความมั่นใจ', '5'))
+      await user.click(pick('คะแนนการลงมือ', '1'))
+      const clears = screen.getAllByRole('button', { name: 'ล้าง' })
+      expect(clears).toHaveLength(2)
+      expect(clears[1]).toHaveAccessibleDescription('คะแนนการลงมือ')
+      await user.click(clears[1])
+      expect(pick('คะแนนการลงมือ', '1')).toHaveAttribute('aria-pressed', 'false')
+      expect(pick('ความมั่นใจ', '5')).toHaveAttribute('aria-pressed', 'true')
+    })
+
+    it('offers the strategies used before, the most used first', async () => {
+      const used = (strategy: string) => makeTx({ journal: { strategy } })
+      await db.transactions.bulkAdd([used('Pullback'), used('Breakout'), used('Breakout'), makeTx()])
+      const { user } = await openBuy()
+      await user.click(toggle())
+      expect(screen.getByLabelText('กลยุทธ์')).toHaveAttribute('list', 'trade-strategies')
+      expect(strategies()).toEqual(['Breakout', 'Pullback'])
+    })
+
+    it('opens an edit with the journal showing and its values in place', async () => {
+      await db.transactions.add(
+        makeTx({
+          id: 'journaled',
+          journal: { strategy: 'Breakout', tags: ['earnings', 'gap'], reason: 'new high', emotion: 'fomo', confidence: 4, stopLoss: '95', target: '130' },
+        }),
+      )
+      renderRoute('/transactions/journaled', provider())
+      expect(await screen.findByLabelText('กลยุทธ์')).toHaveValue('Breakout')
+      expect(toggle()).toHaveAttribute('aria-expanded', 'true')
+      expect(screen.getByLabelText('แท็ก')).toHaveValue('earnings, gap')
+      expect(screen.getByLabelText('เหตุผลที่เข้า')).toHaveValue('new high')
+      expect(pick('อารมณ์ตอนเข้า', 'FOMO')).toHaveAttribute('aria-pressed', 'true')
+      expect(pick('ความมั่นใจ', '4')).toHaveAttribute('aria-pressed', 'true')
+      expect(screen.getByLabelText('Stop loss')).toHaveValue('95')
+      expect(screen.getByLabelText('Target')).toHaveValue('130')
+    })
+
+    it('opens an edit of a sell with its review and score in place', async () => {
+      await db.transactions.add(
+        makeTx({ id: 'closed', type: 'sell', journal: { review: 'too early', mistakes: ['sold_early'], score: 2 } }),
+      )
+      renderRoute('/transactions/closed', provider())
+      expect(await screen.findByLabelText('รีวิวหลังปิด')).toHaveValue('too early')
+      expect(pick('ข้อผิดพลาดที่ทำ', 'ขายเร็วเกิน')).toHaveAttribute('aria-pressed', 'true')
+      expect(pick('ข้อผิดพลาดที่ทำ', 'ไล่ราคา')).toHaveAttribute('aria-pressed', 'false')
+      expect(pick('คะแนนการลงมือ', '2')).toHaveAttribute('aria-pressed', 'true')
+    })
+
+    it('keeps an edit of a trade without a journal folded', async () => {
+      await db.transactions.add(makeTx({ id: 'plain' }))
+      renderRoute('/transactions/plain', provider())
+      expect(await screen.findByLabelText('สัญลักษณ์')).toHaveValue('AAPL')
+      expect(toggle()).toHaveAttribute('aria-expanded', 'false')
+    })
+
+    it('saves an edit with the journal changed and removes it when it is emptied', async () => {
+      await db.transactions.add(makeTx({ id: 'journaled', date: '2024-01-15', journal: { strategy: 'Breakout', emotion: 'fomo' } }))
+      const user = userEvent.setup()
+      const router = renderRoute('/transactions/journaled', provider())
+      await user.clear(await screen.findByLabelText('กลยุทธ์'))
+      await user.type(screen.getByLabelText('กลยุทธ์'), 'Pullback')
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+      await waitFor(() => expect(router.state.location.pathname).toBe('/transactions'))
+      expect((await db.transactions.get('journaled'))?.journal).toEqual({ strategy: 'Pullback', emotion: 'fomo' })
+
+      await screen.findByRole('heading', { name: 'รายการทั้งหมด' })
+      await act(() => router.navigate('/transactions/journaled'))
+      await user.clear(await screen.findByLabelText('กลยุทธ์'))
+      await user.click(pick('อารมณ์ตอนเข้า', 'FOMO'))
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+      await waitFor(() => expect(router.state.location.pathname).toBe('/transactions'))
+      expect((await db.transactions.get('journaled'))?.journal).toBeUndefined()
+    })
+
+    it('repeats a buy with its strategy and tags only, and shows them', async () => {
+      await db.transactions.add(
+        makeTx({ id: 'aapl-buy', journal: { strategy: 'DCA', tags: ['monthly'], emotion: 'calm', confidence: 3, stopLoss: '90', reason: 'plan' } }),
+      )
+      renderRoute('/transactions/new?from=aapl-buy', provider())
+      expect(await screen.findByLabelText('กลยุทธ์')).toHaveValue('DCA')
+      expect(screen.getByLabelText('แท็ก')).toHaveValue('monthly')
+      expect(screen.getByLabelText('เหตุผลที่เข้า')).toHaveValue('')
+      expect(screen.getByLabelText('Stop loss')).toHaveValue('')
+      expect(pick('อารมณ์ตอนเข้า', 'นิ่ง มีแผน')).toHaveAttribute('aria-pressed', 'false')
+      expect(pick('ความมั่นใจ', '3')).toHaveAttribute('aria-pressed', 'false')
+    })
+
+    it('keeps the strategy for the next entry after save and add another, and starts the rest over', async () => {
+      const { user } = await openBuy()
+      await user.click(toggle())
+      await user.type(screen.getByLabelText('กลยุทธ์'), 'Breakout')
+      await user.type(screen.getByLabelText('เหตุผลที่เข้า'), 'gap up')
+      await user.click(pick('อารมณ์ตอนเข้า', 'FOMO'))
+      await user.click(pick('ความมั่นใจ', '4'))
+      await user.type(screen.getByLabelText('Stop loss'), '95')
+      await user.click(screen.getByRole('button', { name: 'บันทึกแล้วเพิ่มอีก' }))
+      expect(await screen.findByRole('status')).toHaveTextContent('บันทึกแล้ว')
+      expect(screen.getByLabelText('กลยุทธ์')).toHaveValue('Breakout')
+      expect(screen.getByLabelText('เหตุผลที่เข้า')).toHaveValue('')
+      expect(screen.getByLabelText('Stop loss')).toHaveValue('')
+      expect(pick('อารมณ์ตอนเข้า', 'FOMO')).toHaveAttribute('aria-pressed', 'false')
+      expect(pick('ความมั่นใจ', '4')).toHaveAttribute('aria-pressed', 'false')
+      expect((await db.transactions.toArray())[0].journal).toMatchObject({ strategy: 'Breakout', reason: 'gap up', emotion: 'fomo', confidence: 4, stopLoss: '95' })
+    })
+
+    it('gives the row and the buttons of the section a phone-sized touch target', async () => {
+      phone()
+      const { user } = await openBuy()
+      expect(toggle()).toHaveClass('min-h-11', 'w-full')
+      await user.click(toggle())
+      await user.click(pick('ความมั่นใจ', '2'))
+      expect(screen.getByRole('button', { name: 'ล้าง' })).toHaveClass('min-h-11')
+      expect(within(group('อารมณ์ตอนเข้า')).getAllByRole('button')[0]).toHaveClass('h-11')
+    })
+  })
 })

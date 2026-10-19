@@ -2,6 +2,7 @@ import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '../../db/db'
+import type { Transaction } from '../../domain/types'
 import { fakeFxProvider, lateFxProvider } from '../../test/fakeFx'
 import { makeTx } from '../../test/fixtures'
 import { renderRoute, resetDb } from '../../test/render'
@@ -154,6 +155,83 @@ describe('AssetPage', () => {
     expect(rows[3]).toHaveTextContent('10 × 400.00 · DCA')
     expect(screen.getByText('กำไรที่ขายแล้ว').nextSibling).toHaveTextContent('+2,552')
     expect(screen.getByText('ค่าธรรมเนียมรวม').nextSibling).toHaveTextContent('104')
+  })
+
+  describe('the journal line of a history row', () => {
+    const phone = () =>
+      vi.stubGlobal('matchMedia', (query: string) => ({
+        matches: false,
+        media: query,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      }))
+    const journaled = (journal: Transaction['journal'], date = '2024-02-01') =>
+      makeTx({ instrumentId: 'US:VOO', quantity: '1', price: '410', fxRate: '34', date, journal })
+
+    beforeEach(async () => {
+      await db.instruments.add(voo)
+    })
+
+    it('puts the strategy and the emotion in a dim line under the description of a row on a computer', async () => {
+      await db.transactions.add(journaled({ strategy: 'Breakout', emotion: 'fomo', confidence: 4 }))
+      renderRoute('/assets/US%3AVOO', usd)
+      const line = await screen.findByText('Breakout · FOMO')
+      expect(line).toHaveClass('text-[12.5px]', 'text-muted-foreground')
+      const [, , description] = within(line.closest('tr')!).getAllByRole('cell')
+      expect(description).toHaveTextContent('1 × 410.00Breakout · FOMO')
+      expect(line.parentElement).toBe(description)
+    })
+
+    it('shows what there is of it, and nothing for a row without a journal or with only a reason', async () => {
+      await db.transactions.bulkAdd([
+        journaled({ strategy: 'DCA' }, '2024-02-02'),
+        journaled({ emotion: 'greed' }, '2024-02-03'),
+        journaled({ reason: 'cheap', confidence: 2 }, '2024-02-04'),
+      ])
+      renderRoute('/assets/US%3AVOO', usd)
+      expect(await screen.findByText('DCA')).toHaveClass('text-muted-foreground')
+      expect(screen.getByText('โลภ')).toHaveClass('text-muted-foreground')
+      const rows = within(screen.getAllByRole('table').at(-1)!).getAllByRole('row')
+      expect(rows).toHaveLength(7)
+      expect(rows[3]).toHaveTextContent(/^4 ก\.พ\. 2024ซื้อ1 × 410\.00/)
+      expect(rows[3]).not.toHaveTextContent('·')
+      expect(rows[4]).toHaveTextContent('1 × 410.00โลภ')
+      expect(rows[5]).toHaveTextContent('1 × 410.00DCA')
+    })
+
+    it('puts it under the second line of a row on a phone', async () => {
+      phone()
+      await db.transactions.add(journaled({ strategy: 'Breakout', emotion: 'fomo' }))
+      renderRoute('/assets/US%3AVOO', usd)
+      const list = await screen.findByRole('list', { name: 'ทุกรายการของ VOO' })
+      const line = within(list).getByText('Breakout · FOMO')
+      expect(line).toHaveClass('col-span-2', 'text-[12.5px]', 'text-muted-foreground')
+      expect(line.previousElementSibling).toHaveTextContent('ซื้อ 1 × 410.00 · เรท 34.00')
+      expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    })
+
+    it('is left off the row of the asset that only paid the fee of the trade', async () => {
+      const bnb = { id: 'CRYPTO:BNB', market: 'CRYPTO', symbol: 'BNB', name: 'BNB', assetType: 'crypto', currency: 'USD' } as const
+      await db.instruments.add(bnb)
+      await db.transactions.add(
+        makeTx({
+          instrumentId: 'US:VOO',
+          quantity: '1',
+          price: '410',
+          fxRate: '34',
+          date: '2024-02-01',
+          feePaidIn: 'asset',
+          feeInstrumentId: 'CRYPTO:BNB',
+          feeQuantity: '0.001',
+          fees: '0.6',
+          journal: { strategy: 'Breakout' },
+        }),
+      )
+      renderRoute('/assets/CRYPTO%3ABNB', usd)
+      expect(await screen.findByText('ทั้งหมด 1 รายการ')).toBeInTheDocument()
+      expect(screen.getByText('ซื้อ VOO · 0.001 BNB')).toBeInTheDocument()
+      expect(screen.queryByText('Breakout')).not.toBeInTheDocument()
+    })
   })
 
   it('names the receiving account on a transfer row', async () => {

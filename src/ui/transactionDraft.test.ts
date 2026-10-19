@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { Account, FeeTemplate, Instrument } from '../domain/types'
+import type { Account, FeeTemplate, Instrument, TradeJournal } from '../domain/types'
 import { makeTx } from '../test/fixtures'
 import {
   applyReferenceRate,
@@ -15,8 +15,12 @@ import {
   draftToTransaction,
   duplicateDraft,
   emptyDraft,
+  emptyJournalDraft,
   feePaidInOf,
   feePaidInOptions,
+  journalFromDraft,
+  journalToDraft,
+  knownStrategies,
   movesNoMoney,
   pickSymbol,
   pickToSymbol,
@@ -1216,6 +1220,111 @@ describe('repeating a transaction', () => {
   it('moves the tax year of a remittance to the year of the copy', () => {
     const withdraw = makeTx({ type: 'withdraw', instrumentId: undefined, quantity: undefined, price: undefined, amount: '500', remitToThailand: true, taxYear: 2023, date: '2023-12-20' })
     expect(duplicateDraft(withdraw, [], '2024-06-01')).toMatchObject({ remitToThailand: true, taxYear: '2024' })
+  })
+})
+
+describe('the trade journal of a draft', () => {
+  it('keeps a journal only when something was filled in', () => {
+    expect(journalFromDraft(emptyJournalDraft())).toBeUndefined()
+    const j = { ...emptyJournalDraft(), strategy: ' Breakout ', tags: 'earnings, gap ,', emotion: 'fomo' as const, confidence: '4', stopLoss: '95' }
+    expect(journalFromDraft(j)).toEqual({ strategy: 'Breakout', tags: ['earnings', 'gap'], emotion: 'fomo', confidence: 4, stopLoss: '95' })
+  })
+
+  it('leaves out what is blank, so only the fields that were filled in are saved', () => {
+    const j = { ...emptyJournalDraft(), reason: '  ', tags: ' , ', mistakes: [], strategy: 'DCA' }
+    expect(Object.keys(journalFromDraft(j) ?? {})).toEqual(['strategy'])
+  })
+
+  it('reads prices the way the other price fields are read', () => {
+    const j = { ...emptyJournalDraft(), stopLoss: '1,095.50', target: '1 200' }
+    expect(journalFromDraft(j)).toEqual({ stopLoss: '1095.5', target: '1200' })
+  })
+
+  it('goes from a saved journal to a draft and back unchanged', () => {
+    const journal: TradeJournal = {
+      strategy: 'Breakout',
+      tags: ['earnings', 'gap'],
+      reason: 'new high',
+      emotion: 'calm',
+      confidence: 3,
+      stopLoss: '95',
+      target: '130',
+      review: 'sold into strength',
+      mistakes: ['sold_early', 'no_stop'],
+      score: 2,
+    }
+    expect(journalToDraft(journal)).toEqual({
+      strategy: 'Breakout',
+      tags: 'earnings, gap',
+      reason: 'new high',
+      emotion: 'calm',
+      confidence: '3',
+      stopLoss: '95',
+      target: '130',
+      review: 'sold into strength',
+      mistakes: ['sold_early', 'no_stop'],
+      score: '2',
+    })
+    expect(journalFromDraft(journalToDraft(journal))).toEqual(journal)
+    expect(journalToDraft(undefined)).toEqual(emptyJournalDraft())
+  })
+
+  it('saves the journal of a buy and drops it when the type stops being a trade', () => {
+    const draft = buyDraft({ symbol: 'AAPL', quantity: '2', price: '100', journal: { ...emptyJournalDraft(), strategy: 'Pullback' } })
+    expect(draftToTransaction(draft, ctx).tx.journal).toEqual({ strategy: 'Pullback' })
+    expect(draftToTransaction({ ...draft, type: 'dividend', amount: '1' }, ctx).tx.journal).toBeUndefined()
+    expect(draftToTransaction({ ...draft, type: 'opening' }, ctx).tx.journal).toBeUndefined()
+  })
+
+  it('keeps the journal in the draft while the type is something else, so coming back finds it', () => {
+    const draft = buyDraft({ journal: { ...emptyJournalDraft(), strategy: 'Pullback', emotion: 'fear' } })
+    const away = changeType(draft, 'deposit', 'THB')
+    expect(away.journal).toEqual(draft.journal)
+    expect(changeType(away, 'sell', 'THB').journal).toEqual(draft.journal)
+  })
+
+  it('keeps the review, mistakes and score for a sell only', () => {
+    const closing = { ...emptyJournalDraft(), strategy: 'Pullback', review: 'ok', mistakes: ['chased' as const], score: '4' }
+    const sell = buyDraft({ type: 'sell', journal: closing })
+    expect(draftToTransaction(sell, ctx).tx.journal).toEqual({ strategy: 'Pullback', review: 'ok', mistakes: ['chased'], score: 4 })
+    expect(draftToTransaction({ ...sell, type: 'buy' }, ctx).tx.journal).toEqual({ strategy: 'Pullback' })
+    expect(draftToTransaction({ ...sell, type: 'buy', journal: { ...emptyJournalDraft(), score: '4' } }, ctx).tx.journal).toBeUndefined()
+  })
+
+  it('reports a price that is not a number once, from the journal', () => {
+    const draft = buyDraft({ journal: { ...emptyJournalDraft(), stopLoss: 'abc', target: '-5' } })
+    expect(draftToTransaction(draft, ctx).errors).toEqual(['Stop loss ต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป', 'Target ต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป'])
+  })
+
+  it('starts empty, and a saved transaction brings its journal into the draft', () => {
+    expect(emptyDraft('acc-1', '2024-01-15').journal).toEqual(emptyJournalDraft())
+    const saved = makeTx({ journal: { strategy: 'DCA', emotion: 'bored', confidence: 2 } })
+    expect(draftFromTransaction(saved, []).journal).toEqual({ ...emptyJournalDraft(), strategy: 'DCA', emotion: 'bored', confidence: '2' })
+    expect(draftFromTransaction(makeTx(), []).journal).toEqual(emptyJournalDraft())
+  })
+
+  it('repeats a buy with its strategy and tags but none of its feelings or review', () => {
+    const buy = makeTx({ journal: { strategy: 'DCA', tags: ['monthly'], emotion: 'calm', confidence: 3, stopLoss: '90', review: 'ok', score: 4 } })
+    expect(duplicateDraft(buy, [], '2024-06-01').journal).toEqual({ ...emptyJournalDraft(), strategy: 'DCA', tags: 'monthly' })
+  })
+})
+
+describe('knownStrategies', () => {
+  const traded = (strategy: string | undefined) => makeTx({ journal: strategy === undefined ? undefined : { strategy } })
+
+  it('lists each strategy once, the most used first', () => {
+    const transactions = [traded('Pullback'), traded('Breakout'), traded('DCA'), traded('Breakout'), traded('Breakout'), traded('DCA')]
+    expect(knownStrategies(transactions)).toEqual(['Breakout', 'DCA', 'Pullback'])
+  })
+
+  it('breaks a tie by name, and ignores blanks and trades without a journal', () => {
+    const transactions = [traded('b'), traded('a'), traded(' '), traded(undefined), makeTx({ journal: { emotion: 'fomo' } })]
+    expect(knownStrategies(transactions)).toEqual(['a', 'b'])
+    expect(knownStrategies([])).toEqual([])
+  })
+
+  it('counts a strategy typed with spaces around it as the same one', () => {
+    expect(knownStrategies([traded(' DCA'), traded('DCA ')])).toEqual(['DCA'])
   })
 })
 

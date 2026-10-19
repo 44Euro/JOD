@@ -1,6 +1,16 @@
 import { isIsoDate, todayLocal } from './dates'
 import { D, isDecimalString } from './decimal'
-import { FEE_PAID_IN, RECEIVE_KINDS, TX_TYPES, type FeeTemplate, type Thesis, type Transaction } from './types'
+import {
+  EMOTIONS,
+  FEE_PAID_IN,
+  MISTAKES,
+  RECEIVE_KINDS,
+  TX_TYPES,
+  type FeeTemplate,
+  type Thesis,
+  type TradeJournal,
+  type Transaction,
+} from './types'
 
 const INSTRUMENT_REQUIRED: readonly string[] = ['buy', 'sell', 'dividend', 'split', 'receive_asset']
 
@@ -87,6 +97,11 @@ export function validateTransaction(tx: Transaction, today: string = todayLocal(
     if (year === undefined || !Number.isInteger(year) || year < 2000 || year > 2200) errors.push('ปีภาษีไม่ถูกต้อง')
   }
 
+  if (tx.journal !== undefined) {
+    if (tx.type !== 'buy' && tx.type !== 'sell') errors.push('บันทึกเทรดใช้ได้กับการซื้อและขาย')
+    else errors.push(...validateJournal(tx.journal))
+  }
+
   const feePaidIn = tx.feePaidIn ?? 'cash'
   if (!FEE_PAID_IN.includes(feePaidIn)) {
     errors.push('วิธีจ่ายค่าธรรมเนียมไม่ถูกต้อง')
@@ -120,6 +135,37 @@ export function validateTransaction(tx: Transaction, today: string = todayLocal(
       positive(tx.fees, 'มูลค่าค่าธรรมเนียม')
     }
   }
+  return errors
+}
+
+function isScale(value: unknown): boolean {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 5
+}
+
+function isTextList(value: unknown): boolean {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string')
+}
+
+// Every field may be left out; whatever is filled in has to make sense. A backup file can hold anything, so the shape
+// is checked as well as the values.
+export function validateJournal(journal: TradeJournal): string[] {
+  if (typeof journal !== 'object' || journal === null) return ['บันทึกเทรดไม่ถูกต้อง']
+  const errors: string[] = []
+  const price = (value: string | undefined, label: string) => {
+    if (value !== undefined && (typeof value !== 'string' || !isDecimalString(value) || D(value).isNegative())) {
+      errors.push(`${label}ต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป`)
+    }
+  }
+  const text = [journal.strategy, journal.reason, journal.review].every((value) => value === undefined || typeof value === 'string')
+  if (!text || (journal.tags !== undefined && !isTextList(journal.tags))) errors.push('บันทึกเทรดไม่ถูกต้อง')
+  if (journal.emotion !== undefined && !EMOTIONS.includes(journal.emotion)) errors.push('อารมณ์ไม่ถูกต้อง')
+  if (journal.confidence !== undefined && !isScale(journal.confidence)) errors.push('ความมั่นใจต้องเป็น 1–5')
+  price(journal.stopLoss, 'Stop loss ')
+  price(journal.target, 'Target ')
+  if (journal.mistakes !== undefined && !(Array.isArray(journal.mistakes) && journal.mistakes.every((m) => MISTAKES.includes(m)))) {
+    errors.push('ข้อผิดพลาดไม่ถูกต้อง')
+  }
+  if (journal.score !== undefined && !isScale(journal.score)) errors.push('คะแนนการลงมือต้องเป็น 1–5')
   return errors
 }
 

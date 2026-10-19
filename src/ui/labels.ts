@@ -3,10 +3,12 @@ import {
   MARKETS,
   unitOf,
   type AssetType,
+  type Emotion,
   type FeePaidIn,
   type FxSource,
   type Instrument,
   type Market,
+  type Mistake,
   type ReceiveKind,
   type TxType,
   type Unit,
@@ -49,6 +51,24 @@ export const RECEIVE_KIND_LABELS: Record<ReceiveKind, string> = {
   airdrop: 'Airdrop',
   coin_interest: 'ดอกเบี้ยเป็นเหรียญ',
   other: 'อื่นๆ',
+}
+
+export const EMOTION_LABELS: Record<Emotion, string> = {
+  calm: 'นิ่ง มีแผน',
+  confident: 'มั่นใจ',
+  fomo: 'FOMO',
+  fear: 'กลัว',
+  greed: 'โลภ',
+  revenge: 'อยากเอาคืน',
+  bored: 'เบื่อ',
+}
+
+export const MISTAKE_LABELS: Record<Mistake, string> = {
+  chased: 'ไล่ราคา',
+  no_stop: 'ไม่ตั้ง Stop loss',
+  oversized: 'ซื้อเกินแผน',
+  sold_early: 'ขายเร็วเกิน',
+  moved_stop: 'เลื่อน Stop loss',
 }
 
 export const FEE_PAID_IN_LABELS: Record<FeePaidIn, string> = {

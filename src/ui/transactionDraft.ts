@@ -10,11 +10,14 @@ import {
   unitOf,
   type Account,
   type AssetType,
+  type Emotion,
   type FeePaidIn,
   type FxSource,
   type Instrument,
   type Market,
+  type Mistake,
   type ReceiveKind,
+  type TradeJournal,
   type Transaction,
   type TxType,
   type Unit,
@@ -24,6 +27,20 @@ import { validateSymbol, validateTransaction } from '../domain/validation'
 export type OpeningKind = 'asset' | 'cash'
 export type ToAmountSource = 'auto' | 'manual'
 export type FeesSource = 'auto' | 'manual'
+
+// Tags are typed as one line separated by commas; confidence and score hold '1' to '5' or nothing.
+export interface JournalDraft {
+  strategy: string
+  tags: string
+  reason: string
+  emotion: Emotion | ''
+  confidence: string
+  stopLoss: string
+  target: string
+  review: string
+  mistakes: Mistake[]
+  score: string
+}
 
 export interface Draft {
   type: TxType
@@ -69,6 +86,7 @@ export interface Draft {
   remitToThailand: boolean
   taxYear: string
   note: string
+  journal: JournalDraft
   reinvest: boolean
   reinvestQuantity: string
   reinvestPrice: string
@@ -88,6 +106,10 @@ export interface DraftContext {
 const FEE_MARKET: Market = 'CRYPTO'
 
 const INSTRUMENT_TYPES: readonly TxType[] = ['buy', 'sell', 'dividend', 'interest', 'split', 'swap', 'receive_asset']
+
+export function emptyJournalDraft(): JournalDraft {
+  return { strategy: '', tags: '', reason: '', emotion: '', confidence: '', stopLoss: '', target: '', review: '', mistakes: [], score: '' }
+}
 
 export function emptyDraft(accountId: string, today: string): Draft {
   return {
@@ -134,6 +156,7 @@ export function emptyDraft(accountId: string, today: string): Draft {
     remitToThailand: false,
     taxYear: today.slice(0, 4),
     note: '',
+    journal: emptyJournalDraft(),
     reinvest: false,
     reinvestQuantity: '',
     reinvestPrice: '',
@@ -472,6 +495,7 @@ export function draftFromTransaction(tx: Transaction, instruments: readonly Inst
     remitToThailand: tx.remitToThailand ?? false,
     taxYear: tx.taxYear?.toString() ?? tx.date.slice(0, 4),
     note: tx.note,
+    journal: journalToDraft(tx.journal),
     reinvest: false,
     reinvestQuantity: '',
     reinvestPrice: '',
@@ -486,10 +510,13 @@ export function draftFromTransaction(tx: Transaction, instruments: readonly Inst
 
 // A repeat is for today, so what belonged to the day of the original is dropped: the rate is fetched again, and the
 // price and the amount received are what the market gives today. The fee stays as it was (feesSource is manual),
-// because the account formula would have no price to work it out from.
+// because the account formula would have no price to work it out from. A repeated trade is the same plan, so its
+// strategy and tags stay, while how the first one felt and went does not.
 export function duplicateDraft(tx: Transaction, instruments: readonly Instrument[], today: string): Draft {
+  const original = draftFromTransaction(tx, instruments)
   const repeated: Draft = {
-    ...draftFromTransaction(tx, instruments),
+    ...original,
+    journal: { ...emptyJournalDraft(), strategy: original.journal.strategy, tags: original.journal.tags },
     date: today,
     time: '',
     taxYear: today.slice(0, 4),
@@ -508,6 +535,60 @@ export function duplicateDraft(tx: Transaction, instruments: readonly Instrument
 // Unparseable input is passed through unchanged so validateTransaction reports it once.
 function num(raw: string): string | undefined {
   return raw.trim() === '' ? undefined : (parseDecimalInput(raw) ?? raw.trim())
+}
+
+export function journalFromDraft(j: JournalDraft): TradeJournal | undefined {
+  const journal: TradeJournal = {}
+  const strategy = j.strategy.trim()
+  const tags = j.tags.split(',').map((tag) => tag.trim()).filter(Boolean)
+  const reason = j.reason.trim()
+  const stopLoss = num(j.stopLoss)
+  const target = num(j.target)
+  const review = j.review.trim()
+  if (strategy) journal.strategy = strategy
+  if (tags.length > 0) journal.tags = tags
+  if (reason) journal.reason = reason
+  if (j.emotion) journal.emotion = j.emotion
+  if (j.confidence) journal.confidence = Number(j.confidence)
+  if (stopLoss !== undefined) journal.stopLoss = stopLoss
+  if (target !== undefined) journal.target = target
+  if (review) journal.review = review
+  if (j.mistakes.length > 0) journal.mistakes = [...j.mistakes]
+  if (j.score) journal.score = Number(j.score)
+  return Object.keys(journal).length > 0 ? journal : undefined
+}
+
+export function journalToDraft(journal?: TradeJournal): JournalDraft {
+  return {
+    strategy: journal?.strategy ?? '',
+    tags: journal?.tags?.join(', ') ?? '',
+    reason: journal?.reason ?? '',
+    emotion: journal?.emotion ?? '',
+    confidence: journal?.confidence?.toString() ?? '',
+    stopLoss: journal?.stopLoss ?? '',
+    target: journal?.target ?? '',
+    review: journal?.review ?? '',
+    mistakes: journal?.mistakes ?? [],
+    score: journal?.score?.toString() ?? '',
+  }
+}
+
+// The review, mistakes and score are written about a trade that is closed, so a buy never carries them. The draft keeps
+// the whole journal meanwhile, so a type changed back and forth loses nothing.
+function tradeJournal(draft: Draft): TradeJournal | undefined {
+  if (draft.type === 'sell') return journalFromDraft(draft.journal)
+  if (draft.type === 'buy') return journalFromDraft({ ...draft.journal, review: '', mistakes: [], score: '' })
+  return undefined
+}
+
+// The strategies already used, the ones used most often first, to offer them while a new one is typed.
+export function knownStrategies(transactions: readonly Transaction[]): string[] {
+  const counts = new Map<string, number>()
+  for (const tx of transactions) {
+    const strategy = tx.journal?.strategy?.trim()
+    if (strategy) counts.set(strategy, (counts.get(strategy) ?? 0) + 1)
+  }
+  return [...counts].sort(([a, countA], [b, countB]) => countB - countA || a.localeCompare(b)).map(([name]) => name)
 }
 
 export function draftToTransaction(draft: Draft, ctx: DraftContext): { tx: Transaction; errors: string[] } {
@@ -556,6 +637,7 @@ export function draftToTransaction(draft: Draft, ctx: DraftContext): { tx: Trans
     referenceFxRate: noFx ? undefined : draft.referenceFxRate || undefined,
     remitToThailand: remit ? true : undefined,
     taxYear: remit ? Number.parseInt(draft.taxYear, 10) : undefined,
+    journal: tradeJournal(draft),
     note: draft.note.trim(),
     createdAt: ctx.createdAt,
     updatedAt: ctx.createdAt,

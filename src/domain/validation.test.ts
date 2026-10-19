@@ -5,9 +5,44 @@ import { validateFeeTemplate, validateSymbol, validateTransaction } from './vali
 
 const TODAY = '2024-06-30'
 
+const thb = { currency: 'THB', fxRate: '1', fxSource: 'same' as const, instrumentId: undefined, quantity: undefined, price: undefined }
+
 describe('validateTransaction', () => {
   it('accepts a complete buy', () => {
     expect(validateTransaction(makeTx(), TODAY)).toEqual([])
+  })
+
+  it('checks the trade journal of a buy or sell', () => {
+    const buy = makeTx({})
+    expect(validateTransaction({ ...buy, journal: { confidence: 6 } }, TODAY)).toContain('ความมั่นใจต้องเป็น 1–5')
+    expect(validateTransaction({ ...buy, journal: { score: 0 } }, TODAY)).toContain('คะแนนการลงมือต้องเป็น 1–5')
+    expect(validateTransaction({ ...buy, journal: { stopLoss: '-1' } }, TODAY)).toContain('Stop loss ต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป')
+    expect(validateTransaction({ ...buy, journal: { emotion: 'happy' as never } }, TODAY)).toContain('อารมณ์ไม่ถูกต้อง')
+    expect(validateTransaction({ ...buy, journal: { mistakes: ['typo' as never] } }, TODAY)).toContain('ข้อผิดพลาดไม่ถูกต้อง')
+    expect(
+      validateTransaction({ ...makeTx({ ...thb, type: 'deposit', amount: '100' }), journal: { strategy: 'x' } }, TODAY),
+    ).toContain('บันทึกเทรดใช้ได้กับการซื้อและขาย')
+    expect(validateTransaction({ ...buy, journal: { strategy: 'Breakout', confidence: 4, stopLoss: '95', target: '130' } }, TODAY)).toEqual([])
+  })
+
+  it('names the target and takes only whole numbers from 1 to 5 for the scales', () => {
+    const buy = makeTx({})
+    expect(validateTransaction({ ...buy, journal: { target: 'abc' } }, TODAY)).toContain('Target ต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป')
+    for (const confidence of [0, 2.5, '4' as never]) {
+      expect(validateTransaction({ ...buy, journal: { confidence } }, TODAY)).toContain('ความมั่นใจต้องเป็น 1–5')
+    }
+    expect(validateTransaction({ ...buy, journal: { confidence: 1, score: 5 } }, TODAY)).toEqual([])
+  })
+
+  it('reads a journal that is not an object, or has text of the wrong kind, as damaged', () => {
+    const buy = makeTx({})
+    const damaged = 'บันทึกเทรดไม่ถูกต้อง'
+    expect(validateTransaction({ ...buy, journal: null as never }, TODAY)).toContain(damaged)
+    expect(validateTransaction({ ...buy, journal: 'x' as never }, TODAY)).toContain(damaged)
+    expect(validateTransaction({ ...buy, journal: { strategy: 5 as never } }, TODAY)).toContain(damaged)
+    expect(validateTransaction({ ...buy, journal: { tags: 'gap' as never } }, TODAY)).toContain(damaged)
+    expect(validateTransaction({ ...buy, journal: { tags: [1 as never] } }, TODAY)).toContain(damaged)
+    expect(validateTransaction({ ...buy, journal: { tags: ['gap'], reason: 'r', review: 'v' } }, TODAY)).toEqual([])
   })
 
   it('rejects zero quantity, negative fees and a missing instrument', () => {
