@@ -1,12 +1,46 @@
+import { CURRENCY_NAMES } from '../../domain/currencies'
 import { cn } from '../../lib/cn'
-import { fmtRate, fmtSigned } from '../format'
+import { fmtNumber, fmtRate, fmtSigned } from '../format'
 import type { RateBoardRow } from '../rateBoard'
 
-// The five columns need about 670px of the board's own width (container query), which a tablet beside the
-// sidebar, or the left column of the two-column overview, does not always have.
-const COLUMNS = '@min-[680px]:grid-cols-[120px_1fr_1fr_110px_170px]'
+// Both layouts switch from stacked rows to columns on the board's own width (container query), which a tablet beside the
+// sidebar, or the left column of the two-column overview, does not always have. The five columns need about 680px of it and
+// the six about 800px. Tailwind only sees whole class names, so each layout spells out its own.
+const LAYOUTS = {
+  compact: {
+    columns: '@min-[680px]:grid-cols-[150px_1fr_1fr_100px_170px]',
+    head: '@min-[680px]:grid',
+    row: '@min-[680px]:gap-2',
+    rates: '@min-[680px]:order-none @min-[680px]:contents @min-[680px]:text-[34px]',
+    arrow: '@min-[680px]:hidden',
+    note: '@max-[680px]:hidden',
+    diff: '@min-[680px]:order-none @min-[680px]:text-left',
+    effect: '@min-[680px]:order-none @min-[680px]:col-span-1 @min-[680px]:text-left @min-[680px]:text-xl',
+  },
+  full: {
+    columns: '@min-[800px]:grid-cols-[176px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_100px_132px]',
+    head: '@min-[800px]:grid',
+    row: '@min-[800px]:gap-2',
+    held: 'hidden @min-[800px]:block',
+    rates: '@min-[800px]:order-none @min-[800px]:contents @min-[800px]:text-[34px]',
+    arrow: '@min-[800px]:hidden',
+    note: '@max-[800px]:hidden',
+    diff: '@min-[800px]:order-none @min-[800px]:text-left',
+    effect: '@min-[800px]:order-none @min-[800px]:col-span-1 @min-[800px]:text-left @min-[800px]:text-xl',
+  },
+}
 
-export function RateBoard({ rows, base }: { rows: readonly RateBoardRow[]; base: string }) {
+interface RateBoardProps {
+  rows: readonly RateBoardRow[]
+  base: string
+  // The currency page adds what is held and writes the effect in whole baht.
+  full?: boolean
+  caption?: string
+}
+
+export function RateBoard({ rows, base, full = false, caption = 'เรทเฉลี่ยที่แลกมา เทียบเรทวันนี้' }: RateBoardProps) {
+  const layout = LAYOUTS[full ? 'full' : 'compact']
+  const mark = base === 'THB' ? '฿' : base
   return (
     <section
       aria-labelledby="rate-board-title"
@@ -16,50 +50,85 @@ export function RateBoard({ rows, base }: { rows: readonly RateBoardRow[]; base:
         <h2 id="rate-board-title" className="text-lg font-semibold text-white">
           กระดานเรทของคุณ
         </h2>
-        <p className="text-[12.5px] text-board-muted">เรทเฉลี่ยที่แลกมา เทียบเรทวันนี้</p>
+        <p className="text-[12.5px] text-board-muted">{caption}</p>
       </div>
-      <div aria-hidden className={cn('hidden gap-2 pt-1.5 pb-2 text-xs text-board-muted @min-[680px]:grid', COLUMNS)}>
-        <span>สกุลที่ถือ</span>
-        <span>เรทเฉลี่ยของคุณ</span>
-        <span>เรทวันนี้</span>
-        <span>ส่วนต่าง</span>
-        <span>ผลต่อพอร์ต</span>
-      </div>
-      <ul>
-        {rows.map((row) => (
-          <li
-            key={row.currency}
-            className={cn('grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2.5 gap-y-1 border-t border-board-line py-3 @min-[680px]:gap-2', COLUMNS)}
-          >
-            <span className="justify-self-start rounded-md bg-board-line px-2 py-0.5 font-display text-xs font-semibold text-[#dce6f7]">
-              {row.currency}
-            </span>
-            <span className="order-2 col-span-2 flex min-w-0 flex-wrap items-baseline gap-x-1.5 font-display text-[22px] font-semibold leading-tight @min-[680px]:order-none @min-[680px]:contents @min-[680px]:text-[34px]">
-              <span className="text-board-mine">{fmtRate(row.mine)}</span>
-              <span aria-hidden className="text-base text-board-muted @min-[680px]:hidden">
-                →
-              </span>
-              <span>
-                {row.today ? fmtRate(row.today) : '—'}
-                {row.todayNote && (
-                  <small className="block font-sans text-[11px] font-normal text-board-muted @max-[680px]:hidden">{row.todayNote}</small>
-                )}
-              </span>
-            </span>
-            <span
-              className={cn(
-                'order-1 text-right font-display text-xl font-semibold @min-[680px]:order-none @min-[680px]:text-left',
-                row.diffPct?.lessThan(0) ? 'text-board-loss' : 'text-board-gain',
-              )}
-            >
-              {row.diffPct ? `${fmtSigned(row.diffPct)}%` : '—'}
-            </span>
-            <span className="order-3 col-span-2 text-right font-display text-base font-semibold text-board-fx @min-[680px]:order-none @min-[680px]:col-span-1 @min-[680px]:text-left @min-[680px]:text-xl">
-              {row.effectBase ? `${fmtSigned(row.effectBase)} ${base}` : '—'}
-            </span>
-          </li>
-        ))}
-      </ul>
+      {rows.length > 0 && (
+        <>
+          <div aria-hidden className={cn('hidden gap-2 pt-1.5 pb-2 text-xs text-board-muted', layout.head, layout.columns)}>
+            <span>สกุลที่ถือ</span>
+            {full && <span>ถืออยู่</span>}
+            <span>เรทเฉลี่ยของคุณ</span>
+            <span>เรทวันนี้</span>
+            <span>ส่วนต่าง</span>
+            <span>ผลต่อพอร์ต</span>
+          </div>
+          <ul>
+            {rows.map((row) => {
+              const name = CURRENCY_NAMES[row.currency]
+              return (
+                <li
+                  key={row.currency}
+                  className={cn(
+                    'grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2.5 gap-y-1 border-t border-board-line py-3',
+                    layout.row,
+                    layout.columns,
+                  )}
+                >
+                  <span className="flex min-w-0 items-center gap-2.5 justify-self-start">
+                    <span className="shrink-0 rounded-md bg-board-line px-2 py-0.5 font-display text-xs font-semibold text-[#dce6f7]">
+                      {row.currency}
+                    </span>
+                    {name && (
+                      <span className="min-w-0 truncate text-sm font-semibold" title={name}>
+                        {name}
+                      </span>
+                    )}
+                  </span>
+                  {full && (
+                    <span className={cn('min-w-0 text-base', LAYOUTS.full.held)}>
+                      {`${fmtNumber(row.heldQuote, 0)} ${row.currency}`}
+                    </span>
+                  )}
+                  <span
+                    className={cn(
+                      'order-2 col-span-2 flex min-w-0 flex-wrap items-baseline gap-x-1.5 font-display text-[22px] font-semibold leading-tight',
+                      layout.rates,
+                    )}
+                  >
+                    <span className="text-board-mine">{fmtRate(row.mine)}</span>
+                    <span aria-hidden className={cn('text-base text-board-muted', layout.arrow)}>
+                      →
+                    </span>
+                    <span>
+                      {row.today ? fmtRate(row.today) : '—'}
+                      {row.todayNote && (
+                        <small className={cn('block font-sans text-[11px] font-normal text-board-muted', layout.note)}>{row.todayNote}</small>
+                      )}
+                    </span>
+                  </span>
+                  <span
+                    className={cn(
+                      'order-1 text-right font-display text-xl font-semibold',
+                      layout.diff,
+                      row.diffPct?.lessThan(0) ? 'text-board-loss' : 'text-board-gain',
+                    )}
+                  >
+                    {row.diffPct ? `${fmtSigned(row.diffPct)}%` : '—'}
+                  </span>
+                  <span
+                    className={cn(
+                      'order-3 col-span-2 min-w-0 text-right font-display text-base font-semibold text-board-fx',
+                      layout.effect,
+                    )}
+                  >
+                    {row.effectBase ? (full ? `${fmtSigned(row.effectBase, 0)} ${mark}` : `${fmtSigned(row.effectBase)} ${base}`) : '—'}
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
+        </>
+      )}
     </section>
   )
 }

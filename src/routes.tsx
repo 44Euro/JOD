@@ -2,6 +2,7 @@ import type { RouteObject } from 'react-router'
 import { Layout } from './ui/Layout'
 import { AssetPage } from './ui/pages/AssetPage'
 import { DashboardPage } from './ui/pages/DashboardPage'
+import { FxPage } from './ui/pages/FxPage'
 import { IncomePage } from './ui/pages/IncomePage'
 import { MorePage } from './ui/pages/MorePage'
 import { PortfolioPage } from './ui/pages/PortfolioPage'
@@ -20,6 +21,7 @@ export const routes: RouteObject[] = [
       { path: 'assets/:id', element: <AssetPage /> },
       { path: 'income', element: <IncomePage /> },
       { path: 'trades', element: <TradesPage /> },
+      { path: 'fx', element: <FxPage /> },
       { path: 'more', element: <MorePage /> },
       { path: 'settings', element: <SettingsPage /> },
       { path: 'transactions', element: <TransactionsPage /> },

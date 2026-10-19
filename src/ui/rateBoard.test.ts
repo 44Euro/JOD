@@ -35,6 +35,17 @@ describe('buildRateBoard', () => {
     expect(rows[0].effectBase?.toString()).toBe('-2400')
   })
 
+  it('holds the market value of the priced positions plus the cost of the unpriced ones, in the currency', () => {
+    const priced = valuePosition(position({ quantity: D(5), costQuote: D(501), costBase: D(17034) }), '120', '33')
+    const unpriced = valuePosition(
+      position({ key: 'acc-1|US:MSFT', instrumentId: 'US:MSFT', quantity: D(1), costQuote: D(400), costBase: D(13600) }),
+      undefined,
+      '33',
+    )
+    const [row] = buildRateBoard([priced, unpriced], 'THB', { USD: { rate: '33', note: '' } })
+    expect(row.heldQuote.toString()).toBe('1000')
+  })
+
   it('leaves today empty when no rate is known yet', () => {
     const [row] = buildRateBoard([valuePosition(position({}), '120')], 'THB', {})
     expect(row.today).toBeNull()

@@ -87,6 +87,18 @@ describe('DashboardPage', () => {
     expect(within(board).getByText('−360.00 THB')).toBeInTheDocument()
   })
 
+  it('names each currency of the rate board in Thai beside its code and leaves out what is held', async () => {
+    setToday(2024, 6, 1)
+    await seedDime()
+    renderRoute('/', usd())
+    const board = await screen.findByRole('region', { name: 'กระดานเรทของคุณ' })
+    const [row] = within(board).getAllByRole('listitem')
+    expect(within(row).getByText('USD')).toBeInTheDocument()
+    expect(within(row).getByText('ดอลลาร์สหรัฐ')).toBeInTheDocument()
+    expect(within(board).queryByText('ถืออยู่')).not.toBeInTheDocument()
+    expect(within(board).getByText('เรทเฉลี่ยที่แลกมา เทียบเรทวันนี้')).toBeInTheDocument()
+  })
+
   it('splits the gain of each holding into stock and currency in whole baht', async () => {
     setToday(2024, 6, 1)
     await seedDime()
@@ -393,7 +405,7 @@ describe('DashboardPage', () => {
       const board = screen.getByRole('region', { name: 'กระดานเรทของคุณ' })
       expect(board).toHaveClass('@container')
       const [row] = within(board).getAllByRole('listitem')
-      expect(row).toHaveClass('@min-[680px]:grid-cols-[120px_1fr_1fr_110px_170px]')
+      expect(row).toHaveClass('@min-[680px]:grid-cols-[150px_1fr_1fr_100px_170px]')
     })
   })
 })

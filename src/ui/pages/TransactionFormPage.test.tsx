@@ -398,6 +398,121 @@ describe('TransactionFormPage', () => {
     expect(await db.transactions.count()).toBe(0)
   })
 
+  describe('opening on a type named in the link', () => {
+    const provider = () => fakeFxProvider({ 'USD|THB': '33.5' }).provider
+    const pressed = (name: string) => screen.getByRole('button', { name }).getAttribute('aria-pressed')
+
+    it('opens on the exchange type with the account currency as the source', async () => {
+      renderRoute('/transactions/new?type=fx_convert', provider())
+      expect(await screen.findByRole('button', { name: 'แลกเงิน' })).toHaveAttribute('aria-pressed', 'true')
+      expect(pressed('ซื้อ')).toBe('false')
+      expect(screen.getByLabelText('สกุลเงินต้นทาง')).toHaveValue('THB')
+      expect(screen.getByLabelText('จำนวนเงินต้นทาง')).toBeInTheDocument()
+    })
+
+    it('opens on a type that sits behind the more menu', async () => {
+      renderRoute('/transactions/new?type=opening', provider())
+      expect(await screen.findByLabelText('ประเภทอื่นๆ')).toHaveValue('opening')
+      expect(pressed('สินทรัพย์ที่ถืออยู่')).toBe('true')
+      expect(screen.getByLabelText('ต้นทุนเฉลี่ยต่อหน่วย')).toBeInTheDocument()
+    })
+
+    it('picks the target account of a transfer as the type picker does', async () => {
+      await db.accounts.add({ id: 'acc-2', name: 'IBKR', broker: 'IBKR', note: '', createdAt: '2024-01-01T00:00:00.000Z' })
+      renderRoute('/transactions/new?type=transfer', provider())
+      expect(await screen.findByLabelText('บัญชีปลายทาง')).toHaveDisplayValue('IBKR')
+    })
+
+    it('stays on a buy when the type is not one of the types', async () => {
+      renderRoute('/transactions/new?type=gift', provider())
+      expect(await screen.findByRole('button', { name: 'ซื้อ' })).toHaveAttribute('aria-pressed', 'true')
+    })
+
+    it('leaves a copy as it was when the link names a type as well', async () => {
+      await db.transactions.add(makeTx({ id: 'aapl-buy', quantity: '2', price: '100', date: '2024-03-10' }))
+      renderRoute('/transactions/new?from=aapl-buy&type=fx_convert', provider())
+      expect(await screen.findByLabelText('สัญลักษณ์')).toHaveValue('AAPL')
+      expect(pressed('ซื้อ')).toBe('true')
+    })
+
+    it('leaves a transaction being edited as it was', async () => {
+      await db.transactions.add(makeTx({ id: 'buy-1' }))
+      renderRoute('/transactions/buy-1?type=fx_convert', provider())
+      expect(await screen.findByLabelText('สัญลักษณ์')).toHaveValue('AAPL')
+      expect(pressed('ซื้อ')).toBe('true')
+    })
+
+    it('lets the type be changed from the picker afterwards', async () => {
+      const user = userEvent.setup()
+      renderRoute('/transactions/new?type=fx_convert', provider())
+      await user.click(await screen.findByRole('button', { name: 'ซื้อ' }))
+      expect(pressed('ซื้อ')).toBe('true')
+      expect(pressed('แลกเงิน')).toBe('false')
+      expect(screen.getByLabelText('สกุลเงิน')).toHaveValue('USD')
+    })
+
+    it('opens the other type when the link changes', async () => {
+      const router = renderRoute('/transactions/new?type=fx_convert', provider())
+      expect(await screen.findByRole('button', { name: 'แลกเงิน' })).toHaveAttribute('aria-pressed', 'true')
+      await act(() => router.navigate('/transactions/new?type=deposit'))
+      expect(await screen.findByRole('button', { name: 'ฝากเงิน' })).toHaveAttribute('aria-pressed', 'true')
+    })
+  })
+
+  describe('a dollar-pegged coin', () => {
+    async function pickCurrency(provider: FxProvider, currency: string) {
+      const user = userEvent.setup()
+      renderRoute('/transactions/new', provider)
+      await user.selectOptions(await screen.findByLabelText('สกุลเงิน'), currency)
+      return user
+    }
+
+    it('takes the dollar rate when it has none of its own', async () => {
+      await pickCurrency(fakeFxProvider({ 'USD|THB': '33' }).provider, 'USDT')
+      await waitFor(() => expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('33'))
+      expect(screen.getByText('ใช้เรท USD')).toBeInTheDocument()
+      expect(screen.getByText('อัตโนมัติ')).toBeInTheDocument()
+      expect(screen.queryByText(/ไม่มีเรทอัตโนมัติ/)).not.toBeInTheDocument()
+    })
+
+    it('saves a coin bought in it with the dollar rate as an automatic rate', async () => {
+      const user = userEvent.setup()
+      renderRoute('/transactions/new', fakeFxProvider({ 'USD|THB': '33' }).provider)
+      await user.selectOptions(await screen.findByLabelText('ตลาด'), 'CRYPTO')
+      await user.selectOptions(screen.getByLabelText('สกุลเงิน'), 'USDT')
+      await user.type(screen.getByLabelText('สัญลักษณ์'), 'btc')
+      await user.type(screen.getByLabelText('จำนวนหน่วย'), '0.01')
+      await user.type(screen.getByLabelText('ราคาต่อหน่วย'), '60000')
+      await waitFor(() => expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('33'))
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+      await waitFor(async () => expect(await db.transactions.count()).toBe(1))
+      expect((await db.transactions.toArray())[0]).toMatchObject({ instrumentId: 'CRYPTO:BTC', currency: 'USDT', fxRate: '33', fxSource: 'auto' })
+    })
+
+    it('keeps a rate typed by hand over the dollar rate', async () => {
+      const user = await pickCurrency(fakeFxProvider({ 'USD|THB': '33' }).provider, 'USDT')
+      await waitFor(() => expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('33'))
+      await user.clear(screen.getByLabelText(/เรทแลกเปลี่ยน/))
+      await user.type(screen.getByLabelText(/เรทแลกเปลี่ยน/), '34.1')
+      expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('34.1')
+      expect(screen.getByText('กรอกเอง')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'กลับไปใช้เรทกลาง 33' })).toBeInTheDocument()
+    })
+
+    it('says why there is no rate when the dollar has none either', async () => {
+      await pickCurrency(fakeFxProvider({}).provider, 'USDT')
+      expect(await screen.findByText(/ไม่มีเรทอัตโนมัติสำหรับ USDT\/THB/)).toBeInTheDocument()
+      expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('')
+      expect(screen.queryByText('ใช้เรท USD')).not.toBeInTheDocument()
+    })
+
+    it('does not borrow the dollar for a currency that is not pegged to it', async () => {
+      await pickCurrency(fakeFxProvider({ 'USD|THB': '33' }).provider, 'VND')
+      expect(await screen.findByText(/ไม่มีเรทอัตโนมัติสำหรับ VND\/THB/)).toBeInTheDocument()
+      expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('')
+    })
+  })
+
   describe('currency exchange', () => {
     const exchangeDay = { target: { value: '2024-01-15' } }
 

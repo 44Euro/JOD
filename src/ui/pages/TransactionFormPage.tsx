@@ -9,14 +9,15 @@ import { Field } from '../../components/ui/field'
 import { Input, NativeSelect, Textarea } from '../../components/ui/input'
 import { db } from '../../db/db'
 import { deleteTransaction, newId, saveTransactions, upsertInstrument } from '../../db/repo'
-import { CURRENCY_OPTIONS } from '../../domain/currencies'
+import { CURRENCY_OPTIONS, USD_PEGGED } from '../../domain/currencies'
 import { isIsoDate, todayLocal } from '../../domain/dates'
 import { D, isDecimalString } from '../../domain/decimal'
 import { fxConvertSummary, spreadPct } from '../../domain/fxConvert'
 import { computeLedger, positionKey } from '../../domain/ledger'
-import { findInstrument, instrumentKey, symbolOf, unitOf, type Market, type Transaction } from '../../domain/types'
+import { TX_TYPES, findInstrument, instrumentKey, symbolOf, unitOf, type Market, type Transaction, type TxType } from '../../domain/types'
 import { useFxProvider } from '../../fx/context'
-import { getFxQuote } from '../../fx/fxService'
+import type { FxProvider } from '../../fx/frankfurter'
+import { getFxQuote, type FxQuote } from '../../fx/fxService'
 import { cn } from '../../lib/cn'
 import { previewAfterSave } from '../afterSave'
 import { MiniRoute } from '../components/MoneyRoute'
@@ -82,7 +83,9 @@ export function TransactionFormPage() {
   if (id && !existing) return <Card>ไม่พบรายการนี้</Card>
   const from = id ? null : searchParams.get('from')
   const copyOf = from ? data.transactions.find((t) => t.id === from) : undefined
-  return <TransactionForm key={id ?? `new-${from ?? ''}`} data={data} existing={existing} copyOf={copyOf} />
+  const asked = searchParams.get('type')
+  const startType = !id && !from ? TX_TYPES.find((type) => type === asked) : undefined
+  return <TransactionForm key={id ?? `new-${from ?? ''}-${startType ?? ''}`} data={data} existing={existing} copyOf={copyOf} startType={startType} />
 }
 
 function positiveDecimal(value: string | undefined): boolean {
@@ -147,7 +150,37 @@ function marketRateKey(draft: Draft): string {
   return `${draft.toCurrency}|${draft.currency}|${draft.date}`
 }
 
-function TransactionForm({ data, existing, copyOf }: { data: AppData; existing?: Transaction; copyOf?: Transaction }) {
+// A dollar-pegged coin has no rate of its own, so the dollar's stands in for it; when the dollar has none either, the
+// reason is the coin's own.
+async function quoteWithPegFallback(
+  provider: FxProvider,
+  currency: string,
+  base: string,
+  date: string,
+): Promise<{ quote: FxQuote; note: string }> {
+  try {
+    const quote = await getFxQuote(db, provider, currency, base, date)
+    return { quote, note: `เรทกลาง ECB ${fmtDate(quote.rateDate)}` }
+  } catch (error) {
+    if (!USD_PEGGED.includes(currency)) throw error
+    const quote = await getFxQuote(db, provider, 'USD', base, date).catch(() => {
+      throw error
+    })
+    return { quote, note: 'ใช้เรท USD' }
+  }
+}
+
+function TransactionForm({
+  data,
+  existing,
+  copyOf,
+  startType,
+}: {
+  data: AppData
+  existing?: Transaction
+  copyOf?: Transaction
+  startType?: TxType
+}) {
   const navigate = useNavigate()
   const provider = useFxProvider()
   const isDesktop = useIsDesktop()
@@ -155,7 +188,8 @@ function TransactionForm({ data, existing, copyOf }: { data: AppData; existing?:
   const [draft, setDraftState] = useState<Draft>(() => {
     if (existing) return draftFromTransaction(existing, data.instruments)
     if (copyOf) return duplicateDraft(copyOf, data.instruments, todayLocal())
-    return emptyDraft(data.accounts[0].id, todayLocal())
+    const blank = emptyDraft(data.accounts[0].id, todayLocal())
+    return startType ? withTransferTarget(changeType(blank, startType, base), data.accounts) : blank
   })
   // The accounts come from a live query that hands over a new array on every write, and setDraft is a dependency of
   // the rate lookups below, so a ref keeps it stable.
@@ -191,10 +225,10 @@ function TransactionForm({ data, existing, copyOf }: { data: AppData; existing?:
   useEffect(() => {
     if (!needsFx || !isIsoDate(draft.date)) return
     let cancelled = false
-    getFxQuote(db, provider, draft.currency, base, draft.date)
-      .then((quote) => {
+    quoteWithPegFallback(provider, draft.currency, base, draft.date)
+      .then(({ quote, note }) => {
         if (cancelled) return
-        setFxMessage(`เรทกลาง ECB ${fmtDate(quote.rateDate)}`)
+        setFxMessage(note)
         setDraft((d) => applyReferenceRate(d, quote))
       })
       .catch((error: Error) => {

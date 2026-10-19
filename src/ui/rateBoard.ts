@@ -5,6 +5,7 @@ import type { RateInfo } from './hooks'
 
 export interface RateBoardRow {
   currency: string
+  heldQuote: Decimal
   mine: Decimal
   today: Decimal | null
   todayNote: string
@@ -13,7 +14,8 @@ export interface RateBoardRow {
 }
 
 // "mine" is the average rate of the money still sitting in open positions; the effect only counts positions
-// that have a price, the same ones the portfolio summary counts.
+// that have a price, the same ones the portfolio summary counts. What is held counts every position in the
+// currency, at its value where it has a price and at its cost where it has none.
 export function buildRateBoard(
   valuations: readonly PositionValuation[],
   baseCurrency: string,
@@ -24,9 +26,11 @@ export function buildRateBoard(
     baseCurrency,
   ).map((row) => {
     const rate = rates[row.currency]
-    const valued = valuations.filter((v) => v.position.currency === row.currency && v.fxEffectBase !== null)
+    const inCurrency = valuations.filter((v) => v.position.currency === row.currency)
+    const valued = inCurrency.filter((v) => v.fxEffectBase !== null)
     return {
       currency: row.currency,
+      heldQuote: sumBy(inCurrency, (v) => v.marketValueQuote ?? v.position.costQuote),
       mine: row.avgRate,
       today: rate ? D(rate.rate) : null,
       todayNote: rate?.note ?? '',
