@@ -447,6 +447,33 @@ describe('PortfolioPage', () => {
     expect(screen.queryByText('−100.00 USD')).not.toBeInTheDocument()
   })
 
+  it('explains the missing cash of an account that has only received a transfer', async () => {
+    await db.accounts.add({ id: 'acc-2', name: 'Binance', broker: 'Binance', note: '', createdAt: '2024-01-01T00:00:00.000Z' })
+    const baht = { currency: 'THB', fxRate: '1', fxSource: 'same' as const, instrumentId: undefined, quantity: undefined, price: undefined }
+    await db.transactions.bulkAdd([
+      makeTx({ ...baht, type: 'deposit', amount: '50000', date: '2024-01-02' }),
+      makeTx({ ...baht, type: 'transfer', toAccountId: 'acc-2', amount: '20000', date: '2024-01-03' }),
+    ])
+    renderRoute('/portfolio', fakeFxProvider({}).provider)
+    expect(
+      await screen.findByText('บัญชีที่จดแค่ซื้อขาย ไม่นับเงินสด (ไม่มีรายการฝาก ถอน หรือแลกเงิน)'),
+    ).toBeInTheDocument()
+  })
+
+  it('does not explain missing cash when every account that appears in a transaction records its cash', async () => {
+    await db.accounts.add({ id: 'acc-2', name: 'KBank', broker: 'KBank', note: '', createdAt: '2024-01-01T00:00:00.000Z' })
+    const baht = { currency: 'THB', fxRate: '1', fxSource: 'same' as const, instrumentId: undefined, quantity: undefined, price: undefined }
+    await db.transactions.bulkAdd([
+      makeTx({ ...baht, type: 'deposit', amount: '50000', date: '2024-01-02' }),
+      makeTx({ ...baht, accountId: 'acc-2', type: 'deposit', amount: '1000', date: '2024-01-02' }),
+      makeTx({ ...baht, type: 'transfer', toAccountId: 'acc-2', amount: '20000', date: '2024-01-03' }),
+    ])
+    renderRoute('/portfolio', fakeFxProvider({}).provider)
+    expect(await screen.findByText('เงินสดคงเหลือ')).toBeInTheDocument()
+    await screen.findByText('KBank')
+    expect(screen.queryByText(/บัญชีที่จดแค่ซื้อขาย/)).not.toBeInTheDocument()
+  })
+
   describe('views', () => {
     beforeEach(async () => {
       await db.accounts.add({ id: 'acc-2', name: 'Streaming SET', broker: 'Streaming', note: '', createdAt: '2024-01-01T00:00:00.000Z' })

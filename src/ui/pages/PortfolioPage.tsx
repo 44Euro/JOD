@@ -47,7 +47,7 @@ export function PortfolioPage() {
   const statsByKey = new Map(stats.map((s) => [s.key, s]))
   const { cash } = investor.worth
   const unrated = [...new Set(cash.filter((row) => row.base === null).map((row) => row.currency))]
-  const usedAccounts = [...new Set(data.transactions.map((t) => t.accountId))]
+  const usedAccounts = [...new Set(data.transactions.flatMap((t) => (t.toAccountId ? [t.accountId, t.toAccountId] : [t.accountId])))]
   const tradeOnly = usedAccounts.some((id) => !accountTracksCash(data.transactions, id))
   const currencyRows = currencyAllocation(valuations, cash)
   const unpriced = unpricedInstrumentCount(valuations)
