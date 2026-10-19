@@ -91,6 +91,13 @@ describe('cashFxRows', () => {
     expect(rows.map((r) => [r.currency, r.amount.toString(), r.costBase.toString(), r.valueBase, r.effectBase])).toEqual([['USD', '499', '16966', null, null]])
   })
 
+  it('leaves out cash that is not above zero, which has no cost to compare with', () => {
+    const ledger = computeLedger([makeTx({ type: 'buy', quantity: '5', price: '100', fees: '1', fxRate: '34' })])
+    const cash = ledger.cash.map((c) => ({ accountId: c.accountId, currency: c.currency, amount: c.amount, base: c.amount.times(33) }))
+    expect(cash.map((c) => c.amount.toString())).toEqual(['-501'])
+    expect(cashFxRows(cash, ledger, 'THB')).toEqual([])
+  })
+
   it('shows a gain when the foreign currency rose', () => {
     const ledger = computeLedger(held)
     const [row] = cashFxRows([{ accountId: 'acc-1', currency: 'USD', amount: D(499), base: D(499).times(35) }], ledger, 'THB')

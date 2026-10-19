@@ -1,6 +1,7 @@
-import { renderHook, waitFor } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
 import { createElement, type ReactNode } from 'react'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { db } from '../db/db'
 import { FxProviderContext } from '../fx/context'
 import type { FxProvider } from '../fx/frankfurter'
 import { fakeFxProvider, lateFxProvider } from '../test/fakeFx'
@@ -14,6 +15,10 @@ const withProvider = (provider: FxProvider) =>
   }
 
 beforeEach(resetDb)
+
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 describe('useLatestRates for dollar-pegged currencies', () => {
   it('gives USDT and USDC the dollar rate when they have none of their own', async () => {
@@ -35,15 +40,49 @@ describe('useLatestRates for dollar-pegged currencies', () => {
   })
 
   it('waits for the dollar rate before it is ready', async () => {
-    const { provider, release } = lateFxProvider({ 'USD|THB': '33' })
+    const { provider, release, requested } = lateFxProvider({ 'USD|THB': '33' })
     const { result } = renderHook(() => useLatestRates(['USDT'], 'THB', []), { wrapper: withProvider(provider) })
-    await new Promise((resolve) => setTimeout(resolve, 50))
+    await waitFor(() => expect(requested()).toBeGreaterThan(0))
+    await act(async () => {})
     expect(result.current.ready).toBe(false)
     expect(result.current.rates).toEqual({})
 
     release()
     await waitFor(() => expect(result.current.ready).toBe(true))
     expect(result.current.rates.USDT).toEqual({ rate: '33', note: 'ใช้เรท USD' })
+  })
+
+  it('never shows the dollar rate for a currency whose own lookup has not finished', async () => {
+    await db.fxRates.put({ key: 'USD|THB|latest', rate: '32', rateDate: '2024-01-10', fetchedAt: new Date().toISOString() })
+    const get = db.fxRates.get.bind(db.fxRates) as (key: string) => Promise<unknown>
+    let open = () => {}
+    const gate = new Promise<void>((resolve) => {
+      open = resolve
+    })
+    vi.spyOn(db.fxRates, 'get').mockImplementation((async (key: string) => {
+      if (key.startsWith('USDT|')) await gate
+      return get(key)
+    }) as never)
+    const { provider } = fakeFxProvider({ 'USD|THB': '33' })
+    const transactions = [makeTx({ currency: 'USDT', fxRate: '34.5' })]
+    const notes: (string | undefined)[] = []
+    const { result } = renderHook(
+      () => {
+        const latest = useLatestRates(['USD', 'USDT'], 'THB', transactions)
+        notes.push(latest.rates.USDT?.note)
+        return latest
+      },
+      { wrapper: withProvider(provider) },
+    )
+    await waitFor(() => expect(result.current.rates.USD).toBeDefined())
+    await act(async () => {})
+    expect(result.current.ready).toBe(false)
+    expect(result.current.rates.USDT).toBeUndefined()
+
+    open()
+    await waitFor(() => expect(result.current.ready).toBe(true))
+    expect(result.current.rates.USDT).toEqual({ rate: '34.5', note: 'เรทล่าสุดที่บันทึกไว้' })
+    expect(notes).not.toContain('ใช้เรท USD')
   })
 
   it('keeps a rate the currency has of its own', async () => {

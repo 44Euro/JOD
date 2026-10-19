@@ -832,6 +832,42 @@ describe('computeLedger cash cost', () => {
     ])
   })
 
+  it('costs only the part of money in that ends above zero', () => {
+    const short = makeTx({ type: 'buy', quantity: '5', price: '100', fees: '1', fxRate: '34', date: '2024-01-04' })
+    const deposit = (amount: string) => makeTx({ type: 'deposit', instrumentId: undefined, quantity: undefined, price: undefined, amount, fxRate: '34', date: '2024-01-05' })
+    expect(cashOf([short, deposit('1000')])).toEqual([['acc-1', 'USD', '499', '16966']])
+    expect(cashOf([short, deposit('100')])).toEqual([['acc-1', 'USD', '-401', '0']])
+    expect(cashOf([short, deposit('501')]).length).toBe(0)
+  })
+
+  it('costs the target of an exchange only for the part that lands above zero', () => {
+    const short = makeTx({ type: 'buy', quantity: '5', price: '100', fees: '1', fxRate: '34', date: '2024-01-02' })
+    const toUsd = (toAmount: string) => convert('34000', toAmount, '2024-01-04')
+    const funded = makeTx({ ...thb, type: 'deposit', amount: '35000', date: '2024-01-03' })
+    const usdOf = (txs: Transaction[]) => cashOf(txs).filter((c) => c[1] === 'USD')
+    expect(usdOf([short, funded, toUsd('1000')])).toEqual([['acc-1', 'USD', '499', '16966']])
+    expect(usdOf([short, funded, toUsd('300')])).toEqual([['acc-1', 'USD', '-201', '0']])
+  })
+
+  it('costs a cash transfer into a negative balance only for the part that ends above zero', () => {
+    const toShort = makeTx({ accountId: 'acc-2', type: 'buy', quantity: '1', price: '100', fees: '0', fxRate: '34', date: '2024-01-04' })
+    const transfer = makeTx({ type: 'transfer', toAccountId: 'acc-2', instrumentId: undefined, quantity: undefined, price: undefined, amount: '200', fxRate: '33', date: '2024-01-05' })
+    const usd = cashOf([...usdCash, toShort, transfer]).filter((c) => c[1] === 'USD')
+    expect(usd).toEqual([
+      ['acc-1', 'USD', '299', '10166'],
+      ['acc-2', 'USD', '100', '3400'],
+    ])
+  })
+
+  it('costs the target of an exchange from a foreign currency at everything paid and takes the source cost in proportion', () => {
+    const toYen = makeTx({ ...thb, type: 'fx_convert', currency: 'USD', fxRate: '34', amount: '100', toCurrency: 'JPY', toAmount: '14000', date: '2024-01-05' })
+    expect(cashOf([makeTx({ ...thb, type: 'deposit', amount: '35000', date: '2024-01-02' }), convert('34000', '1000', '2024-01-03'), toYen])).toEqual([
+      ['acc-1', 'THB', '1000', '1000'],
+      ['acc-1', 'USD', '900', '30600'],
+      ['acc-1', 'JPY', '14000', '3400'],
+    ])
+  })
+
   it('leaves the cost of cash alone for a transaction the ledger skips', () => {
     const oversell = makeTx({ type: 'sell', quantity: '15', price: '100', date: '2024-01-11' })
     const ledger = computeLedger([...usdCash, oversell])

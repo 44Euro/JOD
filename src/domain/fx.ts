@@ -106,10 +106,11 @@ export function convertHistory(transactions: readonly Transaction[], ledger: Led
     })
 }
 
+// A balance that is not above zero has no cost, so its whole value would read as currency effect; it is left out.
 export function cashFxRows(cash: readonly CashValue[], ledger: Ledger, baseCurrency: string): CashFxRow[] {
   const costs = new Map(ledger.cash.map((row) => [`${row.accountId}|${row.currency}`, row.costBase]))
   return cash
-    .filter((row) => row.currency !== baseCurrency)
+    .filter((row) => row.currency !== baseCurrency && row.amount.greaterThan(0))
     .map((row) => {
       const costBase = costs.get(`${row.accountId}|${row.currency}`) ?? D(0)
       return {

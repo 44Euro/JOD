@@ -128,7 +128,8 @@ export function useLatestRates(
     const rates: Record<string, RateInfo> = {}
     for (const currency of asked ? asked.split(',') : []) {
       const own = rateOf(currency)
-      const dollar = USD_PEGGED.includes(currency) ? rateOf('USD') : undefined
+      // Borrowed only once the currency's own lookup found nothing, or the rate would flip to a recorded one afterwards.
+      const dollar = USD_PEGGED.includes(currency) && known?.settled.includes(currency) ? rateOf('USD') : undefined
       const info = own ?? (dollar && { rate: dollar.rate, note: 'ใช้เรท USD' })
       if (info) rates[currency] = info
     }

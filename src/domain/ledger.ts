@@ -262,10 +262,14 @@ export function computeLedger(transactions: readonly Transaction[]): Ledger {
     return row
   }
 
+  // Money that only fills a shortfall in the balance carries no cost, so only the part that ends above zero is costed.
   const receiveCash = (accountId: string, currency: string, delta: Decimal, costBase: Decimal) => {
     const row = cashRow(accountId, currency)
-    row.amount = row.amount.plus(delta)
-    row.costBase = row.costBase.plus(costBase)
+    const before = row.amount
+    row.amount = before.plus(delta)
+    if (delta.isZero()) return
+    const costed = Decimal.max(row.amount, 0).minus(Decimal.max(before, 0))
+    row.costBase = row.costBase.plus(costed.equals(delta) ? costBase : costBase.times(costed).div(delta))
   }
 
   // The cost leaves in proportion to the balance, all of it when the whole balance goes; money paid out of a balance
