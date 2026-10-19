@@ -2,9 +2,15 @@ import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '../../db/db'
+import { saveTradeReview } from '../../db/repo'
 import type { Market, TradeJournal } from '../../domain/types'
 import { makeTx } from '../../test/fixtures'
 import { renderRoute, resetDb } from '../../test/render'
+
+vi.mock('../../db/repo', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../db/repo')>()
+  return { ...actual, saveTradeReview: vi.fn(actual.saveTradeReview) }
+})
 
 const baht = { currency: 'THB', fxRate: '1', fxSource: 'same' as const }
 
@@ -18,7 +24,28 @@ beforeEach(async () => {
 afterEach(() => {
   vi.useRealTimers()
   vi.unstubAllGlobals()
+  vi.mocked(saveTradeReview).mockClear()
 })
+
+// The next save writes as usual but does not return until it is released, so the page can be seen taking in the written
+// data first, which is an order the live query is free to deliver them in.
+async function holdNextSave() {
+  const actual = await vi.importActual<typeof import('../../db/repo')>('../../db/repo')
+  let release = () => {}
+  const released = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  vi.mocked(saveTradeReview).mockImplementationOnce(async (...args) => {
+    await actual.saveTradeReview(...args)
+    await released
+  })
+  return async () => {
+    release()
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+  }
+}
 
 // 10 units bought at 100 and sold at sellPrice, so a sell at 200 makes exactly 1,000 baht.
 async function seedTrade(
@@ -235,7 +262,8 @@ describe('TradesPage', () => {
       const heading = await screen.findByRole('heading', { name: 'เทรดที่ปิดล่าสุด' })
       expect(screen.getByRole('button', { name: 'แก้รีวิว KBANK ปิด 5 ม.ค. 2024' })).toBeInTheDocument()
       expect(screen.queryByText(/ยังไม่ได้รีวิว/)).not.toBeInTheDocument()
-      expect(heading).toHaveFocus()
+      // The heading changes when the data arrives, which can be before the save call returns and the focus has moved.
+      await waitFor(() => expect(heading).toHaveFocus())
       expect(heading).toHaveAttribute('tabindex', '-1')
 
       await seedTrade('PTT', '2024-01-01', '2024-01-21', '70')
@@ -261,7 +289,7 @@ describe('TradesPage', () => {
         await user.click(await screen.findByRole('button', { name: 'ยังไม่ได้รีวิว 3' }))
         await saveScore(user, 'รีวิว T3 ปิด 3 ก.พ. 2024')
         await waitFor(() => expect(screen.queryByRole('button', { name: /^รีวิว T3/ })).not.toBeInTheDocument())
-        expect(screen.getByRole('button', { name: 'รีวิว T2 ปิด 2 ก.พ. 2024' })).toHaveFocus()
+        await waitFor(() => expect(screen.getByRole('button', { name: 'รีวิว T2 ปิด 2 ก.พ. 2024' })).toHaveFocus())
       })
 
       it('moves focus to the toggle when the saved row was the last one', async () => {
@@ -273,6 +301,75 @@ describe('TradesPage', () => {
         const toggle = await screen.findByRole('button', { name: 'ยังไม่ได้รีวิว 2' })
         await waitFor(() => expect(toggle).toHaveFocus())
         expect(toggle).toHaveAttribute('aria-pressed', 'true')
+      })
+
+      describe('when the new data reaches the page before the save returns', () => {
+        it('moves focus to the next row as soon as the data is in, and keeps it there', async () => {
+          await seedThree()
+          const user = userEvent.setup()
+          renderRoute('/trades')
+          await user.click(await screen.findByRole('button', { name: 'ยังไม่ได้รีวิว 3' }))
+          await user.click(screen.getByRole('button', { name: 'รีวิว T3 ปิด 3 ก.พ. 2024' }))
+          await user.click(screen.getByRole('button', { name: '4' }))
+          const returnSave = await holdNextSave()
+          await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+          await waitFor(() => expect(screen.queryByRole('button', { name: /^รีวิว T3/ })).not.toBeInTheDocument())
+          const next = screen.getByRole('button', { name: 'รีวิว T2 ปิด 2 ก.พ. 2024' })
+          await waitFor(() => expect(next).toHaveFocus())
+          await returnSave()
+          expect(next).toHaveFocus()
+        })
+
+        it('moves focus to the heading when the filter has already switched itself off, and keeps it there', async () => {
+          await seedTrade('KBANK', '2024-01-01', '2024-01-05', '200')
+          const user = userEvent.setup()
+          renderRoute('/trades')
+          await user.click(await screen.findByRole('button', { name: 'ยังไม่ได้รีวิว 1' }))
+          await user.click(screen.getByRole('button', { name: 'รีวิว KBANK ปิด 5 ม.ค. 2024' }))
+          await user.click(screen.getByRole('button', { name: '5' }))
+          const returnSave = await holdNextSave()
+          await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+          const heading = await screen.findByRole('heading', { name: 'เทรดที่ปิดล่าสุด' })
+          await waitFor(() => expect(heading).toHaveFocus())
+          await returnSave()
+          // The row is still in the list of latest trades, but the focus is not taken back to it.
+          expect(heading).toHaveFocus()
+        })
+
+        it('leaves focus on the saved row when it is still to review', async () => {
+          await seedThree()
+          const user = userEvent.setup()
+          renderRoute('/trades')
+          await user.click(await screen.findByRole('button', { name: 'ยังไม่ได้รีวิว 3' }))
+          const button = screen.getByRole('button', { name: 'รีวิว T3 ปิด 3 ก.พ. 2024' })
+          await user.click(button)
+          const returnSave = await holdNextSave()
+          await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+          // Nothing changes on screen for a save that says nothing, so a trade added meanwhile shows the data has come in.
+          await seedTrade('T0', '2024-01-15', '2024-01-31', '120')
+          await screen.findByRole('button', { name: 'ยังไม่ได้รีวิว 4' })
+          await returnSave()
+          await waitFor(() => expect(screen.queryByRole('form')).not.toBeInTheDocument())
+          expect(button).toHaveFocus()
+        })
+      })
+
+      it('forgets the saved row when the save fails, so a later change does not move focus', async () => {
+        await seedThree()
+        const user = userEvent.setup()
+        renderRoute('/trades')
+        await user.click(await screen.findByRole('button', { name: 'ยังไม่ได้รีวิว 3' }))
+        const button = screen.getByRole('button', { name: 'รีวิว T3 ปิด 3 ก.พ. 2024' })
+        await user.click(button)
+        vi.mocked(saveTradeReview).mockRejectedValueOnce(new Error('เขียนไม่สำเร็จ'))
+        await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+        expect(await screen.findByRole('alert')).toHaveTextContent('เขียนไม่สำเร็จ')
+        await user.click(screen.getByRole('button', { name: 'ยกเลิก' }))
+        expect(button).toHaveFocus()
+        await db.transactions.update('sell-T3', { journal: { score: 3 } })
+        await waitFor(() => expect(screen.queryByRole('button', { name: /^รีวิว T3/ })).not.toBeInTheDocument())
+        await act(async () => {})
+        expect(document.body).toHaveFocus()
       })
 
       it('leaves focus on the row that was saved when it is still to review', async () => {
@@ -290,6 +387,12 @@ describe('TradesPage', () => {
         await screen.findByRole('button', { name: 'ยังไม่ได้รีวิว 4' })
         await act(async () => {})
         expect(button).toHaveFocus()
+
+        // A later change that takes the row out of the list is not the save's doing, so it does not move the focus.
+        await db.transactions.update('sell-T3', { journal: { score: 3 } })
+        await waitFor(() => expect(screen.queryByRole('button', { name: /^รีวิว T3/ })).not.toBeInTheDocument())
+        await act(async () => {})
+        expect(screen.getByRole('button', { name: 'รีวิว T2 ปิด 2 ก.พ. 2024' })).not.toHaveFocus()
       })
     })
   })

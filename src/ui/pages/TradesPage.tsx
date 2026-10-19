@@ -232,8 +232,9 @@ function TradesView({ data, ledger }: { data: AppData; ledger: Ledger }) {
   const reviewButtons = useRef(new Map<string, HTMLButtonElement>())
   const toggle = useRef<HTMLButtonElement>(null)
   const recentHeading = useRef<HTMLHeadingElement>(null)
-  // Set when a review is saved from the list of trades still to review, where the saved row may be about to leave it.
-  const afterSave = useRef<{ savedId: string; nextId: string | undefined; data: AppData } | null>(null)
+  // Set before a review is written from the list of trades still to review, where the saved row may be about to leave it.
+  // The data it holds is the data from before the write, so any data that differs from it has the write in it.
+  const afterSave = useRef<{ savedId: string; nextId: string | undefined; data: AppData; moved: boolean } | null>(null)
   const trades = useMemo(() => matchTrades(data.transactions, ledger), [data, ledger])
 
   const today = todayLocal()
@@ -261,13 +262,17 @@ function TradesView({ data, ledger }: { data: AppData; ledger: Ledger }) {
   const recent = showUnreviewed ? unreviewed : newestFirst.slice(0, RECENT_COUNT)
   const recentTitle = showUnreviewed ? 'ยังไม่ได้รีวิว' : 'เทรดที่ปิดล่าสุด'
 
-  // The write reaches the page as new data. A saved row that has left the list of trades still to review takes the focus
-  // with it, so the focus goes to the next row, else the toggle, else the heading of the card, which is always there.
+  // The write reaches the page as new data, before or after the save call returns. A saved row that has left the list of
+  // trades still to review takes the focus with it, so the focus goes to the next row, else the toggle, else the heading of
+  // the card, which is always there. A row that is still to review keeps it, and the save call gives it back to the row.
   useEffect(() => {
     const saved = afterSave.current
-    if (!saved || saved.data === data) return
-    afterSave.current = null
-    if (unreviewed.some((trade) => trade.id === saved.savedId)) return
+    if (!saved || saved.moved || saved.data === data) return
+    if (unreviewed.some((trade) => trade.id === saved.savedId)) {
+      afterSave.current = null
+      return
+    }
+    saved.moved = true
     const next = saved.nextId ? reviewButtons.current.get(saved.nextId) : undefined
     const target = next ?? toggle.current ?? recentHeading.current
     target?.focus()
@@ -312,10 +317,26 @@ function TradesView({ data, ledger }: { data: AppData; ledger: Ledger }) {
 
   const toggleReview = (trade: Trade) => setReviewing((current) => (current === trade.id ? null : trade.id))
   // The form is gone by the time a keyboard user looks for their place, so focus goes back to the button that opened it.
-  const closeReview = (trade: Trade, saved: boolean) => {
+  const closeReview = (trade: Trade) => {
     setReviewing(null)
     reviewButtons.current.get(trade.id)?.focus()
-    if (saved && showUnreviewed) afterSave.current = { savedId: trade.id, nextId: recent[recent.indexOf(trade) + 1]?.id, data }
+  }
+  const startSaving = (trade: Trade) => {
+    afterSave.current = showUnreviewed
+      ? { savedId: trade.id, nextId: recent[recent.indexOf(trade) + 1]?.id, data, moved: false }
+      : null
+  }
+  const failSaving = () => {
+    afterSave.current = null
+  }
+  const finishSaving = (trade: Trade) => {
+    // When the data came in first, the focus has already been put where it belongs and must not be taken back.
+    if (afterSave.current?.moved) {
+      afterSave.current = null
+      setReviewing(null)
+    } else {
+      closeReview(trade)
+    }
   }
   const reviewForm = (trade: Trade): ReactNode => {
     const sell = closingSell(trade)
@@ -325,8 +346,10 @@ function TradesView({ data, ledger }: { data: AppData; ledger: Ledger }) {
         name={symbolOf(trade.instrumentId)}
         txId={sell.id}
         journal={sell.journal}
-        onSaved={() => closeReview(trade, true)}
-        onClose={() => closeReview(trade, false)}
+        onSaving={() => startSaving(trade)}
+        onSaveFailed={failSaving}
+        onSaved={() => finishSaving(trade)}
+        onClose={() => closeReview(trade)}
       />
     )
   }

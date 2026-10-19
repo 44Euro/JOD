@@ -18,12 +18,17 @@ export function TradeReviewForm({
   name,
   txId,
   journal,
+  onSaving,
+  onSaveFailed,
   onSaved,
   onClose,
 }: {
   name: string
   txId: string
   journal: TradeJournal | undefined
+  // The page hears of the write before it starts, because the new data can reach it before the write's own promise settles.
+  onSaving(): void
+  onSaveFailed(): void
   onSaved(): void
   onClose(): void
 }) {
@@ -41,13 +46,16 @@ export function TradeReviewForm({
     event.preventDefault()
     setError('')
     setSaving(true)
+    onSaving()
     try {
       await saveTradeReview(db, txId, { review, mistakes, score: score ? Number(score) : undefined })
-      onSaved()
     } catch (e) {
+      onSaveFailed()
       setError(e instanceof Error ? e.message : String(e))
       setSaving(false)
+      return
     }
+    onSaved()
   }
 
   return (
