@@ -470,9 +470,21 @@ describe('TransactionFormPage', () => {
     it('takes the dollar rate when it has none of its own', async () => {
       await pickCurrency(fakeFxProvider({ 'USD|THB': '33' }).provider, 'USDT')
       await waitFor(() => expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('33'))
-      expect(screen.getByText('ใช้เรท USD')).toBeInTheDocument()
+      expect(screen.getByText(/^ใช้เรท USD/)).toBeInTheDocument()
       expect(screen.getByText('อัตโนมัติ')).toBeInTheDocument()
       expect(screen.queryByText(/ไม่มีเรทอัตโนมัติ/)).not.toBeInTheDocument()
+    })
+
+    it('names the day of the dollar rate when it is not the day picked', async () => {
+      await pickCurrency(fakeFxProvider({ 'USD|THB': '33' }).provider, 'USDT')
+      expect(await screen.findByText('ใช้เรท USD · ECB 15 ม.ค. 2024')).toBeInTheDocument()
+    })
+
+    it('leaves the day out when the dollar rate is the rate of the day picked', async () => {
+      await pickCurrency(fakeFxProvider({ 'USD|THB': '33' }).provider, 'USDT')
+      fireEvent.change(screen.getByLabelText('วันที่'), { target: { value: '2024-01-15' } })
+      expect(await screen.findByText('ใช้เรท USD')).toBeInTheDocument()
+      expect(screen.queryByText(/ECB 15 ม.ค. 2024/)).not.toBeInTheDocument()
     })
 
     it('saves a coin bought in it with the dollar rate as an automatic rate', async () => {
@@ -545,6 +557,29 @@ describe('TransactionFormPage', () => {
         toAmount: '595.52',
         marketRate: '33.5',
       })
+    })
+
+    it('takes the dollar rate as the market rate when the exchange is into a dollar-pegged coin', async () => {
+      const { user } = await openExchange(fakeFxProvider({ 'USD|THB': '33.5' }).provider)
+      await user.selectOptions(screen.getByLabelText('สกุลเงินปลายทาง'), 'USDT')
+      await user.type(screen.getByLabelText('จำนวนเงินต้นทาง'), '20000')
+      await waitFor(() => expect(screen.getByLabelText('จำนวนที่ได้รับ')).toHaveValue('597.01'))
+      expect(screen.getByText(/คำนวณจากเรทกลาง ECB 15 ม.ค. 2024 · ใช้เรท USD · 1 USDT = 33\.50 THB/)).toBeInTheDocument()
+    })
+
+    it('asks for the received amount by hand when the dollar has no rate either', async () => {
+      const { user } = await openExchange(fakeFxProvider({}).provider)
+      await user.selectOptions(screen.getByLabelText('สกุลเงินปลายทาง'), 'USDT')
+      await user.type(screen.getByLabelText('จำนวนเงินต้นทาง'), '20000')
+      expect(await screen.findByText('ไม่มีเรทกลางของวันนั้น กรอกจำนวนที่ได้รับเอง')).toBeInTheDocument()
+      expect(screen.getByLabelText('จำนวนที่ได้รับ')).toHaveValue('')
+    })
+
+    it('does not mention the dollar when the exchange is not into a pegged coin', async () => {
+      const { user } = await openExchange(fakeFxProvider({ 'USD|THB': '33.5' }).provider)
+      await user.type(screen.getByLabelText('จำนวนเงินต้นทาง'), '20000')
+      await waitFor(() => expect(screen.getByLabelText('จำนวนที่ได้รับ')).toHaveValue('597.01'))
+      expect(screen.queryByText(/ใช้เรท USD/)).not.toBeInTheDocument()
     })
 
     it('names the day the rate belongs to when the picked day has none of its own', async () => {

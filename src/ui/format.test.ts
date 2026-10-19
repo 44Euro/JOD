@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  currencyMark,
+  fmtAmount,
   fmtDate,
   fmtDay,
   fmtHeadline,
@@ -63,6 +65,22 @@ describe('format', () => {
     expect(fmtRate('0.2')).toBe('0.2000')
     expect(fmtRate('0.00012345678')).toBe('0.000123')
     expect(fmtRate('-34.2152')).toBe('−34.22')
+  })
+
+  it('shows an amount of money exchanged whole when it is whole and with two decimals otherwise', () => {
+    expect(fmtAmount('210000')).toBe('210,000')
+    expect(fmtAmount('6185.4')).toBe('6,185.40')
+    expect(fmtAmount('1491.2')).toBe('1,491.20')
+    expect(fmtAmount('1491.204')).toBe('1,491.20')
+    expect(fmtAmount('1000.001')).toBe('1,000')
+    expect(fmtAmount('-34000')).toBe('−34,000')
+    expect(fmtAmount('-12.5')).toBe('−12.50')
+    expect(fmtAmount(null)).toBe('—')
+  })
+
+  it('marks the base currency with the baht sign or its own code', () => {
+    expect(currencyMark('THB')).toBe('฿')
+    expect(currencyMark('USD')).toBe('USD')
   })
 
   it('shows values in whole units', () => {

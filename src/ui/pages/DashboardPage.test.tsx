@@ -407,5 +407,20 @@ describe('DashboardPage', () => {
       const [row] = within(board).getAllByRole('listitem')
       expect(row).toHaveClass('@min-[680px]:grid-cols-[150px_1fr_1fr_100px_170px]')
     })
+
+    it('stacks a rate row as the currency and the gap, then the rates and the effect', async () => {
+      setToday(2024, 6, 1)
+      await seedDime()
+      renderRoute('/', usd())
+      const [row] = within(await screen.findByRole('region', { name: 'กระดานเรทของคุณ' })).getAllByRole('listitem')
+      expect(row).toHaveClass('grid-cols-[minmax(0,1fr)_auto]')
+      const [currency, rates, gap, effect] = [...row.children]
+      expect(currency).not.toHaveClass('order-1', 'order-2', 'order-3')
+      expect(rates).toHaveClass('order-2', 'text-[22px]', '@min-[680px]:text-[34px]')
+      expect(rates).not.toHaveClass('col-span-2')
+      expect(gap).toHaveClass('order-1', 'text-right')
+      expect(effect).toHaveClass('order-3', 'text-right')
+      expect(effect).not.toHaveClass('col-span-2')
+    })
   })
 })

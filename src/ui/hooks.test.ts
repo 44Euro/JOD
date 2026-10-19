@@ -81,16 +81,57 @@ describe('useLatestRates for dollar-pegged currencies', () => {
 
     open()
     await waitFor(() => expect(result.current.ready).toBe(true))
-    expect(result.current.rates.USDT).toEqual({ rate: '34.5', note: 'เรทล่าสุดที่บันทึกไว้' })
-    expect(notes).not.toContain('ใช้เรท USD')
+    expect(result.current.rates.USDT).toEqual({ rate: '32', note: 'ใช้เรท USD' })
+    expect(notes.filter((note) => note !== undefined)).toEqual(['ใช้เรท USD'])
   })
 
-  it('keeps a rate the currency has of its own', async () => {
+  it('keeps a live rate the currency has of its own over the dollar and over a recorded one', async () => {
+    await db.fxRates.put({ key: 'USDT|THB|latest', rate: '34', rateDate: '2024-01-12', fetchedAt: new Date().toISOString() })
     const { provider } = fakeFxProvider({ 'USD|THB': '33' })
     const transactions = [makeTx({ currency: 'USDT', fxRate: '34.5' })]
     const { result } = renderHook(() => useLatestRates(['USDT'], 'THB', transactions), { wrapper: withProvider(provider) })
     await waitFor(() => expect(result.current.ready).toBe(true))
+    expect(result.current.rates.USDT).toEqual({ rate: '34', note: 'ECB 12 ม.ค. 2024' })
+  })
+
+  it('prefers the live dollar rate to a rate recorded for the pegged currency', async () => {
+    const { provider } = fakeFxProvider({ 'USD|THB': '33' })
+    const transactions = [makeTx({ currency: 'USDT', fxRate: '34.5' })]
+    const { result } = renderHook(() => useLatestRates(['USDT'], 'THB', transactions), { wrapper: withProvider(provider) })
+    await waitFor(() => expect(result.current.ready).toBe(true))
+    expect(result.current.rates.USDT).toEqual({ rate: '33', note: 'ใช้เรท USD' })
+  })
+
+  it('falls back to the recorded rate of the pegged currency only when the dollar has none either', async () => {
+    const { provider } = fakeFxProvider({})
+    const transactions = [makeTx({ currency: 'USDT', fxRate: '34.5' })]
+    const { result } = renderHook(() => useLatestRates(['USDT'], 'THB', transactions), { wrapper: withProvider(provider) })
+    await waitFor(() => expect(result.current.ready).toBe(true))
     expect(result.current.rates.USDT).toEqual({ rate: '34.5', note: 'เรทล่าสุดที่บันทึกไว้' })
+    expect(result.current.confirmed).toBe(true)
+  })
+
+  it('does not settle a pegged currency on its recorded rate while the dollar is still being looked up', async () => {
+    const { provider, release, requested } = lateFxProvider({ 'USD|THB': '33' })
+    const transactions = [makeTx({ currency: 'USDT', fxRate: '34.5' })]
+    const notes: (string | undefined)[] = []
+    const { result } = renderHook(
+      () => {
+        const latest = useLatestRates(['USDT'], 'THB', transactions)
+        notes.push(latest.rates.USDT?.note)
+        return latest
+      },
+      { wrapper: withProvider(provider) },
+    )
+    await waitFor(() => expect(requested()).toBeGreaterThan(0))
+    await act(async () => {})
+    expect(result.current.ready).toBe(false)
+    expect(result.current.rates).toEqual({})
+
+    release()
+    await waitFor(() => expect(result.current.ready).toBe(true))
+    expect(result.current.rates.USDT).toEqual({ rate: '33', note: 'ใช้เรท USD' })
+    expect(notes).not.toContain('เรทล่าสุดที่บันทึกไว้')
   })
 
   it('leaves a pegged currency without a rate when the dollar has none either', async () => {

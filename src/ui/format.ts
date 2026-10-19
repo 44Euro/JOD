@@ -37,6 +37,17 @@ export function fmtNumber(value: Value, maxDigits = 2): string {
   return isEmpty(value) ? '—' : format(D(value), 0, maxDigits)
 }
 
+// An amount that was exchanged reads as the broker wrote it: whole numbers bare, anything else with both decimals.
+export function fmtAmount(value: Value): string {
+  if (isEmpty(value)) return '—'
+  const rounded = D(value).toDecimalPlaces(2)
+  return rounded.isInteger() ? format(rounded, 0, 0) : format(rounded, 2, 2)
+}
+
+export function currencyMark(base: string): string {
+  return base === 'THB' ? '฿' : base
+}
+
 export function fmtMoney(value: Value, currency?: string): string {
   if (isEmpty(value)) return '—'
   const text = format(D(value), 2, 2)

@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { Field } from '../../../components/ui/field'
 import { Input, NativeSelect } from '../../../components/ui/input'
-import { CURRENCY_OPTIONS } from '../../../domain/currencies'
+import { CURRENCY_OPTIONS, USD_PEGGED } from '../../../domain/currencies'
 import type { FxConvertSummary } from '../../../domain/fxConvert'
 import { fmtDate, fmtNumber, fmtPrice } from '../../format'
 import { receivedAmount, type Draft } from '../../transactionDraft'
@@ -9,7 +9,8 @@ import { receivedAmount, type Draft } from '../../transactionDraft'
 function receivedHint(draft: Draft, computed: string | null, rateMissing: boolean, restoreComputed: () => void): ReactNode {
   if (!draft.marketRate) return rateMissing ? 'ไม่มีเรทกลางของวันนั้น กรอกจำนวนที่ได้รับเอง' : undefined
   if (draft.toAmountSource === 'auto') {
-    return `คำนวณจากเรทกลาง ECB ${fmtDate(draft.marketRateDate)} · 1 ${draft.toCurrency} = ${fmtPrice(draft.marketRate)} ${draft.currency} · แก้เป็นยอดจริงจากโบรกได้`
+    const borrowed = [draft.currency, draft.toCurrency].some((currency) => USD_PEGGED.includes(currency))
+    return `คำนวณจากเรทกลาง ECB ${fmtDate(draft.marketRateDate)}${borrowed ? ' · ใช้เรท USD' : ''} · 1 ${draft.toCurrency} = ${fmtPrice(draft.marketRate)} ${draft.currency} · แก้เป็นยอดจริงจากโบรกได้`
   }
   return (
     computed && (

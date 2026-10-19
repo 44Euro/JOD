@@ -1,32 +1,38 @@
+import type { ReactNode } from 'react'
 import { CURRENCY_NAMES } from '../../domain/currencies'
 import { cn } from '../../lib/cn'
-import { fmtNumber, fmtRate, fmtSigned } from '../format'
+import { currencyMark, fmtNumber, fmtRate, fmtSigned } from '../format'
 import type { RateBoardRow } from '../rateBoard'
 
 // Both layouts switch from stacked rows to columns on the board's own width (container query), which a tablet beside the
 // sidebar, or the left column of the two-column overview, does not always have. The five columns need about 680px of it and
 // the six about 800px. Tailwind only sees whole class names, so each layout spells out its own.
+// Stacked, a row is two lines as in the mock: the currency and the gap, then the rates and the effect. The held amount
+// takes a column between the currency and the gap once the board is 320px wide, which a phone in portrait does not give.
+// A rate below one has up to six decimals and is set a size smaller, so it stays inside its column in both layouts.
 const LAYOUTS = {
   compact: {
-    columns: '@min-[680px]:grid-cols-[150px_1fr_1fr_100px_170px]',
-    head: '@min-[680px]:grid',
-    row: '@min-[680px]:gap-2',
-    rates: '@min-[680px]:order-none @min-[680px]:contents @min-[680px]:text-[34px]',
+    row: 'grid-cols-[minmax(0,1fr)_auto] @min-[680px]:grid-cols-[150px_1fr_1fr_100px_170px] @min-[680px]:gap-2',
+    head: '@min-[680px]:grid @min-[680px]:grid-cols-[150px_1fr_1fr_100px_170px]',
+    rates: 'order-2 @min-[680px]:order-none @min-[680px]:contents',
+    size: 'text-[22px] @min-[680px]:text-[34px]',
+    smallSize: 'text-lg @min-[680px]:text-2xl',
     arrow: '@min-[680px]:hidden',
     note: '@max-[680px]:hidden',
-    diff: '@min-[680px]:order-none @min-[680px]:text-left',
-    effect: '@min-[680px]:order-none @min-[680px]:col-span-1 @min-[680px]:text-left @min-[680px]:text-xl',
+    diff: 'order-1 @min-[680px]:order-none @min-[680px]:text-left',
+    effect: 'order-3 @min-[680px]:order-none @min-[680px]:text-left @min-[680px]:text-xl',
   },
   full: {
-    columns: '@min-[800px]:grid-cols-[176px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_100px_132px]',
-    head: '@min-[800px]:grid',
-    row: '@min-[800px]:gap-2',
-    held: 'hidden @min-[800px]:block',
-    rates: '@min-[800px]:order-none @min-[800px]:contents @min-[800px]:text-[34px]',
+    row: 'grid-cols-[minmax(0,1fr)_auto_auto] @min-[800px]:grid-cols-[176px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_100px_132px] @min-[800px]:gap-2',
+    head: '@min-[800px]:grid @min-[800px]:grid-cols-[176px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_100px_132px]',
+    held: 'hidden @min-[320px]:block',
+    rates: 'order-2 col-span-2 @min-[800px]:order-none @min-[800px]:contents',
+    size: 'text-[22px] @min-[800px]:text-[34px]',
+    smallSize: 'text-lg @min-[800px]:text-2xl',
     arrow: '@min-[800px]:hidden',
     note: '@max-[800px]:hidden',
-    diff: '@min-[800px]:order-none @min-[800px]:text-left',
-    effect: '@min-[800px]:order-none @min-[800px]:col-span-1 @min-[800px]:text-left @min-[800px]:text-xl',
+    diff: 'order-1 col-start-3 @min-[800px]:order-none @min-[800px]:col-auto @min-[800px]:text-left',
+    effect: 'order-3 col-start-3 @min-[800px]:order-none @min-[800px]:col-auto @min-[800px]:text-left @min-[800px]:text-xl',
   },
 }
 
@@ -35,12 +41,12 @@ interface RateBoardProps {
   base: string
   // The currency page adds what is held and writes the effect in whole baht.
   full?: boolean
-  caption?: string
+  caption?: ReactNode
 }
 
 export function RateBoard({ rows, base, full = false, caption = 'เรทเฉลี่ยที่แลกมา เทียบเรทวันนี้' }: RateBoardProps) {
   const layout = LAYOUTS[full ? 'full' : 'compact']
-  const mark = base === 'THB' ? '฿' : base
+  const mark = currencyMark(base)
   return (
     <section
       aria-labelledby="rate-board-title"
@@ -54,7 +60,7 @@ export function RateBoard({ rows, base, full = false, caption = 'เรทเฉ
       </div>
       {rows.length > 0 && (
         <>
-          <div aria-hidden className={cn('hidden gap-2 pt-1.5 pb-2 text-xs text-board-muted', layout.head, layout.columns)}>
+          <div aria-hidden className={cn('hidden gap-2 pt-1.5 pb-2 text-xs text-board-muted', layout.head)}>
             <span>สกุลที่ถือ</span>
             {full && <span>ถืออยู่</span>}
             <span>เรทเฉลี่ยของคุณ</span>
@@ -65,14 +71,11 @@ export function RateBoard({ rows, base, full = false, caption = 'เรทเฉ
           <ul>
             {rows.map((row) => {
               const name = CURRENCY_NAMES[row.currency]
+              const small = row.mine.lessThan(1) || row.today?.lessThan(1) === true
               return (
                 <li
                   key={row.currency}
-                  className={cn(
-                    'grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2.5 gap-y-1 border-t border-board-line py-3',
-                    layout.row,
-                    layout.columns,
-                  )}
+                  className={cn('grid items-center gap-x-2.5 gap-y-1 border-t border-board-line py-3', layout.row)}
                 >
                   <span className="flex min-w-0 items-center gap-2.5 justify-self-start">
                     <span className="shrink-0 rounded-md bg-board-line px-2 py-0.5 font-display text-xs font-semibold text-[#dce6f7]">
@@ -91,7 +94,8 @@ export function RateBoard({ rows, base, full = false, caption = 'เรทเฉ
                   )}
                   <span
                     className={cn(
-                      'order-2 col-span-2 flex min-w-0 flex-wrap items-baseline gap-x-1.5 font-display text-[22px] font-semibold leading-tight',
+                      'flex min-w-0 flex-wrap items-baseline gap-x-1.5 font-display font-semibold leading-tight',
+                      small ? layout.smallSize : layout.size,
                       layout.rates,
                     )}
                   >
@@ -108,7 +112,7 @@ export function RateBoard({ rows, base, full = false, caption = 'เรทเฉ
                   </span>
                   <span
                     className={cn(
-                      'order-1 text-right font-display text-xl font-semibold',
+                      'text-right font-display text-xl font-semibold',
                       layout.diff,
                       row.diffPct?.lessThan(0) ? 'text-board-loss' : 'text-board-gain',
                     )}
@@ -117,7 +121,7 @@ export function RateBoard({ rows, base, full = false, caption = 'เรทเฉ
                   </span>
                   <span
                     className={cn(
-                      'order-3 col-span-2 min-w-0 text-right font-display text-base font-semibold text-board-fx',
+                      'min-w-0 text-right font-display text-base font-semibold text-board-fx',
                       layout.effect,
                     )}
                   >

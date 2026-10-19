@@ -110,7 +110,8 @@ export function useLatestRates(
         if (cached) settle(currency, ecbRate(cached), false)
         settle(currency, ecbRate(await getFxQuote(db, provider, currency, baseCurrency, 'latest', new Date(), signal)), true)
       } catch {
-        const recorded = latestRecordedRate(transactions, currency)
+        // A pegged currency's recorded rate waits behind the dollar's, so it is chosen where both lookups are known.
+        const recorded = USD_PEGGED.includes(currency) ? undefined : latestRecordedRate(transactions, currency)
         const fallback = cached ? ecbRate(cached) : recorded ? { rate: recorded, note: 'เรทล่าสุดที่บันทึกไว้' } : null
         settle(currency, fallback, true)
       }
@@ -125,12 +126,20 @@ export function useLatestRates(
   return useMemo(() => {
     const lookups = wanted ? wanted.split(',') : []
     const rateOf = (currency: string) => (currency === baseCurrency ? BASE_RATE : known?.rates[currency])
+    const settledOf = (currency: string) => currency === baseCurrency || known?.settled.includes(currency) === true
     const rates: Record<string, RateInfo> = {}
     for (const currency of asked ? asked.split(',') : []) {
-      const own = rateOf(currency)
-      // Borrowed only once the currency's own lookup found nothing, or the rate would flip to a recorded one afterwards.
-      const dollar = USD_PEGGED.includes(currency) && known?.settled.includes(currency) ? rateOf('USD') : undefined
-      const info = own ?? (dollar && { rate: dollar.rate, note: 'ใช้เรท USD' })
+      let info = rateOf(currency)
+      // A pegged currency takes its own live rate, then the dollar's, then the one recorded for it, each only once the
+      // lookups before it have finished, or the rate would flip to a lower choice and back.
+      if (!info && USD_PEGGED.includes(currency) && settledOf(currency)) {
+        const dollar = rateOf('USD')
+        if (dollar) info = { rate: dollar.rate, note: 'ใช้เรท USD' }
+        else if (settledOf('USD')) {
+          const recorded = latestRecordedRate(transactions, currency)
+          if (recorded) info = { rate: recorded, note: 'เรทล่าสุดที่บันทึกไว้' }
+        }
+      }
       if (info) rates[currency] = info
     }
     return {
@@ -138,7 +147,7 @@ export function useLatestRates(
       ready: lookups.every((c) => c === baseCurrency || known?.settled.includes(c)),
       confirmed: lookups.every((c) => c === baseCurrency || known?.confirmed.includes(c)),
     }
-  }, [asked, wanted, baseCurrency, known])
+  }, [asked, wanted, baseCurrency, known, transactions])
 }
 
 export function usePortfolio(data: AppData | undefined) {

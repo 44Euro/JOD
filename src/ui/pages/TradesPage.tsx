@@ -26,7 +26,7 @@ import { MarketPill } from '../components/MarketPill'
 import { PageHeader } from '../components/PageHeader'
 import { Stat } from '../components/Summary'
 import { TradeReviewForm } from '../components/TradeReviewForm'
-import { fmtDate, fmtMoney, fmtMonth, fmtNumber, fmtPct, fmtSigned, plClass } from '../format'
+import { currencyMark, fmtDate, fmtMoney, fmtMonth, fmtNumber, fmtPct, fmtSigned, plClass } from '../format'
 import { useAppData, useLedger, type AppData } from '../hooks'
 import { EMOTION_LABELS, MISTAKE_LABELS, TRADE_PERIOD_LABELS, marketOf } from '../labels'
 import { useIsDesktop } from '../useIsDesktop'
@@ -83,7 +83,7 @@ function GroupTable({
   head,
   by,
   groups,
-  currencyMark,
+  mark,
   isDesktop,
   className,
 }: {
@@ -91,7 +91,7 @@ function GroupTable({
   head: string
   by: GroupBy
   groups: readonly TradeGroup[]
-  currencyMark: string
+  mark: string
   isDesktop: boolean
   className?: string
 }) {
@@ -105,7 +105,7 @@ function GroupTable({
               <Th>{head}</Th>
               <Th className="text-right">เทรด</Th>
               <Th className="text-right">ชนะ</Th>
-              <Th className="text-right">รวม ({currencyMark})</Th>
+              <Th className="text-right">รวม ({mark})</Th>
             </tr>
           </thead>
           <tbody>
@@ -238,7 +238,7 @@ function TradesView({ data, ledger }: { data: AppData; ledger: Ledger }) {
   const trades = useMemo(() => matchTrades(data.transactions, ledger), [data, ledger])
 
   const today = todayLocal()
-  const currencyMark = data.settings.baseCurrency === 'THB' ? '฿' : data.settings.baseCurrency
+  const mark = currencyMark(data.settings.baseCurrency)
   const instruments = new Map(data.instruments.map((i) => [i.id, i]))
   const transactions = new Map<string, Transaction>(data.transactions.map((tx) => [tx.id, tx]))
   const open = trades.filter((trade) => trade.closeDate === null)
@@ -416,7 +416,7 @@ function TradesView({ data, ledger }: { data: AppData; ledger: Ledger }) {
               head="กลยุทธ์"
               by="strategy"
               groups={groupTrades(closed, 'strategy')}
-              currencyMark={currencyMark}
+              mark={mark}
               isDesktop={isDesktop}
             />
             <GroupTable
@@ -424,7 +424,7 @@ function TradesView({ data, ledger }: { data: AppData; ledger: Ledger }) {
               head="อารมณ์"
               by="emotion"
               groups={groupTrades(closed, 'emotion')}
-              currencyMark={currencyMark}
+              mark={mark}
               isDesktop={isDesktop}
             />
             <GroupTable
@@ -432,7 +432,7 @@ function TradesView({ data, ledger }: { data: AppData; ledger: Ledger }) {
               head="เดือน"
               by="month"
               groups={groupTrades(closed, 'month')}
-              currencyMark={currencyMark}
+              mark={mark}
               isDesktop={isDesktop}
               className="xl:col-span-2"
             />
@@ -461,7 +461,7 @@ function TradesView({ data, ledger }: { data: AppData; ledger: Ledger }) {
                       <Th>สินทรัพย์</Th>
                       <Th>กลยุทธ์</Th>
                       <Th className="text-right">ถือ</Th>
-                      <Th className="text-right">ผล ({currencyMark})</Th>
+                      <Th className="text-right">ผล ({mark})</Th>
                       <Th>
                         <span className="sr-only">รีวิว</span>
                       </Th>

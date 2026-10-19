@@ -154,19 +154,19 @@ function marketRateKey(draft: Draft): string {
 // reason is the coin's own.
 async function quoteWithPegFallback(
   provider: FxProvider,
-  currency: string,
-  base: string,
+  from: string,
+  to: string,
   date: string,
-): Promise<{ quote: FxQuote; note: string }> {
+): Promise<{ quote: FxQuote; borrowed: boolean }> {
   try {
-    const quote = await getFxQuote(db, provider, currency, base, date)
-    return { quote, note: `เรทกลาง ECB ${fmtDate(quote.rateDate)}` }
+    return { quote: await getFxQuote(db, provider, from, to, date), borrowed: false }
   } catch (error) {
-    if (!USD_PEGGED.includes(currency)) throw error
-    const quote = await getFxQuote(db, provider, 'USD', base, date).catch(() => {
+    const dollarFor = (currency: string) => (USD_PEGGED.includes(currency) ? 'USD' : currency)
+    if (dollarFor(from) === from && dollarFor(to) === to) throw error
+    const quote = await getFxQuote(db, provider, dollarFor(from), dollarFor(to), date).catch(() => {
       throw error
     })
-    return { quote, note: 'ใช้เรท USD' }
+    return { quote, borrowed: true }
   }
 }
 
@@ -226,9 +226,10 @@ function TransactionForm({
     if (!needsFx || !isIsoDate(draft.date)) return
     let cancelled = false
     quoteWithPegFallback(provider, draft.currency, base, draft.date)
-      .then(({ quote, note }) => {
+      .then(({ quote, borrowed }) => {
         if (cancelled) return
-        setFxMessage(note)
+        const day = `ECB ${fmtDate(quote.rateDate)}`
+        setFxMessage(borrowed ? `ใช้เรท USD${quote.rateDate === draft.date ? '' : ` · ${day}`}` : `เรทกลาง ${day}`)
         setDraft((d) => applyReferenceRate(d, quote))
       })
       .catch((error: Error) => {
@@ -243,8 +244,8 @@ function TransactionForm({
     const { type, toCurrency, currency, date } = draft
     if (type !== 'fx_convert' || !toCurrency || toCurrency === currency || !isIsoDate(date)) return
     let cancelled = false
-    getFxQuote(db, provider, toCurrency, currency, date)
-      .then((quote) => {
+    quoteWithPegFallback(provider, toCurrency, currency, date)
+      .then(({ quote }) => {
         if (cancelled) return
         setNoRateFor('')
         setDraft((d) => ({ ...d, marketRate: quote.rate, marketRateDate: quote.rateDate }))

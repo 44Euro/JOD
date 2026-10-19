@@ -1,5 +1,5 @@
 import { Plus } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { Fragment, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { Badge } from '../../components/ui/badge'
 import { buttonVariants } from '../../components/ui/button'
@@ -11,7 +11,7 @@ import { cn } from '../../lib/cn'
 import { CashPill } from '../components/MarketPill'
 import { PageHeader } from '../components/PageHeader'
 import { RateBoard } from '../components/RateBoard'
-import { fmtDate, fmtHeadline, fmtNumber, fmtRate, fmtSigned, fmtSignedPct } from '../format'
+import { currencyMark, fmtAmount, fmtDate, fmtHeadline, fmtNumber, fmtRate, fmtSigned, fmtSignedPct } from '../format'
 import { useAppData, useInvestor } from '../hooks'
 import { buildRateBoard } from '../rateBoard'
 import { useIsDesktop } from '../useIsDesktop'
@@ -28,15 +28,27 @@ function shown(value: Decimal | null): value is Decimal {
   return value !== null && !value.toDecimalPlaces(0).isZero()
 }
 
-// A part that is nothing, or that has no figures behind it, is left out of the sentence.
-function effectCaption(asset: Decimal | null, cash: Decimal | null, mark: string): string | undefined {
+// A part that is nothing, or that has no figures behind it, is left out of the sentence. Thai has no spaces to glue the
+// words of a part with, so each part is a no-wrap span and a line can only break between parts; inside a part the figure,
+// the sign and the word after it are held by non-breaking spaces as well.
+function effectCaption(asset: Decimal | null, cash: Decimal | null, mark: string): ReactNode {
   const parts = [
-    shown(asset) && `${fmtSigned(asset, 0)} ${mark} จากสินทรัพย์`,
-    shown(cash) && `${fmtSigned(cash, 0)} ${mark} จากเงินสดที่ถืออยู่`,
+    shown(asset) && `${fmtSigned(asset, 0)}\u00A0${mark}\u00A0จากสินทรัพย์`,
+    shown(cash) && `${fmtSigned(cash, 0)}\u00A0${mark}\u00A0จากเงินสดที่ถืออยู่`,
   ].filter((part): part is string => part !== false)
   if (parts.length === 0) return undefined
   const total = (asset ?? D(0)).plus(cash ?? D(0))
-  return `ค่าเงินทำให้พอร์ต${total.isNegative() ? 'ลดลง' : 'เพิ่มขึ้น'} ${parts.join(' และ ')}`
+  return (
+    <>
+      <span className="whitespace-nowrap">{`ค่าเงินทำให้พอร์ต${total.isNegative() ? 'ลดลง' : 'เพิ่มขึ้น'}`}</span>{' '}
+      {parts.map((part, i) => (
+        <Fragment key={part}>
+          {i > 0 && ' และ '}
+          <span className="whitespace-nowrap">{part}</span>
+        </Fragment>
+      ))}
+    </>
+  )
 }
 
 function sumOrNull(values: readonly (Decimal | null)[]): Decimal | null {
@@ -74,9 +86,9 @@ function SpreadBadge({ pct }: { pct: Decimal | null }) {
 
 function CashLabel({ currency, accountName }: { currency: string; accountName: string }) {
   return (
-    <span className="flex min-w-0 items-center gap-2.5">
+    <span className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
       <CashPill label={currency} />
-      <b className="min-w-0 truncate font-display text-base font-semibold" title={accountName}>
+      <b className="min-w-0 whitespace-normal break-words line-clamp-2 font-display text-base font-semibold" title={accountName}>
         {accountName}
       </b>
     </span>
@@ -110,10 +122,10 @@ function CashRows({
         <tbody>
           {rows.map((row) => (
             <tr key={`${row.accountId}|${row.currency}`}>
-              <Td className="max-w-56">
+              <Td>
                 <CashLabel currency={row.currency} accountName={nameOf(row)} />
               </Td>
-              <Td className="text-right">{`${fmtNumber(row.amount)} ${row.currency}`}</Td>
+              <Td className="text-right">{`${fmtAmount(row.amount)} ${row.currency}`}</Td>
               <Td className="text-right">{fmtNumber(row.costBase, 0)}</Td>
               <Td className="text-right">{fmtNumber(row.valueBase, 0)}</Td>
               <Td className="text-right font-display font-semibold text-fx">{fmtSigned(row.effectBase, 0)}</Td>
@@ -133,7 +145,7 @@ function CashRows({
           <CashLabel currency={row.currency} accountName={nameOf(row)} />
           <span className="font-display font-semibold text-fx">{fmtSigned(row.effectBase, 0)}</span>
           <span className="col-span-2 text-[12.5px] text-muted-foreground">
-            {`${fmtNumber(row.amount)} ${row.currency} · ต้นทุน ${fmtNumber(row.costBase, 0)} · วันนี้ ${fmtNumber(row.valueBase, 0)}`}
+            {`${fmtAmount(row.amount)} ${row.currency} · ต้นทุน ${fmtNumber(row.costBase, 0)} · วันนี้ ${fmtNumber(row.valueBase, 0)}`}
           </span>
         </li>
       ))}
@@ -158,7 +170,7 @@ function HistoryRows({ rows, base, isDesktop }: { rows: readonly ConvertRow[]; b
           {rows.map((row) => (
             <tr key={row.txId}>
               <Td>{fmtDate(row.date)}</Td>
-              <Td>{`${fmtNumber(row.amount)} ${row.from} → ${fmtNumber(row.toAmount)} ${row.to}`}</Td>
+              <Td>{`${fmtAmount(row.amount)} ${row.from} → ${fmtAmount(row.toAmount)} ${row.to}`}</Td>
               <Td className="text-right font-display font-semibold">{fmtRate(row.effectiveRate)}</Td>
               <Td className="text-right">{fmtRate(row.marketRate)}</Td>
               <Td className="text-right">
@@ -180,12 +192,12 @@ function HistoryRows({ rows, base, isDesktop }: { rows: readonly ConvertRow[]; b
           <span>{fmtDate(row.date)}</span>
           <span className="font-display font-semibold">{fmtRate(row.effectiveRate)}</span>
           <span className="col-span-2 text-[12.5px] text-muted-foreground">
-            {`${fmtNumber(row.amount)}${row.from === base ? '' : ` ${row.from}`} → ${fmtNumber(row.toAmount)} ${row.to}`}
+            {`${fmtAmount(row.amount)}${row.from === base ? '' : ` ${row.from}`} → ${fmtAmount(row.toAmount)} ${row.to}`}
             {row.marketRate && ` · ตลาด ${fmtRate(row.marketRate)}`}
             {row.spreadPct && (
               <>
                 {' · '}
-                <SpreadBadge pct={row.spreadPct} />
+                {row.spreadPct.greaterThan(SPREAD_WARNING_PCT) ? <SpreadBadge pct={row.spreadPct} /> : fmtSignedPct(row.spreadPct, 2)}
               </>
             )}
           </span>
@@ -202,7 +214,7 @@ export function FxPage() {
   if (!data || !ledger || !investor) return <p className="text-muted-foreground">กำลังโหลด…</p>
 
   const base = data.settings.baseCurrency
-  const mark = base === 'THB' ? '฿' : base
+  const mark = currencyMark(base)
   const board = buildRateBoard(valuations, base, rates)
   const cashRows = cashFxRows(investor.worth.cash, ledger, base)
   const summaries = convertSummaries(data.transactions, ledger)
@@ -242,10 +254,11 @@ export function FxPage() {
     <>
       <PageHeader title="ค่าเงิน" note={ecbNote ? `เรทกลาง ${ecbNote}` : undefined} />
 
-      {(board.length > 0 || caption) && <RateBoard rows={board} base={base} caption={caption} full />}
+      {board.length > 0 && <RateBoard rows={board} base={base} caption={caption} full />}
 
       {cashRows.length > 0 && (
         <Section id="fx-cash-title" title="เงินสดต่างประเทศ">
+          {board.length === 0 && caption && <p className="mb-3 text-[13px] text-muted-foreground">{caption}</p>}
           <CashRows rows={cashRows} accountNames={accountNames} mark={mark} isDesktop={isDesktop} />
         </Section>
       )}
@@ -255,9 +268,9 @@ export function FxPage() {
           {summaries.length > 0 && (
             <Section id="fx-summary-title" title="สรุปการแลกเงิน">
               {summaries.map((pair) => (
-                <dl key={`${pair.from}|${pair.to}`} className="border-t border-muted first:border-t-0">
+                <dl key={`${pair.from}|${pair.to}`} className="mt-3 border-t border-muted first:mt-0 first:border-t-0">
                   <Line label={`${pair.from} → ${pair.to}`}>
-                    {`${pair.count} ครั้ง · ${fmtNumber(pair.fromTotal)} → ${fmtNumber(pair.toTotal)}`}
+                    {`${pair.count} ครั้ง · ${fmtAmount(pair.fromTotal)} → ${fmtAmount(pair.toTotal)}`}
                   </Line>
                   <Line label="เรทเฉลี่ยที่ได้">
                     <span className="font-display font-semibold">{fmtRate(pair.avgRate)}</span>
