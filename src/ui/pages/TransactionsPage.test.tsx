@@ -95,6 +95,35 @@ describe('TransactionsPage', () => {
     expect(within(table).getByText('แพงกว่าตลาด 1.49%')).toBeInTheDocument()
   })
 
+  it('warns on an exchange only when its spread is above 1% and never on one cheaper than the market', async () => {
+    const exchange = (id: string, amount: string, date: string) =>
+      makeTx({
+        id,
+        type: 'fx_convert',
+        instrumentId: undefined,
+        quantity: undefined,
+        price: undefined,
+        currency: 'THB',
+        amount,
+        toCurrency: 'USD',
+        toAmount: '1000',
+        marketRate: '33.5',
+        fxRate: '1',
+        fxSource: 'same',
+        date,
+      })
+    await db.transactions.bulkAdd([
+      exchange('over', '33840', '2024-01-12'),
+      exchange('exactly', '33835', '2024-01-11'),
+      exchange('under', '33000', '2024-01-10'),
+    ])
+    renderRoute('/transactions')
+    const table = await screen.findByRole('table')
+    expect(within(table).getByText('แพงกว่าตลาด 1.01%')).toHaveClass('bg-warning-bg')
+    expect(within(table).getByText('แพงกว่าตลาด 1%')).not.toHaveClass('bg-warning-bg')
+    expect(within(table).getByText('ถูกกว่าตลาด 1.49%')).not.toHaveClass('bg-warning-bg')
+  })
+
   it('keeps the rate of an exchange and its badge on one line, however wide the amount column gets', async () => {
     await db.transactions.add(
       makeTx({

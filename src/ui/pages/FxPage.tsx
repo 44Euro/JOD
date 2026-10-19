@@ -7,6 +7,7 @@ import { Card } from '../../components/ui/card'
 import { Table, Td, Th } from '../../components/ui/table'
 import { D, sumBy, type Decimal } from '../../domain/decimal'
 import { cashFxRows, convertHistory, convertSummaries, remittancesByTaxYear, type CashFxRow, type ConvertRow } from '../../domain/fx'
+import { SPREAD_WARNING_PCT } from '../../domain/fxConvert'
 import { cn } from '../../lib/cn'
 import { CashPill } from '../components/MarketPill'
 import { PageHeader } from '../components/PageHeader'
@@ -20,9 +21,6 @@ const NEW_EXCHANGE = '/transactions/new?type=fx_convert'
 
 // The sidebar takes 240px from 768px up, which leaves a table card about 440px, too narrow for these tables.
 const TABLE_MIN_WIDTH = 1024
-
-// An exchange that cost more than this over the mid rate gets the yellow badge.
-const SPREAD_WARNING_PCT = 1
 
 function shown(value: Decimal | null): value is Decimal {
   return value !== null && !value.toDecimalPlaces(0).isZero()

@@ -559,6 +559,14 @@ describe('TransactionFormPage', () => {
       })
     })
 
+    it('says the exchange is at the market rate when its spread rounds to nothing at the digits shown', async () => {
+      const { user } = await openExchange(fakeFxProvider({ 'USD|THB': '33.5' }).provider)
+      await user.type(screen.getByLabelText('จำนวนเงินต้นทาง'), '20000')
+      await waitFor(() => expect(screen.getByLabelText('จำนวนที่ได้รับ')).toHaveValue('597.01'))
+      expect(screen.getByText(/เรทตลาด 33\.50 · เท่าตลาด$/)).toBeInTheDocument()
+      expect(screen.queryByText(/ตลาด 0%/)).not.toBeInTheDocument()
+    })
+
     it('takes the dollar rate as the market rate when the exchange is into a dollar-pegged coin', async () => {
       const { user } = await openExchange(fakeFxProvider({ 'USD|THB': '33.5' }).provider)
       await user.selectOptions(screen.getByLabelText('สกุลเงินปลายทาง'), 'USDT')

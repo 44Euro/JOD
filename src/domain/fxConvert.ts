@@ -1,6 +1,10 @@
 import { D, Decimal } from './decimal'
 import type { Transaction } from './types'
 
+// An exchange that cost more than this over the mid rate is flagged, the same on the list of transactions and on the
+// currency page.
+export const SPREAD_WARNING_PCT = 1
+
 export function spreadPct(actual: Decimal.Value, reference: Decimal.Value | null | undefined): Decimal | null {
   if (reference === undefined || reference === null || reference === '') return null
   const ref = D(reference)

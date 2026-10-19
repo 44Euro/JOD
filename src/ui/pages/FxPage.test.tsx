@@ -189,17 +189,30 @@ describe('FxPage', () => {
       await seedFx()
       renderRoute('/fx', usd())
       const [row] = within(await board()).getAllByRole('listitem')
-      expect(row).toHaveClass('grid-cols-[minmax(0,1fr)_auto_auto]')
-      const [currency, held, rates, gap, effect] = [...row.children]
-      expect(currency).not.toHaveClass('order-1', 'order-2', 'order-3')
+      expect(row).toHaveClass('flex', 'flex-col', '@min-[800px]:grid')
+      const [first, second] = [...row.children]
+      expect(first).toHaveClass('flex', '@min-[800px]:contents')
+      expect(second).toHaveClass('flex', 'flex-wrap', '@min-[800px]:contents')
+      const [currency, held, gap] = [...first.children]
+      const [rates, effect] = [...second.children]
+      expect(currency).toHaveClass('flex-1', 'min-w-0')
       expect(held).toHaveClass('hidden', '@min-[320px]:block')
-      expect(rates).toHaveClass('order-2', 'col-span-2')
-      expect(gap).toHaveClass('order-1', 'col-start-3', 'text-right')
-      expect(effect).toHaveClass('order-3', 'col-start-3', 'text-right')
-      expect(effect).not.toHaveClass('col-span-2')
+      expect(gap).toHaveClass('text-right', '@min-[800px]:order-1')
+      expect(rates).toHaveClass('whitespace-nowrap')
+      expect(effect).toHaveClass('ml-auto', 'text-right', '@min-[800px]:order-2')
     })
 
-    it('sets a rate below one a size smaller so six decimals stay inside their column', async () => {
+    it('keeps the rate pair on one line and lets the effect drop below it instead', async () => {
+      await seedFx()
+      renderRoute('/fx', usd())
+      const [row] = within(await board()).getAllByRole('listitem')
+      const [rates, effect] = [...row.children[1].children]
+      expect(rates).toHaveClass('whitespace-nowrap')
+      expect(rates.parentElement).toHaveClass('flex-wrap')
+      expect(effect).toHaveTextContent('−600 ฿')
+    })
+
+    it('sets a rate below one at base size when stacked and 24px in the columns, and keeps the line height', async () => {
       await seedFx()
       await db.instruments.add({ id: 'JP:7203', market: 'JP', symbol: '7203', name: 'Toyota', assetType: 'stock', currency: 'JPY', lastPrice: '3000' })
       await db.transactions.add(
@@ -207,11 +220,11 @@ describe('FxPage', () => {
       )
       renderRoute('/fx', fakeFxProvider({ 'USD|THB': '33', 'JPY|THB': '0.216348' }).provider)
       const rows = within(await board()).getAllByRole('listitem')
-      const rateOf = (row: HTMLElement) => row.children[2]
+      const rateOf = (row: HTMLElement) => row.children[1].children[0]
       expect(within(rows[0]).getByText('0.216348')).toBeInTheDocument()
-      expect(rateOf(rows[0])).toHaveClass('text-lg', '@min-[800px]:text-2xl')
-      expect(rateOf(rows[0])).not.toHaveClass('text-[22px]', '@min-[800px]:text-[34px]')
-      expect(rateOf(rows[1])).toHaveClass('text-[22px]', '@min-[800px]:text-[34px]')
+      expect(rateOf(rows[0])).toHaveClass('text-base', '@min-[800px]:text-2xl', 'leading-tight')
+      expect(rateOf(rows[0])).not.toHaveClass('text-lg', 'text-[22px]', '@min-[800px]:text-[34px]')
+      expect(rateOf(rows[1])).toHaveClass('text-[22px]', '@min-[800px]:text-[34px]', 'leading-tight')
     })
   })
 

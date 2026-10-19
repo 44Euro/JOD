@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { Field } from '../../../components/ui/field'
 import { Input, NativeSelect } from '../../../components/ui/input'
 import { CURRENCY_OPTIONS, USD_PEGGED } from '../../../domain/currencies'
+import type { Decimal } from '../../../domain/decimal'
 import type { FxConvertSummary } from '../../../domain/fxConvert'
 import { fmtDate, fmtNumber, fmtPrice } from '../../format'
 import { receivedAmount, type Draft } from '../../transactionDraft'
@@ -63,12 +64,18 @@ export function ConvertFields({
   )
 }
 
+// A spread that rounds to nothing at the two digits shown is not "more expensive" or "cheaper" than the market.
+function spreadText(spread: Decimal): string {
+  if (spread.toDecimalPlaces(2).isZero()) return 'เท่าตลาด'
+  return `${spread.greaterThan(0) ? 'แพงกว่า' : 'ถูกกว่า'}ตลาด ${fmtNumber(spread.abs())}%`
+}
+
 export function ConvertSummary({ draft, summary }: { draft: Draft; summary: FxConvertSummary }) {
   return (
     <p className="rounded-2xl bg-fx-soft px-[18px] py-3 text-[13px] text-fx">
       เรทที่ได้ 1 {draft.toCurrency} = {fmtPrice(summary.effectiveRate)} {draft.currency}
       {summary.marketRate && ` · เรทตลาด ${fmtPrice(summary.marketRate)}`}
-      {summary.spreadPct && ` · ${summary.spreadPct.greaterThan(0) ? 'แพงกว่า' : 'ถูกกว่า'}ตลาด ${fmtNumber(summary.spreadPct.abs())}%`}
+      {summary.spreadPct && ` · ${spreadText(summary.spreadPct)}`}
     </p>
   )
 }

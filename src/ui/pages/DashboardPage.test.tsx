@@ -84,7 +84,7 @@ describe('DashboardPage', () => {
     )
     const board = screen.getByRole('region', { name: 'กระดานเรทของคุณ' })
     expect(within(board).getByText('−2.94%')).toBeInTheDocument()
-    expect(within(board).getByText('−360.00 THB')).toBeInTheDocument()
+    expect(within(board).getByText('−360 ฿')).toBeInTheDocument()
   })
 
   it('names each currency of the rate board in Thai beside its code and leaves out what is held', async () => {
@@ -413,14 +413,17 @@ describe('DashboardPage', () => {
       await seedDime()
       renderRoute('/', usd())
       const [row] = within(await screen.findByRole('region', { name: 'กระดานเรทของคุณ' })).getAllByRole('listitem')
-      expect(row).toHaveClass('grid-cols-[minmax(0,1fr)_auto]')
-      const [currency, rates, gap, effect] = [...row.children]
-      expect(currency).not.toHaveClass('order-1', 'order-2', 'order-3')
-      expect(rates).toHaveClass('order-2', 'text-[22px]', '@min-[680px]:text-[34px]')
-      expect(rates).not.toHaveClass('col-span-2')
-      expect(gap).toHaveClass('order-1', 'text-right')
-      expect(effect).toHaveClass('order-3', 'text-right')
-      expect(effect).not.toHaveClass('col-span-2')
+      expect(row).toHaveClass('flex', 'flex-col', '@min-[680px]:grid')
+      const [first, second] = [...row.children]
+      expect(first).toHaveClass('flex', '@min-[680px]:contents')
+      expect(second).toHaveClass('flex', 'flex-wrap', '@min-[680px]:contents')
+      const [currency, gap] = [...first.children]
+      const [rates, effect] = [...second.children]
+      expect(currency).toHaveClass('flex-1', 'min-w-0')
+      expect(gap).toHaveClass('text-right', '@min-[680px]:order-1')
+      expect(rates).toHaveClass('whitespace-nowrap', 'leading-tight', 'text-[22px]', '@min-[680px]:text-[34px]')
+      expect(effect).toHaveClass('ml-auto', 'text-right', '@min-[680px]:order-2')
+      expect(effect).toHaveTextContent('−360 ฿')
     })
   })
 })
