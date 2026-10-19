@@ -17,6 +17,30 @@ describe('Layout', () => {
     expect(hrefs(sidebar)).toEqual(['/', '/portfolio', '/transactions', '/trades', '/income', '/fx', '/import', '/settings'])
   })
 
+  it('uses the line chart icon for เทรด', async () => {
+    renderRoute('/')
+    const sidebar = await screen.findByRole('navigation', { name: 'เมนูหลัก' })
+    expect(within(sidebar).getByRole('link', { name: 'เทรด' }).querySelector('svg')).toHaveClass('lucide-chart-line')
+  })
+
+  it('lets the sidebar scroll instead of squashing its parts on a short window', async () => {
+    renderRoute('/')
+    const sidebar = await screen.findByRole('navigation', { name: 'เมนูหลัก' })
+    const aside = sidebar.parentElement!
+    const logo = within(aside).getByText('JOD')
+    const button = within(aside).getByRole('link', { name: 'บันทึกรายการ' })
+    const legend = within(aside).getByText('สีประจำตลาด').parentElement!
+    for (const part of [logo, button, sidebar, legend]) expect(part).toHaveClass('shrink-0')
+    expect(aside).toHaveClass('overflow-y-auto')
+  })
+
+  it('hides the market colour legend on a window shorter than 780px', async () => {
+    renderRoute('/')
+    const legend = (await screen.findByText('สีประจำตลาด')).parentElement!
+    expect(legend).toHaveClass('[@media(max-height:779px)]:hidden')
+    expect(within(legend).getByText('ตลาดต่างประเทศอื่น')).toBeInTheDocument()
+  })
+
   it('puts five tabs in the bottom bar with the new-transaction button in the middle', async () => {
     renderRoute('/')
     const bottom = await screen.findByRole('navigation', { name: 'เมนูด้านล่าง' })
@@ -40,6 +64,15 @@ describe('Layout', () => {
     const bottom = screen.getByRole('navigation', { name: 'เมนูด้านล่าง' })
     expect(within(bottom).getByRole('link', { name: 'เพิ่มเติม' })).toHaveAttribute('aria-current', 'page')
     expect(within(bottom).getByRole('link', { name: 'บันทึก' })).not.toHaveAttribute('aria-current')
+    const sidebar = screen.getByRole('navigation', { name: 'เมนูหลัก' })
+    expect(within(sidebar).getByRole('link', { name: 'รายการ' })).toHaveAttribute('aria-current', 'page')
+    expect(within(sidebar).getByRole('link', { name: 'ภาพรวม' })).not.toHaveAttribute('aria-current')
+  })
+
+  it('keeps the bottom bar clear of the home indicator by at least 22px', async () => {
+    renderRoute('/')
+    const bottom = await screen.findByRole('navigation', { name: 'เมนูด้านล่าง' })
+    expect(bottom).toHaveClass('pb-[max(env(safe-area-inset-bottom),22px)]')
   })
 
   it('gives a new transaction to the บันทึก button and not to เพิ่มเติม', async () => {

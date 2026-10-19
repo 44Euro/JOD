@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Briefcase, ChartCandlestick, Coins, Ellipsis, House, List, Settings, Upload, type LucideIcon } from 'lucide-react'
+import { ArrowLeftRight, Briefcase, ChartLine, Coins, Ellipsis, House, List, Settings, Upload, type LucideIcon } from 'lucide-react'
 
 export interface NavItem {
   to: string
@@ -9,7 +9,7 @@ export interface NavItem {
 export const HOME: NavItem = { to: '/', label: 'ภาพรวม', icon: House }
 export const PORTFOLIO: NavItem = { to: '/portfolio', label: 'พอร์ต', icon: Briefcase }
 export const TRANSACTIONS: NavItem = { to: '/transactions', label: 'รายการ', icon: List }
-export const TRADES: NavItem = { to: '/trades', label: 'เทรด', icon: ChartCandlestick }
+export const TRADES: NavItem = { to: '/trades', label: 'เทรด', icon: ChartLine }
 export const INCOME: NavItem = { to: '/income', label: 'รายได้', icon: Coins }
 export const FX: NavItem = { to: '/fx', label: 'ค่าเงิน', icon: ArrowLeftRight }
 export const IMPORT: NavItem = { to: '/import', label: 'นำเข้าข้อมูล', icon: Upload }
@@ -24,6 +24,10 @@ export const MORE_PAGES: readonly NavItem[] = [TRANSACTIONS, INCOME, FX, IMPORT,
 
 function isUnder(pathname: string, to: string): boolean {
   return pathname === to || pathname.startsWith(`${to}/`)
+}
+
+export function isTransactionEdit(pathname: string): boolean {
+  return pathname.startsWith(`${TRANSACTIONS.to}/`) && !isUnder(pathname, NEW_TRANSACTION)
 }
 
 // A transaction being edited still belongs to "เพิ่มเติม"; a new one belongs to the ＋ button.

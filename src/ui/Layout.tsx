@@ -3,7 +3,19 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router'
 import { buttonVariants } from '../components/ui/button'
 import { cn } from '../lib/cn'
 import { DailyValueRecorder } from './DailyValueRecorder'
-import { HOME, MORE, NEW_TRANSACTION, PORTFOLIO, SIDEBAR_PAGES, TRADES, isExactLink, isMoreTab, type NavItem } from './nav'
+import {
+  HOME,
+  MORE,
+  NEW_TRANSACTION,
+  PORTFOLIO,
+  SIDEBAR_PAGES,
+  TRADES,
+  TRANSACTIONS,
+  isExactLink,
+  isMoreTab,
+  isTransactionEdit,
+  type NavItem,
+} from './nav'
 
 const LEGEND = [
   { label: 'หุ้นสหรัฐ', className: 'bg-market-us' },
@@ -14,7 +26,7 @@ const LEGEND = [
   { label: 'ผลจากค่าเงิน', className: 'bg-fx' },
 ]
 
-const SIDE_CLASS = 'flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-[15.5px] text-ink-2 hover:bg-muted'
+const SIDE_CLASS = 'flex items-center gap-3 rounded-[10px] px-3 py-[9px] text-[15.5px] text-ink-2 hover:bg-muted'
 const SIDE_ACTIVE_CLASS = 'bg-primary-soft font-semibold text-primary-ink hover:bg-primary-soft'
 
 // NavLink only marks aria-current for its own route, so a link that also stands for other pages is a plain Link.
@@ -68,24 +80,29 @@ export function Layout() {
   const { pathname } = useLocation()
   const inMore = isMoreTab(pathname)
   const inAssets = pathname.startsWith('/assets/')
+  const editingTransaction = isTransactionEdit(pathname)
   return (
     <div className="min-h-dvh md:grid md:grid-cols-[240px_minmax(0,1fr)]">
       <DailyValueRecorder />
       <aside className="sticky top-0 hidden h-dvh flex-col gap-0.5 overflow-y-auto border-r bg-card px-4 py-[26px] md:flex">
-        <p className="px-2 font-display text-[30px] font-semibold leading-none">
+        <p className="shrink-0 px-2 font-display text-[30px] font-semibold leading-none">
           JOD
           <span className="mt-1 block font-sans text-xs font-normal text-muted-foreground">จดทุกเทรด รู้ทุกบาท</span>
         </p>
-        <NavLink to={NEW_TRANSACTION} className={cn(buttonVariants(), 'mt-[22px] mb-4 h-12 text-base md:h-12')}>
+        <NavLink to={NEW_TRANSACTION} className={cn(buttonVariants(), 'mt-[22px] mb-4 h-12 shrink-0 text-base md:h-12')}>
           <Plus aria-hidden />
           บันทึกรายการ
         </NavLink>
-        <nav aria-label="เมนูหลัก" className="grid gap-0.5">
+        <nav aria-label="เมนูหลัก" className="grid shrink-0 gap-0.5">
           {SIDEBAR_PAGES.map((item) => (
-            <SideLink key={item.to} {...item} active={item.to === PORTFOLIO.to && inAssets} />
+            <SideLink
+              key={item.to}
+              {...item}
+              active={(item.to === PORTFOLIO.to && inAssets) || (item.to === TRANSACTIONS.to && editingTransaction)}
+            />
           ))}
         </nav>
-        <div className="mt-auto grid gap-[7px] border-t px-2.5 pt-3.5 text-[12.5px] text-muted-foreground">
+        <div className="mt-auto grid shrink-0 gap-[7px] border-t px-2.5 pt-3.5 text-[12.5px] text-muted-foreground [@media(max-height:779px)]:hidden">
           <p className="font-semibold text-ink-2">สีประจำตลาด</p>
           {LEGEND.map((item) => (
             <p key={item.label} className="flex items-center gap-2.5">
@@ -102,7 +119,7 @@ export function Layout() {
       </main>
       <nav
         aria-label="เมนูด้านล่าง"
-        className="fixed inset-x-0 bottom-0 z-10 grid grid-cols-5 items-end border-t bg-card pt-1.5 pb-[max(env(safe-area-inset-bottom),12px)] md:hidden"
+        className="fixed inset-x-0 bottom-0 z-10 grid grid-cols-5 items-end border-t bg-card pt-1.5 pb-[max(env(safe-area-inset-bottom),22px)] md:hidden"
       >
         <TabLink {...HOME} />
         <TabLink {...PORTFOLIO} active={inAssets} />

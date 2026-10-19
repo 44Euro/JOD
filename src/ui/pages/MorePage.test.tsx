@@ -24,5 +24,6 @@ describe('ImportPage', () => {
     const page = within(screen.getByRole('main'))
     expect(page.getByRole('link', { name: 'กรอกยอดยกมา' })).toHaveAttribute('href', '/transactions/new?type=opening')
     expect(page.getByRole('link', { name: 'บันทึกรายการ' })).toHaveAttribute('href', '/transactions/new')
+    for (const link of page.getAllByRole('link')) expect(link).toHaveClass('w-full', 'sm:w-auto')
   })
 })
