@@ -689,3 +689,78 @@ describe('what a fee is paid in', () => {
     expect(feesQuote(swap).toString()).toBe('0')
   })
 })
+
+describe('computeLedger position moves', () => {
+  const shape = (ledger: Ledger) =>
+    ledger.moves.map((m) => [m.txId, m.accountId, m.instrumentId, m.before.toString(), m.after.toString(), m.transfer])
+  const buy = makeTx({ quantity: '10', price: '100', date: '2024-01-10' })
+
+  it('records one move per position that changes, the sending side of a transfer before the receiving side', () => {
+    const move = makeTx({ type: 'transfer', toAccountId: 'acc-2', quantity: '4', price: undefined, date: '2024-01-20' })
+    const sell = makeTx({ type: 'sell', quantity: '6', price: '110', date: '2024-02-01' })
+    expect(shape(computeLedger([buy, move, sell]))).toEqual([
+      [buy.id, 'acc-1', 'US:AAPL', '0', '10', false],
+      [move.id, 'acc-1', 'US:AAPL', '10', '6', true],
+      [move.id, 'acc-2', 'US:AAPL', '0', '4', true],
+      [sell.id, 'acc-1', 'US:AAPL', '6', '0', false],
+    ])
+  })
+
+  it('records the units a fee took from the coins that arrive in a transfer', () => {
+    const move = makeTx({ type: 'transfer', toAccountId: 'acc-2', quantity: '4', price: undefined, feePaidIn: 'received', feeQuantity: '0.1' })
+    expect(shape(computeLedger([buy, move])).slice(1)).toEqual([
+      [move.id, 'acc-1', 'US:AAPL', '10', '6', true],
+      [move.id, 'acc-2', 'US:AAPL', '0', '3.9', true],
+    ])
+  })
+
+  it('records a transfer to the same account as the units leaving and coming back', () => {
+    const move = makeTx({ type: 'transfer', toAccountId: 'acc-1', quantity: '10', price: undefined })
+    expect(shape(computeLedger([buy, move])).slice(1)).toEqual([
+      [move.id, 'acc-1', 'US:AAPL', '10', '0', true],
+      [move.id, 'acc-1', 'US:AAPL', '0', '10', true],
+    ])
+  })
+
+  it('records the coin given up in a swap before the coin received, neither as a transfer', () => {
+    const btc = makeTx({ instrumentId: 'CRYPTO:BTC', quantity: '0.01', price: '58000', date: '2024-03-01' })
+    const swap = makeTx({ instrumentId: 'CRYPTO:BTC', type: 'swap', quantity: '0.01', price: undefined, toInstrumentId: 'CRYPTO:ETH', toQuantity: '0.25', amount: '660', date: '2024-04-01' })
+    expect(shape(computeLedger([btc, swap])).slice(1)).toEqual([
+      [swap.id, 'acc-1', 'CRYPTO:BTC', '0.01', '0', false],
+      [swap.id, 'acc-1', 'CRYPTO:ETH', '0', '0.25', false],
+    ])
+  })
+
+  it('records the asset a fee was paid in after the asset traded', () => {
+    const bnb = makeTx({ instrumentId: 'CRYPTO:BNB', quantity: '1', price: '500', date: '2024-01-10' })
+    const eth = makeTx({ instrumentId: 'CRYPTO:ETH', quantity: '1', price: '2000', date: '2024-01-11', feePaidIn: 'asset', feeInstrumentId: 'CRYPTO:BNB', feeQuantity: '0.001', fees: '0.6' })
+    const sell = makeTx({ instrumentId: 'CRYPTO:ETH', type: 'sell', quantity: '1', price: '2100', date: '2024-01-12', feePaidIn: 'asset', feeInstrumentId: 'CRYPTO:BNB', feeQuantity: '0.999', fees: '1' })
+    expect(shape(computeLedger([bnb, eth, sell])).slice(1)).toEqual([
+      [eth.id, 'acc-1', 'CRYPTO:ETH', '0', '1', false],
+      [eth.id, 'acc-1', 'CRYPTO:BNB', '1', '0.999', false],
+      [sell.id, 'acc-1', 'CRYPTO:ETH', '1', '0', false],
+      [sell.id, 'acc-1', 'CRYPTO:BNB', '0.999', '0', false],
+    ])
+  })
+
+  it('records an opening holding, an asset received as income and a split', () => {
+    const opening = makeTx({ type: 'opening', quantity: '5', price: '100', date: '2024-01-01' })
+    const received = makeTx({ type: 'receive_asset', quantity: '1', price: '100', date: '2024-01-05' })
+    const split = makeTx({ type: 'split', splitRatio: '2', quantity: undefined, price: undefined, date: '2024-02-01' })
+    expect(shape(computeLedger([opening, received, split]))).toEqual([
+      [opening.id, 'acc-1', 'US:AAPL', '0', '5', false],
+      [received.id, 'acc-1', 'US:AAPL', '5', '6', false],
+      [split.id, 'acc-1', 'US:AAPL', '6', '12', false],
+    ])
+  })
+
+  it('records nothing for a transaction the ledger skips', () => {
+    const oversell = makeTx({ type: 'sell', quantity: '15', price: '100', date: '2024-01-11' })
+    const tooMany = makeTx({ type: 'transfer', toAccountId: 'acc-2', quantity: '12', price: undefined, date: '2024-01-12' })
+    const noFeeAsset = makeTx({ quantity: '1', price: '100', date: '2024-01-13', feePaidIn: 'asset', feeInstrumentId: 'CRYPTO:BNB', feeQuantity: '1', fees: '1' })
+    const orphanSplit = makeTx({ instrumentId: 'US:MSFT', type: 'split', splitRatio: '2', quantity: undefined, price: undefined, date: '2024-01-14' })
+    const ledger = computeLedger([buy, oversell, tooMany, noFeeAsset, orphanSplit])
+    expect(ledger.issues).toHaveLength(4)
+    expect(shape(ledger)).toEqual([[buy.id, 'acc-1', 'US:AAPL', '0', '10', false]])
+  })
+})

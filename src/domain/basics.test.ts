@@ -65,6 +65,7 @@ describe('dates', () => {
   it('counts whole days between two dates, across month ends', () => {
     expect(daysBetween('2024-02-28', '2024-03-01')).toBe(2)
     expect(daysBetween('2024-01-15', '2024-01-15')).toBe(0)
+    expect(daysBetween('2024-01-10', '2024-04-10')).toBe(91)
   })
 })
 
