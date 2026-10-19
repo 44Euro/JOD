@@ -71,6 +71,17 @@ describe('matchTrades', () => {
       expect(t.realizedBase.toString()).toBe('5660')
     })
 
+    it('joins the two when every unit of the sending account arrives', () => {
+      const already = makeTx({ accountId: 'acc-2', quantity: '2', price: '110', fxRate: '33', date: '2024-01-05' })
+      const buy = makeTx({ quantity: '10', price: '100', fxRate: '34', date: '2024-01-10' })
+      const sendAll = makeTx({ type: 'transfer', toAccountId: 'acc-2', quantity: '10', price: undefined, date: '2024-02-01' })
+      const sellAll = makeTx({ type: 'sell', accountId: 'acc-2', quantity: '12', price: '120', fxRate: '34', date: '2024-03-01' })
+      const joined = trades([already, buy, sendAll])
+      expect(joined.map((t) => [t.id, t.openDate, t.closeDate, t.accountIds])).toEqual([[already.id, '2024-01-05', null, ['acc-2', 'acc-1']]])
+      const [t] = trades([already, buy, sendAll, sellAll])
+      expect([t.closeDate, t.closingTxId, t.txIds]).toEqual(['2024-03-01', sellAll.id, [already.id, buy.id, sendAll.id, sellAll.id]])
+    })
+
     it('keeps the earlier trade when it is the one the units come from', () => {
       const buy = makeTx({ quantity: '10', price: '100', fxRate: '34', date: '2024-01-05' })
       const later = makeTx({ accountId: 'acc-2', quantity: '2', price: '110', fxRate: '33', date: '2024-01-10' })
@@ -125,7 +136,22 @@ describe('matchTrades', () => {
   it('neither opens nor closes a trade on a split', () => {
     const buy = makeTx({ quantity: '10', price: '100', date: '2024-01-10' })
     const split = makeTx({ type: 'split', splitRatio: '2', quantity: undefined, price: undefined, date: '2024-02-01' })
-    expect(trades([buy, split])).toHaveLength(1)
+    const list = trades([buy, split])
+    expect(list).toHaveLength(1)
+    expect(list[0].closeDate).toBeNull()
+    expect(list[0].txIds).toEqual([buy.id, split.id])
+  })
+
+  it('opens a new trade in an account that sold out while another account still holds units of the old one', () => {
+    const buy = makeTx({ quantity: '10', price: '100', fxRate: '34', date: '2024-01-10' })
+    const move = makeTx({ type: 'transfer', toAccountId: 'acc-2', quantity: '4', price: undefined, date: '2024-01-20' })
+    const sellHere = makeTx({ type: 'sell', quantity: '6', price: '110', fxRate: '34', date: '2024-02-01' })
+    const again = makeTx({ quantity: '3', price: '105', fxRate: '34', date: '2024-03-01' })
+    const list = trades([buy, move, sellHere, again])
+    expect(list.map((t) => [t.id, t.closeDate, t.accountIds])).toEqual([
+      [buy.id, null, ['acc-1', 'acc-2']],
+      [again.id, null, ['acc-1']],
+    ])
   })
 
   it('opens a trade from an opening holding and from an asset received as income', () => {
@@ -156,6 +182,16 @@ describe('matchTrades', () => {
     const bnb = makeTx({ instrumentId: 'CRYPTO:BNB', quantity: '1', price: '500', fxRate: '35', date: '2024-01-10' })
     const eth = makeTx({ instrumentId: 'CRYPTO:ETH', quantity: '1', price: '2000', fxRate: '35', date: '2024-01-11', feePaidIn: 'asset', feeInstrumentId: 'CRYPTO:BNB', feeQuantity: '0.001', fees: '0.6' })
     const sell = makeTx({ instrumentId: 'CRYPTO:ETH', type: 'sell', quantity: '1', price: '2100', fxRate: '35', date: '2024-01-12', feePaidIn: 'asset', feeInstrumentId: 'CRYPTO:BNB', feeQuantity: '0.999', fees: '1' })
+
+    it('leaves the journal of the trade it paid for out of the trade of the fee asset', () => {
+      const journalBuy = { ...eth, journal: { strategy: 'Breakout', emotion: 'fomo' as const, stopLoss: '1' } }
+      const journalSell = { ...sell, journal: { review: 'ok', mistakes: ['chased' as const] } }
+      const byAsset = new Map(trades([bnb, journalBuy, journalSell]).map((t) => [t.instrumentId, t]))
+      const fee = byAsset.get('CRYPTO:BNB')!
+      expect([fee.strategy, fee.emotion, fee.hasStopLoss, fee.mistakes, fee.reviewed]).toEqual([undefined, undefined, false, [], false])
+      const paid = byAsset.get('CRYPTO:ETH')!
+      expect([paid.strategy, paid.emotion, paid.hasStopLoss, paid.mistakes, paid.reviewed]).toEqual(['Breakout', 'fomo', true, ['chased'], true])
+    })
 
     it('counts its gain in the trade of the fee asset and not in the trade it paid for', () => {
       const list = trades([bnb, eth, sell])

@@ -87,6 +87,7 @@ export function matchTrades(transactions: readonly Transaction[], ledger: Ledger
 
     let draft = owner
     if (move.before.isZero()) {
+      // Validation keeps a fee below the units received, so a position never goes from nothing to nothing.
       if (!move.after.greaterThan(0)) continue
       draft = from ?? open(move)
       draft.holding.add(key)
@@ -101,6 +102,7 @@ export function matchTrades(transactions: readonly Transaction[], ledger: Ledger
     } else if (draft && from && from !== draft) {
       draft = join(from, draft)
     }
+    // A position that holds units always has a trade, because every way units arrive opens or joins one.
     if (draft) assigned.push({ draft, move })
   }
 
@@ -121,15 +123,17 @@ export function matchTrades(transactions: readonly Transaction[], ledger: Ledger
     .filter((draft) => !draft.mergedInto)
     .sort((a, b) => a.openDate.localeCompare(b.openDate) || a.order - b.order)
     .map((draft): Trade => {
-      const own = moves.get(draft) ?? []
-      const txIds = [...new Set(own.map((move) => move.txId))]
+      const draftMoves = moves.get(draft) ?? []
+      const txIds = [...new Set(draftMoves.map((move) => move.txId))]
       const txs = txIds.flatMap((id) => byId.get(id) ?? [])
-      const buys = txs.filter((tx) => tx.type === 'buy')
-      const closing = draft.closingTxId ? byId.get(draft.closingTxId)?.journal : undefined
+      // A fee asset's trade also lists the transactions it paid fees for, which are not its own to journal.
+      const journalTxs = txs.filter((tx) => tx.instrumentId === draft.instrumentId || tx.toInstrumentId === draft.instrumentId)
+      const buys = journalTxs.filter((tx) => tx.type === 'buy')
+      const closing = journalTxs.find((tx) => tx.id === draft.closingTxId)?.journal
       return {
         id: draft.id,
         instrumentId: draft.instrumentId,
-        accountIds: [...new Set(own.map((move) => move.accountId))],
+        accountIds: [...new Set(draftMoves.map((move) => move.accountId))],
         openDate: draft.openDate,
         closeDate: draft.closeDate,
         realizedBase: sumBy(realized.get(draft) ?? [], (event) => event.realizedBase),
@@ -139,7 +143,7 @@ export function matchTrades(transactions: readonly Transaction[], ledger: Ledger
         strategy: buys.find((tx) => tx.journal?.strategy)?.journal?.strategy,
         emotion: buys.find((tx) => tx.journal?.emotion)?.journal?.emotion,
         hasStopLoss: buys.some((tx) => tx.journal?.stopLoss),
-        mistakes: [...new Set(txs.flatMap((tx) => tx.journal?.mistakes ?? []))],
+        mistakes: [...new Set(journalTxs.flatMap((tx) => tx.journal?.mistakes ?? []))],
         reviewed: Boolean(closing?.review?.trim()) || closing?.score !== undefined,
       }
     })
