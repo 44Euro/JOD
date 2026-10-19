@@ -144,7 +144,7 @@ export function matchTrades(transactions: readonly Transaction[], ledger: Ledger
         emotion: buys.find((tx) => tx.journal?.emotion)?.journal?.emotion,
         hasStopLoss: buys.some((tx) => tx.journal?.stopLoss),
         mistakes: [...new Set(journalTxs.flatMap((tx) => tx.journal?.mistakes ?? []))],
-        reviewed: Boolean(closing?.review?.trim()) || closing?.score !== undefined,
+        reviewed: Boolean(closing?.review?.trim()) || closing?.score !== undefined || (closing?.mistakes?.length ?? 0) > 0,
       }
     })
 }

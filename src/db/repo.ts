@@ -10,7 +10,7 @@ import {
   type Transaction,
   type Unit,
 } from '../domain/types'
-import { validateFeeTemplate, validateJournal, validateSymbol, validateThesis, validateTransaction } from '../domain/validation'
+import { validateFeeTemplate, validateSymbol, validateThesis, validateTransaction } from '../domain/validation'
 import type { DailyValueRecord, JodDB } from './db'
 
 export function newId(): string {
@@ -144,7 +144,8 @@ export async function saveTransactions(db: JodDB, txs: readonly Transaction[], n
 }
 
 // The review is written on the sell that closed the trade, next to whatever that sell's journal already says. What the
-// review leaves empty is removed from the journal, so clearing a field in the form clears it in the record.
+// review leaves empty is removed from the journal, so clearing a field in the form clears it in the record. Only a sell
+// holds one: a backup is checked transaction by transaction on restore, and any other type would refuse its journal.
 export async function saveTradeReview(
   db: JodDB,
   txId: string,
@@ -154,6 +155,7 @@ export async function saveTradeReview(
   await db.transaction('rw', db.transactions, async () => {
     const tx = await db.transactions.get(txId)
     if (!tx) throw new Error('ไม่พบรายการนี้')
+    if (tx.type !== 'sell') throw new Error('รีวิวได้เฉพาะรายการขาย')
     const journal: TradeJournal = { ...tx.journal }
     const text = review.review.trim()
     if (text) journal.review = text
@@ -162,12 +164,10 @@ export async function saveTradeReview(
     else delete journal.mistakes
     if (review.score !== undefined) journal.score = review.score
     else delete journal.score
-    const errors = validateJournal(journal)
+    const next = Object.keys(journal).length > 0 ? journal : undefined
+    const errors = validateTransaction({ ...tx, journal: next })
     if (errors.length > 0) throw new Error(errors[0])
-    await db.transactions.update(txId, {
-      journal: Object.keys(journal).length > 0 ? journal : undefined,
-      updatedAt: now.toISOString(),
-    })
+    await db.transactions.update(txId, { journal: next, updatedAt: now.toISOString() })
   })
 }
 

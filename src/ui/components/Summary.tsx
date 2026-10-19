@@ -44,7 +44,7 @@ export function Stat({
   label: string
   value: string
   tone?: string
-  note?: string
+  note?: ReactNode
   flag?: string
 }) {
   return (

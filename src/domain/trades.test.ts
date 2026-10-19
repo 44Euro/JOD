@@ -123,6 +123,13 @@ describe('matchTrades', () => {
     expect(trades([buy, half, rest({ review: 'ok' })])[0].reviewed).toBe(true)
   })
 
+  it('counts a review that only names the mistakes as reviewed, and not an empty list', () => {
+    const buy = makeTx({ quantity: '1', price: '100', date: '2024-01-10' })
+    const close = (journal: Transaction['journal']) => makeTx({ type: 'sell', quantity: '1', price: '90', date: '2024-01-12', journal })
+    expect(trades([buy, close({ mistakes: ['chased'] })])[0].reviewed).toBe(true)
+    expect(trades([buy, close({ mistakes: [] })])[0].reviewed).toBe(false)
+  })
+
   it('closes the coin given up in a swap and opens the one received', () => {
     const btc = makeTx({ instrumentId: 'CRYPTO:BTC', quantity: '0.01', price: '58000', fxRate: '34', date: '2024-03-01' })
     const swap = makeTx({ instrumentId: 'CRYPTO:BTC', type: 'swap', quantity: '0.01', price: undefined, toInstrumentId: 'CRYPTO:ETH', toQuantity: '0.25', amount: '660', fxRate: '35', date: '2024-04-01' })

@@ -20,4 +20,15 @@ describe('useIsDesktop', () => {
     }))
     expect(renderHook(() => useIsDesktop()).result.current).toBe(false)
   })
+
+  it('asks for 768px unless a wider layout is wanted', () => {
+    const asked: string[] = []
+    vi.stubGlobal('matchMedia', (query: string) => {
+      asked.push(query)
+      return { matches: query === '(min-width: 768px)', media: query, addEventListener: () => {}, removeEventListener: () => {} }
+    })
+    expect(renderHook(() => useIsDesktop()).result.current).toBe(true)
+    expect(renderHook(() => useIsDesktop(1024)).result.current).toBe(false)
+    expect(asked).toContain('(min-width: 1024px)')
+  })
 })

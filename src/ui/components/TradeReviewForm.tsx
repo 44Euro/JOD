@@ -30,6 +30,7 @@ export function TradeReviewForm({
   const [mistakes, setMistakes] = useState<Mistake[]>(journal?.mistakes ?? [])
   const [score, setScore] = useState(journal?.score?.toString() ?? '')
   const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
 
   const toggleMistake = (mistake: Mistake) =>
     setMistakes((current) => (current.includes(mistake) ? current.filter((m) => m !== mistake) : [...current, mistake]))
@@ -37,11 +38,13 @@ export function TradeReviewForm({
   async function save(event: FormEvent) {
     event.preventDefault()
     setError('')
+    setSaving(true)
     try {
       await saveTradeReview(db, txId, { review, mistakes, score: score ? Number(score) : undefined })
       onClose()
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
+      setSaving(false)
     }
   }
 
@@ -87,7 +90,9 @@ export function TradeReviewForm({
         </p>
       )}
       <div className="flex gap-2">
-        <Button type="submit">บันทึก</Button>
+        <Button type="submit" disabled={saving}>
+          บันทึก
+        </Button>
         <Button type="button" variant="outline" onClick={onClose}>
           ยกเลิก
         </Button>

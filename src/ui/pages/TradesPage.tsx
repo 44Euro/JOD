@@ -1,5 +1,5 @@
 import { Check } from 'lucide-react'
-import { Fragment, useMemo, useState, type ReactNode } from 'react'
+import { Fragment, useMemo, useRef, useState, type ReactNode, type Ref } from 'react'
 import { Link } from 'react-router'
 import { Alert } from '../../components/ui/alert'
 import { Badge } from '../../components/ui/badge'
@@ -30,9 +30,12 @@ import { useAppData, useLedger } from '../hooks'
 import { EMOTION_LABELS, MISTAKE_LABELS, TRADE_PERIOD_LABELS, marketOf } from '../labels'
 import { useIsDesktop } from '../useIsDesktop'
 
-const PERIODS = (Object.keys(TRADE_PERIOD_LABELS) as TradePeriod[]).map((value) => ({ value, label: TRADE_PERIOD_LABELS[value] }))
+const PERIODS = (['month', 'year', 'all'] as const).map((value) => ({ value, label: TRADE_PERIOD_LABELS[value] }))
 
 const RECENT_COUNT = 10
+
+// The sidebar takes 240px from 768px up, which leaves a table card about 440px, too narrow for these tables.
+const TABLE_MIN_WIDTH = 1024
 
 type GroupBy = 'strategy' | 'emotion' | 'month'
 
@@ -46,6 +49,14 @@ function observationText({ by, group }: Observation): string {
   const subject = by === 'emotion' ? `เทรดตอน ${groupName(by, group.key)}` : `กลยุทธ์ ${group.key}`
   const noStop = group.noStopCount > 0 ? ` · ${group.noStopCount} ใน ${group.count} ครั้งไม่ได้ตั้ง Stop loss` : ''
   return `${subject} ชนะแค่ ${fmtPct(group.winRatePct, 0)} และขาดทุนรวม ${fmtSigned(group.totalBase, 0)}${noStop}`
+}
+
+function Pair({ first, second }: { first: string; second: string }) {
+  return (
+    <>
+      <span className="whitespace-nowrap">{first}</span> · <span className="whitespace-nowrap">{second}</span>
+    </>
+  )
 }
 
 function AssetLabel({ instrumentId, instrument }: { instrumentId: string; instrument?: Instrument }) {
@@ -93,7 +104,9 @@ function GroupTable({
           <tbody>
             {groups.map((group) => (
               <tr key={group.key}>
-                <Td className="max-w-56 truncate font-semibold">{groupName(by, group.key)}</Td>
+                <Td className="max-w-56 truncate font-semibold" title={groupName(by, group.key)}>
+                  {groupName(by, group.key)}
+                </Td>
                 <Td className="text-right">{group.count}</Td>
                 <Td className="text-right">{fmtPct(group.winRatePct, 0)}</Td>
                 <Td className={cn('text-right font-display font-semibold', plClass(group.totalBase))}>{fmtSigned(group.totalBase, 0)}</Td>
@@ -108,7 +121,9 @@ function GroupTable({
               key={group.key}
               className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2.5 gap-y-1 border-t border-muted py-3 first:border-t-0"
             >
-              <b className="min-w-0 truncate font-display text-base font-semibold">{groupName(by, group.key)}</b>
+              <b className="min-w-0 truncate font-display text-base font-semibold" title={groupName(by, group.key)}>
+                {groupName(by, group.key)}
+              </b>
               <span className={cn('font-display font-semibold', plClass(group.totalBase))}>{fmtSigned(group.totalBase, 0)}</span>
               <span className="col-span-2 text-[12.5px] text-muted-foreground">
                 {`${group.count} เทรด · ชนะ ${fmtPct(group.winRatePct, 0)}`}
@@ -121,23 +136,61 @@ function GroupTable({
   )
 }
 
-// The button is the 44px target on a phone; the badge inside is what the eye sees, as in the mock.
-function ReviewButton({ reviewed, open, onClick }: { reviewed: boolean; open: boolean; onClick(): void }) {
+const pressedBadge = 'bg-warning-fg text-warning-bg'
+const focusRing = 'focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/35'
+// In the list layout the button is the 44px target and the badge inside is what the eye sees, as in the mock. The negative
+// margin lets the target use the row's padding so the second line stays as tall as its text.
+const listTarget = 'min-h-11 min-w-11 justify-end -my-3'
+
+function ReviewButton({
+  ref,
+  symbol,
+  reviewed,
+  open,
+  list,
+  onClick,
+}: {
+  ref: Ref<HTMLButtonElement>
+  symbol: string
+  reviewed: boolean
+  open: boolean
+  list: boolean
+  onClick(): void
+}) {
   return (
     <button
+      ref={ref}
       type="button"
+      aria-label={`${reviewed ? 'แก้รีวิว' : 'รีวิว'} ${symbol}`}
       aria-expanded={open}
       onClick={onClick}
-      className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/35 max-md:-my-3 md:min-h-0 md:min-w-0"
+      className={cn('inline-flex items-center justify-center rounded-lg', focusRing, list && listTarget)}
     >
       {reviewed ? (
-        <Badge variant="ok">
+        <Badge variant="ok" className={open ? 'bg-gain-ink text-gain-soft' : undefined}>
           <Check aria-hidden />
           รีวิวแล้ว
         </Badge>
       ) : (
-        <Badge variant="warning">รีวิว</Badge>
+        <Badge variant="warning" className={open ? pressedBadge : undefined}>
+          รีวิว
+        </Badge>
       )}
+    </button>
+  )
+}
+
+function UnreviewedToggle({ count, pressed, list, onClick }: { count: number; pressed: boolean; list: boolean; onClick(): void }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={pressed}
+      onClick={onClick}
+      className={cn('inline-flex items-center justify-center rounded-lg', focusRing, list && 'min-h-11 min-w-11')}
+    >
+      <Badge variant="warning" className={pressed ? pressedBadge : undefined}>
+        {`ยังไม่ได้รีวิว ${count}`}
+      </Badge>
     </button>
   )
 }
@@ -145,9 +198,11 @@ function ReviewButton({ reviewed, open, onClick }: { reviewed: boolean; open: bo
 export function TradesPage() {
   const data = useAppData()
   const ledger = useLedger(data)
-  const isDesktop = useIsDesktop()
+  const isDesktop = useIsDesktop(TABLE_MIN_WIDTH)
   const [period, setPeriod] = useState<TradePeriod>('year')
   const [reviewing, setReviewing] = useState<string | null>(null)
+  const [onlyUnreviewed, setOnlyUnreviewed] = useState(false)
+  const reviewButtons = useRef(new Map<string, HTMLButtonElement>())
   const trades = useMemo(() => (data && ledger ? matchTrades(data.transactions, ledger) : []), [data, ledger])
 
   if (!data || !ledger) return <p className="text-muted-foreground">กำลังโหลด…</p>
@@ -197,27 +252,48 @@ export function TradesPage() {
     const tx = trade.closingTxId ? transactions.get(trade.closingTxId) : undefined
     return tx?.type === 'sell' && tx.instrumentId === trade.instrumentId ? tx : undefined
   }
-  const toReview = closed.filter((trade) => !trade.reviewed && closingSell(trade) !== undefined).length
-  const recent = [...closed].sort((a, b) => (b.closeDate ?? '').localeCompare(a.closeDate ?? '')).slice(0, RECENT_COUNT)
+  const newestFirst = [...closed].sort((a, b) => (b.closeDate ?? '').localeCompare(a.closeDate ?? ''))
+  const unreviewed = newestFirst.filter((trade) => !trade.reviewed && closingSell(trade) !== undefined)
+  // Once the last one is reviewed there is nothing left to filter to, so the list falls back to the latest trades.
+  const showUnreviewed = onlyUnreviewed && unreviewed.length > 0
+  const recent = showUnreviewed ? unreviewed : newestFirst.slice(0, RECENT_COUNT)
 
   const days = (value: number | null) => (value === null ? '—' : `${value} วัน`)
+  const recentLine = (trade: Trade) =>
+    [trade.strategy ?? '—', days(trade.holdingDays), trade.emotion && EMOTION_LABELS[trade.emotion]].filter(Boolean).join(' · ')
   const extremes = [
     stats.maxLossStreak > 0 && `แพ้ติดกันมากสุด ${stats.maxLossStreak} ครั้ง`,
-    stats.best && `เทรดดีสุด ${fmtSigned(stats.best.realizedBase, 0)} (${symbolOf(stats.best.instrumentId)})`,
-    // A single closed trade is both the best and the worst.
-    stats.worst && stats.worst !== stats.best && `แย่สุด ${fmtSigned(stats.worst.realizedBase, 0)} (${symbolOf(stats.worst.instrumentId)})`,
+    stats.best?.realizedBase.greaterThan(0) && `เทรดดีสุด ${fmtSigned(stats.best.realizedBase, 0)} (${symbolOf(stats.best.instrumentId)})`,
+    stats.worst?.realizedBase.lessThanOrEqualTo(0) && `แย่สุด ${fmtSigned(stats.worst.realizedBase, 0)} (${symbolOf(stats.worst.instrumentId)})`,
   ]
     .filter(Boolean)
     .join(' · ')
 
   const toggleReview = (trade: Trade) => setReviewing((current) => (current === trade.id ? null : trade.id))
+  // The form is gone by the time a keyboard user looks for their place, so focus goes back to the button that opened it.
+  const closeReview = (trade: Trade) => {
+    setReviewing(null)
+    reviewButtons.current.get(trade.id)?.focus()
+  }
   const reviewForm = (trade: Trade): ReactNode => {
     const sell = closingSell(trade)
     if (reviewing !== trade.id || !sell) return null
-    return <TradeReviewForm name={symbolOf(trade.instrumentId)} txId={sell.id} journal={sell.journal} onClose={() => setReviewing(null)} />
+    return <TradeReviewForm name={symbolOf(trade.instrumentId)} txId={sell.id} journal={sell.journal} onClose={() => closeReview(trade)} />
   }
   const reviewButton = (trade: Trade): ReactNode =>
-    closingSell(trade) ? <ReviewButton reviewed={trade.reviewed} open={reviewing === trade.id} onClick={() => toggleReview(trade)} /> : null
+    closingSell(trade) ? (
+      <ReviewButton
+        ref={(button) => {
+          if (button) reviewButtons.current.set(trade.id, button)
+          else reviewButtons.current.delete(trade.id)
+        }}
+        symbol={symbolOf(trade.instrumentId)}
+        reviewed={trade.reviewed}
+        open={reviewing === trade.id}
+        list={!isDesktop}
+        onClick={() => toggleReview(trade)}
+      />
+    ) : null
   const assetOf = (trade: Trade) => <AssetLabel instrumentId={trade.instrumentId} instrument={instruments.get(trade.instrumentId)} />
 
   return (
@@ -230,19 +306,23 @@ export function TradesPage() {
         <Stat
           label="Profit factor"
           value={fmtMoney(stats.profitFactor)}
-          note={`ชนะเฉลี่ย ${fmtNumber(stats.avgWinBase, 0)} · แพ้เฉลี่ย ${fmtNumber(stats.avgLossBase, 0)}`}
+          note={<Pair first={`ชนะเฉลี่ย ${fmtNumber(stats.avgWinBase, 0)}`} second={`แพ้เฉลี่ย ${fmtNumber(stats.avgLossBase, 0)}`} />}
         />
-        <Stat
-          label="ได้ต่อเทรด"
-          value={fmtSigned(stats.expectancyBase, 0)}
-          tone={plClass(stats.expectancyBase)}
-          note={stats.closed > 0 ? `รวม ${fmtSigned(stats.totalBase, 0)}` : undefined}
-        />
-        <Stat
-          label="ถือเฉลี่ย"
-          value={days(stats.avgHoldDays)}
-          note={`ชนะ ${days(stats.avgHoldWinDays)} · แพ้ ${days(stats.avgHoldLossDays)}`}
-        />
+        <div className="max-md:hidden">
+          <Stat
+            label="ได้ต่อเทรด"
+            value={fmtSigned(stats.expectancyBase, 0)}
+            tone={plClass(stats.expectancyBase)}
+            note={stats.closed > 0 ? `รวม ${fmtSigned(stats.totalBase, 0)}` : undefined}
+          />
+        </div>
+        <div className="max-md:hidden">
+          <Stat
+            label="ถือเฉลี่ย"
+            value={days(stats.avgHoldDays)}
+            note={<Pair first={`ชนะ ${days(stats.avgHoldWinDays)}`} second={`แพ้ ${days(stats.avgHoldLossDays)}`} />}
+          />
+        </div>
       </Card>
 
       {warning && <Alert role="note">{observationText(warning)}</Alert>}
@@ -253,7 +333,7 @@ export function TradesPage() {
         </Card>
       ) : (
         <>
-          <div className="grid items-start gap-3.5 md:gap-[22px] xl:grid-cols-2">
+          <div className="grid items-stretch gap-3.5 md:gap-[22px] xl:grid-cols-2">
             <GroupTable
               title="กลยุทธ์ไหนทำเงิน"
               head="กลยุทธ์"
@@ -284,8 +364,15 @@ export function TradesPage() {
           <div className="grid items-start gap-3.5 md:gap-[22px] xl:grid-cols-[minmax(0,1fr)_340px]">
             <Card>
               <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                <h2 className="text-lg font-semibold">เทรดที่ปิดล่าสุด</h2>
-                {toReview > 0 && <Badge variant="warning">{`ยังไม่ได้รีวิว ${toReview}`}</Badge>}
+                <h2 className="text-lg font-semibold">{showUnreviewed ? 'ยังไม่ได้รีวิว' : 'เทรดที่ปิดล่าสุด'}</h2>
+                {unreviewed.length > 0 && (
+                  <UnreviewedToggle
+                    count={unreviewed.length}
+                    pressed={showUnreviewed}
+                    list={!isDesktop}
+                    onClick={() => setOnlyUnreviewed(!onlyUnreviewed)}
+                  />
+                )}
               </div>
               {isDesktop ? (
                 <Table>
@@ -307,7 +394,9 @@ export function TradesPage() {
                         <Fragment key={trade.id}>
                           <tr>
                             <Td className="max-w-56">{assetOf(trade)}</Td>
-                            <Td className="max-w-48 truncate">{trade.strategy ?? '—'}</Td>
+                            <Td className="max-w-48 truncate" title={trade.strategy}>
+                              {trade.strategy ?? '—'}
+                            </Td>
                             <Td className="text-right">{days(trade.holdingDays)}</Td>
                             <Td className={cn('text-right font-display font-semibold', plClass(trade.realizedBase))}>
                               {fmtSigned(trade.realizedBase, 0)}
@@ -334,9 +423,11 @@ export function TradesPage() {
                       <li key={trade.id} className="border-t border-muted py-3 first:border-t-0">
                         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2.5 gap-y-1">
                           {assetOf(trade)}
-                          <span className={cn('font-display font-semibold', plClass(trade.realizedBase))}>{fmtSigned(trade.realizedBase, 0)}</span>
-                          <span className="min-w-0 truncate text-[12.5px] text-muted-foreground">
-                            {`${trade.strategy ?? '—'} · ถือ ${days(trade.holdingDays)}`}
+                          <span className={cn('justify-self-end font-display font-semibold', plClass(trade.realizedBase))}>
+                            {fmtSigned(trade.realizedBase, 0)}
+                          </span>
+                          <span className="min-w-0 truncate text-[12.5px] text-muted-foreground" title={recentLine(trade)}>
+                            {recentLine(trade)}
                           </span>
                           <span className="justify-self-end">{reviewButton(trade)}</span>
                         </div>
@@ -377,8 +468,8 @@ export function TradesPage() {
                 <tr>
                   <Th>สินทรัพย์</Th>
                   <Th>เปิดเมื่อ</Th>
-                  <Th className="text-right">ถือมา</Th>
                   <Th>กลยุทธ์</Th>
+                  <Th className="text-right">ถือมา</Th>
                 </tr>
               </thead>
               <tbody>
@@ -386,8 +477,10 @@ export function TradesPage() {
                   <tr key={trade.id}>
                     <Td className="max-w-56">{assetOf(trade)}</Td>
                     <Td>{fmtDate(trade.openDate)}</Td>
+                    <Td className="max-w-48 truncate" title={trade.strategy}>
+                      {trade.strategy ?? '—'}
+                    </Td>
                     <Td className="text-right">{days(daysBetween(trade.openDate, today))}</Td>
-                    <Td className="max-w-48 truncate">{trade.strategy ?? '—'}</Td>
                   </tr>
                 ))}
               </tbody>
@@ -401,7 +494,7 @@ export function TradesPage() {
                 >
                   {assetOf(trade)}
                   <span className="text-[13px] text-muted-foreground">{`ถือมา ${days(daysBetween(trade.openDate, today))}`}</span>
-                  <span className="col-span-2 truncate text-[12.5px] text-muted-foreground">
+                  <span className="col-span-2 truncate text-[12.5px] text-muted-foreground" title={trade.strategy}>
                     {`เปิดเมื่อ ${fmtDate(trade.openDate)}${trade.strategy ? ` · ${trade.strategy}` : ''}`}
                   </span>
                 </li>

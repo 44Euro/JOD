@@ -348,4 +348,21 @@ describe('saveTradeReview', () => {
   it('says so when the transaction is not there', async () => {
     await expect(saveTradeReview(db, 'missing', { review: 'x', mistakes: [] })).rejects.toThrow('ไม่พบรายการนี้')
   })
+
+  it('writes a review only on a sell, because no other transaction keeps one through a restore', async () => {
+    const buy = makeTx({ type: 'buy' })
+    const swap = makeTx({ type: 'swap', instrumentId: 'CRYPTO:BTC', toInstrumentId: 'CRYPTO:ETH', quantity: '1', toQuantity: '10', amount: '660', price: undefined })
+    await db.transactions.bulkAdd([buy, swap])
+    for (const tx of [buy, swap]) {
+      await expect(saveTradeReview(db, tx.id, { review: 'x', mistakes: ['chased'], score: 3 })).rejects.toThrow('รีวิวได้เฉพาะรายการขาย')
+      expect(await db.transactions.get(tx.id)).toEqual(tx)
+    }
+  })
+
+  it('refuses a review that would leave the sell itself invalid', async () => {
+    const sell = makeTx({ type: 'sell', quantity: '0' })
+    await db.transactions.add(sell)
+    await expect(saveTradeReview(db, sell.id, { review: 'x', mistakes: [] })).rejects.toThrow('จำนวนหน่วยต้องเป็นตัวเลขมากกว่า 0')
+    expect(await db.transactions.get(sell.id)).toEqual(sell)
+  })
 })

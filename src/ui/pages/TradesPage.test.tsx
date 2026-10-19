@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '../../db/db'
@@ -53,13 +53,18 @@ async function seedFive() {
 
 const stat = (label: string) => screen.getByText(label).parentElement as HTMLElement
 
-const phone = () =>
+const stubWidth = (px: number) =>
   vi.stubGlobal('matchMedia', (query: string) => ({
-    matches: false,
+    matches: Number(/\d+/.exec(query)?.[0]) <= px,
     media: query,
     addEventListener: () => {},
     removeEventListener: () => {},
   }))
+const phone = () => stubWidth(0)
+// Wide enough for the sidebar layout but not for the tables.
+const tablet = () => stubWidth(900)
+
+const reviewButtons = () => screen.getAllByRole('button', { name: /^รีวิว / })
 
 describe('TradesPage', () => {
   it('invites the user to record a first trade when there is none', async () => {
@@ -82,13 +87,15 @@ describe('TradesPage', () => {
     expect(winRate.getByText('ชนะ 2 · แพ้ 3')).toBeInTheDocument()
     const factor = within(stat('Profit factor'))
     expect(factor.getByText('3.00')).toBeInTheDocument()
-    expect(factor.getByText('ชนะเฉลี่ย 1,500 · แพ้เฉลี่ย 333')).toBeInTheDocument()
+    expect(factor.getByText('ชนะเฉลี่ย 1,500')).toHaveClass('whitespace-nowrap')
+    expect(factor.getByText('แพ้เฉลี่ย 333')).toHaveClass('whitespace-nowrap')
     const perTrade = within(stat('ได้ต่อเทรด'))
     expect(perTrade.getByText('+400')).toHaveClass('text-gain')
     expect(perTrade.getByText('รวม +2,000')).toBeInTheDocument()
     const held = within(stat('ถือเฉลี่ย'))
     expect(held.getByText('14 วัน')).toBeInTheDocument()
-    expect(held.getByText('ชนะ 7 วัน · แพ้ 19 วัน')).toBeInTheDocument()
+    expect(held.getByText('ชนะ 7 วัน')).toHaveClass('whitespace-nowrap')
+    expect(held.getByText('แพ้ 19 วัน')).toHaveClass('whitespace-nowrap')
   })
 
   it('shows last year too when everything is chosen', async () => {
@@ -121,6 +128,21 @@ describe('TradesPage', () => {
     expect(screen.getByText('AOT', { selector: 'b' })).toBeInTheDocument()
   })
 
+  it('sums only the trades closed this month when that is chosen', async () => {
+    await seedFive()
+    await seedTrade('SCB', '2024-10-01', '2024-10-12', '150')
+    const user = userEvent.setup()
+    renderRoute('/trades')
+    await user.click(await screen.findByRole('button', { name: 'เดือนนี้' }))
+    expect(within(stat('เทรดที่ปิดแล้ว')).getByText('1')).toBeInTheDocument()
+    expect(within(stat('Win rate')).getByText('100%')).toBeInTheDocument()
+    expect(within(stat('ได้ต่อเทรด')).getByText('+500')).toBeInTheDocument()
+    expect(within(stat('ถือเฉลี่ย')).getByText('11 วัน')).toBeInTheDocument()
+    const recent = screen.getByRole('heading', { name: 'เทรดที่ปิดล่าสุด' }).closest('div')!.parentElement!
+    expect(within(recent).getAllByRole('row').slice(1).map((r) => r.querySelector('b')?.textContent)).toEqual(['SCB'])
+    expect(screen.queryByText('KBANK', { selector: 'b' })).not.toBeInTheDocument()
+  })
+
   it('ranks strategies, feelings and months by what they made', async () => {
     await seedFive()
     renderRoute('/trades')
@@ -130,6 +152,7 @@ describe('TradesPage', () => {
     const feelings = screen.getByRole('heading', { name: 'อารมณ์ตอนเข้า' }).closest('div')!
     const feelingRows = within(feelings).getAllByRole('row').slice(1)
     expect(feelingRows.map((r) => r.textContent)).toEqual(['ไม่ระบุ333%+1,500', 'นิ่ง มีแผน250%+500'])
+    expect(strategies.parentElement).toHaveClass('items-stretch')
     const months = screen.getByRole('heading', { name: 'แยกตามเดือน' }).closest('div')!
     expect(within(months).getAllByRole('row')[1]).toHaveTextContent('ม.ค. 2024540%+2,000')
     expect(within(months).getByText('+2,000')).toHaveClass('text-gain')
@@ -148,7 +171,58 @@ describe('TradesPage', () => {
     expect(rows[2]).toHaveTextContent('+2,000')
     expect(rows[3]).toHaveTextContent('Breakout')
     expect(rows[0]).toHaveTextContent('—')
-    expect(screen.getByText('ยังไม่ได้รีวิว 5')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'ยังไม่ได้รีวิว 5' })).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  describe('with more than ten closed trades', () => {
+    async function seedTwelve() {
+      for (let i = 1; i <= 12; i++) {
+        const day = String(i).padStart(2, '0')
+        await seedTrade(`T${day}`, '2024-01-15', `2024-02-${day}`, '120', i === 12 ? { sell: { score: 5 } } : {})
+      }
+    }
+    const symbols = (rows: HTMLElement[]) => rows.map((r) => r.querySelector('b')?.textContent)
+
+    it('lists the ten latest, the newest first', async () => {
+      await seedTwelve()
+      renderRoute('/trades')
+      const recent = (await screen.findByRole('heading', { name: 'เทรดที่ปิดล่าสุด' })).closest('div')!.parentElement!
+      expect(symbols(within(recent).getAllByRole('row').slice(1))).toEqual(
+        ['T12', 'T11', 'T10', 'T09', 'T08', 'T07', 'T06', 'T05', 'T04', 'T03'],
+      )
+    })
+
+    it('lists every trade still to review, past the ten, when the count is pressed', async () => {
+      await seedTwelve()
+      const user = userEvent.setup()
+      renderRoute('/trades')
+      const toggle = await screen.findByRole('button', { name: 'ยังไม่ได้รีวิว 11' })
+      await user.click(toggle)
+      expect(toggle).toHaveAttribute('aria-pressed', 'true')
+      expect(screen.queryByRole('heading', { name: 'เทรดที่ปิดล่าสุด' })).not.toBeInTheDocument()
+      const recent = screen.getByRole('heading', { name: 'ยังไม่ได้รีวิว' }).closest('div')!.parentElement!
+      const rows = within(recent).getAllByRole('row').slice(1)
+      expect(symbols(rows)).toEqual(['T11', 'T10', 'T09', 'T08', 'T07', 'T06', 'T05', 'T04', 'T03', 'T02', 'T01'])
+      expect(within(recent).getAllByRole('button', { name: /^รีวิว / })).toHaveLength(11)
+      expect(within(recent).queryByRole('button', { name: /^แก้รีวิว/ })).not.toBeInTheDocument()
+
+      await user.click(toggle)
+      expect(toggle).toHaveAttribute('aria-pressed', 'false')
+      expect(screen.getByRole('heading', { name: 'เทรดที่ปิดล่าสุด' })).toBeInTheDocument()
+    })
+
+    it('goes back to the latest trades once none is left to review', async () => {
+      await seedTrade('KBANK', '2024-01-01', '2024-01-05', '200')
+      const user = userEvent.setup()
+      renderRoute('/trades')
+      await user.click(await screen.findByRole('button', { name: 'ยังไม่ได้รีวิว 1' }))
+      await user.click(screen.getByRole('button', { name: 'รีวิว KBANK' }))
+      await user.click(screen.getByRole('button', { name: '5' }))
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+      expect(await screen.findByRole('heading', { name: 'เทรดที่ปิดล่าสุด' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'แก้รีวิว KBANK' })).toBeInTheDocument()
+      expect(screen.queryByText(/ยังไม่ได้รีวิว/)).not.toBeInTheDocument()
+    })
   })
 
   it('names the longest losing run and the best and worst trade', async () => {
@@ -158,12 +232,28 @@ describe('TradesPage', () => {
     expect(screen.getByText('ยังไม่มีข้อผิดพลาดที่บันทึกไว้')).toBeInTheDocument()
   })
 
-  it('names a lone closed trade once and mentions no losing run when none lost', async () => {
+  it('names a lone winning trade as the best only, with no losing run', async () => {
     await seedTrade('KBANK', '2024-01-01', '2024-01-05', '200')
     renderRoute('/trades')
     expect(await screen.findByText('เทรดดีสุด +1,000 (KBANK)')).toBeInTheDocument()
     expect(screen.queryByText(/แย่สุด/)).not.toBeInTheDocument()
     expect(screen.queryByText(/แพ้ติดกัน/)).not.toBeInTheDocument()
+  })
+
+  it('does not call a trade that made money the worst when every trade did', async () => {
+    await seedTrade('KBANK', '2024-01-01', '2024-01-05', '200')
+    await seedTrade('PTT', '2024-01-01', '2024-01-06', '150')
+    renderRoute('/trades')
+    expect(await screen.findByText('เทรดดีสุด +1,000 (KBANK)')).toBeInTheDocument()
+    expect(screen.queryByText(/แย่สุด/)).not.toBeInTheDocument()
+  })
+
+  it('does not call a trade that lost money the best when every trade did', async () => {
+    await seedTrade('KBANK', '2024-01-01', '2024-01-05', '90')
+    await seedTrade('PTT', '2024-01-01', '2024-01-06', '70')
+    renderRoute('/trades')
+    expect(await screen.findByText('แพ้ติดกันมากสุด 2 ครั้ง · แย่สุด −300 (PTT)')).toBeInTheDocument()
+    expect(screen.queryByText(/เทรดดีสุด/)).not.toBeInTheDocument()
   })
 
   it('lists the open trades whatever the period', async () => {
@@ -176,9 +266,18 @@ describe('TradesPage', () => {
     expect(row).toHaveTextContent('SET')
     expect(row).toHaveTextContent('AOT')
     expect(row).toHaveTextContent('10 ต.ค. 2024')
-    expect(within(open).getByText('ถือมา')).toBeInTheDocument()
+    expect(within(open).getAllByRole('columnheader').map((th) => th.textContent)).toEqual(['สินทรัพย์', 'เปิดเมื่อ', 'กลยุทธ์', 'ถือมา'])
     expect(row).toHaveTextContent('6 วัน')
     expect(row).toHaveTextContent('Pullback')
+  })
+
+  it('gives a cut-off strategy its full name as a title', async () => {
+    const long = 'Breakout หลังประกาศงบไตรมาสที่สามของบริษัท'
+    await seedTrade('KBANK', '2024-01-01', '2024-01-05', '200', { buy: { strategy: long } })
+    renderRoute('/trades')
+    const recent = (await screen.findByRole('heading', { name: 'เทรดที่ปิดล่าสุด' })).closest('div')!.parentElement!
+    expect(within(recent).getByTitle(long)).toBeInTheDocument()
+    expect(within(screen.getByRole('heading', { name: 'กลยุทธ์ไหนทำเงิน' }).closest('div')!).getByTitle(long)).toBeInTheDocument()
   })
 
   describe('observations', () => {
@@ -216,9 +315,12 @@ describe('TradesPage', () => {
       const user = userEvent.setup()
       renderRoute('/trades')
       expect(await screen.findByText('ยังไม่ได้รีวิว 5')).toBeInTheDocument()
-      const [first] = screen.getAllByRole('button', { name: 'รีวิว' })
+      const [first] = reviewButtons()
+      expect(first).toHaveAccessibleName('รีวิว NVDA')
       expect(first.closest('tr')).toHaveTextContent('NVDA')
       await user.click(first)
+      expect(first).toHaveAttribute('aria-expanded', 'true')
+      expect(within(first).getByText('รีวิว')).toHaveClass('bg-warning-fg')
 
       const form = screen.getByRole('form', { name: 'รีวิวเทรด NVDA' })
       await user.type(within(form).getByLabelText('รีวิวหลังปิด'), 'เข้าเร็วเกินไป')
@@ -229,7 +331,9 @@ describe('TradesPage', () => {
       expect(await screen.findByText('ยังไม่ได้รีวิว 4')).toBeInTheDocument()
       expect(screen.queryByRole('form')).not.toBeInTheDocument()
       const nvda = screen.getByText('NVDA', { selector: 'b' }).closest('tr')!
-      expect(within(nvda).getByRole('button', { name: 'รีวิวแล้ว' })).toBeInTheDocument()
+      const edit = within(nvda).getByRole('button', { name: 'แก้รีวิว NVDA' })
+      expect(edit).toHaveTextContent('รีวิวแล้ว')
+      expect(edit).toHaveFocus()
       expect((await db.transactions.get('sell-NVDA'))?.journal).toEqual({ review: 'เข้าเร็วเกินไป', mistakes: ['chased'], score: 3 })
       const mistakes = screen.getByRole('heading', { name: 'ข้อผิดพลาดที่ทำบ่อย' }).closest('div')!
       expect(within(mistakes).getByText('ไล่ราคา').parentElement).toHaveTextContent('ไล่ราคา1 ครั้ง')
@@ -242,7 +346,7 @@ describe('TradesPage', () => {
       })
       const user = userEvent.setup()
       renderRoute('/trades')
-      await user.click(await screen.findByRole('button', { name: 'รีวิวแล้ว' }))
+      await user.click(await screen.findByRole('button', { name: 'แก้รีวิว KBANK' }))
       const form = screen.getByRole('form', { name: 'รีวิวเทรด KBANK' })
       expect(within(form).getByLabelText('รีวิวหลังปิด')).toHaveValue('ดีแล้ว')
       expect(within(form).getByRole('button', { name: 'ขายเร็วเกิน' })).toHaveAttribute('aria-pressed', 'true')
@@ -259,10 +363,13 @@ describe('TradesPage', () => {
       await seedFive()
       const user = userEvent.setup()
       renderRoute('/trades')
-      await user.click((await screen.findAllByRole('button', { name: 'รีวิว' }))[0])
+      const button = await screen.findByRole('button', { name: 'รีวิว NVDA' })
+      await user.click(button)
       await user.type(screen.getByLabelText('รีวิวหลังปิด'), 'ไม่เก็บ')
       await user.click(screen.getByRole('button', { name: 'ยกเลิก' }))
       expect(screen.queryByRole('form')).not.toBeInTheDocument()
+      expect(button).toHaveFocus()
+      expect(button).toHaveAttribute('aria-expanded', 'false')
       expect((await db.transactions.get('sell-NVDA'))?.journal).toBeUndefined()
     })
 
@@ -270,9 +377,8 @@ describe('TradesPage', () => {
       await seedFive()
       const user = userEvent.setup()
       renderRoute('/trades')
-      const buttons = await screen.findAllByRole('button', { name: 'รีวิว' })
-      await user.click(buttons[0])
-      await user.click(buttons[1])
+      await user.click(await screen.findByRole('button', { name: 'รีวิว NVDA' }))
+      await user.click(screen.getByRole('button', { name: 'รีวิว PTT' }))
       expect(screen.getAllByRole('form')).toHaveLength(1)
       expect(screen.getByRole('form', { name: 'รีวิวเทรด PTT' })).toBeInTheDocument()
     })
@@ -281,7 +387,7 @@ describe('TradesPage', () => {
       await seedFive()
       const user = userEvent.setup()
       renderRoute('/trades')
-      await user.click((await screen.findAllByRole('button', { name: 'รีวิว' }))[0])
+      await user.click(await screen.findByRole('button', { name: 'รีวิว NVDA' }))
       await user.click(screen.getByRole('button', { name: 'ทั้งหมด' }))
       expect(screen.queryByRole('form')).not.toBeInTheDocument()
     })
@@ -291,10 +397,22 @@ describe('TradesPage', () => {
       await db.transactions.update('sell-NVDA', { journal: { score: 9 } })
       const user = userEvent.setup()
       renderRoute('/trades')
-      await user.click((await screen.findAllByRole('button', { name: 'รีวิวแล้ว' }))[0])
+      await user.click(await screen.findByRole('button', { name: 'แก้รีวิว NVDA' }))
       await user.click(screen.getByRole('button', { name: 'บันทึก' }))
       expect(await screen.findByRole('alert')).toHaveTextContent('คะแนนการลงมือต้องเป็น 1–5')
       expect(screen.getByRole('form')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'บันทึก' })).toBeEnabled()
+    })
+
+    it('holds the save button while the review is being written', async () => {
+      await seedFive()
+      const user = userEvent.setup()
+      renderRoute('/trades')
+      await user.click(await screen.findByRole('button', { name: 'รีวิว NVDA' }))
+      const form = screen.getByRole('form')
+      fireEvent.submit(form)
+      expect(within(form).getByRole('button', { name: 'บันทึก' })).toBeDisabled()
+      await waitFor(() => expect(screen.queryByRole('form')).not.toBeInTheDocument())
     })
 
     it('offers no review for a trade that a swap closed, because a swap holds no journal', async () => {
@@ -315,13 +433,12 @@ describe('TradesPage', () => {
       renderRoute('/trades')
       expect(await screen.findByText('BTC', { selector: 'b' })).toBeInTheDocument()
       expect(within(stat('Win rate')).getByText('100%')).toBeInTheDocument()
-      expect(screen.queryByRole('button', { name: /^รีวิว/ })).not.toBeInTheDocument()
-      expect(screen.queryByText(/ยังไม่ได้รีวิว/)).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /รีวิว/ })).not.toBeInTheDocument()
     })
   })
 
   describe('on a phone', () => {
-    it('writes each table row on two lines', async () => {
+    it('keeps three tiles in the strip and writes each table row on two lines', async () => {
       phone()
       await seedFive()
       renderRoute('/trades')
@@ -330,9 +447,18 @@ describe('TradesPage', () => {
       const items = within(list).getAllByRole('listitem')
       expect(items.map((li) => li.textContent)).toEqual(['Pullback+2,0001 เทรด · ชนะ 100%', 'Breakout+5002 เทรด · ชนะ 50%', 'ไม่ระบุ−5002 เทรด · ชนะ 0%'])
       expect(within(screen.getByRole('list', { name: 'แยกตามเดือน' })).getByText('5 เทรด · ชนะ 40%')).toBeInTheDocument()
+
+      const strip = stat('เทรดที่ปิดแล้ว').parentElement!
+      expect(strip).toHaveClass('grid-cols-2', 'max-md:[&>:first-child]:col-span-2')
+      for (const label of ['เทรดที่ปิดแล้ว', 'Win rate', 'Profit factor']) {
+        expect(stat(label).parentElement).not.toHaveClass('max-md:hidden')
+      }
+      for (const label of ['ได้ต่อเทรด', 'ถือเฉลี่ย']) {
+        expect(stat(label).parentElement).toHaveClass('max-md:hidden')
+      }
     })
 
-    it('puts the strategy and the time held under the asset, with a 44px review button', async () => {
+    it('puts the strategy, the time held and the feeling under the asset, with a 44px review button', async () => {
       phone()
       await seedFive()
       const user = userEvent.setup()
@@ -341,16 +467,39 @@ describe('TradesPage', () => {
       const items = within(list).getAllByRole('listitem')
       expect(items).toHaveLength(5)
       expect(items[2]).toHaveTextContent('ETH')
-      expect(items[2]).toHaveTextContent('Pullback · ถือ 10 วัน')
-      expect(items[2]).toHaveTextContent('+2,000')
-      const button = within(items[2]).getByRole('button', { name: 'รีวิว' })
-      expect(button).toHaveClass('min-h-11', 'min-w-11')
+      expect(within(items[2]).getByText('Pullback · 10 วัน')).toBeInTheDocument()
+      expect(within(items[4]).getByText('Breakout · 4 วัน · นิ่ง มีแผน')).toBeInTheDocument()
+      expect(within(items[0]).getByText('— · 30 วัน')).toBeInTheDocument()
+      expect(within(items[2]).getByText('+2,000')).toHaveClass('justify-self-end')
+      const button = within(items[2]).getByRole('button', { name: 'รีวิว ETH' })
+      expect(button).toHaveClass('min-h-11', 'min-w-11', 'justify-end')
+      expect(screen.getByRole('button', { name: 'ยังไม่ได้รีวิว 5' })).toHaveClass('min-h-11', 'min-w-11')
       await user.click(button)
       expect(within(items[2]).getByRole('form', { name: 'รีวิวเทรด ETH' })).toBeInTheDocument()
       const open = within(screen.getByRole('list', { name: 'เทรดที่เปิดอยู่' })).getAllByRole('listitem')
       expect(open[0]).toHaveTextContent('AOT')
       expect(open[0]).toHaveTextContent('ถือมา 6 วัน')
       expect(open[0]).toHaveTextContent('เปิดเมื่อ 10 ต.ค. 2024 · Pullback')
+    })
+  })
+
+  describe('on a tablet, where the sidebar leaves the cards narrow', () => {
+    it('writes the rows as lists until the screen can hold the tables', async () => {
+      tablet()
+      await seedFive()
+      renderRoute('/trades')
+      expect(await screen.findByRole('list', { name: 'เทรดที่ปิดล่าสุด' })).toBeInTheDocument()
+      expect(screen.getByRole('list', { name: 'กลยุทธ์ไหนทำเงิน' })).toBeInTheDocument()
+      expect(screen.getByRole('list', { name: 'เทรดที่เปิดอยู่' })).toBeInTheDocument()
+      expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    })
+
+    it('still shows the tables at 1024px and up', async () => {
+      stubWidth(1024)
+      await seedFive()
+      renderRoute('/trades')
+      expect(await screen.findAllByRole('table')).toHaveLength(5)
+      expect(screen.queryByRole('list', { name: 'เทรดที่ปิดล่าสุด' })).not.toBeInTheDocument()
     })
   })
 })
