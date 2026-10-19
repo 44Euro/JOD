@@ -17,13 +17,15 @@ export function isDecimalString(value: string): boolean {
   return DECIMAL_PATTERN.test(value)
 }
 
-const GROUPED_PATTERN = /^-?\d{1,3}(,\d{3})+(\.\d+)?$/
+const GROUPED_PATTERN = /^-?[1-9]\d{0,2}(,\d{3})+(\.\d+)?$/
+// A thousands group never starts with a zero, so a comma right after a lone leading zero can only be a decimal comma.
+const ZERO_COMMA_PATTERN = /^(-?0),(\d+)$/
 
 // Broker statements are usually copied with thousand separators, e.g. "1,234.50". Any other comma is
 // rejected, because a decimal comma such as "1,5" would otherwise silently become 15.
 export function parseDecimalInput(raw: string): string | null {
   const compact = raw.replace(/\s/g, '')
-  const cleaned = GROUPED_PATTERN.test(compact) ? compact.replace(/,/g, '') : compact
+  const cleaned = GROUPED_PATTERN.test(compact) ? compact.replace(/,/g, '') : compact.replace(ZERO_COMMA_PATTERN, '$1.$2')
   if (!isDecimalString(cleaned)) return null
   return new Decimal(cleaned).toString()
 }

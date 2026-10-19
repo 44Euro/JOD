@@ -72,6 +72,28 @@ describe('draftToTransaction', () => {
     expect(tx.referenceFxRate).toBeUndefined()
   })
 
+  describe('the symbol of an instrument that is new', () => {
+    const symbolError = 'สัญลักษณ์ห้ามมีช่องว่างหรือเครื่องหมาย :'
+
+    it('refuses a colon or a space, which a rename would refuse too', () => {
+      expect(draftToTransaction(buyDraft({ symbol: 'A:B' }), ctx).errors).toEqual([symbolError])
+      expect(draftToTransaction(buyDraft({ symbol: 'A B' }), ctx).errors).toEqual([symbolError])
+    })
+
+    it('says nothing of the symbol of an instrument that is already known, or of a symbol that is simply missing', () => {
+      const odd: Instrument = { id: 'US:A B', market: 'US', symbol: 'A B', name: 'Odd', assetType: 'stock', currency: 'USD' }
+      expect(draftToTransaction(buyDraft({ symbol: 'A B' }), { ...ctx, instruments: [odd] }).errors).toEqual([])
+      expect(draftToTransaction(buyDraft({ symbol: '' }), ctx).errors).toEqual(['กรุณาระบุหุ้น/สินทรัพย์'])
+    })
+
+    it('checks the coin received in a swap too, and says so once when both are wrong', () => {
+      const swapping = changeType(buyDraft({ market: 'CRYPTO', symbol: 'a:b', currency: 'USD', assetType: 'crypto' }), 'swap', 'THB')
+      const draft = { ...swapping, quantity: '1', toSymbol: 'c d', toQuantity: '2', amount: '10' }
+      expect(draftToTransaction(draft, ctx).errors).toEqual([symbolError])
+      expect(draftToTransaction({ ...draft, symbol: 'btc' }, ctx).errors).toEqual([symbolError])
+    })
+  })
+
   it('reports a missing rate for a foreign currency', () => {
     const { errors } = draftToTransaction(buyDraft({ fxRate: '' }), ctx)
     expect(errors).toContain('เรทแลกเปลี่ยนต้องเป็นตัวเลขมากกว่า 0')
@@ -332,6 +354,26 @@ describe('draft helpers', () => {
     const next = pickSymbol(buyDraft({ market: 'CRYPTO', symbol: '' }), 'btc', [known])
     expect(next.currency).toBe('USDT')
     expect(next.instrumentName).toBe('Bitcoin')
+  })
+
+  describe('when the account already holds the coin', () => {
+    const eth: Instrument = { id: 'CRYPTO:ETH', market: 'CRYPTO', symbol: 'ETH', name: 'Ethereum', assetType: 'crypto', currency: 'THB' }
+    const heldIn = (accountId: string, currency: string) => [{ accountId, instrumentId: 'CRYPTO:ETH', currency }]
+    const blank = () => buyDraft({ market: 'CRYPTO', symbol: '', accountId: 'binance', currency: 'USD' })
+
+    it('takes the currency it is held in over the one stored for the instrument', () => {
+      expect(pickSymbol(blank(), 'eth', [eth], heldIn('binance', 'USD')).currency).toBe('USD')
+    })
+
+    it('still takes the stored currency when only another account, or nothing, holds it', () => {
+      expect(pickSymbol(blank(), 'eth', [eth], heldIn('bitkub', 'USD')).currency).toBe('THB')
+      expect(pickSymbol(blank(), 'eth', [eth]).currency).toBe('THB')
+    })
+
+    it('keeps it through a change of market that lands on the same symbol', () => {
+      const typed = buyDraft({ market: 'US', symbol: 'eth', accountId: 'binance', currency: 'USD' })
+      expect(changeMarket(typed, 'CRYPTO', [eth], heldIn('binance', 'USD')).currency).toBe('USD')
+    })
   })
 
   it('round-trips the unit of the instrument and falls back to the one of its type', () => {
@@ -863,6 +905,19 @@ describe('what a fee is paid in', () => {
     })
     const other = draftToTransaction(buyDraft({ feePaidIn: 'asset', feeMarket: 'SET', feeSymbol: 'ptt', feeQuantity: '1', fees: '30' }), ctx).tx
     expect(draftFromTransaction(other, [])).toMatchObject({ feeMarket: 'SET', feeSymbol: 'PTT' })
+  })
+
+  it('reads a transfer whose fee came out of the units back with the currency of the asset, not the stored baht', () => {
+    const saved = draftToTransaction(transferDraft({ symbol: 'eth', market: 'CRYPTO', quantity: '1', feePaidIn: 'received', feeQuantity: '0.01', fxRate: '' }), ctx).tx
+    expect(saved).toMatchObject({ currency: 'THB', fxRate: '1', fxSource: 'same' })
+    const eth: Instrument = { id: 'CRYPTO:ETH', market: 'CRYPTO', symbol: 'ETH', name: 'Ethereum', assetType: 'crypto', currency: 'USDT' }
+    expect(draftFromTransaction(saved, [eth])).toMatchObject({ currency: 'USDT', fxRate: '', fxSource: 'auto' })
+    expect(draftFromTransaction(saved, [])).toMatchObject({ currency: 'USD', fxRate: '', fxSource: 'auto' })
+  })
+
+  it('keeps the stored currency and rate of a transfer whose fee was paid in cash', () => {
+    const saved = draftToTransaction(transferDraft({ fees: '3' }), ctx).tx
+    expect(draftFromTransaction(saved, [])).toMatchObject({ currency: saved.currency, fxRate: saved.fxRate, fxSource: saved.fxSource })
   })
 
   it('reads a transaction paid in cash back as cash with nothing typed for the fee asset', () => {

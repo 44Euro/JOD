@@ -168,6 +168,49 @@ describe('AssetPage', () => {
     expect(rows[1]).toHaveTextContent('1 พ.ค. 2024โอนระหว่างบัญชี3 หน่วย → IBKR')
   })
 
+  describe('the rate of a transfer', () => {
+    const fx = { fxRate: '34.12', fxSource: 'manual' } as const
+    const transfer = (fees: string) =>
+      makeTx({ instrumentId: 'US:VOO', type: 'transfer', toAccountId: 'acc-2', quantity: '3', price: undefined, fees, ...fx, date: '2024-05-01' })
+
+    beforeEach(async () => {
+      await db.instruments.add(voo)
+      await db.accounts.add({ id: 'acc-2', name: 'IBKR', broker: 'IBKR', note: '', createdAt: '2024-01-01T00:00:00.000Z' })
+    })
+
+    it('is shown on the row only when the transfer has a fee to value with it', async () => {
+      await db.transactions.add(transfer('2'))
+      renderRoute('/assets/US%3AVOO', usd)
+      await screen.findByText('ทั้งหมด 4 รายการ')
+      const rows = within(screen.getAllByRole('table').at(-1)!).getAllByRole('row')
+      expect(rows[1]).toHaveTextContent('34.12กรอกเอง')
+    })
+
+    it('is left out of a transfer without a fee, as on the list of every transaction', async () => {
+      await db.transactions.add(transfer('0'))
+      renderRoute('/assets/US%3AVOO', usd)
+      await screen.findByText('ทั้งหมด 4 รายการ')
+      const rows = within(screen.getAllByRole('table').at(-1)!).getAllByRole('row')
+      expect(rows[1]).not.toHaveTextContent('34.12')
+      expect(rows[1]).not.toHaveTextContent('กรอกเอง')
+    })
+
+    it('is left out of the phone row of a transfer without a fee too', async () => {
+      vi.stubGlobal('matchMedia', (query: string) => ({
+        matches: false,
+        media: query,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      }))
+      await db.transactions.bulkAdd([transfer('0'), { ...transfer('2'), id: 'with-fee', date: '2024-05-02' }])
+      renderRoute('/assets/US%3AVOO', usd)
+      await screen.findByText('ทั้งหมด 5 รายการ')
+      const items = within(screen.getByRole('list', { name: 'ทุกรายการของ VOO' })).getAllByRole('listitem')
+      expect(items[0]).toHaveTextContent('เรท 34.12')
+      expect(items[1]).not.toHaveTextContent('เรท')
+    })
+  })
+
   it('saves the reason for holding, the target price and the review date', async () => {
     await db.instruments.add(voo)
     const user = userEvent.setup()

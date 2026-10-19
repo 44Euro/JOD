@@ -492,6 +492,49 @@ describe('computeLedger fees paid in an asset', () => {
     expect(ledger.positions.map((p) => p.key)).toEqual(['acc-1|CRYPTO:BNB'])
   })
 
+  describe('a fee in the asset being traded, which validation would have refused', () => {
+    const sameAsset = { feePaidIn: 'asset' as const, feeInstrumentId: 'CRYPTO:ETH', feeQuantity: '0.1', fees: '200' }
+    const message = 'สินทรัพย์ที่จ่ายค่าธรรมเนียมต้องต่างจากสินทรัพย์ของรายการ'
+    const heldEth = makeTx({ ...eth, quantity: '1', price: '2000', date: '2024-01-09' })
+
+    it('skips a sell of the whole holding instead of dropping the fee units without a word', () => {
+      const sell = makeTx({ ...eth, type: 'sell', quantity: '1', price: '2500', date: '2024-02-01', ...sameAsset })
+      const ledger = computeLedger([heldEth, sell])
+      expect(ledger.issues).toEqual([{ txId: sell.id, message }])
+      expect(ledger.positions[0].quantity.toString()).toBe('1')
+      expect(ledger.realized).toEqual([])
+    })
+
+    it('skips a partial sell instead of letting the fee push the holding below zero', () => {
+      const sell = makeTx({ ...eth, type: 'sell', quantity: '0.95', price: '2500', date: '2024-02-01', ...sameAsset })
+      const ledger = computeLedger([heldEth, sell])
+      expect(ledger.issues).toEqual([{ txId: sell.id, message }])
+      expect(ledger.positions[0].quantity.toString()).toBe('1')
+    })
+
+    it('skips a buy and a swap whose fee is in the coin they give or receive', () => {
+      const buy = makeTx({ ...eth, quantity: '1', price: '2000', date: '2024-01-11', ...sameAsset })
+      const swap = makeTx({
+        instrumentId: 'CRYPTO:BTC',
+        currency: 'USD',
+        type: 'swap',
+        quantity: '0.01',
+        price: undefined,
+        toInstrumentId: 'CRYPTO:ETH',
+        toQuantity: '0.25',
+        amount: '660',
+        fxRate: '35',
+        date: '2024-04-01',
+        ...sameAsset,
+      })
+      const bought = computeLedger([buy])
+      expect(bought.issues).toEqual([{ txId: buy.id, message }])
+      expect(bought.positions).toEqual([])
+      const swapped = computeLedger([makeTx({ instrumentId: 'CRYPTO:BTC', currency: 'USD', quantity: '0.01', price: '58000', fxRate: '34', date: '2024-03-01' }), swap])
+      expect(swapped.issues).toEqual([{ txId: swap.id, message }])
+    })
+  })
+
   it('lowers the gain of a sell by a BNB fee without taking it from cash', () => {
     const { realized, cash } = computeLedger([
       makeTx({ ...eth, quantity: '1', price: '2000', date: '2024-01-09' }),

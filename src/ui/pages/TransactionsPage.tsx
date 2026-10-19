@@ -12,7 +12,6 @@ import { transactionsToCsv } from '../../db/backup'
 import { db } from '../../db/db'
 import { deleteTransaction } from '../../db/repo'
 import { todayLocal } from '../../domain/dates'
-import { D } from '../../domain/decimal'
 import { sortTransactions } from '../../domain/ledger'
 import { MARKETS, TX_TYPES, type Instrument, type Transaction } from '../../domain/types'
 import { cn } from '../../lib/cn'
@@ -23,7 +22,7 @@ import { downloadText } from '../download'
 import { fmtDate, fmtDay } from '../format'
 import { useAppData, useLedger } from '../hooks'
 import { MARKET_LABELS, TX_TYPE_LABELS, TX_TYPE_SHORT_LABELS, marketOf } from '../labels'
-import { describeBody, describeMain, feeNote, feeNoteText, netOf, taxNoteText } from '../transactionText'
+import { describeBody, describeMain, feeFreeTransfer, feeNote, feeNoteText, netOf, taxNoteText } from '../transactionText'
 import { useIsDesktop } from '../useIsDesktop'
 
 // The phone row has no room for the account beside the symbol, so it puts the account on its second line instead, and
@@ -66,11 +65,6 @@ function AssetLabel({
 // so the currency there belongs to the fee or the value.
 function namesCurrency(tx: Transaction): boolean {
   return tx.type === 'fx_convert' || tx.type === 'transfer' || tx.type === 'swap'
-}
-
-// Only the fee of a transfer is valued at its rate, so without a fee the rate would suggest a value that is not there.
-function feeFreeTransfer(tx: Transaction): boolean {
-  return tx.type === 'transfer' && D(tx.fees).isZero()
 }
 
 function instrumentIds(tx: Transaction): string[] {

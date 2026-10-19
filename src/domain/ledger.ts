@@ -1,5 +1,6 @@
 import { D, Decimal } from './decimal'
 import { symbolOf, type Transaction } from './types'
+import { FEE_ASSET_SAME_ERROR } from './validation'
 
 export interface Position {
   key: string
@@ -175,7 +176,6 @@ export function cashDeltaQuote(tx: Transaction): Decimal {
   }
 }
 
-// Cash the receiving account gets from a transfer; a transfer of units brings none.
 export function transferInQuote(tx: Transaction): Decimal {
   return tx.type === 'transfer' && !tx.instrumentId ? D(tx.amount) : D(0)
 }
@@ -261,6 +261,9 @@ export function computeLedger(transactions: readonly Transaction[]): Ledger {
   // and only sold once the transaction itself has been recorded.
   const feeAssetProblem = (tx: Transaction): string | null => {
     if (tx.feePaidIn !== 'asset') return null
+    if (tx.feeInstrumentId && (tx.feeInstrumentId === tx.instrumentId || tx.feeInstrumentId === tx.toInstrumentId)) {
+      return FEE_ASSET_SAME_ERROR
+    }
     const feeHeld = positions.get(positionKey(tx.accountId, tx.feeInstrumentId ?? ''))
     const symbol = symbolOf(tx.feeInstrumentId)
     if (feeHeld && feeHeld.currency !== tx.currency) return `${symbol} ถืออยู่เป็น ${feeHeld.currency} · รายการนี้ใช้ ${tx.currency}`

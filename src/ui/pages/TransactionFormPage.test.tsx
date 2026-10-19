@@ -36,6 +36,32 @@ describe('TransactionFormPage', () => {
     expect(await db.instruments.get('US:AAPL')).toMatchObject({ symbol: 'AAPL', currency: 'USD', assetType: 'stock', unit: 'share' })
   })
 
+  it('refuses a new symbol with a space or a colon and saves nothing', async () => {
+    const user = userEvent.setup()
+    renderRoute('/transactions/new', fakeFxProvider({ 'USD|THB': '35.1' }).provider)
+    await user.type(await screen.findByLabelText('สัญลักษณ์'), 'a:b')
+    await user.type(screen.getByLabelText('จำนวนหน่วย'), '2')
+    await user.type(screen.getByLabelText('ราคาต่อหน่วย'), '100')
+    await waitFor(() => expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('35.1'))
+    await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+    expect(await screen.findByText('สัญลักษณ์ห้ามมีช่องว่างหรือเครื่องหมาย :')).toBeInTheDocument()
+    expect(await db.transactions.count()).toBe(0)
+    expect(await db.instruments.count()).toBe(0)
+  })
+
+  it('does not check the symbol of an instrument that is already known', async () => {
+    await db.instruments.add({ id: 'US:A B', market: 'US', symbol: 'A B', name: 'Odd', assetType: 'stock', currency: 'USD' })
+    const user = userEvent.setup()
+    const router = renderRoute('/transactions/new', fakeFxProvider({ 'USD|THB': '35.1' }).provider)
+    await user.type(await screen.findByLabelText('สัญลักษณ์'), 'a b')
+    await user.type(screen.getByLabelText('จำนวนหน่วย'), '2')
+    await user.type(screen.getByLabelText('ราคาต่อหน่วย'), '100')
+    await waitFor(() => expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('35.1'))
+    await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+    await waitFor(() => expect(router.state.location.pathname).toBe('/transactions'))
+    expect(await db.transactions.count()).toBe(1)
+  })
+
   describe('units in the money route of the form', () => {
     const provider = () => fakeFxProvider({ 'USD|THB': '35' }).provider
     const routeOf = () => screen.getByText('เส้นทางเงินของรายการนี้').closest('div')!
@@ -1883,6 +1909,35 @@ describe('TransactionFormPage', () => {
       await fillReinvest(user)
       expect(reinvestSummary().textContent).toBe('ซื้อ 0.016 × 500.00 = 8.00 USD · เหลือเงินสด 0.50 USD')
       expect(tick().closest('label')).toHaveClass('min-h-11')
+    })
+  })
+
+  describe('a coin held in another currency than the one stored for it', () => {
+    const eth = { id: 'CRYPTO:ETH', market: 'CRYPTO', symbol: 'ETH', name: 'Ethereum', assetType: 'crypto', currency: 'THB' } as const
+
+    beforeEach(async () => {
+      await db.instruments.add(eth)
+      await db.accounts.add({ id: 'acc-2', name: 'Bitkub', broker: 'Bitkub', note: '', createdAt: '2024-01-01T00:00:00.000Z' })
+    })
+
+    it('opens in the currency the account holds it in', async () => {
+      await db.transactions.add(makeTx({ instrumentId: 'CRYPTO:ETH', currency: 'USD', quantity: '1', price: '2000', fxRate: '35', date: '2024-01-10' }))
+      const user = userEvent.setup()
+      renderRoute('/transactions/new', fakeFxProvider({ 'USD|THB': '35' }).provider)
+      await user.selectOptions(await screen.findByLabelText('บัญชี'), 'Dime US')
+      await user.selectOptions(screen.getByLabelText('ตลาด'), 'CRYPTO')
+      await user.type(screen.getByLabelText('สัญลักษณ์'), 'eth')
+      expect(screen.getByLabelText('สกุลเงิน')).toHaveValue('USD')
+    })
+
+    it('opens in the stored currency in an account that does not hold it', async () => {
+      await db.transactions.add(makeTx({ instrumentId: 'CRYPTO:ETH', currency: 'USD', quantity: '1', price: '2000', fxRate: '35', date: '2024-01-10' }))
+      const user = userEvent.setup()
+      renderRoute('/transactions/new', fakeFxProvider({ 'USD|THB': '35' }).provider)
+      await user.selectOptions(await screen.findByLabelText('บัญชี'), 'Bitkub')
+      await user.selectOptions(screen.getByLabelText('ตลาด'), 'CRYPTO')
+      await user.type(screen.getByLabelText('สัญลักษณ์'), 'eth')
+      expect(screen.getByLabelText('สกุลเงิน')).toHaveValue('THB')
     })
   })
 })

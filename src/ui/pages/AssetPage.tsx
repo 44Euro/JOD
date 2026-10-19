@@ -21,7 +21,7 @@ import { fmtDate, fmtHeadline, fmtNumber, fmtPrice, fmtSigned, fmtSignedPct, fmt
 import { useAppData, usePortfolio } from '../hooks'
 import { FEE_PAID_ROW_LABEL, TX_TYPE_LABELS, marketOf, unitLabel } from '../labels'
 import { assetRoute } from '../moneyRoutes'
-import { describeAmount, describeFeePaid, feePaidNet, netOf } from '../transactionText'
+import { describeAmount, describeFeePaid, feeFreeTransfer, feePaidNet, netOf } from '../transactionText'
 import { useIsDesktop } from '../useIsDesktop'
 
 function badgeOf(value: Decimal | null): 'ok' | 'loss' | 'default' {
@@ -199,9 +199,7 @@ export function AssetPage() {
                         {feeRow ? describeFeePaid(tx) : describeAmount(tx, accountNames, instruments)}
                         {tx.note && <span className="text-muted-foreground"> · {tx.note}</span>}
                       </Td>
-                      <Td>
-                        <RateCell tx={tx} />
-                      </Td>
+                      <Td>{feeFreeTransfer(tx) ? <span className="text-muted-foreground">—</span> : <RateCell tx={tx} />}</Td>
                       <Td className={cn('text-right font-display font-semibold', net.className)}>{net.text}</Td>
                     </tr>
                   )
@@ -220,7 +218,7 @@ export function AssetPage() {
                       <span className={cn('font-display font-semibold', net.className)}>{net.text}</span>
                       <span className="col-span-2 text-[12.5px] text-muted-foreground">
                         {feeRow ? `${FEE_PAID_ROW_LABEL} ${describeFeePaid(tx)}` : `${TX_TYPE_LABELS[tx.type]} ${describeAmount(tx, accountNames, instruments)}`}
-                        {tx.fxSource !== 'same' && ` · ${tx.fxSource === 'estimated' ? 'เรทประมาณ' : 'เรท'} ${fmtPrice(tx.fxRate)}`}
+                        {tx.fxSource !== 'same' && !feeFreeTransfer(tx) && ` · ${tx.fxSource === 'estimated' ? 'เรทประมาณ' : 'เรท'} ${fmtPrice(tx.fxRate)}`}
                       </span>
                     </Link>
                   </li>

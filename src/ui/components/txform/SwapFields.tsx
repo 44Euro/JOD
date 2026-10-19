@@ -11,6 +11,7 @@ import {
   pickSymbol,
   pickToSymbol,
   type Draft,
+  type HeldPosition,
 } from '../../transactionDraft'
 import { FieldGroup } from './FieldGroup'
 import { InstrumentFields } from './InstrumentFields'
@@ -18,12 +19,14 @@ import { InstrumentFields } from './InstrumentFields'
 export function SwapFields({
   draft,
   instruments,
+  held,
   fromHint,
   toHint,
   setDraft,
 }: {
   draft: Draft
   instruments: readonly Instrument[]
+  held: readonly HeldPosition[]
   fromHint?: string
   toHint?: string
   setDraft(change: (d: Draft) => Draft): void
@@ -42,8 +45,8 @@ export function SwapFields({
           unit={draft.unit}
           instruments={instruments}
           hint={fromHint}
-          onMarket={(market) => setDraft((d) => changeMarket(d, market, instruments))}
-          onSymbol={(symbol) => setDraft((d) => pickSymbol(d, symbol, instruments))}
+          onMarket={(market) => setDraft((d) => changeMarket(d, market, instruments, held))}
+          onSymbol={(symbol) => setDraft((d) => pickSymbol(d, symbol, instruments, held))}
           onName={(instrumentName) => update({ instrumentName })}
           onAssetType={(assetType) => setDraft((d) => changeAssetType(d, assetType))}
           onUnit={(unit) => update({ unit })}

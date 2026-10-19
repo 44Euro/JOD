@@ -225,6 +225,7 @@ function TransactionForm({ data, existing, copyOf }: { data: AppData; existing?:
     createdAt: existing?.createdAt ?? now.toISOString(),
     baseCurrency: base,
     today: todayLocal(now),
+    instruments: data.instruments,
   })
   const symbol = draft.symbol.trim().toUpperCase()
   const known = findInstrument(data.instruments, draft.market, symbol)
@@ -268,6 +269,7 @@ function TransactionForm({ data, existing, copyOf }: { data: AppData; existing?:
       createdAt: existing?.createdAt ?? at.toISOString(),
       baseCurrency: base,
       today: todayLocal(at),
+      instruments: data.instruments,
     })
     // The buy sorts right after the dividend even when both carry the same date and time.
     const buy = reinvesting
@@ -417,8 +419,8 @@ function TransactionForm({ data, existing, copyOf }: { data: AppData; existing?:
               unit={draft.unit}
               instruments={data.instruments}
               hint={hintFor(draft.market, draft.symbol)}
-              onMarket={(market) => setDraft((d) => changeMarket(d, market, data.instruments))}
-              onSymbol={(value) => setDraft((d) => pickSymbol(d, value, data.instruments))}
+              onMarket={(market) => setDraft((d) => changeMarket(d, market, data.instruments, heldLedger.positions))}
+              onSymbol={(value) => setDraft((d) => pickSymbol(d, value, data.instruments, heldLedger.positions))}
               onName={(instrumentName) => update({ instrumentName })}
               onAssetType={(assetType) => setDraft((d) => changeAssetType(d, assetType))}
               onUnit={(unit) => update({ unit })}
@@ -429,6 +431,7 @@ function TransactionForm({ data, existing, copyOf }: { data: AppData; existing?:
             <SwapFields
               draft={draft}
               instruments={data.instruments}
+              held={heldLedger.positions}
               fromHint={hintFor(draft.market, draft.symbol)}
               toHint={hintFor(draft.toMarket, draft.toSymbol)}
               setDraft={setDraft}
@@ -436,7 +439,13 @@ function TransactionForm({ data, existing, copyOf }: { data: AppData; existing?:
           )}
 
           {draft.type === 'receive_asset' && (
-            <ReceiveFields draft={draft} instruments={data.instruments} hint={hintFor(draft.market, draft.symbol)} setDraft={setDraft} />
+            <ReceiveFields
+              draft={draft}
+              instruments={data.instruments}
+              held={heldLedger.positions}
+              hint={hintFor(draft.market, draft.symbol)}
+              setDraft={setDraft}
+            />
           )}
 
           <div className={cn('grid gap-3.5', isTrade || openingAsset ? 'grid-cols-[minmax(5.5rem,auto)_1fr] sm:grid-cols-3' : 'sm:grid-cols-2')}>

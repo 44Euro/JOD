@@ -7,6 +7,11 @@ import { RECEIVE_KIND_LABELS, TX_TYPE_LABELS, unitLabel } from './labels'
 type Names = ReadonlyMap<string, string>
 type Instruments = ReadonlyMap<string, Instrument>
 
+// Only the fee of a transfer is valued at its rate, so without a fee the rate would suggest a value that is not there.
+export function feeFreeTransfer(tx: Transaction): boolean {
+  return tx.type === 'transfer' && D(tx.fees).isZero()
+}
+
 // A fee paid in cash is in the net column; one paid in units is not, so the row says how many.
 export function feeNoteText(tx: Transaction): string {
   if (tx.feePaidIn === 'received') {
@@ -20,7 +25,6 @@ export function feeNote(tx: Transaction): string {
   return text && ` · ${text}`
 }
 
-// Tax withheld from income, for a list that puts it on a line of its own.
 export function taxNoteText(tx: Transaction): string {
   const income = tx.type === 'dividend' || tx.type === 'interest' || tx.type === 'receive_asset'
   return income && D(tx.tax).greaterThan(0) ? `หัก ณ ที่จ่าย ${fmtNumber(tx.tax)}` : ''
@@ -37,7 +41,6 @@ export function describeBody(tx: Transaction, accountNames?: Names, instruments?
   return tax ? `${main} ${tax}` : main
 }
 
-// The description without the tax withheld.
 export function describeMain(tx: Transaction, accountNames?: Names, instruments?: Instruments): string {
   switch (tx.type) {
     case 'buy':
@@ -88,7 +91,7 @@ export function netOf(tx: Transaction, skipped: boolean): { text: string; classN
     return cost.isZero() ? { text: '—', className: 'text-muted-foreground' } : { text: fmtSigned(cost), className: plClass(cost) }
   }
   if (tx.type === 'receive_asset') {
-    // Cash only moves by the tax, but the row is about the income, so it shows what the units are worth after it.
+    // The row is about the income, so it shows what the units are worth after fees and tax, not the cash that moved.
     const income = D(tx.quantity).times(D(tx.price)).minus(D(tx.fees)).minus(D(tx.tax)).times(D(tx.fxRate))
     return { text: fmtSigned(income), className: plClass(income) }
   }

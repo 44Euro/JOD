@@ -2,17 +2,19 @@ import { Field } from '../../../components/ui/field'
 import { Input, NativeSelect } from '../../../components/ui/input'
 import { RECEIVE_KINDS, type Instrument, type ReceiveKind } from '../../../domain/types'
 import { RECEIVE_KIND_LABELS } from '../../labels'
-import { changeAssetType, changeMarket, pickSymbol, type Draft } from '../../transactionDraft'
+import { changeAssetType, changeMarket, pickSymbol, type Draft, type HeldPosition } from '../../transactionDraft'
 import { InstrumentFields } from './InstrumentFields'
 
 export function ReceiveFields({
   draft,
   instruments,
+  held,
   hint,
   setDraft,
 }: {
   draft: Draft
   instruments: readonly Instrument[]
+  held: readonly HeldPosition[]
   hint?: string
   setDraft(change: (d: Draft) => Draft): void
 }) {
@@ -38,8 +40,8 @@ export function ReceiveFields({
         unit={draft.unit}
         instruments={instruments}
         hint={hint}
-        onMarket={(market) => setDraft((d) => changeMarket(d, market, instruments))}
-        onSymbol={(symbol) => setDraft((d) => pickSymbol(d, symbol, instruments))}
+        onMarket={(market) => setDraft((d) => changeMarket(d, market, instruments, held))}
+        onSymbol={(symbol) => setDraft((d) => pickSymbol(d, symbol, instruments, held))}
         onName={(instrumentName) => update({ instrumentName })}
         onAssetType={(assetType) => setDraft((d) => changeAssetType(d, assetType))}
         onUnit={(unit) => update({ unit })}

@@ -4,6 +4,8 @@ import { FEE_PAID_IN, RECEIVE_KINDS, TX_TYPES, type FeeTemplate, type Thesis, ty
 
 const INSTRUMENT_REQUIRED: readonly string[] = ['buy', 'sell', 'dividend', 'split', 'receive_asset']
 
+export const FEE_ASSET_SAME_ERROR = 'สินทรัพย์ที่จ่ายค่าธรรมเนียมต้องต่างจากสินทรัพย์ของรายการ'
+
 const CURRENCY_PATTERN = /^[A-Z0-9]{2,10}$/
 
 export function validateTransaction(tx: Transaction, today: string = todayLocal()): string[] {
@@ -112,7 +114,7 @@ export function validateTransaction(tx: Transaction, today: string = todayLocal(
     } else {
       if (!tx.feeInstrumentId) errors.push('กรุณาระบุสินทรัพย์ที่ใช้จ่ายค่าธรรมเนียม')
       else if (tx.feeInstrumentId === tx.instrumentId || tx.feeInstrumentId === tx.toInstrumentId) {
-        errors.push('สินทรัพย์ที่จ่ายค่าธรรมเนียมต้องต่างจากสินทรัพย์ของรายการ')
+        errors.push(FEE_ASSET_SAME_ERROR)
       }
       positive(tx.feeQuantity, 'จำนวนที่จ่ายค่าธรรมเนียม')
       positive(tx.fees, 'มูลค่าค่าธรรมเนียม')

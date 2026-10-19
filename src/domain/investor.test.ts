@@ -170,7 +170,7 @@ describe('summarizeInvestor across accounts and edge cases', () => {
 })
 
 describe('summarizeInvestor with transfers', () => {
-  it('a transfer between own accounts changes neither the value nor the gain', () => {
+  it('leaves the gain at the price move alone when cash moves to a trade-only account that then buys', () => {
     // KBank records cash; Streaming only records trades, so its cash is not part of the value.
     const txs = [
       makeTx({ ...thb, accountId: 'kbank', type: 'deposit', amount: '50000', date: '2024-01-02' }),

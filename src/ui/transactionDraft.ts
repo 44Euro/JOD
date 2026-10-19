@@ -1,7 +1,7 @@
 import { MARKET_CURRENCY } from '../domain/currencies'
 import { D, Decimal, parseDecimalInput } from '../domain/decimal'
 import { orderFee } from '../domain/fees'
-import { cashDeltaQuote } from '../domain/ledger'
+import { cashDeltaQuote, type Position } from '../domain/ledger'
 import {
   FEE_PAID_IN,
   defaultUnit,
@@ -19,7 +19,7 @@ import {
   type TxType,
   type Unit,
 } from '../domain/types'
-import { validateTransaction } from '../domain/validation'
+import { validateSymbol, validateTransaction } from '../domain/validation'
 
 export type OpeningKind = 'asset' | 'cash'
 export type ToAmountSource = 'auto' | 'manual'
@@ -80,6 +80,8 @@ export interface DraftContext {
   createdAt: string
   baseCurrency: string
   today: string
+  // The instruments the symbols are looked up in; one that is not among them is created by saving, so its symbol is checked.
+  instruments?: readonly Instrument[]
 }
 
 // A fee paid in another asset is nearly always paid in a coin, such as BNB on an exchange.
@@ -272,7 +274,14 @@ export function changeAssetType(draft: Draft, assetType: AssetType): Draft {
   return { ...draft, assetType, unit: defaultUnit(assetType) }
 }
 
-export function changeMarket(draft: Draft, market: Market, instruments: readonly Instrument[] = []): Draft {
+export type HeldPosition = Pick<Position, 'accountId' | 'instrumentId' | 'currency'>
+
+export function changeMarket(
+  draft: Draft,
+  market: Market,
+  instruments: readonly Instrument[] = [],
+  held: readonly HeldPosition[] = [],
+): Draft {
   const lookedUp = findInstrument(instruments, draft.market, draft.symbol) !== undefined
   // A fund, bond, gold or crypto market fixes the type. Leaving one turns the type it gave back into stock, while a type
   // the user picked stays as the market moves between the others.
@@ -285,13 +294,19 @@ export function changeMarket(draft: Draft, market: Market, instruments: readonly
     ? changeAssetType({ ...draft, market, receiveKind, instrumentName: '' }, defaultAssetType(market))
     : changeAssetType({ ...draft, market, receiveKind }, assetType)
   const switched = changeCurrency(moved, MARKET_CURRENCY[market])
-  return draft.symbol ? pickSymbol(switched, draft.symbol, instruments) : switched
+  return draft.symbol ? pickSymbol(switched, draft.symbol, instruments, held) : switched
 }
 
-export function pickSymbol(draft: Draft, symbol: string, instruments: readonly Instrument[]): Draft {
+// A coin can be held in a currency other than the one stored for it (a swap or a buy on a second exchange sets its own),
+// and a sell or swap of that holding must be in the currency it is held in.
+export function pickSymbol(draft: Draft, symbol: string, instruments: readonly Instrument[], held: readonly HeldPosition[] = []): Draft {
   const found = findInstrument(instruments, draft.market, symbol)
   if (found) {
-    return changeCurrency({ ...draft, symbol, instrumentName: found.name, assetType: found.assetType, unit: unitOf(found) }, found.currency)
+    const holding = held.find((p) => p.accountId === draft.accountId && p.instrumentId === found.id)
+    return changeCurrency(
+      { ...draft, symbol, instrumentName: found.name, assetType: found.assetType, unit: unitOf(found) },
+      holding?.currency ?? found.currency,
+    )
   }
   if (findInstrument(instruments, draft.market, draft.symbol)) {
     return changeAssetType({ ...draft, symbol, instrumentName: '' }, defaultAssetType(draft.market))
@@ -413,7 +428,7 @@ export function draftFromTransaction(tx: Transaction, instruments: readonly Inst
   const main = instrumentFields(tx.instrumentId, instruments)
   const received = instrumentFields(tx.toInstrumentId, instruments)
   const fee = instrumentFields(tx.feeInstrumentId, instruments)
-  return {
+  const draft: Draft = {
     type: tx.type,
     accountId: tx.accountId,
     date: tx.date,
@@ -462,6 +477,11 @@ export function draftFromTransaction(tx: Transaction, instruments: readonly Inst
     reinvestPrice: '',
     reinvestFees: '',
   }
+  if (tx.type !== 'transfer' || tx.feePaidIn !== 'received') return draft
+  // No money moves when the fee comes out of the units, so the transfer is saved in the base currency at rate 1. The
+  // asset's own currency is what the form needs back if the fee is switched to cash.
+  const currency = instruments.find((i) => i.id === tx.instrumentId)?.currency ?? MARKET_CURRENCY[main.market]
+  return { ...draft, currency, fxRate: '', fxSource: 'auto' }
 }
 
 // A repeat is for today, so what belonged to the day of the original is dropped: the rate is fetched again, and the
@@ -540,13 +560,21 @@ export function draftToTransaction(draft: Draft, ctx: DraftContext): { tx: Trans
     createdAt: ctx.createdAt,
     updatedAt: ctx.createdAt,
   }
+  const symbolErrors = [
+    ...(tx.instrumentId ? newSymbolErrors(draft.market, draft.symbol, ctx) : []),
+    ...(tx.toInstrumentId ? newSymbolErrors(draft.toMarket, draft.toSymbol, ctx) : []),
+  ]
   // Without a symbol, validation would take a transfer of units for a transfer of cash and ask for an amount this
   // form does not show. It checks the rest as if an instrument were there, and the missing symbol is reported once.
   if (sendsUnits && !tx.instrumentId) {
     const checked = { ...tx, instrumentId: instrumentKey(draft.market, 'X') }
     return { tx, errors: ['กรุณาระบุหุ้น/สินทรัพย์', ...validateTransaction(checked, ctx.today)] }
   }
-  return { tx, errors: validateTransaction(tx, ctx.today) }
+  return { tx, errors: [...new Set([...symbolErrors, ...validateTransaction(tx, ctx.today)])] }
+}
+
+function newSymbolErrors(market: Market, symbol: string, ctx: DraftContext): string[] {
+  return findInstrument(ctx.instruments ?? [], market, symbol) ? [] : validateSymbol(symbol)
 }
 
 // The buy shares the dividend's account, time, instrument and rate, so the two read as one event. The caller gives it a
