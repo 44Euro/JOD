@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { db } from '../db/db'
 import { getSettings } from '../db/repo'
 import { USD_PEGGED } from '../domain/currencies'
@@ -9,9 +9,24 @@ import type { Transaction } from '../domain/types'
 import { latestRecordedRate, priceInCurrency, summarizePortfolio, valuePosition } from '../domain/valuation'
 import { useFxProvider } from '../fx/context'
 import { getFxQuote, peekCachedQuote, type FxQuote } from '../fx/fxService'
-import { fmtDate } from './format'
+import { fmtDate, getNumbersHidden, setNumbersHidden, subscribeNumbersHidden } from './format'
+
+// Subscribing is what makes a page render again, in place, when the numbers are hidden or shown.
+function useNumbersHidden(): boolean {
+  return useSyncExternalStore(subscribeNumbersHidden, getNumbersHidden)
+}
+
+function toggleNumbersHidden(): void {
+  setNumbersHidden(!getNumbersHidden())
+}
+
+export function usePrivacy() {
+  const hidden = useNumbersHidden()
+  return useMemo(() => ({ hidden, toggle: toggleNumbersHidden }), [hidden])
+}
 
 export function useAppData() {
+  useNumbersHidden()
   return useLiveQuery(async () => {
     const [accounts, instruments, transactions, settings] = await Promise.all([
       db.accounts.orderBy('name').toArray(),
@@ -24,18 +39,6 @@ export function useAppData() {
 }
 
 export type AppData = NonNullable<ReturnType<typeof useAppData>>
-
-interface Privacy {
-  hidden: boolean
-  toggle: () => void
-}
-
-// Lives here, not beside PrivacyProvider, because a file that exports components may not also export a hook (fast refresh).
-export const PrivacyContext = createContext<Privacy>({ hidden: false, toggle: () => {} })
-
-export function usePrivacy(): Privacy {
-  return useContext(PrivacyContext)
-}
 
 export function useLedger(data: AppData | undefined) {
   return useMemo(() => (data ? computeLedger(data.transactions) : null), [data])

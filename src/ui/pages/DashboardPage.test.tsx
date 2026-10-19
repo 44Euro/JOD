@@ -1,11 +1,14 @@
-import { cleanup, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '../../db/db'
+import * as repo from '../../db/repo'
 import { getSettings, saveSettings } from '../../db/repo'
 import { fakeFxProvider, lateFxProvider } from '../../test/fakeFx'
 import { makeTx } from '../../test/fixtures'
 import { renderRoute, resetDb } from '../../test/render'
+import { fmtNumber } from '../format'
+import { PrivacyProvider } from '../privacy'
 
 const account = { id: 'acc-1', name: 'Dime US', broker: 'Dime', note: '', createdAt: '2024-01-01T00:00:00.000Z' }
 const usd = () => fakeFxProvider({ 'USD|THB': '33' }).provider
@@ -31,11 +34,39 @@ function setToday(year: number, monthIndex: number, day: number) {
   vi.setSystemTime(new Date(year, monthIndex, day, 9, 0))
 }
 
+// Collects every piece of text that reaches the page, including text replaced within the same tick, so a figure that is
+// painted for one frame and then masked is still seen.
+function watchText() {
+  const seen: string[] = []
+  const note = (records: MutationRecord[]) => {
+    for (const record of records) {
+      if (record.oldValue) seen.push(record.oldValue)
+      for (const node of [...record.addedNodes, ...record.removedNodes]) seen.push(node.textContent ?? '')
+    }
+  }
+  const observer = new MutationObserver(note)
+  observer.observe(document.body, { subtree: true, childList: true, characterData: true, characterDataOldValue: true })
+  return {
+    seen,
+    stop() {
+      note(observer.takeRecords())
+      observer.disconnect()
+      seen.push(document.body.textContent ?? '')
+    },
+  }
+}
+
+// The formatter has to run while the provider renders it, so its text depends on the flag at that moment.
+function Figure() {
+  return <p>{fmtNumber('1234567')}</p>
+}
+
 describe('DashboardPage', () => {
   beforeEach(resetDb)
   afterEach(() => {
     vi.useRealTimers()
     vi.unstubAllGlobals()
+    vi.restoreAllMocks()
   })
 
   it('welcomes a new user who has no account yet', async () => {
@@ -471,7 +502,7 @@ describe('DashboardPage', () => {
       expect(main.textContent).toMatch(THOUSANDS)
     })
 
-    it('puts the eye before the other actions of the header, and keeps it focused after a press', async () => {
+    it('puts the eye before the other actions of the header, and keeps the same button, and its focus, through a press', async () => {
       await seedHundredThousand()
       const user = userEvent.setup()
       renderRoute('/', usd())
@@ -480,7 +511,65 @@ describe('DashboardPage', () => {
       expect(eye.compareDocumentPosition(record) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
       expect(eye).toHaveClass('size-11')
       await user.click(eye)
-      await waitFor(() => expect(screen.getByRole('button', { name: 'แสดงตัวเลข' })).toHaveFocus())
+      expect(eye).toHaveAccessibleName('แสดงตัวเลข')
+      expect(eye).toHaveFocus()
+      expect(screen.getByRole('button', { name: 'แสดงตัวเลข' })).toBe(eye)
+    })
+
+    it('hides and shows the figures in place, without the page going back to loading', async () => {
+      setToday(2024, 6, 1)
+      await seedHundredThousand()
+      const user = userEvent.setup()
+      renderRoute('/', usd())
+      const main = await screen.findByRole('main')
+      await screen.findByText('ฝาก 100,000 · ถอน 0')
+      const heading = screen.getByRole('heading', { name: 'ภาพรวม' })
+      const watch = watchText()
+      await user.click(screen.getByRole('button', { name: 'ซ่อนตัวเลข' }))
+      expect(screen.getByText('ฝาก ••• · ถอน •••')).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'แสดงตัวเลข' }))
+      expect(screen.getByText('ฝาก 100,000 · ถอน 0')).toBeInTheDocument()
+      watch.stop()
+      expect(watch.seen.join('\n')).not.toContain('กำลังโหลด…')
+      expect(screen.getByRole('heading', { name: 'ภาพรวม' })).toBe(heading)
+      expect(main).toContainElement(heading)
+    })
+
+    it('paints nothing of the app until the settings have loaded', async () => {
+      await saveSettings(db, { baseCurrency: 'THB', hideNumbersOnLaunch: true })
+      const real = repo.getSettings
+      let release!: () => void
+      const gate = new Promise<void>((resolve) => {
+        release = resolve
+      })
+      vi.spyOn(repo, 'getSettings').mockImplementation(async (database) => {
+        await gate
+        return real(database)
+      })
+      const watch = watchText()
+      const { container } = render(
+        <PrivacyProvider>
+          <Figure />
+        </PrivacyProvider>,
+      )
+      expect(container).toBeEmptyDOMElement()
+      release()
+      expect(await screen.findByText('•••')).toBeInTheDocument()
+      watch.stop()
+      expect(watch.seen.join('\n')).not.toMatch(THOUSANDS)
+    })
+
+    it('never paints a real figure while opening hidden', async () => {
+      setToday(2024, 6, 1)
+      await seedHundredThousand()
+      await saveSettings(db, { baseCurrency: 'THB', hideNumbersOnLaunch: true })
+      const watch = watchText()
+      renderRoute('/', usd())
+      expect(await screen.findByText('ฝาก ••• · ถอน •••')).toBeInTheDocument()
+      await waitFor(() => expect(screen.getAllByText('฿•••').length).toBeGreaterThan(0))
+      watch.stop()
+      expect(watch.seen.length).toBeGreaterThan(0)
+      expect(watch.seen.join('\n')).not.toMatch(THOUSANDS)
     })
 
     it('opens with the numbers hidden when the setting asks for it', async () => {

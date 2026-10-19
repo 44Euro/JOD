@@ -8,12 +8,26 @@ const MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.'
 
 export const HIDDEN_NUMBER = '•••'
 
-// The formatters are plain functions, not hooks, so the privacy switch reaches them through this flag; PrivacyProvider sets it
-// and the layout remounts the page when it changes.
+// The formatters are plain functions, not hooks, so the privacy switch reaches them through this store. Pages subscribe to it
+// (useAppData does) and render again in place when it changes.
 let numbersHidden = false
+const listeners = new Set<() => void>()
 
 export function setNumbersHidden(hidden: boolean): void {
+  if (hidden === numbersHidden) return
   numbersHidden = hidden
+  for (const listener of listeners) listener()
+}
+
+export function getNumbersHidden(): boolean {
+  return numbersHidden
+}
+
+export function subscribeNumbersHidden(listener: () => void): () => void {
+  listeners.add(listener)
+  return () => {
+    listeners.delete(listener)
+  }
 }
 
 const formats = new Map<string, Intl.NumberFormat>()

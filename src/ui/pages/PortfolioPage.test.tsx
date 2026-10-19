@@ -133,6 +133,27 @@ describe('PortfolioPage', () => {
     expect(row.textContent).not.toMatch(/\d{1,3}(,\d{3})+/)
   })
 
+  it('keeps the chosen view and never goes back to loading when the eye is pressed', async () => {
+    await db.instruments.add({ id: 'US:AAPL', market: 'US', symbol: 'AAPL', name: 'Apple', assetType: 'stock', currency: 'USD', lastPrice: '120' })
+    await db.transactions.add(makeTx({ quantity: '10', price: '100', fxRate: '35' }))
+    const user = userEvent.setup()
+    renderRoute('/portfolio', fakeFxProvider({ 'USD|THB': '33' }).provider)
+    await screen.findByText('฿39,600')
+    await user.click(screen.getByRole('button', { name: 'ตามบัญชี' }))
+    const chosen = () => screen.getByRole('button', { name: 'ตามบัญชี' })
+    expect(chosen()).toHaveAttribute('aria-pressed', 'true')
+
+    await user.click(screen.getByRole('button', { name: 'ซ่อนตัวเลข' }))
+    expect(screen.queryByText('กำลังโหลด…')).not.toBeInTheDocument()
+    expect(chosen()).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getAllByText('฿•••').length).toBeGreaterThan(0)
+
+    await user.click(screen.getByRole('button', { name: 'แสดงตัวเลข' }))
+    expect(screen.queryByText('กำลังโหลด…')).not.toBeInTheDocument()
+    expect(chosen()).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByText('฿39,600')).toBeInTheDocument()
+  })
+
   it('links the asset name to its page with a phone-sized touch target that paints above the line under it', async () => {
     await db.instruments.add({ id: 'US:AAPL', market: 'US', symbol: 'AAPL', name: 'Apple', assetType: 'stock', currency: 'USD' })
     await db.transactions.add(makeTx({ quantity: '10', price: '100', fxRate: '35' }))
