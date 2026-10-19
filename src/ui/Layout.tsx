@@ -3,7 +3,7 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router'
 import { buttonVariants } from '../components/ui/button'
 import { cn } from '../lib/cn'
 import { DailyValueRecorder } from './DailyValueRecorder'
-import { HOME, MORE, MORE_PAGES, NEW_TRANSACTION, PORTFOLIO, SIDEBAR_PAGES, TRANSACTIONS, isExactLink, type NavItem } from './nav'
+import { HOME, MORE, NEW_TRANSACTION, PORTFOLIO, SIDEBAR_PAGES, TRADES, isExactLink, isMoreTab, type NavItem } from './nav'
 
 const LEGEND = [
   { label: 'หุ้นสหรัฐ', className: 'bg-market-us' },
@@ -66,7 +66,7 @@ function TabLink({ to, label, icon: Icon, active }: NavItem & { active?: boolean
 
 export function Layout() {
   const { pathname } = useLocation()
-  const inMore = MORE_PAGES.some((page) => pathname.startsWith(page.to))
+  const inMore = isMoreTab(pathname)
   const inAssets = pathname.startsWith('/assets/')
   return (
     <div className="min-h-dvh md:grid md:grid-cols-[240px_minmax(0,1fr)]">
@@ -112,7 +112,7 @@ export function Layout() {
           </span>
           บันทึก
         </NavLink>
-        <TabLink {...TRANSACTIONS} />
+        <TabLink {...TRADES} />
         <TabLink {...MORE} active={inMore} />
       </nav>
     </div>
