@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { makeTx } from '../test/fixtures'
+import { D } from './decimal'
 import {
   accountTracksCash,
   cashDeltaQuote,
@@ -77,7 +78,14 @@ describe('computeLedger positions and realized P/L', () => {
     const buy = makeTx({ quantity: '2', price: '100' })
     const oversell = makeTx({ type: 'sell', quantity: '5', price: '100', date: '2024-01-20' })
     const { issues, realized, positions } = computeLedger([buy, oversell])
-    expect(issues).toEqual([{ txId: oversell.id, message: 'ขาย 5 หน่วย แต่ถืออยู่ 2 หน่วย' }])
+    expect(issues).toEqual([
+      {
+        txId: oversell.id,
+        message: 'ขาย 5 หน่วย แต่ถืออยู่ 2 หน่วย',
+        pattern: 'ขาย {0} หน่วย แต่ถืออยู่ {1} หน่วย',
+        figures: [D(5), D(2)],
+      },
+    ])
     expect(realized).toHaveLength(0)
     expect(positions[0].quantity.toString()).toBe('2')
   })
@@ -191,7 +199,14 @@ describe('computeLedger transfers', () => {
   it('refuses a transfer larger than the holding and leaves both accounts alone', () => {
     const tooMany = send('12')
     const ledger = computeLedger([buy, tooMany])
-    expect(ledger.issues).toEqual([{ txId: tooMany.id, message: 'โอน 12 หน่วย แต่ถืออยู่ 10 หน่วย' }])
+    expect(ledger.issues).toEqual([
+      {
+        txId: tooMany.id,
+        message: 'โอน 12 หน่วย แต่ถืออยู่ 10 หน่วย',
+        pattern: 'โอน {0} หน่วย แต่ถืออยู่ {1} หน่วย',
+        figures: [D(12), D(10)],
+      },
+    ])
     expect(rows(ledger)).toEqual([['acc-1|US:AAPL', '10', '1001', '34034']])
   })
 
@@ -263,6 +278,8 @@ describe('computeLedger swaps', () => {
   it('refuses a swap larger than the holding', () => {
     const ledger = computeLedger([buyBtc, swap({ quantity: '0.02' })])
     expect(ledger.issues[0].message).toBe('แลก 0.02 หน่วย แต่ถืออยู่ 0.01 หน่วย')
+    expect(ledger.issues[0].pattern).toBe('แลก {0} หน่วย แต่ถืออยู่ {1} หน่วย')
+    expect(ledger.issues[0].figures?.map(String)).toEqual(['0.02', '0.01'])
     expect(ledger.positions.map((p) => p.key)).toEqual(['acc-1|CRYPTO:BTC'])
   })
 
@@ -489,6 +506,8 @@ describe('computeLedger fees paid in an asset', () => {
   it('refuses a fee in an asset that is not held in that amount', () => {
     const ledger = computeLedger([buyBnb('0.0005'), makeTx({ ...eth, quantity: '1', price: '2000', date: '2024-01-11', ...bnbFee })])
     expect(ledger.issues[0].message).toBe('ค่าธรรมเนียม 0.001 BNB แต่ถืออยู่ 0.0005 BNB')
+    expect(ledger.issues[0].pattern).toBe('ค่าธรรมเนียม {0} BNB แต่ถืออยู่ {1} BNB')
+    expect(ledger.issues[0].figures?.map(String)).toEqual(['0.001', '0.0005'])
     expect(ledger.positions.map((p) => p.key)).toEqual(['acc-1|CRYPTO:BNB'])
   })
 

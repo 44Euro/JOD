@@ -21,7 +21,7 @@ import { fmtDate, fmtHeadline, fmtNumber, fmtPrice, fmtSigned, fmtSignedPct, fmt
 import { useAppData, usePortfolio } from '../hooks'
 import { EMOTION_LABELS, FEE_PAID_ROW_LABEL, TX_TYPE_LABELS, marketOf, unitLabel } from '../labels'
 import { assetRoute } from '../moneyRoutes'
-import { describeAmount, describeFeePaid, feeFreeTransfer, feePaidNet, netOf } from '../transactionText'
+import { describeAmount, describeFeePaid, feeFreeTransfer, feePaidNet, issueText, netOf } from '../transactionText'
 import { useIsDesktop } from '../useIsDesktop'
 
 function badgeOf(value: Decimal | null): 'ok' | 'loss' | 'default' {
@@ -76,7 +76,7 @@ export function AssetPage() {
   }
 
   const symbol = instrument?.symbol ?? id.split(':')[1] ?? id
-  const issues = new Map(ledger.issues.map((i) => [i.txId, i.message]))
+  const issues = new Map(ledger.issues.map((i) => [i.txId, issueText(i)]))
   const accountNames = new Map(data.accounts.map((a) => [a.id, a.name]))
   const instruments = new Map(data.instruments.map((i) => [i.id, i]))
   const transactions = sortTransactions(

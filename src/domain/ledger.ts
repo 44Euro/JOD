@@ -71,6 +71,20 @@ export interface CashBalance {
 export interface LedgerIssue {
   txId: string
   message: string
+  // The message with {0}, {1} where a quantity stands, and those quantities, so a screen can mask them while the numbers are hidden.
+  pattern?: string
+  figures?: Decimal[]
+}
+
+type IssueDetail = Omit<LedgerIssue, 'txId'>
+
+function shortfall(verb: string, needed: Decimal, held: Decimal | undefined, unit = 'หน่วย'): IssueDetail {
+  const have = held ?? D(0)
+  return {
+    message: `${verb} ${needed} ${unit} แต่ถืออยู่ ${have} ${unit}`,
+    pattern: `${verb} {0} ${unit} แต่ถืออยู่ {1} ${unit}`,
+    figures: [needed, have],
+  }
 }
 
 export interface Ledger {
@@ -310,17 +324,19 @@ export function computeLedger(transactions: readonly Transaction[]): Ledger {
 
   // The asset a fee is paid in is checked together with the rest of the transaction, before anything is changed,
   // and only sold once the transaction itself has been recorded.
-  const feeAssetProblem = (tx: Transaction): string | null => {
+  const feeAssetProblem = (tx: Transaction): IssueDetail | null => {
     if (tx.feePaidIn !== 'asset') return null
     if (tx.feeInstrumentId && (tx.feeInstrumentId === tx.instrumentId || tx.feeInstrumentId === tx.toInstrumentId)) {
-      return FEE_ASSET_SAME_ERROR
+      return { message: FEE_ASSET_SAME_ERROR }
     }
     const feeHeld = positions.get(positionKey(tx.accountId, tx.feeInstrumentId ?? ''))
     const symbol = symbolOf(tx.feeInstrumentId)
-    if (feeHeld && feeHeld.currency !== tx.currency) return `${symbol} ถืออยู่เป็น ${feeHeld.currency} · รายการนี้ใช้ ${tx.currency}`
+    if (feeHeld && feeHeld.currency !== tx.currency) {
+      return { message: `${symbol} ถืออยู่เป็น ${feeHeld.currency} · รายการนี้ใช้ ${tx.currency}` }
+    }
     const feeQuantity = D(tx.feeQuantity)
     if (!feeHeld || feeHeld.quantity.lessThan(feeQuantity)) {
-      return `ค่าธรรมเนียม ${feeQuantity} ${symbol} แต่ถืออยู่ ${feeHeld?.quantity ?? 0} ${symbol}`
+      return shortfall('ค่าธรรมเนียม', feeQuantity, feeHeld?.quantity, symbol)
     }
     return null
   }
@@ -351,7 +367,7 @@ export function computeLedger(transactions: readonly Transaction[]): Ledger {
     if (acquires) {
       const feeProblem = feeAssetProblem(tx)
       if (feeProblem) {
-        issues.push({ txId: tx.id, message: feeProblem })
+        issues.push({ txId: tx.id, ...feeProblem })
         continue
       }
       const position = held ?? {
@@ -378,12 +394,12 @@ export function computeLedger(transactions: readonly Transaction[]): Ledger {
     if (tx.type === 'sell') {
       const quantity = D(tx.quantity)
       if (!held || held.quantity.lessThan(quantity)) {
-        issues.push({ txId: tx.id, message: `ขาย ${quantity} หน่วย แต่ถืออยู่ ${held?.quantity ?? 0} หน่วย` })
+        issues.push({ txId: tx.id, ...shortfall('ขาย', quantity, held?.quantity) })
         continue
       }
       const feeProblem = feeAssetProblem(tx)
       if (feeProblem) {
-        issues.push({ txId: tx.id, message: feeProblem })
+        issues.push({ txId: tx.id, ...feeProblem })
         continue
       }
       const cost = takeCost(held, quantity)
@@ -396,7 +412,7 @@ export function computeLedger(transactions: readonly Transaction[]): Ledger {
       const toAccountId = tx.toAccountId ?? ''
       const quantity = D(tx.quantity)
       if (!held || held.quantity.lessThan(quantity)) {
-        issues.push({ txId: tx.id, message: `โอน ${quantity} หน่วย แต่ถืออยู่ ${held?.quantity ?? 0} หน่วย` })
+        issues.push({ txId: tx.id, ...shortfall('โอน', quantity, held?.quantity) })
         continue
       }
       const toKey = positionKey(toAccountId, instrumentId)
@@ -444,12 +460,12 @@ export function computeLedger(transactions: readonly Transaction[]): Ledger {
         continue
       }
       if (!held || held.quantity.lessThan(quantity)) {
-        issues.push({ txId: tx.id, message: `แลก ${quantity} หน่วย แต่ถืออยู่ ${held?.quantity ?? 0} หน่วย` })
+        issues.push({ txId: tx.id, ...shortfall('แลก', quantity, held?.quantity) })
         continue
       }
       const feeProblem = feeAssetProblem(tx)
       if (feeProblem) {
-        issues.push({ txId: tx.id, message: feeProblem })
+        issues.push({ txId: tx.id, ...feeProblem })
         continue
       }
       const cost = takeCost(held, quantity)

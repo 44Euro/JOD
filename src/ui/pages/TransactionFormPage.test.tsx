@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '../../db/db'
+import { saveSettings } from '../../db/repo'
 import { FxUnavailableError, type FxProvider } from '../../fx/frankfurter'
 import { fakeFxProvider } from '../../test/fakeFx'
 import { makeTx } from '../../test/fixtures'
@@ -284,6 +285,22 @@ describe('TransactionFormPage', () => {
     await user.click(screen.getByRole('button', { name: 'บันทึก' }))
     expect(await screen.findByText('ขาย 5 หน่วย แต่ถืออยู่ 1 หน่วย')).toBeInTheDocument()
     expect(await db.transactions.count()).toBe(1)
+  })
+
+  it('masks the quantities in the error list of a sell larger than the holding while the numbers are hidden', async () => {
+    await saveSettings(db, { baseCurrency: 'THB', hideNumbersOnLaunch: true })
+    await db.instruments.add({ id: 'US:AAPL', market: 'US', symbol: 'AAPL', name: 'Apple', assetType: 'stock', currency: 'USD' })
+    await db.transactions.add(makeTx({ quantity: '1', date: '2024-01-15' }))
+    const user = userEvent.setup()
+    renderRoute('/transactions/new', fakeFxProvider({ 'USD|THB': '35' }).provider)
+    await user.click(await screen.findByRole('button', { name: 'ขาย' }))
+    await user.type(screen.getByLabelText('สัญลักษณ์'), 'AAPL')
+    await user.type(screen.getByLabelText('จำนวนหน่วย'), '5')
+    await user.type(screen.getByLabelText('ราคาต่อหน่วย'), '100')
+    await waitFor(() => expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('35'))
+    await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+    expect(await screen.findByText('ขาย ••• หน่วย แต่ถืออยู่ ••• หน่วย')).toBeInTheDocument()
+    expect(screen.getByLabelText('จำนวนหน่วย')).toHaveValue('5')
   })
 
   it('records an opening holding with an estimated purchase rate', async () => {
@@ -647,6 +664,21 @@ describe('TransactionFormPage', () => {
       await waitFor(() => expect(screen.getByLabelText('จำนวนที่ได้รับ')).toHaveValue('595.52'))
       fireEvent.change(screen.getByLabelText('วันที่'), { target: { value: '2024-01-16' } })
       await waitFor(() => expect(screen.getByLabelText('จำนวนที่ได้รับ')).toHaveValue('586.76'))
+    })
+
+    it('masks the computed amount on the link back to it, and still puts the real amount in the field', async () => {
+      await saveSettings(db, { baseCurrency: 'THB', hideNumbersOnLaunch: true })
+      const { user } = await openExchange(fakeFxProvider({ 'USD|THB': '33.5' }).provider)
+      const received = screen.getByLabelText('จำนวนที่ได้รับ')
+      await user.type(screen.getByLabelText('จำนวนเงินต้นทาง'), '20000')
+      await waitFor(() => expect(received).toHaveValue('597.01'))
+      await user.clear(received)
+      await user.type(received, '590')
+      await user.type(screen.getByLabelText(/ค่าธรรมเนียม/), '50')
+      expect(received).toHaveValue('590')
+      expect(screen.queryByRole('button', { name: /595\.52/ })).not.toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'ใช้ยอดคำนวณ •••' }))
+      expect(received).toHaveValue('595.52')
     })
 
     it('keeps an amount typed by hand when the fee changes and can go back to the computed one', async () => {
@@ -1694,6 +1726,18 @@ describe('TransactionFormPage', () => {
       await user.type(screen.getByLabelText('ราคาต่อหน่วย'), '35')
       return { user, router }
     }
+
+    it('masks the fee from the formula on the link back to it, and still puts the real fee in the field', async () => {
+      await saveSettings(db, { baseCurrency: 'THB', hideNumbersOnLaunch: true })
+      const { user } = await openSetBuy()
+      const fee = screen.getByLabelText('ค่าธรรมเนียม')
+      await waitFor(() => expect(fee).toHaveValue('53.50'))
+      await user.clear(fee)
+      await user.type(fee, '60')
+      expect(screen.queryByRole('button', { name: /53\.50/ })).not.toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'ใช้สูตรของบัญชี (•••)' }))
+      expect(fee).toHaveValue('53.50')
+    })
 
     it('fills the fee from the account formula and lets the user put it back after typing', async () => {
       const { user } = await openSetBuy()

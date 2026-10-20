@@ -4,12 +4,14 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { Button } from '../components/ui/button'
 import { db } from '../db/db'
 import { getSettings } from '../db/repo'
+import { DEFAULT_SETTINGS } from '../domain/types'
 import { setNumbersHidden } from './format'
 import { usePrivacy } from './hooks'
 
 // Nothing is rendered until the settings have been read once: a session that opens hidden must not paint a real figure first.
 export function PrivacyProvider({ children }: { children: ReactNode }) {
-  const settings = useLiveQuery(() => getSettings(db), [])
+  // A settings read that fails must not leave the app blank; it opens with the numbers shown.
+  const settings = useLiveQuery(() => getSettings(db).catch(() => DEFAULT_SETTINGS), [])
   const [seeded, setSeeded] = useState(false)
 
   // The setting only decides how the app opens; once seeded, turning it on or off must not hide or show this visit's numbers.
@@ -37,7 +39,7 @@ export function EyeButton() {
       title={label}
       aria-label={label}
       aria-pressed={hidden}
-      className="[&_svg]:size-5"
+      className="text-ink-2 [&_svg]:size-5"
       onClick={toggle}
     >
       <Icon aria-hidden />

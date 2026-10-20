@@ -1,12 +1,21 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import type { FeeTemplate } from '../domain/types'
 import { feeTemplateParts, feeTemplateSummary } from './feeTemplateText'
+import { setNumbersHidden } from './format'
 
 const streaming: FeeTemplate = { currency: 'THB', commissionPct: '0.157', minimum: '50', vatPct: '7', perOrder: '0' }
 const bitkub: FeeTemplate = { currency: 'THB', commissionPct: '0.25', minimum: '0', vatPct: '0', perOrder: '0' }
 const dime: FeeTemplate = { currency: 'USD', commissionPct: '0', minimum: '0', vatPct: '0', perOrder: '0' }
 
+afterEach(() => setNumbersHidden(false))
+
 describe('feeTemplateSummary', () => {
+  it('keeps the rates and the minimum of a formula while the numbers are hidden', () => {
+    setNumbersHidden(true)
+    expect(feeTemplateSummary(streaming)).toBe('THB · 0.157% +\u00a0VAT\u00a07% · ขั้นต่ำ 50 บาท')
+    expect(feeTemplateSummary({ ...dime, perOrder: '0.99' })).toBe('USD · ค่าคอม 0.99 ต่อคำสั่ง')
+  })
+
   it('sums a formula up the way the settings mock does', () => {
     expect(feeTemplateSummary(streaming)).toBe('THB · 0.157% +\u00a0VAT\u00a07% · ขั้นต่ำ 50 บาท')
     expect(feeTemplateSummary(dime)).toBe('USD · ค่าคอม 0 ต่อคำสั่ง')

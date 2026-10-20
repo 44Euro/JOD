@@ -3,7 +3,7 @@ import { Field } from '../../../components/ui/field'
 import { Input, NativeSelect } from '../../../components/ui/input'
 import { CURRENCY_OPTIONS, USD_PEGGED } from '../../../domain/currencies'
 import type { FxConvertSummary } from '../../../domain/fxConvert'
-import { fmtDate, fmtPrice } from '../../format'
+import { fmtAmount, fmtDate, fmtPrice } from '../../format'
 import { spreadText } from '../../fxText'
 import { receivedAmount, type Draft } from '../../transactionDraft'
 
@@ -20,7 +20,7 @@ function receivedHint(draft: Draft, computed: string | null, rateMissing: boolea
         className="inline-flex min-h-11 items-center text-[13px] font-semibold text-fx underline underline-offset-[3px] md:min-h-0"
         onClick={restoreComputed}
       >
-        ใช้ยอดคำนวณ {computed}
+        ใช้ยอดคำนวณ {fmtAmount(computed)}
       </button>
     )
   )

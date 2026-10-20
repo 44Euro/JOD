@@ -1,11 +1,18 @@
 import { D } from '../domain/decimal'
-import { acquisitionCostQuote, cashDeltaQuote } from '../domain/ledger'
+import { acquisitionCostQuote, cashDeltaQuote, type LedgerIssue } from '../domain/ledger'
 import { symbolOf, type Instrument, type Transaction } from '../domain/types'
-import { fmtNumber, fmtPrice, fmtSigned, fmtValue, plClass } from './format'
+import { fmtNumber, fmtPlain, fmtPrice, fmtSigned, fmtValue, plClass } from './format'
 import { RECEIVE_KIND_LABELS, TX_TYPE_LABELS, unitLabel } from './labels'
 
 type Names = ReadonlyMap<string, string>
 type Instruments = ReadonlyMap<string, Instrument>
+
+// The reason a transaction was skipped, with its quantities masked while the numbers are hidden.
+export function issueText(issue: LedgerIssue): string {
+  const { pattern, figures } = issue
+  if (!pattern || !figures) return issue.message
+  return pattern.replace(/\{(\d+)\}/g, (_, index) => fmtNumber(figures[Number(index)], 8))
+}
 
 // Only the fee of a transfer is valued at its rate, so without a fee the rate would suggest a value that is not there.
 export function feeFreeTransfer(tx: Transaction): boolean {
@@ -49,7 +56,7 @@ export function describeMain(tx: Transaction, accountNames?: Names, instruments?
     case 'opening':
       return tx.instrumentId ? `${fmtNumber(tx.quantity, 8)} × ${fmtPrice(tx.price)}` : fmtNumber(tx.amount)
     case 'split':
-      return `× ${fmtNumber(tx.splitRatio, 4)}`
+      return `× ${fmtPlain(tx.splitRatio, 4)}`
     case 'fx_convert':
       return `${fmtNumber(tx.amount)} ${tx.currency} → ${fmtNumber(tx.toAmount)} ${tx.toCurrency ?? ''}`
     case 'transfer': {

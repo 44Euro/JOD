@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { CURRENCY_NAMES } from '../../domain/currencies'
 import { cn } from '../../lib/cn'
-import { currencyMark, fmtNumber, fmtRate, fmtSigned } from '../format'
+import { currencyMark, fmtNumber, fmtRate, fmtSigned, fmtSignedPct } from '../format'
 import type { RateBoardRow } from '../rateBoard'
 
 // Both layouts switch from stacked rows to columns on the board's own width (container query), which a tablet beside the
@@ -101,7 +101,7 @@ export function RateBoard({ rows, base, full = false, caption = 'เรทเฉ
                         row.diffPct?.lessThan(0) ? 'text-board-loss' : 'text-board-gain',
                       )}
                     >
-                      {row.diffPct ? `${fmtSigned(row.diffPct)}%` : '—'}
+                      {row.diffPct ? fmtSignedPct(row.diffPct, 2) : '—'}
                     </span>
                   </div>
                   <div className={cn('flex flex-wrap items-baseline gap-x-2.5 gap-y-1', layout.line)}>

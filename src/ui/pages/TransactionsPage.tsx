@@ -22,7 +22,7 @@ import { downloadText } from '../download'
 import { fmtDate, fmtDay } from '../format'
 import { useAppData, useLedger } from '../hooks'
 import { MARKET_LABELS, TX_TYPE_LABELS, TX_TYPE_SHORT_LABELS, marketOf } from '../labels'
-import { describeBody, describeMain, feeFreeTransfer, feeNote, feeNoteText, netOf, taxNoteText } from '../transactionText'
+import { describeBody, describeMain, feeFreeTransfer, feeNote, feeNoteText, issueText, netOf, taxNoteText } from '../transactionText'
 import { useIsDesktop } from '../useIsDesktop'
 
 // The phone row has no room for the account beside the symbol, so it puts the account on its second line instead, and
@@ -98,7 +98,7 @@ export function TransactionsPage() {
   const base = data.settings.baseCurrency
   const accountNames = new Map(data.accounts.map((a) => [a.id, a.name]))
   const instruments = new Map(data.instruments.map((i) => [i.id, i]))
-  const issues = new Map(ledger.issues.map((i) => [i.txId, i.message]))
+  const issues = new Map(ledger.issues.map((i) => [i.txId, issueText(i)]))
 
   async function handleDelete(tx: Transaction) {
     if (!window.confirm(`ลบรายการ${TX_TYPE_LABELS[tx.type]} วันที่ ${fmtDate(tx.date)}?`)) return

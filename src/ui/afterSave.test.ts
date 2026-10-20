@@ -1,9 +1,23 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import type { Transaction } from '../domain/types'
 import { makeTx } from '../test/fixtures'
 import { previewAfterSave } from './afterSave'
+import { setNumbersHidden } from './format'
+
+afterEach(() => setNumbersHidden(false))
 
 describe('previewAfterSave', () => {
+  it('hides the quantity held but keeps the average cost and the average rate while the numbers are hidden', () => {
+    const others = [makeTx({ quantity: '10', price: '100', fxRate: '35', date: '2024-01-10' })]
+    const tx = makeTx({ quantity: '10', price: '120', fxRate: '33', date: '2024-02-10' })
+    setNumbersHidden(true)
+    expect(previewAfterSave(others, tx, 'THB', 'AAPL').rows).toEqual([
+      { label: 'AAPL ที่ถือ', before: '•••', after: '•••' },
+      { label: 'ทุนเฉลี่ย (USD)', before: '100', after: '110' },
+      { label: 'เรทเฉลี่ยตอนซื้อ', before: '35', after: '33.9091', fx: true },
+    ])
+  })
+
   it('shows how the holding, its average cost and its average rate change', () => {
     const others = [makeTx({ quantity: '10', price: '100', fxRate: '35', date: '2024-01-10' })]
     const tx = makeTx({ quantity: '10', price: '120', fxRate: '33', date: '2024-02-10' })

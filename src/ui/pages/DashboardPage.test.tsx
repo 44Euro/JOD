@@ -462,6 +462,10 @@ describe('DashboardPage', () => {
 
   describe('hiding the numbers', () => {
     const THOUSANDS = /\d{1,3}(,\d{3})+/
+    // What may still carry digits while the numbers are hidden: percentages, dates, prices and rates (two decimals or more)
+    // and counts of days, years, times and trades. Any other digit run is an amount or a quantity that leaked.
+    const VISIBLE = /[+−]?\d+(\.\d+)?%|\d{1,2} [ก-๙.]+ \d{4}|\d+\.\d{2,}|\d+ ?(วัน|ปี|ครั้ง|เทรด)/g
+    const leftoverDigits = (text: string | null) => (text ?? '').replace(VISIBLE, ' ').match(/\d+/g) ?? []
     const sidebarLink = async (name: string) => within(await screen.findByRole('navigation', { name: 'เมนูหลัก' })).getByRole('link', { name })
 
     async function seedHundredThousand() {
@@ -488,6 +492,7 @@ describe('DashboardPage', () => {
       expect(await screen.findByText('ฝาก ••• · ถอน •••')).toBeInTheDocument()
       expect(main.textContent).not.toMatch(THOUSANDS)
       expect(main.textContent).not.toContain('100,000')
+      expect(leftoverDigits(main.textContent)).toEqual([])
 
       await user.click(await sidebarLink('พอร์ต'))
       expect(await screen.findByRole('heading', { name: 'พอร์ต' })).toBeInTheDocument()
@@ -495,6 +500,7 @@ describe('DashboardPage', () => {
       expect(screen.getByRole('button', { name: 'แสดงตัวเลข' })).toHaveAttribute('aria-pressed', 'true')
       expect(main.textContent).toContain('•••')
       expect(main.textContent).not.toMatch(THOUSANDS)
+      expect(leftoverDigits(main.textContent)).toEqual([])
 
       await user.click(screen.getByRole('button', { name: 'แสดงตัวเลข' }))
       expect(await screen.findByRole('button', { name: 'ซ่อนตัวเลข' })).toHaveAttribute('aria-pressed', 'false')
@@ -572,6 +578,17 @@ describe('DashboardPage', () => {
       expect(watch.seen.join('\n')).not.toMatch(THOUSANDS)
     })
 
+    it('keeps the percentages and rates of the board while the numbers are hidden', async () => {
+      setToday(2024, 6, 1)
+      await seedDime()
+      await saveSettings(db, { baseCurrency: 'THB', hideNumbersOnLaunch: true })
+      renderRoute('/', usd())
+      const board = await screen.findByRole('region', { name: 'กระดานเรทของคุณ' })
+      await waitFor(() => expect(board).toHaveTextContent('−2.94%'))
+      expect(board).toHaveTextContent('34.00→33.00')
+      expect(board).toHaveTextContent('••• ฿')
+    })
+
     it('opens with the numbers hidden when the setting asks for it', async () => {
       await seedHundredThousand()
       await saveSettings(db, { baseCurrency: 'THB', hideNumbersOnLaunch: true })
@@ -579,6 +596,24 @@ describe('DashboardPage', () => {
       expect(await screen.findByRole('button', { name: 'แสดงตัวเลข' })).toHaveAttribute('aria-pressed', 'true')
       expect(await screen.findByText('ฝาก ••• · ถอน •••')).toBeInTheDocument()
       expect((await screen.findByRole('main')).textContent).not.toMatch(THOUSANDS)
+    })
+
+    it('draws the eye in the ink colour of the mock', async () => {
+      await seedHundredThousand()
+      renderRoute('/', usd())
+      expect(await screen.findByRole('button', { name: 'ซ่อนตัวเลข' })).toHaveClass('text-ink-2')
+    })
+
+    it('shows the numbers, instead of staying blank, when the settings cannot be read', async () => {
+      await seedHundredThousand()
+      vi.spyOn(repo, 'getSettings').mockRejectedValueOnce(new Error('blocked'))
+      const { container } = render(
+        <PrivacyProvider>
+          <Figure />
+        </PrivacyProvider>,
+      )
+      expect(container).toBeEmptyDOMElement()
+      expect(await screen.findByText('1,234,567')).toBeInTheDocument()
     })
 
     it('does not save the choice made with the eye, so the next launch follows the setting', async () => {

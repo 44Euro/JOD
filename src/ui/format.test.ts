@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
+import { D } from '../domain/decimal'
 import {
   HIDDEN_NUMBER,
   currencyMark,
@@ -10,6 +11,7 @@ import {
   fmtMonth,
   fmtNumber,
   fmtPct,
+  fmtPlain,
   fmtPrice,
   fmtRate,
   fmtRatio,
@@ -20,6 +22,7 @@ import {
   plClass,
   setNumbersHidden,
 } from './format'
+import { spreadText } from './fxText'
 
 describe('format', () => {
   afterEach(() => setNumbersHidden(false))
@@ -151,7 +154,7 @@ describe('format', () => {
     expect(fmtHeadline('-1200.4', 'THB')).toBe('฿•••')
   })
 
-  it('shows no sign while hidden, so a figure does not even say whether it is a gain', () => {
+  it('shows only the mask for a signed amount, whatever its sign', () => {
     setNumbersHidden(true)
     expect([fmtSigned('7000'), fmtSigned('-2400', 0), fmtNumber('-3')]).toEqual(['•••', '•••', '•••'])
   })
@@ -160,6 +163,22 @@ describe('format', () => {
     setNumbersHidden(true)
     expect([fmtPct('6.6', 1), fmtSignedPct('11.44'), fmtSignedPct('-5.71', 2), fmtYield('3')]).toEqual(['6.6%', '+11.4%', '−5.71%', '3.0%'])
     expect([fmtNumber(null), fmtMoney(undefined, 'THB'), fmtHeadline('', 'THB'), fmtAmount(null)]).toEqual(['—', '—', '—', '—'])
+  })
+
+  it('writes a plain number the same way while hidden, for what is not an amount of money', () => {
+    expect(fmtPlain('1234.567')).toBe('1,234.57')
+    expect(fmtPlain('0.2515', 4)).toBe('0.2515')
+    expect(fmtPlain(null)).toBe('—')
+    setNumbersHidden(true)
+    expect(fmtPlain('1234.567')).toBe('1,234.57')
+    expect(fmtPlain('-0.5')).toBe('−0.5')
+  })
+
+  it('keeps the percentage of a spread while hidden', () => {
+    setNumbersHidden(true)
+    expect(spreadText(D('0.82'))).toBe('แพงกว่าตลาด 0.82%')
+    expect(spreadText(D('-1.5'))).toBe('ถูกกว่าตลาด 1.5%')
+    expect(spreadText(D('0.001'))).toBe('เท่าตลาด')
   })
 
   it('writes a ratio with two decimals', () => {

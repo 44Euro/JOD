@@ -62,6 +62,7 @@ import {
   withTransferTarget,
   type Draft,
 } from '../transactionDraft'
+import { issueText } from '../transactionText'
 import { useIsDesktop } from '../useIsDesktop'
 
 export function TransactionFormPage() {
@@ -325,7 +326,7 @@ function TransactionForm({
             ...new Set(
               computeLedger([...others, ...written])
                 .issues.filter((issue) => written.some((t) => t.id === issue.txId))
-                .map((issue) => issue.message),
+                .map(issueText),
             ),
           ]
     if (found.length > 0 || ledgerErrors.length > 0) {

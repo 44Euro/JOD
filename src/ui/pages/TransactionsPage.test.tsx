@@ -2,6 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '../../db/db'
+import { saveSettings } from '../../db/repo'
 import { makeTx } from '../../test/fixtures'
 import { renderRoute, resetDb } from '../../test/render'
 
@@ -40,6 +41,17 @@ describe('TransactionsPage', () => {
     expect(await screen.findByText('ขาย 5 หน่วย แต่ถืออยู่ 2 หน่วย')).toBeInTheDocument()
     expect(screen.getByText('ไม่นับในพอร์ต')).toBeInTheDocument()
     expect(screen.getByRole('alert')).toHaveTextContent('มี 1 รายการที่คำนวณไม่ได้')
+  })
+
+  it('masks the quantities in the reason a sell was skipped while the numbers are hidden', async () => {
+    await saveSettings(db, { baseCurrency: 'THB', hideNumbersOnLaunch: true })
+    await db.transactions.bulkAdd([
+      makeTx({ id: 'buy-1', quantity: '2', date: '2024-01-10' }),
+      makeTx({ id: 'sell-1', type: 'sell', quantity: '5', date: '2024-01-20' }),
+    ])
+    renderRoute('/transactions')
+    expect(await screen.findByText('ขาย ••• หน่วย แต่ถืออยู่ ••• หน่วย')).toBeInTheDocument()
+    expect(screen.queryByText(/ขาย 5 หน่วย/)).not.toBeInTheDocument()
   })
 
   it('deletes a transaction after confirmation', async () => {

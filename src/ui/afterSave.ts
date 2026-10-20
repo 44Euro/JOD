@@ -1,7 +1,7 @@
 import { D, type Decimal } from '../domain/decimal'
 import { accountTracksCash, computeLedger, positionKey, receivedUnitCost, type Ledger, type Position } from '../domain/ledger'
 import { symbolOf, type Transaction } from '../domain/types'
-import { fmtMoney, fmtNumber } from './format'
+import { fmtMoney, fmtNumber, fmtPlain } from './format'
 
 export interface AfterSaveRow {
   label: string
@@ -54,8 +54,8 @@ export function previewAfterSave(
   const holdingRows = (instrumentId: string, name: string): AfterSaveRow[] => {
     const was = positionOf(before, tx.accountId, instrumentId)
     const now = positionOf(after, tx.accountId, instrumentId)
-    const avgCost = (p?: Position) => (p ? fmtNumber(p.costQuote.div(p.quantity), 4) : '—')
-    const avgRate = (p?: Position) => (p && !p.costQuote.isZero() ? fmtNumber(p.costBase.div(p.costQuote), 4) : '—')
+    const avgCost = (p?: Position) => (p ? fmtPlain(p.costQuote.div(p.quantity), 4) : '—')
+    const avgRate = (p?: Position) => (p && !p.costQuote.isZero() ? fmtPlain(p.costBase.div(p.costQuote), 4) : '—')
     const holding: AfterSaveRow[] = [
       { label: `${name} ที่ถือ`, before: quantity(was), after: quantity(now) },
       { label: swap ? `ทุนเฉลี่ย ${name} (${tx.currency})` : `ทุนเฉลี่ย (${tx.currency})`, before: avgCost(was), after: avgCost(now) },

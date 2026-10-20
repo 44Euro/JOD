@@ -1,6 +1,6 @@
 import { D, type Decimal } from '../domain/decimal'
 import type { FeeTemplate } from '../domain/types'
-import { fmtNumber } from './format'
+import { fmtPlain } from './format'
 
 // A plus and VAT with its rate are joined with a no-break space, so a wrapped line never ends on a plus or splits VAT
 // from its rate.
@@ -12,7 +12,7 @@ export function feeTemplateParts(template: FeeTemplate): { body: string; minimum
   const perOrder = D(template.perOrder)
   const vat = D(template.vatPct)
   const minimum = D(template.minimum)
-  const number = (value: Decimal) => fmtNumber(value, 4)
+  const number = (value: Decimal) => fmtPlain(value, 4)
   let perOrderSaid = false
   let commission = pct.isZero() ? `ค่าคอม ${number(perOrder)}` : `${number(pct)}%`
   if (!perOrder.isZero() && !pct.isZero()) {

@@ -4,7 +4,7 @@ import { Input, NativeSelect } from '../../../components/ui/input'
 import type { Account, FeePaidIn, Instrument, TxType } from '../../../domain/types'
 import { cn } from '../../../lib/cn'
 import { feeTemplateParts } from '../../feeTemplateText'
-import { fmtNumber } from '../../format'
+import { fmtMoney, fmtNumber } from '../../format'
 import { FEE_PAID_IN_LABELS } from '../../labels'
 import {
   feePaidInOf,
@@ -48,7 +48,7 @@ function formulaHint(draft: Draft, account: Account | undefined, restoreFormula:
       className="inline-flex min-h-11 items-center text-left text-[13px] font-semibold text-primary underline underline-offset-[3px] md:min-h-0"
       onClick={restoreFormula}
     >
-      ใช้สูตรของบัญชี ({computed})
+      ใช้สูตรของบัญชี ({fmtMoney(computed)})
     </button>
   )
 }

@@ -104,6 +104,11 @@ export function fmtValue(value: Value): string {
   return numbersHidden ? HIDDEN_NUMBER : format(D(value), 0, 0)
 }
 
+// A number that is not an amount of money or a quantity held, such as a fee rate or an average price, which stays readable.
+export function fmtPlain(value: Value, maxDigits = 2): string {
+  return isEmpty(value) ? '—' : format(D(value), 0, maxDigits)
+}
+
 // A ratio such as the profit factor says nothing about how much money there is, so it stays visible.
 export function fmtRatio(value: Value): string {
   return isEmpty(value) ? '—' : format(D(value), 2, 2)

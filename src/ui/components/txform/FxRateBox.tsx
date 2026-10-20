@@ -3,7 +3,7 @@ import { Field } from '../../../components/ui/field'
 import { Input } from '../../../components/ui/input'
 import { USD_PEGGED } from '../../../domain/currencies'
 import type { Decimal } from '../../../domain/decimal'
-import { fmtNumber } from '../../format'
+import { fmtPct } from '../../format'
 import { FX_SOURCE_LABELS } from '../../labels'
 import { isOpeningAsset, type Draft } from '../../transactionDraft'
 
@@ -43,7 +43,7 @@ export function FxRateBox({
         <p>
           {[
             fxMessage,
-            rateSpread && !rateSpread.isZero() ? `${rateSpread.greaterThan(0) ? 'สูงกว่า' : 'ต่ำกว่า'}เรทกลาง ${fmtNumber(rateSpread.abs())}%` : '',
+            rateSpread && !rateSpread.isZero() ? `${rateSpread.greaterThan(0) ? 'สูงกว่า' : 'ต่ำกว่า'}เรทกลาง ${fmtPct(rateSpread.abs())}` : '',
           ]
             .filter(Boolean)
             .join(' · ')}
