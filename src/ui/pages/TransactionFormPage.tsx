@@ -8,7 +8,7 @@ import { Chip } from '../../components/ui/chip'
 import { Field } from '../../components/ui/field'
 import { Input, NativeSelect, Textarea } from '../../components/ui/input'
 import { db } from '../../db/db'
-import { deleteTransaction, newId, saveTransactions, upsertInstrument } from '../../db/repo'
+import { newId, saveTransactions, upsertInstrument } from '../../db/repo'
 import { CURRENCY_OPTIONS, USD_PEGGED } from '../../domain/currencies'
 import { isIsoDate, todayLocal } from '../../domain/dates'
 import { D, isDecimalString } from '../../domain/decimal'
@@ -63,6 +63,7 @@ import {
   type Draft,
 } from '../transactionDraft'
 import { issueText } from '../transactionText'
+import { deleteWithUndo } from '../undoDelete'
 import { useIsDesktop } from '../useIsDesktop'
 
 export function TransactionFormPage() {
@@ -382,8 +383,8 @@ function TransactionForm({
   }
 
   async function handleDelete() {
-    if (!existing || !window.confirm(`ลบรายการ${TX_TYPE_LABELS[existing.type]} วันที่ ${fmtDate(existing.date)}?`)) return
-    await deleteTransaction(db, existing.id)
+    if (!existing) return
+    await deleteWithUndo(db, existing)
     navigate('/transactions')
   }
 

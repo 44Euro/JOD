@@ -7,6 +7,7 @@ import {
   getSettings,
   recordDailyValue,
   renameInstrument,
+  restoreTransaction,
   saveInstrumentThesis,
   saveSettings,
   saveTradeReview,
@@ -292,6 +293,21 @@ describe('transactions', () => {
     const withoutKey = { ...makeTx(), id: undefined as unknown as string }
     await expect(saveTransactions(db, [makeTx(), withoutKey])).rejects.toThrow()
     expect(await db.transactions.count()).toBe(0)
+  })
+})
+
+describe('restoreTransaction', () => {
+  it('puts the record back whole, with its own timestamps', async () => {
+    const tx = makeTx({ note: 'back' })
+    await restoreTransaction(db, tx)
+    expect(await db.transactions.get(tx.id)).toEqual(tx)
+  })
+
+  it('refuses an id that is taken and leaves the stored record alone', async () => {
+    const tx = makeTx({ note: 'original' })
+    await saveTransaction(db, tx)
+    await expect(restoreTransaction(db, { ...tx, note: 'other' })).rejects.toThrow('รายการนี้มีอยู่แล้ว')
+    expect((await db.transactions.get(tx.id))!.note).toBe('original')
   })
 })
 

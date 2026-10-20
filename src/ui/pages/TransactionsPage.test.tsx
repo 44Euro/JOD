@@ -1,10 +1,11 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '../../db/db'
 import { saveSettings } from '../../db/repo'
 import { makeTx } from '../../test/fixtures'
 import { renderRoute, resetDb } from '../../test/render'
+import { UNDO_MS, deleteWithUndo, pendingDeletes, undoDelete } from '../undoDelete'
 
 const account = { id: 'acc-1', name: 'Dime US', broker: 'Dime', note: '', createdAt: '2024-01-01T00:00:00.000Z' }
 
@@ -26,9 +27,11 @@ beforeEach(async () => {
   await db.accounts.add(account)
 })
 
-afterEach(() => {
+afterEach(async () => {
+  vi.useRealTimers()
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
+  await Promise.allSettled(pendingDeletes().map((p) => undoDelete(db, p.tx.id)))
 })
 
 describe('TransactionsPage', () => {
@@ -54,13 +57,124 @@ describe('TransactionsPage', () => {
     expect(screen.queryByText(/ขาย 5 หน่วย/)).not.toBeInTheDocument()
   })
 
-  it('deletes a transaction after confirmation', async () => {
-    await db.transactions.add(makeTx({ id: 'buy-1', date: '2024-01-10' }))
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
-    const user = userEvent.setup()
-    renderRoute('/transactions')
-    await user.click(await screen.findByRole('button', { name: 'ลบรายการ ซื้อ 2024-01-10' }))
-    await waitFor(async () => expect(await db.transactions.count()).toBe(0))
+  describe('deleting with undo', () => {
+    const phone = () =>
+      vi.stubGlobal('matchMedia', (query: string) => ({
+        matches: false,
+        media: query,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      }))
+
+    it('strikes a deleted row through without asking, and puts it back on undo', async () => {
+      await db.transactions.add(makeTx({ id: 'buy-1', date: '2024-01-10' }))
+      const confirm = vi.spyOn(window, 'confirm')
+      const user = userEvent.setup()
+      renderRoute('/transactions')
+      await user.click(await screen.findByRole('button', { name: 'ลบรายการ ซื้อ 2024-01-10' }))
+      const undo = await screen.findByRole('button', { name: 'ย้อนกลับการลบ ซื้อ 2024-01-10' })
+      expect(confirm).not.toHaveBeenCalled()
+      expect(await db.transactions.count()).toBe(0)
+      const row = undo.closest('tr')!
+      expect(within(row).getByText('ยกเลิกแล้ว')).toBeInTheDocument()
+      expect(within(row).getByText('ลบเมื่อสักครู่')).toBeInTheDocument()
+      expect(within(row).getByText('AAPL')).toHaveClass('line-through', 'text-muted-foreground')
+      expect(within(row).queryByRole('link')).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'ส่งออก CSV' })).toBeDisabled()
+      await user.click(within(row).getByText('ย้อนกลับ'))
+      await waitFor(() => expect(screen.queryByText('ยกเลิกแล้ว')).not.toBeInTheDocument())
+      expect(await db.transactions.count()).toBe(1)
+      expect(screen.getByRole('button', { name: 'ลบรายการ ซื้อ 2024-01-10' })).toBeInTheDocument()
+    })
+
+    it('drops the row once ten seconds have passed', async () => {
+      // Dexie's live queries stall when setTimeout is faked, so only the undo timer is held back and fired by hand;
+      // the timing itself is covered with fake timers in undoDelete.test.ts.
+      const expiries: (() => void)[] = []
+      const realSetTimeout = globalThis.setTimeout
+      vi.spyOn(globalThis, 'setTimeout').mockImplementation(((fn: () => void, ms?: number, ...args: unknown[]) => {
+        if (ms === UNDO_MS) {
+          expiries.push(fn)
+          return 0
+        }
+        return realSetTimeout(fn, ms, ...args)
+      }) as typeof setTimeout)
+      await db.transactions.add(makeTx({ id: 'buy-1', date: '2024-01-10' }))
+      const user = userEvent.setup()
+      renderRoute('/transactions')
+      await user.click(await screen.findByRole('button', { name: 'ลบรายการ ซื้อ 2024-01-10' }))
+      expect(await screen.findByText('ยกเลิกแล้ว')).toBeInTheDocument()
+      expect(expiries).toHaveLength(1)
+      act(() => expiries[0]())
+      expect(screen.queryByText('ยกเลิกแล้ว')).not.toBeInTheDocument()
+      expect(screen.getByText('ยังไม่มีรายการ เริ่มจากปุ่มบันทึกรายการ')).toBeInTheDocument()
+    })
+
+    it('keeps a deleted row in its own day and time among the others', async () => {
+      await db.transactions.bulkAdd([
+        makeTx({ id: 'early', date: '2024-01-10', time: '09:00' }),
+        makeTx({ id: 'mid', date: '2024-01-10', time: '12:00', instrumentId: 'US:MSFT' }),
+        makeTx({ id: 'late', date: '2024-01-10', time: '15:00', instrumentId: 'US:NVDA' }),
+      ])
+      const user = userEvent.setup()
+      renderRoute('/transactions')
+      const trashes = await screen.findAllByRole('button', { name: 'ลบรายการ ซื้อ 2024-01-10' })
+      await user.click(trashes.find((button) => button.closest('tr')!.textContent!.includes('MSFT'))!)
+      await screen.findByText('ยกเลิกแล้ว')
+      const symbols = within(screen.getByRole('table'))
+        .getAllByRole('row')
+        .map((r) => r.textContent ?? '')
+        .filter((t) => /AAPL|MSFT|NVDA/.test(t))
+        .map((t) => /AAPL|MSFT|NVDA/.exec(t)![0])
+      expect(symbols).toEqual(['NVDA', 'MSFT', 'AAPL'])
+    })
+
+    it('hides a deleted row that the filters would not show', async () => {
+      await db.transactions.bulkAdd([makeTx({ id: 'b', date: '2024-01-10' }), deposit])
+      const user = userEvent.setup()
+      renderRoute('/transactions')
+      await user.click(await screen.findByRole('button', { name: 'ลบรายการ ซื้อ 2024-01-10' }))
+      await screen.findByText('ยกเลิกแล้ว')
+      await user.selectOptions(screen.getByLabelText('กรองตามประเภท'), 'deposit')
+      expect(screen.queryByText('ยกเลิกแล้ว')).not.toBeInTheDocument()
+      await user.selectOptions(screen.getByLabelText('กรองตามประเภท'), 'buy')
+      expect(screen.getByText('ยกเลิกแล้ว')).toBeInTheDocument()
+    })
+
+    it('shows the same strike-through row and undo on a phone', async () => {
+      phone()
+      const tx = makeTx({ id: 'buy-1', date: '2024-01-10' })
+      await db.transactions.add(tx)
+      const user = userEvent.setup()
+      renderRoute('/transactions')
+      const list = await screen.findByRole('list', { name: 'รายการทั้งหมด' })
+      await act(() => deleteWithUndo(db, tx))
+      const undo = await within(list).findByRole('button', { name: 'ย้อนกลับการลบ ซื้อ 2024-01-10' })
+      const row = undo.closest('li')!
+      expect(within(row).getByText('ยกเลิกแล้ว')).toBeInTheDocument()
+      expect(within(row).getByText('ลบเมื่อสักครู่')).toBeInTheDocument()
+      expect(within(row).getByText('AAPL')).toHaveClass('line-through')
+      expect(within(row).queryByRole('link')).not.toBeInTheDocument()
+      expect(undo).toHaveClass('min-h-11')
+      await user.click(undo)
+      expect(await screen.findByRole('link', { name: /AAPL/ })).toHaveAttribute('href', '/transactions/buy-1')
+    })
+
+    it('says why an undo failed when the record came back some other way', async () => {
+      await db.transactions.add(makeTx({ id: 'buy-1', date: '2024-01-10' }))
+      const user = userEvent.setup()
+      renderRoute('/transactions')
+      await user.click(await screen.findByRole('button', { name: 'ลบรายการ ซื้อ 2024-01-10' }))
+      const undo = await screen.findByRole('button', { name: 'ย้อนกลับการลบ ซื้อ 2024-01-10' })
+      await db.transactions.add(makeTx({ id: 'buy-1', date: '2024-01-10', note: 'again' }))
+      await user.click(undo)
+      expect(await screen.findByText('รายการนี้มีอยู่แล้ว')).toBeInTheDocument()
+      expect(screen.getByText('ยกเลิกแล้ว')).toBeInTheDocument()
+      await db.transactions.delete('buy-1')
+      await user.click(screen.getByRole('button', { name: 'ย้อนกลับการลบ ซื้อ 2024-01-10' }))
+      await waitFor(() => expect(screen.queryByText('รายการนี้มีอยู่แล้ว')).not.toBeInTheDocument())
+      expect(await db.transactions.count()).toBe(1)
+    })
   })
 
   it('filters by type and by market', async () => {

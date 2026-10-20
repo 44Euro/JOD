@@ -7,6 +7,7 @@ import { FxUnavailableError, type FxProvider } from '../../fx/frankfurter'
 import { fakeFxProvider } from '../../test/fakeFx'
 import { makeTx } from '../../test/fixtures'
 import { renderRoute, resetDb } from '../../test/render'
+import { pendingDeletes, undoDelete } from '../undoDelete'
 import { TradeJournalFields } from '../components/txform/TradeJournalFields'
 import { emptyDraft, type Draft } from '../transactionDraft'
 
@@ -17,9 +18,10 @@ beforeEach(async () => {
   await db.accounts.add(account)
 })
 
-afterEach(() => {
+afterEach(async () => {
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
+  await Promise.allSettled(pendingDeletes().map((p) => undoDelete(db, p.tx.id)))
 })
 
 describe('TransactionFormPage', () => {
@@ -385,13 +387,16 @@ describe('TransactionFormPage', () => {
   })
 
   it('deletes a transaction from its edit page', async () => {
-    await db.transactions.add(makeTx({ id: 'buy-1' }))
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    await db.transactions.add(makeTx({ id: 'buy-1', date: '2024-01-10' }))
+    const confirm = vi.spyOn(window, 'confirm')
     const user = userEvent.setup()
     const router = renderRoute('/transactions/buy-1', fakeFxProvider({ 'USD|THB': '35' }).provider)
     await user.click(await screen.findByRole('button', { name: 'ลบรายการนี้' }))
     await waitFor(() => expect(router.state.location.pathname).toBe('/transactions'))
     expect(await db.transactions.count()).toBe(0)
+    expect(confirm).not.toHaveBeenCalled()
+    const undo = await screen.findByRole('button', { name: 'ย้อนกลับการลบ ซื้อ 2024-01-10' })
+    expect(within(undo.closest('tr')!).getByText('ยกเลิกแล้ว')).toBeInTheDocument()
   })
 
   it('drops an automatic rate when the date changes to one without a quote', async () => {

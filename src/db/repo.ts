@@ -177,6 +177,15 @@ export async function deleteTransaction(db: JodDB, id: string): Promise<void> {
   await db.transactions.delete(id)
 }
 
+// The record goes back as it was, id and timestamps included, so it lands where it sat in the ledger. It is not
+// validated again: it was valid when it was saved, and an undo must not be refused for rules that have moved on.
+export async function restoreTransaction(db: JodDB, tx: Transaction): Promise<void> {
+  await db.transaction('rw', db.transactions, async () => {
+    if (await db.transactions.get(tx.id)) throw new Error('รายการนี้มีอยู่แล้ว')
+    await db.transactions.add(tx)
+  })
+}
+
 // One row per day: later runs on the same day overwrite it, so the row ends up holding the day's last
 // known value. Returns whether anything was written.
 export async function recordDailyValue(
