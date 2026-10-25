@@ -17,6 +17,7 @@ import {
   type NavItem,
 } from './nav'
 import { PrivacyProvider } from './privacy'
+import { useShortcuts } from './shortcuts'
 import { ThemeSync } from './theme'
 
 const LEGEND = [
@@ -80,6 +81,7 @@ function TabLink({ to, label, icon: Icon, active }: NavItem & { active?: boolean
 
 function Shell() {
   const { pathname } = useLocation()
+  useShortcuts()
   const inMore = isMoreTab(pathname)
   const inAssets = pathname.startsWith('/assets/')
   const editingTransaction = isTransactionEdit(pathname)
@@ -92,7 +94,12 @@ function Shell() {
           JOD
           <span className="mt-1 block font-sans text-xs font-normal text-muted-foreground">จดทุกเทรด รู้ทุกบาท</span>
         </p>
-        <NavLink to={NEW_TRANSACTION} className={cn(buttonVariants(), 'mt-[22px] mb-4 h-12 shrink-0 text-base md:h-12')}>
+        <NavLink
+          to={NEW_TRANSACTION}
+          aria-keyshortcuts="N"
+          title="บันทึกรายการ (N)"
+          className={cn(buttonVariants(), 'mt-[22px] mb-4 h-12 shrink-0 text-base md:h-12')}
+        >
           <Plus aria-hidden />
           บันทึกรายการ
         </NavLink>

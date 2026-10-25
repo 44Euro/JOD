@@ -1,6 +1,6 @@
 import { Download, Pencil, Plus, Search, Trash2, TriangleAlert, Undo2 } from 'lucide-react'
 import { Fragment, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useLocation } from 'react-router'
 import { Alert } from '../../components/ui/alert'
 import { Badge } from '../../components/ui/badge'
 import { Button, buttonVariants } from '../../components/ui/button'
@@ -22,6 +22,7 @@ import { fmtDay } from '../format'
 import { useAppData, useLedger } from '../hooks'
 import { MARKET_LABELS, TX_TYPE_LABELS, TX_TYPE_SHORT_LABELS, marketOf } from '../labels'
 import { describeBody, describeMain, feeFreeTransfer, feeNote, feeNoteText, issueText, netOf, taxNoteText } from '../transactionText'
+import { SEARCH_INPUT_ID } from '../shortcuts'
 import { deleteWithUndo, settleRestored, undoDelete, usePendingDeletes } from '../undoDelete'
 import { useIsDesktop } from '../useIsDesktop'
 
@@ -101,6 +102,7 @@ export function TransactionsPage() {
   const [query, setQuery] = useState('')
   const [undoError, setUndoError] = useState('')
   const pending = usePendingDeletes()
+  const focusSearch = (useLocation().state as { focusSearch?: boolean } | null)?.focusSearch === true
 
   const matches = useMemo(() => {
     const q = query.trim().toUpperCase()
@@ -190,6 +192,9 @@ export function TransactionsPage() {
         <div className="relative min-w-[220px] flex-1">
           <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-placeholder" aria-hidden />
           <Input
+            id={SEARCH_INPUT_ID}
+            aria-keyshortcuts="/"
+            autoFocus={focusSearch}
             aria-label="ค้นหา"
             placeholder="ค้นหาสัญลักษณ์ หรือหมายเหตุ"
             className="h-11 pl-10 md:h-[42px]"

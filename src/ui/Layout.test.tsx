@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { db } from '../db/db'
 import { makeTx } from '../test/fixtures'
@@ -111,5 +111,56 @@ describe('Layout', () => {
     const bottom = screen.getByRole('navigation', { name: 'เมนูด้านล่าง' })
     expect(within(bottom).getByRole('link', { name: 'พอร์ต' })).toHaveAttribute('aria-current', 'page')
     expect(within(bottom).getByRole('link', { name: 'เพิ่มเติม' })).not.toHaveAttribute('aria-current')
+  })
+})
+
+describe('keyboard shortcuts', () => {
+  beforeEach(async () => {
+    await resetDb()
+    await db.accounts.add({ id: 'acc-1', name: 'Dime US', broker: 'Dime', note: '', createdAt: '2024-01-01T00:00:00.000Z' })
+  })
+
+  it('opens a new transaction with N', async () => {
+    const router = renderRoute('/portfolio')
+    await screen.findByRole('navigation', { name: 'เมนูหลัก' })
+    fireEvent.keyDown(window, { key: 'n' })
+    await waitFor(() => expect(router.state.location.pathname).toBe('/transactions/new'))
+    expect(await screen.findByRole('heading', { name: 'บันทึกรายการ' })).toBeInTheDocument()
+  })
+
+  it('ignores N while typing', async () => {
+    const router = renderRoute('/transactions')
+    const search = await screen.findByRole('textbox', { name: 'ค้นหา' })
+    search.focus()
+    fireEvent.keyDown(search, { key: 'n' })
+    expect(router.state.location.pathname).toBe('/transactions')
+  })
+
+  it('ignores N with a modifier', async () => {
+    const router = renderRoute('/portfolio')
+    await screen.findByRole('navigation', { name: 'เมนูหลัก' })
+    fireEvent.keyDown(window, { key: 'n', metaKey: true })
+    fireEvent.keyDown(window, { key: 'n', ctrlKey: true })
+    expect(router.state.location.pathname).toBe('/portfolio')
+  })
+
+  it('jumps to search with /', async () => {
+    const router = renderRoute('/portfolio')
+    await screen.findByRole('navigation', { name: 'เมนูหลัก' })
+    fireEvent.keyDown(window, { key: '/' })
+    const search = await screen.findByRole('textbox', { name: 'ค้นหา' })
+    expect(router.state.location.pathname).toBe('/transactions')
+    await waitFor(() => expect(search).toHaveFocus())
+    search.blur()
+    fireEvent.keyDown(window, { key: '/' })
+    expect(search).toHaveFocus()
+    expect(search).toHaveAttribute('aria-keyshortcuts', '/')
+  })
+
+  it('names the shortcut on the sidebar button', async () => {
+    renderRoute('/portfolio')
+    const nav = await screen.findByRole('navigation', { name: 'เมนูหลัก' })
+    const button = nav.parentElement!.querySelector('[aria-keyshortcuts="N"]')
+    expect(button).toHaveAttribute('title', 'บันทึกรายการ (N)')
   })
 })
