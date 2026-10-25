@@ -60,6 +60,11 @@ export function validateTransaction(tx: Transaction, today: string = todayLocal(
       else if (tx.toAccountId === tx.accountId) errors.push('บัญชีปลายทางต้องต่างจากบัญชีต้นทาง')
       if (tx.instrumentId) positive(tx.quantity, 'จำนวนหน่วย')
       else positive(tx.amount, 'จำนวนเงิน')
+      if (tx.toCurrency !== undefined) {
+        if (!tx.instrumentId) errors.push('เปลี่ยนสกุลได้เฉพาะการโอนสินทรัพย์')
+        if (!CURRENCY_PATTERN.test(tx.toCurrency)) errors.push('สกุลเงินปลายทางไม่ถูกต้อง')
+        positive(tx.toFxRate, 'เรทของสกุลปลายทาง')
+      }
       break
     case 'swap':
       if (!tx.instrumentId) errors.push('กรุณาระบุสินทรัพย์ที่แลกออก')

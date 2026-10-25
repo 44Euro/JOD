@@ -152,6 +152,8 @@ export interface Transaction {
   feeInstrumentId?: string
   feeQuantity?: string
   toCurrency?: string
+  // A transferred holding re-counted in the destination's currency: base currency per 1 unit of toCurrency on the day.
+  toFxRate?: string
   toAmount?: string
   marketRate?: string
   fxRate: string

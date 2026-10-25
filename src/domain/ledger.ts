@@ -419,10 +419,11 @@ export function computeLedger(transactions: readonly Transaction[]): Ledger {
       }
       const toKey = positionKey(toAccountId, instrumentId)
       const target = positions.get(toKey)
-      if (target && target.currency !== held.currency) {
+      const toCurrency = tx.toCurrency ?? held.currency
+      if (target && target.currency !== toCurrency) {
         issues.push({
           txId: tx.id,
-          message: `สกุลเงิน ${held.currency} ไม่ตรงกับที่ถืออยู่ในบัญชีปลายทาง (${target.currency})`,
+          message: `สกุลเงิน ${toCurrency} ไม่ตรงกับที่ถืออยู่ในบัญชีปลายทาง (${target.currency})`,
         })
         continue
       }
@@ -433,7 +434,7 @@ export function computeLedger(transactions: readonly Transaction[]): Ledger {
         key: toKey,
         accountId: toAccountId,
         instrumentId,
-        currency: held.currency,
+        currency: toCurrency,
         quantity: D(0),
         costQuote: D(0),
         costBase: D(0),
@@ -442,7 +443,10 @@ export function computeLedger(transactions: readonly Transaction[]): Ledger {
       const before = received.quantity
       received.quantity = before.plus(quantity).minus(feeUnitsTaken(tx))
       recordMove(tx, received, before, received.quantity, true)
-      received.costQuote = received.costQuote.plus(cost.costQuote)
+      // Moving into another currency keeps the baht cost whole and re-counts it at the day's rate, so no gain
+      // appears on the move; only the price paid, as seen in the new currency, changes.
+      const movedQuote = toCurrency === held.currency ? cost.costQuote : cost.costBase.div(D(tx.toFxRate))
+      received.costQuote = received.costQuote.plus(movedQuote)
       received.costBase = received.costBase.plus(cost.costBase)
       received.receivedCostBase = received.receivedCostBase.plus(cost.receivedCostBase)
       positions.set(toKey, received)

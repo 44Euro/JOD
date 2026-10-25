@@ -61,6 +61,9 @@ export interface Draft {
   openingKind: OpeningKind
   toAccountId: string
   transferKind: OpeningKind
+  // A holding moved to an account that trades it in another currency; empty keeps the currency it is held in.
+  moveCurrency: string
+  moveRate: string
   receiveKind: ReceiveKind
   currency: string
   quantity: string
@@ -131,6 +134,8 @@ export function emptyDraft(accountId: string, today: string): Draft {
     openingKind: 'asset',
     toAccountId: '',
     transferKind: 'asset',
+    moveCurrency: '',
+    moveRate: '',
     receiveKind: 'stock_dividend',
     currency: MARKET_CURRENCY.US,
     quantity: '',
@@ -473,6 +478,8 @@ export function draftFromTransaction(tx: Transaction, instruments: readonly Inst
     openingKind: tx.type === 'opening' && !tx.instrumentId ? 'cash' : 'asset',
     toAccountId: tx.toAccountId ?? '',
     transferKind: tx.type === 'transfer' && !tx.instrumentId ? 'cash' : 'asset',
+    moveCurrency: tx.type === 'transfer' ? (tx.toCurrency ?? '') : '',
+    moveRate: tx.type === 'transfer' ? (tx.toFxRate ?? '') : '',
     receiveKind: tx.receiveKind ?? 'stock_dividend',
     currency: tx.currency,
     quantity: tx.quantity ?? '',
@@ -631,7 +638,8 @@ export function draftToTransaction(draft: Draft, ctx: DraftContext): { tx: Trans
     feePaidIn: feePaidIn === 'cash' ? undefined : feePaidIn,
     feeInstrumentId: feePaidIn === 'asset' && draft.feeSymbol.trim() ? instrumentKey(draft.feeMarket, draft.feeSymbol) : undefined,
     feeQuantity: feePaidIn === 'cash' ? undefined : num(draft.feeQuantity),
-    toCurrency: isConvert ? draft.toCurrency : undefined,
+    toCurrency: isConvert ? draft.toCurrency : sendsUnits && draft.moveCurrency ? draft.moveCurrency : undefined,
+    toFxRate: sendsUnits && draft.moveCurrency ? num(draft.moveRate) : undefined,
     toAmount: isConvert ? num(draft.toAmount) : undefined,
     marketRate: isConvert ? draft.marketRate || undefined : undefined,
     fxRate: noFx ? '1' : (num(draft.fxRate) ?? ''),

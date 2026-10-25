@@ -826,6 +826,33 @@ describe('TransactionFormPage', () => {
       expect(saved?.price).toBeUndefined()
     })
 
+    it('moves a coin to an exchange that trades it in USDT, at the day\u2019s rate', async () => {
+      await db.accounts.bulkAdd([
+        { id: 'bitkub', name: 'Bitkub', broker: 'Bitkub', note: '', createdAt: '2024-01-01T00:00:00.000Z' },
+        { id: 'binance', name: 'Binance', broker: 'Binance', note: '', createdAt: '2024-01-01T00:00:00.000Z' },
+      ])
+      await db.transactions.add(
+        makeTx({ id: 'eth', accountId: 'bitkub', instrumentId: 'CRYPTO:ETH', currency: 'THB', fxRate: '1', fxSource: 'same', quantity: '0.1', price: '100000', date: '2024-01-10' }),
+      )
+      const user = userEvent.setup()
+      const router = renderRoute('/transactions/new', fakeFxProvider({ 'USD|THB': '33' }).provider)
+      await user.selectOptions(await screen.findByLabelText('ประเภทอื่นๆ'), 'โอนระหว่างบัญชี')
+      await user.selectOptions(screen.getByLabelText('บัญชี'), 'Bitkub')
+      await user.selectOptions(screen.getByLabelText('บัญชีปลายทาง'), 'Binance')
+      await user.selectOptions(screen.getByLabelText('ตลาด'), 'CRYPTO')
+      await user.type(screen.getByLabelText('สัญลักษณ์'), 'ETH')
+      await user.type(screen.getByLabelText('จำนวนหน่วยที่โอน'), '0.1')
+      const currency = await screen.findByLabelText('สกุลที่ถือในบัญชีปลายทาง')
+      expect(currency).toHaveDisplayValue('THB (เดิม)')
+      await user.selectOptions(currency, 'USDT')
+      await waitFor(() => expect(screen.getByLabelText('เรท 1 USDT = ? THB')).toHaveValue('33'))
+      expect(screen.getByText(/ต้นทุนเป็นบาทย้ายไปเท่าเดิม แล้วนับเป็น USDT/)).toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+      await waitFor(() => expect(router.state.location.pathname).toBe('/transactions'))
+      const saved = (await db.transactions.toArray()).find((t) => t.type === 'transfer')
+      expect(saved).toMatchObject({ accountId: 'bitkub', toAccountId: 'binance', instrumentId: 'CRYPTO:ETH', toCurrency: 'USDT', toFxRate: '33' })
+    })
+
     it('says a transfer needs two accounts', async () => {
       const { user } = await openTransfer()
       const note = await screen.findByRole('note')

@@ -313,3 +313,15 @@ describe('validateSymbol', () => {
     expect(validateSymbol('96.5')).toEqual([])
   })
 })
+
+describe('validateTransaction transfers into another currency', () => {
+  const move = makeTx({ type: 'transfer', toAccountId: 'acc-2', quantity: '1', price: undefined })
+  it('needs a rate for the new currency, and only on an asset transfer', () => {
+    expect(validateTransaction({ ...move, toCurrency: 'USDT', toFxRate: '33' })).toEqual([])
+    expect(validateTransaction({ ...move, toCurrency: 'USDT' })).toContain('เรทของสกุลปลายทางต้องเป็นตัวเลขมากกว่า 0')
+    expect(validateTransaction({ ...move, instrumentId: undefined, quantity: undefined, amount: '100', toCurrency: 'USDT', toFxRate: '33' })).toContain(
+      'เปลี่ยนสกุลได้เฉพาะการโอนสินทรัพย์',
+    )
+  })
+})
+

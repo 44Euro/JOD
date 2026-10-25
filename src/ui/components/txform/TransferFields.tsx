@@ -3,6 +3,7 @@ import { Alert } from '../../../components/ui/alert'
 import { Chip } from '../../../components/ui/chip'
 import { Field } from '../../../components/ui/field'
 import { Input, NativeSelect } from '../../../components/ui/input'
+import { CURRENCY_OPTIONS } from '../../../domain/currencies'
 import type { Account } from '../../../domain/types'
 import type { Draft } from '../../transactionDraft'
 
@@ -59,5 +60,48 @@ export function TransferAmountField({ draft, update }: { draft: Draft; update(pa
     <Field id="tx-quantity" label="จำนวนหน่วยที่โอน">
       <Input id="tx-quantity" inputMode="decimal" value={draft.quantity} onChange={(e) => update({ quantity: e.target.value })} />
     </Field>
+  )
+}
+
+// Shown when a holding moves: the destination can count it in another currency, as a coin moved from a baht exchange
+// to one that trades in USDT. The baht cost moves whole; this rate only re-counts it in the new currency.
+export function MoveCurrencyFields({
+  draft,
+  heldCurrency,
+  base,
+  update,
+}: {
+  draft: Draft
+  heldCurrency: string
+  base: string
+  update(patch: Partial<Draft>): void
+}) {
+  const target = draft.moveCurrency || heldCurrency
+  const options = [heldCurrency, ...CURRENCY_OPTIONS.filter((c) => c !== heldCurrency)]
+  function pick(currency: string) {
+    if (currency === heldCurrency) update({ moveCurrency: '', moveRate: '' })
+    else update({ moveCurrency: currency, moveRate: currency === base ? '1' : '' })
+  }
+  return (
+    <div className="grid gap-3.5 sm:grid-cols-2">
+      <Field
+        id="tx-move-currency"
+        label="สกุลที่ถือในบัญชีปลายทาง"
+        hint={target === heldCurrency ? `ถือเป็น ${heldCurrency} เหมือนเดิม` : `ต้นทุนเป็น${base === 'THB' ? 'บาท' : base}ย้ายไปเท่าเดิม แล้วนับเป็น ${target}`}
+      >
+        <NativeSelect id="tx-move-currency" value={target} onChange={(e) => pick(e.target.value)}>
+          {options.map((c) => (
+            <option key={c} value={c}>
+              {c === heldCurrency ? `${c} (เดิม)` : c}
+            </option>
+          ))}
+        </NativeSelect>
+      </Field>
+      {target !== heldCurrency && target !== base && (
+        <Field id="tx-move-rate" label={`เรท 1 ${target} = ? ${base}`}>
+          <Input id="tx-move-rate" inputMode="decimal" value={draft.moveRate} onChange={(e) => update({ moveRate: e.target.value })} />
+        </Field>
+      )}
+    </div>
   )
 }

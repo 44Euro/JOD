@@ -227,6 +227,36 @@ describe('computeLedger transfers', () => {
   })
 })
 
+describe('computeLedger transfers into another currency', () => {
+  const buy = makeTx({ id: 'buy', accountId: 'bitkub', instrumentId: 'CRYPTO:ETH', currency: 'THB', fxRate: '1', fxSource: 'same', quantity: '0.1', price: '100000', date: '2024-01-10' })
+  const move = (extra = {}) =>
+    makeTx({ id: 'move', accountId: 'bitkub', type: 'transfer', toAccountId: 'binance', instrumentId: 'CRYPTO:ETH', quantity: '0.1', price: undefined, currency: 'THB', fxRate: '1', fxSource: 'same', date: '2024-02-01', ...extra })
+  const sell = makeTx({ id: 'sell', accountId: 'binance', type: 'sell', instrumentId: 'CRYPTO:ETH', currency: 'USDT', fxRate: '33.5', quantity: '0.1', price: '3500', date: '2024-03-01' })
+
+  it('re-counts a moved holding in the new currency with the same baht cost, so it can be sold there', () => {
+    const ledger = computeLedger([buy, move({ toCurrency: 'USDT', toFxRate: '33' }), sell])
+    expect(ledger.issues).toEqual([])
+    const [realized] = ledger.realized
+    // 0.1 ETH cost ฿10,000 → 10,000 ÷ 33 = 303.03 USDT; sold for 350 USDT at 33.5 = ฿11,725.
+    expect(realized.costBase.toString()).toBe('10000')
+    expect(realized.costQuote.toFixed(2)).toBe('303.03')
+    expect(realized.proceedsBase.toString()).toBe('11725')
+    expect(realized.realizedBase.toString()).toBe('1725')
+  })
+
+  it('keeps the holding in its own currency when no new currency is given', () => {
+    const ledger = computeLedger([buy, move(), sell])
+    expect(ledger.issues.map((i) => i.txId)).toEqual(['sell'])
+    expect(ledger.positions.find((p) => p.accountId === 'binance')?.currency).toBe('THB')
+  })
+
+  it('refuses a move into an account that holds the coin in a different currency', () => {
+    const held = makeTx({ accountId: 'binance', instrumentId: 'CRYPTO:ETH', currency: 'USD', fxRate: '33', quantity: '0.1', price: '3000', date: '2024-01-05' })
+    const ledger = computeLedger([held, buy, move({ toCurrency: 'USDT', toFxRate: '33' })])
+    expect(ledger.issues.map((i) => i.message)).toEqual(['สกุลเงิน USDT ไม่ตรงกับที่ถืออยู่ในบัญชีปลายทาง (USD)'])
+  })
+})
+
 describe('computeLedger swaps', () => {
   const crypto = { instrumentId: 'CRYPTO:BTC', currency: 'USD' }
   const buyBtc = makeTx({ ...crypto, quantity: '0.01', price: '58000', fxRate: '34', date: '2024-03-01' })

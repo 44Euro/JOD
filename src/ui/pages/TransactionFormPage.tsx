@@ -31,7 +31,7 @@ import { ReceiveFields, ReceiveTaxField } from '../components/txform/ReceiveFiel
 import { ReinvestFields } from '../components/txform/ReinvestFields'
 import { SwapFields, SwapSummary } from '../components/txform/SwapFields'
 import { TradeJournalFields } from '../components/txform/TradeJournalFields'
-import { TransferAmountField, TransferFields } from '../components/txform/TransferFields'
+import { MoveCurrencyFields, TransferAmountField, TransferFields } from '../components/txform/TransferFields'
 import { TypePicker } from '../components/txform/TypePicker'
 import { WithdrawFields } from '../components/txform/WithdrawFields'
 import { fmtDate, fmtMoney, fmtNumber, fmtPrice } from '../format'
@@ -241,6 +241,26 @@ function TransactionForm({
     }
   }, [needsFx, draft.currency, draft.date, base, provider, setDraft])
 
+  // The rate a moved holding is re-counted at is the destination currency's rate on the day of the move.
+  const moveCurrencyToRate =
+    draft.type === 'transfer' && draft.transferKind === 'asset' && draft.moveCurrency && draft.moveCurrency !== base && !draft.moveRate
+      ? draft.moveCurrency
+      : ''
+  const moveDate = draft.date
+  useEffect(() => {
+    const moveCurrency = moveCurrencyToRate
+    if (!moveCurrency || !isIsoDate(moveDate)) return
+    let cancelled = false
+    quoteWithPegFallback(provider, moveCurrency, base, moveDate)
+      .then(({ quote }) => {
+        if (!cancelled) setDraft((d) => (d.moveCurrency === moveCurrency && !d.moveRate ? { ...d, moveRate: quote.rate } : d))
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [moveCurrencyToRate, moveDate, base, provider, setDraft])
+
   useEffect(() => {
     const { type, toCurrency, currency, date } = draft
     if (type !== 'fx_convert' || !toCurrency || toCurrency === currency || !isIsoDate(date)) return
@@ -293,6 +313,17 @@ function TransactionForm({
     preview.errors.length === 0
       ? previewAfterSave(others, preview.tx, base, symbol, existing, accountNames, reinvestPlan ? [reinvestPlan.buy] : [])
       : null
+  const movedHolding =
+    draft.type === 'transfer' && draft.transferKind === 'asset' && symbol
+      ? heldLedger.positions.find((p) => p.key === positionKey(draft.accountId, instrumentKey(draft.market, symbol)))
+      : undefined
+  // A destination that already holds the coin in another currency can only take it in that currency.
+  const destinationCurrency =
+    movedHolding && heldLedger.positions.find((p) => p.key === positionKey(draft.toAccountId, movedHolding.instrumentId))?.currency
+  useEffect(() => {
+    if (!movedHolding || !destinationCurrency || destinationCurrency === movedHolding.currency) return
+    setDraft((d) => (d.moveCurrency ? d : { ...d, moveCurrency: destinationCurrency, moveRate: destinationCurrency === base ? '1' : '' }))
+  }, [movedHolding, destinationCurrency, base, setDraft])
   const hintFor = (market: Market, typed: string) => {
     const entered = typed.trim()
     if (!entered) return undefined
@@ -497,6 +528,8 @@ function TransactionForm({
               update={update}
             />
           )}
+
+          {movedHolding && <MoveCurrencyFields draft={draft} heldCurrency={movedHolding.currency} base={base} update={update} />}
 
           {draft.type === 'withdraw' && <WithdrawFields draft={draft} update={update} />}
 
