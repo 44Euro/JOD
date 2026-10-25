@@ -1,4 +1,4 @@
-import { CalendarClock, Plus } from 'lucide-react'
+import { CalendarClock, DatabaseBackup, Plus, type LucideIcon } from 'lucide-react'
 import { Link } from 'react-router'
 import { Alert } from '../../components/ui/alert'
 import { buttonVariants } from '../../components/ui/button'
@@ -10,7 +10,7 @@ import { positionValueBase } from '../../domain/investor'
 import { portfolioReturn, staleInstruments } from '../../domain/returns'
 import { unpricedInstrumentCount, type PositionValuation } from '../../domain/valuation'
 import { cn } from '../../lib/cn'
-import { HoldingsTable, MissingRatesNote } from '../components/HoldingsTable'
+import { HoldingsTable } from '../components/HoldingsTable'
 import { MiniRoute, MoneyRoute } from '../components/MoneyRoute'
 import { PageHeader } from '../components/PageHeader'
 import { RateBoard } from '../components/RateBoard'
@@ -18,6 +18,7 @@ import { Stat, SummaryPanel } from '../components/Summary'
 import { fmtDate, fmtHeadline, fmtNumber, fmtPrice, fmtRate, fmtSigned, fmtSignedPct, plClass } from '../format'
 import { useAppData, useInvestor } from '../hooks'
 import { investorRoute } from '../moneyRoutes'
+import { buildNotices, type Notice, type NoticeKind } from '../notices'
 import { assetPath } from '../nav'
 import { EyeButton } from '../privacy'
 import { buildRateBoard } from '../rateBoard'
@@ -36,6 +37,22 @@ function largestInstrument(valuations: readonly PositionValuation[]): string | n
   let best: string | null = null
   for (const [id, total] of totals) if (best === null || total.greaterThan(totals.get(best) ?? D(0))) best = id
   return best
+}
+
+const NOTICE_ICONS: Partial<Record<NoticeKind, LucideIcon>> = { backup: DatabaseBackup, review: CalendarClock }
+
+function NoticeAlert({ notice }: { notice: Notice }) {
+  return (
+    <Alert role={notice.tone === 'warning' ? 'alert' : 'note'} icon={NOTICE_ICONS[notice.kind]}>
+      {notice.text}
+      {notice.to && (
+        <>
+          {' · '}
+          <Link to={notice.to}>{notice.linkText}</Link>
+        </>
+      )}
+    </Alert>
+  )
 }
 
 export function DashboardPage() {
@@ -72,7 +89,19 @@ export function DashboardPage() {
   const largest = largestId ? instrumentStats(largestId, valuations, ledger, today) : null
   const largestSymbol = largestId ? (instruments.get(largestId)?.symbol ?? largestId.split(':')[1]) : ''
   const showRoute = largest !== null && largest.currency !== null && largestId !== null && !largest.quantity.isZero()
-  const hasSideColumn = showRoute || unpriced > 0 || stale.length > 0 || worth.missingRates.length > 0 || dueReviews.length > 0
+  const notices = buildNotices({
+    issuesCount: ledger.issues.length,
+    lastBackupAt: data.settings.lastBackupAt,
+    firstTxCreatedAt: data.transactions.reduce<string | undefined>((first, tx) => (!first || tx.createdAt < first ? tx.createdAt : first), undefined),
+    unpricedCount: unpriced,
+    staleCount: stale.length,
+    missingRates: worth.missingRates,
+    dueReviews,
+    today,
+  })
+  const topNotices = notices.filter((n) => n.kind === 'issues')
+  const sideNotices = notices.filter((n) => n.kind !== 'issues')
+  const hasSideColumn = showRoute || sideNotices.length > 0
 
   return (
     <>
@@ -84,11 +113,9 @@ export function DashboardPage() {
         </Link>
       </PageHeader>
 
-      {ledger.issues.length > 0 && (
-        <Alert>
-          มี {ledger.issues.length} รายการที่คำนวณไม่ได้ · <Link to="/transactions">ไปตรวจสอบ</Link>
-        </Alert>
-      )}
+      {topNotices.map((notice) => (
+        <NoticeAlert key={notice.id} notice={notice} />
+      ))}
 
       <SummaryPanel
         label="มูลค่าวันนี้ · สินทรัพย์ + เงินสด"
@@ -155,21 +182,8 @@ export function DashboardPage() {
                 />
               </Link>
             )}
-            {unpriced > 0 && (
-              <Alert role="note">
-                ยังไม่มีราคาล่าสุด {unpriced} ตัว (นับที่ทุนไปก่อน) · <Link to="/portfolio">กรอกราคา</Link>
-              </Alert>
-            )}
-            {stale.length > 0 && (
-              <Alert role="note">
-                ราคา {stale.length} ตัวไม่ได้อัปเดตเกิน 7 วัน · <Link to="/portfolio">อัปเดตราคา</Link>
-              </Alert>
-            )}
-            <MissingRatesNote currencies={worth.missingRates} />
-            {dueReviews.map((instrument) => (
-              <Alert key={instrument.id} role="note" icon={CalendarClock}>
-                ถึงวันทบทวนเหตุผลที่ถือ {instrument.symbol} · <Link to={assetPath(instrument.id)}>เปิดดู</Link>
-              </Alert>
+            {sideNotices.map((notice) => (
+              <NoticeAlert key={notice.id} notice={notice} />
             ))}
           </div>
         )}

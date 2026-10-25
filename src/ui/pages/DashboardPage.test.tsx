@@ -195,10 +195,27 @@ describe('DashboardPage', () => {
       makeTx({ accountId: 'bitkub', instrumentId: 'CRYPTO:ETH', currency: 'THB', fxRate: '1', fxSource: 'same', quantity: '0.1', price: '110000', date: '2024-01-10' }),
       makeTx({ accountId: 'binance', instrumentId: 'CRYPTO:ETH', currency: 'USD', fxRate: '33', quantity: '0.1', price: '3300', date: '2024-02-10' }),
     ])
+    await saveSettings(db, { baseCurrency: 'THB', lastBackupAt: '2024-06-30T09:00:00.000Z' })
     renderRoute('/', usd())
     const board = (await screen.findByRole('region', { name: 'กระดานเรทของคุณ' })).parentElement!
     expect(board.children).toHaveLength(1)
     expect(board).not.toHaveClass('xl:grid-cols-[minmax(0,1fr)_340px]')
+  })
+
+  it('reminds to back up after thirty days, next to the other notes', async () => {
+    setToday(2024, 6, 1)
+    await seedDime()
+    await saveSettings(db, { baseCurrency: 'THB', lastBackupAt: '2024-05-22T09:00:00.000Z' })
+    renderRoute('/', usd())
+    const reminder = (await screen.findByText(/ไม่ได้สำรองข้อมูลมา 40 วัน/)).closest('[role="alert"]')!
+    expect(within(reminder as HTMLElement).getByRole('link', { name: 'สำรองตอนนี้' })).toHaveAttribute('href', '/settings')
+  })
+
+  it('asks for a first backup once the data is a month old', async () => {
+    setToday(2024, 6, 1)
+    await seedDime()
+    renderRoute('/', usd())
+    expect(await screen.findByText(/ยังไม่เคยสำรองข้อมูล/)).toBeInTheDocument()
   })
 
   it('keeps the two columns while the short route or a note has something to say', async () => {
