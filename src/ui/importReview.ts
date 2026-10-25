@@ -1,6 +1,6 @@
 import type { Extraction, RowField, RowKind } from '../ai/extraction'
 import { MARKET_CURRENCY } from '../domain/currencies'
-import { D, Decimal, isDecimalString } from '../domain/decimal'
+import { D, Decimal, parseDecimalInput } from '../domain/decimal'
 import { computeLedger } from '../domain/ledger'
 import { instrumentKey, type AssetType, type FxSource, type Instrument, type Market, type Transaction } from '../domain/types'
 import { validateSymbol } from '../domain/validation'
@@ -61,7 +61,13 @@ export function instrumentIdOf(row: Pick<ReviewRow, 'kind' | 'market' | 'symbol'
   return needsSymbol(row.kind) && row.symbol.trim() ? instrumentKey(row.market, row.symbol) : undefined
 }
 
-const sameNumber = (a: string | undefined, b: string) => a !== undefined && isDecimalString(a) && isDecimalString(b) && D(a).eq(D(b))
+// Typed numbers may carry thousand separators, as the form allows.
+const num = (value: string): string | null => (value.trim() ? parseDecimalInput(value) : null)
+
+const sameNumber = (a: string | undefined, b: string) => {
+  const typed = num(b)
+  return a !== undefined && typed !== null && D(a).eq(typed)
+}
 
 // A record already in the account that this row probably repeats, described the way the review shows it. A holding
 // from a portfolio screen repeats any buy or carried-in holding of the same asset, since those already count it.
@@ -118,8 +124,14 @@ export function toReviewRows(extraction: Extraction, ctx: ReviewContext): Review
   })
 }
 
-const positive = (value: string) => isDecimalString(value) && D(value).gt(0)
-const notNegative = (value: string) => value === '' || (isDecimalString(value) && !D(value).isNegative())
+const positive = (value: string) => {
+  const parsed = num(value)
+  return parsed !== null && D(parsed).gt(0)
+}
+const notNegative = (value: string) => {
+  const parsed = num(value)
+  return value.trim() === '' || (parsed !== null && !D(parsed).isNegative())
+}
 
 // What still has to be filled in before the row can be written. A holding takes its rate from the shared opening
 // rate of its currency, so only the other rows need a rate of their own.
@@ -139,8 +151,8 @@ export function rowProblems(row: ReviewRow, baseCurrency: string): string[] {
 
 // The value each row stands for in the source: cost for holdings and orders, cash for income.
 export function rowValue(row: ReviewRow): Decimal | null {
-  if (usesUnits(row.kind)) return positive(row.quantity) && positive(row.price) ? D(row.quantity).times(row.price) : null
-  return positive(row.amount) ? D(row.amount) : null
+  if (usesUnits(row.kind)) return positive(row.quantity) && positive(row.price) ? D(num(row.quantity)).times(D(num(row.price))) : null
+  return positive(row.amount) ? D(num(row.amount)) : null
 }
 
 export type TotalCheck = { state: 'none' } | { state: 'match' | 'mismatch'; stated: Decimal; counted: Decimal; currency: string }
@@ -180,7 +192,7 @@ export interface BuiltImport {
   errors: string[]
 }
 
-const orZero = (value: string) => (value.trim() ? D(value).toString() : '0')
+const orZero = (value: string) => num(value) ?? '0'
 
 // Builds the records of the ticked rows. Like the form, it refuses anything the ledger would skip, so every record
 // written counts.
@@ -213,7 +225,7 @@ export function buildImport(rows: readonly ReviewRow[], ctx: BuildContext): Buil
     }
     const isBase = row.currency === ctx.baseCurrency
     const opening = row.kind === 'opening' ? ctx.openingRates[row.currency] : undefined
-    const fxRate = isBase ? '1' : opening ? D(opening.rate).toString() : D(row.fxRate).toString()
+    const fxRate = isBase ? '1' : (num(opening ? opening.rate : row.fxRate) as string)
     const fxSource: FxSource = isBase ? 'same' : opening ? opening.source : row.fxSource
     // Records are a millisecond apart so they keep the order the source listed them in.
     const createdAt = new Date(ctx.now.getTime() + index).toISOString()
@@ -223,9 +235,9 @@ export function buildImport(rows: readonly ReviewRow[], ctx: BuildContext): Buil
       type: row.kind,
       date: row.kind === 'opening' ? ctx.openingDate : row.date,
       instrumentId,
-      quantity: usesUnits(row.kind) ? D(row.quantity).toString() : undefined,
-      price: usesUnits(row.kind) ? D(row.price).toString() : undefined,
-      amount: usesUnits(row.kind) ? undefined : D(row.amount).toString(),
+      quantity: usesUnits(row.kind) ? (num(row.quantity) as string) : undefined,
+      price: usesUnits(row.kind) ? (num(row.price) as string) : undefined,
+      amount: usesUnits(row.kind) ? undefined : (num(row.amount) as string),
       currency: row.currency,
       fees: orZero(row.fees),
       tax: orZero(row.tax),
@@ -254,7 +266,7 @@ export function latestPrices(rows: readonly ReviewRow[]): { id: string; price: s
   const prices = new Map<string, string>()
   for (const row of rows) {
     const id = instrumentIdOf(row)
-    if (id && positive(row.lastPrice)) prices.set(id, D(row.lastPrice).toString())
+    if (id && positive(row.lastPrice)) prices.set(id, num(row.lastPrice) as string)
   }
   return [...prices].map(([id, price]) => ({ id, price }))
 }

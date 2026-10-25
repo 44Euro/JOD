@@ -8,15 +8,14 @@ import { Chip } from '../../components/ui/chip'
 import { Field } from '../../components/ui/field'
 import { Input, NativeSelect, Textarea } from '../../components/ui/input'
 import { db } from '../../db/db'
-import { CURRENCY_OPTIONS, USD_PEGGED } from '../../domain/currencies'
+import { CURRENCY_OPTIONS } from '../../domain/currencies'
 import { isIsoDate, todayLocal } from '../../domain/dates'
 import { D, isDecimalString } from '../../domain/decimal'
 import { fxConvertSummary, spreadPct } from '../../domain/fxConvert'
 import { computeLedger, positionKey } from '../../domain/ledger'
 import { TX_TYPES, findInstrument, instrumentKey, symbolOf, unitOf, type Market, type Transaction, type TxType } from '../../domain/types'
 import { useFxProvider } from '../../fx/context'
-import type { FxProvider } from '../../fx/frankfurter'
-import { getFxQuote, type FxQuote } from '../../fx/fxService'
+import { quoteWithPegFallback } from '../../fx/fxService'
 import { cn } from '../../lib/cn'
 import { previewAfterSave } from '../afterSave'
 import { prepareSave, writeSave } from '../saveDraft'
@@ -151,26 +150,6 @@ function marketRateKey(draft: Draft): string {
   return `${draft.toCurrency}|${draft.currency}|${draft.date}`
 }
 
-// A dollar-pegged coin has no rate of its own, so the dollar's stands in for it; when the dollar has none either, the
-// reason is the coin's own.
-async function quoteWithPegFallback(
-  provider: FxProvider,
-  from: string,
-  to: string,
-  date: string,
-): Promise<{ quote: FxQuote; borrowed: boolean }> {
-  try {
-    return { quote: await getFxQuote(db, provider, from, to, date), borrowed: false }
-  } catch (error) {
-    const dollarFor = (currency: string) => (USD_PEGGED.includes(currency) ? 'USD' : currency)
-    if (dollarFor(from) === from && dollarFor(to) === to) throw error
-    const quote = await getFxQuote(db, provider, dollarFor(from), dollarFor(to), date).catch(() => {
-      throw error
-    })
-    return { quote, borrowed: true }
-  }
-}
-
 function TransactionForm({
   data,
   existing,
@@ -226,7 +205,7 @@ function TransactionForm({
   useEffect(() => {
     if (!needsFx || !isIsoDate(draft.date)) return
     let cancelled = false
-    quoteWithPegFallback(provider, draft.currency, base, draft.date)
+    quoteWithPegFallback(db, provider, draft.currency, base, draft.date)
       .then(({ quote, borrowed }) => {
         if (cancelled) return
         const day = `ECB ${fmtDate(quote.rateDate)}`
@@ -251,7 +230,7 @@ function TransactionForm({
     const moveCurrency = moveCurrencyToRate
     if (!moveCurrency || !isIsoDate(moveDate)) return
     let cancelled = false
-    quoteWithPegFallback(provider, moveCurrency, base, moveDate)
+    quoteWithPegFallback(db, provider, moveCurrency, base, moveDate)
       .then(({ quote }) => {
         if (!cancelled) setDraft((d) => (d.moveCurrency === moveCurrency && !d.moveRate ? { ...d, moveRate: quote.rate } : d))
       })
@@ -265,7 +244,7 @@ function TransactionForm({
     const { type, toCurrency, currency, date } = draft
     if (type !== 'fx_convert' || !toCurrency || toCurrency === currency || !isIsoDate(date)) return
     let cancelled = false
-    quoteWithPegFallback(provider, toCurrency, currency, date)
+    quoteWithPegFallback(db, provider, toCurrency, currency, date)
       .then(({ quote }) => {
         if (cancelled) return
         setNoRateFor('')

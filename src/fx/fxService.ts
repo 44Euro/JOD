@@ -1,5 +1,5 @@
 import type { JodDB } from '../db/db'
-import { supportsAutoFx } from '../domain/currencies'
+import { supportsAutoFx, USD_PEGGED } from '../domain/currencies'
 import { todayLocal } from '../domain/dates'
 import { FxUnavailableError, type FxProvider } from './frankfurter'
 
@@ -49,5 +49,26 @@ export async function getFxQuote(
   } catch (error) {
     if (cached && !signal?.aborted) return { rate: cached.rate, rateDate: cached.rateDate, source: 'auto' }
     throw error
+  }
+}
+
+// A dollar-pegged coin has no rate of its own, so the dollar's stands in for it; when the dollar has none either, the
+// reason is the coin's own.
+export async function quoteWithPegFallback(
+  db: JodDB,
+  provider: FxProvider,
+  from: string,
+  to: string,
+  date: string,
+): Promise<{ quote: FxQuote; borrowed: boolean }> {
+  try {
+    return { quote: await getFxQuote(db, provider, from, to, date), borrowed: false }
+  } catch (error) {
+    const dollarFor = (currency: string) => (USD_PEGGED.includes(currency) ? 'USD' : currency)
+    if (dollarFor(from) === from && dollarFor(to) === to) throw error
+    const quote = await getFxQuote(db, provider, dollarFor(from), dollarFor(to), date).catch(() => {
+      throw error
+    })
+    return { quote, borrowed: true }
   }
 }

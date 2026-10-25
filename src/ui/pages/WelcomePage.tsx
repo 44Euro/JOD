@@ -1,7 +1,6 @@
 import { ChevronLeft, FlaskConical, PencilLine, Plus, ScanLine, type LucideIcon } from 'lucide-react'
-import { Fragment, useState } from 'react'
+import { useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router'
-import { Badge } from '../../components/ui/badge'
 import { Button, buttonVariants } from '../../components/ui/button'
 import { Card } from '../../components/ui/card'
 import { Field } from '../../components/ui/field'
@@ -14,6 +13,7 @@ import { todayLocal } from '../../domain/dates'
 import { cn } from '../../lib/cn'
 import { BROKER_PRESETS, CHECK_WITH_BROKER, type BrokerPreset } from '../brokers'
 import { feeTemplateSummary } from '../feeTemplateText'
+import { Stations } from '../components/Stations'
 import { useAppData } from '../hooks'
 import { ThemeSync } from '../theme'
 
@@ -25,41 +25,8 @@ function currencyLabel(code: string): string {
   return CURRENCY_NAMES[code] ? `${code} · ${CURRENCY_NAMES[code]}` : code
 }
 
-function Stations({ step }: { step: number }) {
-  return (
-    <ol aria-label="ขั้นตอน" className="flex items-center">
-      {STEPS.map((label, index) => (
-        <Fragment key={label}>
-          {index > 0 && (
-            <li aria-hidden className={cn('mx-2.5 h-[5px] min-w-6 flex-1 rounded-full', index <= step ? 'bg-foreground' : 'bg-input')} />
-          )}
-          <li
-            aria-current={index === step ? 'step' : undefined}
-            className={cn(
-              'flex items-center gap-2 text-[13px] whitespace-nowrap',
-              index === step ? 'font-semibold text-foreground' : 'text-muted-foreground',
-            )}
-          >
-            <span
-              aria-hidden
-              className={cn(
-                'size-[26px] shrink-0 rounded-full border-4 bg-card',
-                index < step && 'border-foreground bg-foreground',
-                index === step && 'border-primary',
-                index > step && 'border-input',
-              )}
-            />
-            {/* Phones show only the current station's name, as in the mock. */}
-            <span className={cn(index !== step && 'max-sm:sr-only')}>{label}</span>
-          </li>
-        </Fragment>
-      ))}
-    </ol>
-  )
-}
-
-const STARTS: { title: string; text: string; icon: LucideIcon; to: string; phase?: boolean }[] = [
-  { title: 'นำเข้าจากรูปแคปหรือไฟล์', text: 'แคปหน้าพอร์ตในแอปโบรก ให้ AI อ่าน แล้วตรวจก่อนบันทึก', icon: ScanLine, to: '/import', phase: true },
+const STARTS: { title: string; text: string; icon: LucideIcon; to: string }[] = [
+  { title: 'นำเข้าจากรูปแคปหรือไฟล์', text: 'แคปหน้าพอร์ตในแอปโบรก ให้ AI อ่าน แล้วตรวจก่อนบันทึก', icon: ScanLine, to: '/import' },
   { title: 'กรอกยอดยกมา', text: 'ใส่หุ้นที่ถืออยู่ จำนวน และทุนเฉลี่ย ไม่ต้องย้อนกรอกประวัติ', icon: PencilLine, to: '/transactions/new?type=opening' },
   { title: 'บันทึกรายการแรก', text: 'เริ่มจากรายการซื้อขายครั้งถัดไป', icon: Plus, to: '/transactions/new' },
 ]
@@ -135,7 +102,7 @@ export function WelcomePage() {
           JOD
           <span className="mt-1 block font-sans text-xs font-normal text-muted-foreground">จดทุกเทรด รู้ทุกบาท</span>
         </p>
-        <Stations step={step} />
+        <Stations steps={STEPS} step={step} />
 
         {step === 0 && (
           <Card className="grid gap-4">
@@ -242,10 +209,7 @@ export function WelcomePage() {
                   <Link to={start.to} className="flex min-h-14 items-start gap-3 py-3 hover:bg-muted max-md:-mx-2 max-md:px-2">
                     <start.icon className="mt-0.5 size-5 shrink-0 text-ink-2" aria-hidden />
                     <span className="grid gap-0.5">
-                      <span className="flex flex-wrap items-center gap-2 font-semibold">
-                        {start.title}
-                        {start.phase && <Badge>เฟส 1.5</Badge>}
-                      </span>
+                      <span className="font-semibold">{start.title}</span>
                       <span className="text-[13px] text-muted-foreground">{start.text}</span>
                     </span>
                   </Link>
