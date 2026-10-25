@@ -35,6 +35,8 @@ export function prepareSave(draft: Draft, ctx: SaveContext): PreparedSave {
   const buy = ctx.reinvesting
     ? reinvestTransaction(draft, tx, { id: newId(), createdAt: new Date(ctx.at.getTime() + 1).toISOString(), today })
     : null
+  // An edited record stays in its import, so taking the import back still removes it.
+  if (ctx.existing?.importBatchId) tx.importBatchId = ctx.existing.importBatchId
   const written = buy ? [tx, buy.tx] : [tx]
   const found = [...new Set([...draftErrors, ...(buy?.errors ?? [])])]
   if (found.length > 0) return { tx, written, errors: found }

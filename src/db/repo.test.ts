@@ -14,6 +14,8 @@ import {
   saveTransaction,
   saveTransactions,
   setInstrumentPrice,
+  saveImport,
+  undoImport,
   updateAccount,
   upsertInstrument,
 } from './repo'
@@ -388,5 +390,37 @@ describe('saveTradeReview', () => {
     await db.transactions.add(sell)
     await expect(saveTradeReview(db, sell.id, { review: 'x', mistakes: [] })).rejects.toThrow('จำนวนหน่วยต้องเป็นตัวเลขมากกว่า 0')
     expect(await db.transactions.get(sell.id)).toEqual(sell)
+  })
+})
+
+describe('imports', () => {
+  const batch = { id: 'b1', accountId: 'acc-1', source: 'portfolio' as const, fileCount: 2, count: 2, createdInstrumentIds: ['US:VOO'], createdAt: '2026-10-25T00:00:00.000Z' }
+  const voo = { id: 'US:VOO', market: 'US' as const, symbol: 'VOO', name: 'VOO', assetType: 'etf' as const, currency: 'USD' }
+
+  it('writes the batch, its instruments and its records together, each record tagged with the batch', async () => {
+    const txs = [makeTx({ id: 'i1', instrumentId: 'US:VOO' }), makeTx({ id: 'i2', instrumentId: 'US:VOO' })]
+    await saveImport(db, batch, txs, [voo])
+    expect(await db.imports.get('b1')).toEqual(batch)
+    expect(await db.instruments.get('US:VOO')).toEqual(voo)
+    expect((await db.transactions.toArray()).map((t) => t.importBatchId)).toEqual(['b1', 'b1'])
+  })
+
+  it('writes nothing when one record is invalid', async () => {
+    await expect(saveImport(db, batch, [makeTx({ id: 'ok' }), makeTx({ id: 'bad', quantity: '-1' })], [voo])).rejects.toThrow()
+    expect(await db.imports.count()).toBe(0)
+    expect(await db.transactions.count()).toBe(0)
+    expect(await db.instruments.count()).toBe(0)
+  })
+
+  it('takes back the whole batch and the instruments only it used, keeping everything else', async () => {
+    await db.transactions.add(makeTx({ id: 'mine', instrumentId: 'US:AAPL' }))
+    await saveImport(db, { ...batch, createdInstrumentIds: ['US:VOO', 'US:AAPL'] }, [makeTx({ id: 'i1', instrumentId: 'US:VOO' }), makeTx({ id: 'i2', instrumentId: 'US:AAPL' })], [
+      voo,
+      { ...voo, id: 'US:AAPL', symbol: 'AAPL', name: 'AAPL', assetType: 'stock' },
+    ])
+    expect(await undoImport(db, 'b1')).toBe(2)
+    expect((await db.transactions.toArray()).map((t) => t.id)).toEqual(['mine'])
+    expect((await db.instruments.toArray()).map((i) => i.id)).toEqual(['US:AAPL'])
+    expect(await db.imports.count()).toBe(0)
   })
 })

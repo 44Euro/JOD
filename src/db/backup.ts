@@ -1,11 +1,23 @@
 import { isIsoDate } from '../domain/dates'
 import { D, isDecimalString } from '../domain/decimal'
 import { cashDeltaQuote, sortTransactions } from '../domain/ledger'
-import { MARKETS, THEME_CHOICES, UNITS, type Account, type FeeTemplate, type Instrument, type Market, type Transaction } from '../domain/types'
+import {
+  IMPORT_SOURCES,
+  MARKETS,
+  THEME_CHOICES,
+  UNITS,
+  type Account,
+  type FeeTemplate,
+  type ImportBatch,
+  type Instrument,
+  type Market,
+  type Transaction,
+} from '../domain/types'
 import { validateFeeTemplate, validateTransaction } from '../domain/validation'
 import type { DailyValueRecord, JodDB, SettingsRecord } from './db'
 
-// Version 2 adds dailyValues. Version 1 files (from before the daily value table) still restore.
+// Version 2 adds dailyValues. Version 1 files (from before the daily value table) still restore. imports came later
+// without a new version: an older app restoring the file only loses the import history, never a record.
 export interface BackupFile {
   app: 'jod'
   version: 1 | 2
@@ -16,6 +28,7 @@ export interface BackupFile {
     transactions: Transaction[]
     settings: SettingsRecord[]
     dailyValues?: DailyValueRecord[]
+    imports?: ImportBatch[]
   }
 }
 
@@ -24,18 +37,19 @@ export class BackupError extends Error {
 }
 
 export async function exportBackup(db: JodDB, now: Date = new Date()): Promise<BackupFile> {
-  const [accounts, instruments, transactions, settings, dailyValues] = await Promise.all([
+  const [accounts, instruments, transactions, settings, dailyValues, imports] = await Promise.all([
     db.accounts.toArray(),
     db.instruments.toArray(),
     db.transactions.toArray(),
     db.settings.toArray(),
     db.dailyValues.toArray(),
+    db.imports.toArray(),
   ])
   return {
     app: 'jod',
     version: 2,
     exportedAt: now.toISOString(),
-    data: { accounts, instruments, transactions, settings, dailyValues },
+    data: { accounts, instruments, transactions, settings, dailyValues, imports },
   }
 }
 
@@ -102,12 +116,16 @@ export function parseBackup(text: string): BackupFile {
       isDecimalString(row.netInvestedBase)
     if (!valid) throw new BackupError('พบมูลค่ารายวันที่เสียหายในไฟล์')
   }
+  const { imports = [] } = file.data
+  if (!Array.isArray(imports) || !imports.every((batch) => isValidImport(batch, accountIds))) {
+    throw new BackupError('ประวัติการนำเข้าในไฟล์เสียหาย')
+  }
   return file as BackupFile
 }
 
 // Runs as one transaction so a failure part-way leaves the existing data untouched.
 export async function restoreBackup(db: JodDB, backup: BackupFile): Promise<void> {
-  const tables = [db.accounts, db.instruments, db.transactions, db.settings, db.dailyValues]
+  const tables = [db.accounts, db.instruments, db.transactions, db.settings, db.dailyValues, db.imports]
   await db.transaction('rw', tables, async () => {
     await Promise.all(tables.map((table) => table.clear()))
     await db.accounts.bulkAdd(backup.data.accounts)
@@ -115,6 +133,7 @@ export async function restoreBackup(db: JodDB, backup: BackupFile): Promise<void
     await db.transactions.bulkAdd(backup.data.transactions)
     await db.settings.bulkAdd(backup.data.settings)
     await db.dailyValues.bulkAdd(backup.data.dailyValues ?? [])
+    await db.imports.bulkAdd(backup.data.imports ?? [])
   })
 }
 
@@ -128,6 +147,22 @@ function isValidInstrument(value: unknown): boolean {
     MARKETS.includes(i.market as Market) &&
     (i.unit === undefined || UNITS.includes(i.unit)) &&
     (i.previousSymbols === undefined || (Array.isArray(i.previousSymbols) && i.previousSymbols.every((s) => typeof s === 'string')))
+  )
+}
+
+function isValidImport(value: unknown, accountIds: ReadonlySet<string>): boolean {
+  if (typeof value !== 'object' || value === null) return false
+  const b = value as Partial<ImportBatch>
+  return (
+    typeof b.id === 'string' &&
+    typeof b.accountId === 'string' &&
+    accountIds.has(b.accountId) &&
+    IMPORT_SOURCES.includes(b.source as ImportBatch['source']) &&
+    Number.isInteger(b.fileCount) &&
+    Number.isInteger(b.count) &&
+    Array.isArray(b.createdInstrumentIds) &&
+    b.createdInstrumentIds.every((id) => typeof id === 'string') &&
+    typeof b.createdAt === 'string'
   )
 }
 

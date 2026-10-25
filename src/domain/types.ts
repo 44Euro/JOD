@@ -163,9 +163,25 @@ export interface Transaction {
   remitToThailand?: boolean
   taxYear?: number
   journal?: TradeJournal
+  // Set on every record written by one AI import, so the whole import can be taken back together.
+  importBatchId?: string
   note: string
   createdAt: string
   updatedAt: string
+}
+
+export const IMPORT_SOURCES = ['portfolio', 'orders', 'income', 'statement', 'other'] as const
+export type ImportSource = (typeof IMPORT_SOURCES)[number]
+
+// createdInstrumentIds are the instruments this import added, removed again on undo once nothing else uses them.
+export interface ImportBatch {
+  id: string
+  accountId: string
+  source: ImportSource
+  fileCount: number
+  count: number
+  createdInstrumentIds: string[]
+  createdAt: string
 }
 
 export const THEME_CHOICES = ['light', 'dark', 'system'] as const

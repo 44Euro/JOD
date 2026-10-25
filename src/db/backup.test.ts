@@ -41,6 +41,21 @@ describe('backup round trip', () => {
     expect(await target.dailyValues.toArray()).toEqual([day])
   })
 
+  it('brings the import history back so an import can still be undone after a restore', async () => {
+    const batch = { id: 'b1', accountId: 'acc-1', source: 'orders' as const, fileCount: 1, count: 1, createdInstrumentIds: [], createdAt: '2026-10-25T00:00:00.000Z' }
+    await db.imports.add(batch)
+    await db.transactions.add(makeTx({ id: 'imported', importBatchId: 'b1' }))
+    const target = createDb(`test-${crypto.randomUUID()}`)
+    await restoreBackup(target, parseBackup(JSON.stringify(await exportBackup(db))))
+    expect(await target.imports.toArray()).toEqual([batch])
+    expect((await target.transactions.get('imported'))?.importBatchId).toBe('b1')
+  })
+
+  it('rejects a damaged import record', () => {
+    const file = { app: 'jod', version: 2, exportedAt: '', data: { accounts: [account], instruments: [], settings: [], transactions: [], imports: [{ id: 'b1', accountId: 'acc-1', source: 'x' }] } }
+    expect(() => parseBackup(JSON.stringify(file))).toThrow('ประวัติการนำเข้า')
+  })
+
   it('still restores a version 1 file, which has no daily values', async () => {
     const v1 = { app: 'jod', version: 1, exportedAt: '', data: { accounts: [account], instruments: [], settings: [], transactions: [makeTx({ id: 'old' })] } }
     const target = createDb(`test-${crypto.randomUUID()}`)

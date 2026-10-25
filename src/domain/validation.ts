@@ -102,6 +102,8 @@ export function validateTransaction(tx: Transaction, today: string = todayLocal(
     if (year === undefined || !Number.isInteger(year) || year < 2000 || year > 2200) errors.push('ปีภาษีไม่ถูกต้อง')
   }
 
+  if (tx.importBatchId !== undefined && typeof tx.importBatchId !== 'string') errors.push('เลขชุดนำเข้าไม่ถูกต้อง')
+
   if (tx.journal !== undefined) {
     if (tx.type !== 'buy' && tx.type !== 'sell') errors.push('บันทึกเทรดใช้ได้กับการซื้อและขาย')
     else errors.push(...validateJournal(tx.journal))

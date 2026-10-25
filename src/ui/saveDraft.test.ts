@@ -33,4 +33,11 @@ describe('saveDraft', () => {
     expect(prepared.errors).toEqual(['ขาย 5 หน่วย แต่ถืออยู่ 1 หน่วย'])
     expect(await db.transactions.count()).toBe(0)
   })
+
+  it('keeps an edited record in the import it came from', async () => {
+    const existing = makeTx({ id: 'imp-1', importBatchId: 'b1', quantity: '1' })
+    const prepared = prepareSave(draft({ quantity: '3' }), { ...ctx, existing })
+    expect(prepared.tx.importBatchId).toBe('b1')
+    expect(prepareSave(draft(), ctx).tx.importBatchId).toBeUndefined()
+  })
 })

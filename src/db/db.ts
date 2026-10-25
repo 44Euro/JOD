@@ -1,5 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie'
-import type { Account, Instrument, Settings, Transaction } from '../domain/types'
+import type { Account, ImportBatch, Instrument, Settings, Transaction } from '../domain/types'
 
 export interface FxRateRecord {
   key: string
@@ -27,6 +27,7 @@ export type JodDB = Dexie & {
   fxRates: EntityTable<FxRateRecord, 'key'>
   settings: EntityTable<SettingsRecord, 'key'>
   dailyValues: EntityTable<DailyValueRecord, 'date'>
+  imports: EntityTable<ImportBatch, 'id'>
 }
 
 export function createDb(name = 'jod'): JodDB {
@@ -40,6 +41,7 @@ export function createDb(name = 'jod'): JodDB {
   })
   // Later versions list only what changes; Dexie keeps every version 1 table and its rows as they are.
   db.version(2).stores({ dailyValues: 'date' })
+  db.version(3).stores({ transactions: 'id, accountId, instrumentId, date, type, importBatchId', imports: 'id, createdAt' })
   return db
 }
 

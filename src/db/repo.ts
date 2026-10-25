@@ -2,6 +2,7 @@ import {
   DEFAULT_SETTINGS,
   instrumentKey,
   type Account,
+  type ImportBatch,
   type Instrument,
   type Mistake,
   type Settings,
@@ -215,5 +216,42 @@ export async function removeSampleData(db: JodDB): Promise<void> {
       (await db.transactions.toArray()).flatMap((tx) => [tx.instrumentId, tx.toInstrumentId, tx.feeInstrumentId]).filter(Boolean),
     )
     await db.instruments.bulkDelete(SAMPLE_INSTRUMENT_IDS.filter((id) => !used.has(id)))
+  })
+}
+
+// The batch row, its new instruments and every record go in one database transaction: an import is saved whole or not
+// at all, and the records are checked before anything is written.
+export async function saveImport(
+  db: JodDB,
+  batch: ImportBatch,
+  txs: readonly Transaction[],
+  instruments: readonly Instrument[],
+  now: Date = new Date(),
+): Promise<void> {
+  const errors = [...new Set(txs.flatMap((tx) => validateTransaction(tx)))]
+  if (errors.length > 0) throw new Error(errors.join(', '))
+  const updatedAt = now.toISOString()
+  await db.transaction('rw', db.imports, db.instruments, db.transactions, async () => {
+    for (const instrument of instruments) {
+      if (!(await db.instruments.get(instrument.id))) await db.instruments.add(instrument)
+    }
+    await db.transactions.bulkAdd(txs.map((tx) => ({ ...tx, importBatchId: batch.id, updatedAt })))
+    await db.imports.add(batch)
+  })
+}
+
+// Returns how many records were removed. Records the user edited after the import still carry the batch and go too.
+export async function undoImport(db: JodDB, batchId: string): Promise<number> {
+  return db.transaction('rw', db.imports, db.instruments, db.transactions, async () => {
+    const batch = await db.imports.get(batchId)
+    const removed = await db.transactions.where('importBatchId').equals(batchId).delete()
+    if (batch && batch.createdInstrumentIds.length > 0) {
+      const used = new Set(
+        (await db.transactions.toArray()).flatMap((tx) => [tx.instrumentId, tx.toInstrumentId, tx.feeInstrumentId]).filter(Boolean),
+      )
+      await db.instruments.bulkDelete(batch.createdInstrumentIds.filter((id) => !used.has(id)))
+    }
+    await db.imports.delete(batchId)
+    return removed
   })
 }
