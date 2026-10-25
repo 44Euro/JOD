@@ -50,7 +50,8 @@ export function AssetPage() {
   const { id = '' } = useParams()
   const data = useAppData()
   const { ledger, valuations, rates, ready } = usePortfolio(data)
-  const isDesktop = useIsDesktop()
+  // The history table is cut off beside the sidebar on a tablet, so rows are used until 1024px.
+  const isDesktop = useIsDesktop(1024)
   const [renamingId, setRenamingId] = useState<string>()
   // Coming back to an asset after visiting another must not find its form still open.
   if (renamingId !== undefined && renamingId !== id) setRenamingId(undefined)

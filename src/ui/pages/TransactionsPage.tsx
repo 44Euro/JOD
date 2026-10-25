@@ -75,6 +75,9 @@ function instrumentIds(tx: Transaction): string[] {
   return [tx.instrumentId, tx.toInstrumentId, tx.feeInstrumentId].filter((id): id is string => id !== undefined)
 }
 
+// The table needs about 890px; beside the 240px sidebar the card only has that from about 1280px wide.
+const TABLE_MIN_WIDTH = 1280
+
 function showsRate(tx: Transaction): boolean {
   return (tx.type === 'fx_convert' || tx.fxSource !== 'same') && !feeFreeTransfer(tx)
 }
@@ -99,7 +102,7 @@ function UndoButton({ label, className, onUndo }: { label: string; className?: s
 export function TransactionsPage() {
   const data = useAppData()
   const ledger = useLedger(data)
-  const isDesktop = useIsDesktop()
+  const isDesktop = useIsDesktop(TABLE_MIN_WIDTH)
   const [accountId, setAccountId] = useState('')
   const [type, setType] = useState('')
   const [market, setMarket] = useState('')

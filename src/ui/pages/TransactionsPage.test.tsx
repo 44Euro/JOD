@@ -1,4 +1,4 @@
-import { act, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '../../db/db'
@@ -35,6 +35,25 @@ afterEach(async () => {
 })
 
 describe('TransactionsPage', () => {
+  it('lists rows on a laptop too narrow for the table, and the table from 1280px', async () => {
+    const width = (px: number) =>
+      vi.stubGlobal('matchMedia', (query: string) => ({
+        matches: px >= Number(/min-width: (\d+)px/.exec(query)?.[1] ?? 0),
+        media: query,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      }))
+    await db.transactions.add(makeTx({ id: 'buy-1', date: '2024-01-10' }))
+    width(1024)
+    renderRoute('/transactions')
+    expect(await screen.findByRole('list', { name: 'รายการทั้งหมด' })).toBeInTheDocument()
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    cleanup()
+    width(1280)
+    renderRoute('/transactions')
+    expect(await screen.findByRole('table')).toBeInTheDocument()
+  })
+
   it('flags a sell that became larger than the holding after an earlier buy was edited', async () => {
     await db.transactions.bulkAdd([
       makeTx({ id: 'buy-1', quantity: '2', date: '2024-01-10' }),

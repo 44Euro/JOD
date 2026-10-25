@@ -69,7 +69,7 @@ export function SettingsPage() {
   return (
     <>
       <PageHeader title="ตั้งค่า" />
-      <div className="grid items-start gap-3.5 md:grid-cols-2 md:gap-[22px]">
+      <div className="grid items-start gap-3.5 md:gap-[22px] lg:grid-cols-2">
         <div className="grid content-start gap-3.5 md:gap-4">
           <Card className="grid gap-3">
             <h2 className="text-lg font-semibold">สกุลเงินหลักของพอร์ต</h2>
