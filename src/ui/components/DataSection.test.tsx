@@ -49,3 +49,27 @@ describe('DataSection', () => {
     expect(await db.transactions.get('from-file')).toBeDefined()
   })
 })
+
+describe('DataSection sample data', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('removes the sample data and keeps the user’s own account', async () => {
+    const { loadSampleData } = await import('../../db/sampleData')
+    await loadSampleData(db, '2024-06-01')
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const user = userEvent.setup()
+    renderRoute('/settings')
+    await user.click(await screen.findByRole('button', { name: 'ลบข้อมูลตัวอย่าง' }))
+    expect(await screen.findByText('ลบข้อมูลตัวอย่างแล้ว')).toBeInTheDocument()
+    expect((await db.accounts.toArray()).map((a) => a.id)).toEqual(['acc-1'])
+    expect((await db.transactions.toArray()).some((t) => t.id.startsWith('sample-'))).toBe(false)
+  })
+
+  it('offers no sample button when there is no sample data', async () => {
+    renderRoute('/settings')
+    expect(await screen.findByRole('button', { name: 'สำรองข้อมูล' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'ลบข้อมูลตัวอย่าง' })).not.toBeInTheDocument()
+  })
+})

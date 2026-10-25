@@ -1,4 +1,4 @@
-import { Download, FileSpreadsheet, ShieldCheck, Upload } from 'lucide-react'
+import { Download, FileSpreadsheet, ShieldCheck, Trash2, Upload } from 'lucide-react'
 import { useEffect, useRef, useState, type ChangeEvent } from 'react'
 import { Alert } from '../../components/ui/alert'
 import { Badge } from '../../components/ui/badge'
@@ -6,7 +6,8 @@ import { Button } from '../../components/ui/button'
 import { Card } from '../../components/ui/card'
 import { BackupError, exportBackup, parseBackup, restoreBackup, transactionsToCsv } from '../../db/backup'
 import { db } from '../../db/db'
-import { saveSettings } from '../../db/repo'
+import { removeSampleData, saveSettings } from '../../db/repo'
+import { hasSampleData } from '../../db/sampleData'
 import { daysBetween, todayLocal } from '../../domain/dates'
 import { downloadText } from '../download'
 import { fmtDate } from '../format'
@@ -44,6 +45,12 @@ export function DataSection({ data }: { data: AppData }) {
     downloadText(`jod-backup-${todayLocal()}.json`, JSON.stringify(backup, null, 2), 'application/json')
     await saveSettings(db, { ...data.settings, lastBackupAt: backup.exportedAt })
     setMessage({ tone: 'ok', text: 'สำรองข้อมูลแล้ว' })
+  }
+
+  async function handleRemoveSample() {
+    if (!window.confirm('ลบข้อมูลตัวอย่างทั้งหมด? ข้อมูลที่คุณบันทึกเองจะอยู่ครบ')) return
+    await removeSampleData(db)
+    setMessage({ tone: 'ok', text: 'ลบข้อมูลตัวอย่างแล้ว' })
   }
 
   function handleCsv() {
@@ -101,6 +108,12 @@ export function DataSection({ data }: { data: AppData }) {
           <FileSpreadsheet aria-hidden />
           ส่งออก CSV สำหรับ Excel
         </Button>
+        {hasSampleData(data.accounts) && (
+          <Button type="button" variant="outline" onClick={() => void handleRemoveSample()}>
+            <Trash2 aria-hidden />
+            ลบข้อมูลตัวอย่าง
+          </Button>
+        )}
         <input
           ref={fileRef}
           type="file"

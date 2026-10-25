@@ -1,5 +1,5 @@
 import { CalendarClock, DatabaseBackup, Plus, type LucideIcon } from 'lucide-react'
-import { Link } from 'react-router'
+import { Link, Navigate } from 'react-router'
 import { Alert } from '../../components/ui/alert'
 import { buttonVariants } from '../../components/ui/button'
 import { Card } from '../../components/ui/card'
@@ -19,6 +19,7 @@ import { fmtDate, fmtHeadline, fmtNumber, fmtPrice, fmtRate, fmtSigned, fmtSigne
 import { useAppData, useInvestor } from '../hooks'
 import { investorRoute } from '../moneyRoutes'
 import { buildNotices, type Notice, type NoticeKind } from '../notices'
+import { hasSampleData } from '../../db/sampleData'
 import { assetPath } from '../nav'
 import { EyeButton } from '../privacy'
 import { buildRateBoard } from '../rateBoard'
@@ -60,17 +61,7 @@ export function DashboardPage() {
   const { ledger, valuations, rates, investor } = useInvestor(data)
   if (!data || !ledger || !investor) return <p className="text-muted-foreground">กำลังโหลด…</p>
 
-  if (data.accounts.length === 0) {
-    return (
-      <Card className="grid max-w-2xl gap-3">
-        <h1 className="text-[26px] font-semibold md:text-[34px]">ยินดีต้อนรับสู่ JOD</h1>
-        <p className="text-ink-2">จดทุกเทรด รู้ทุกบาท · เริ่มจากเพิ่มบัญชีโบรกเกอร์ แล้วบันทึกรายการแรก หรือกรอกยอดยกมาของพอร์ตที่มีอยู่</p>
-        <Link to="/settings" className={buttonVariants({ className: 'justify-self-start' })}>
-          เพิ่มบัญชีแรก
-        </Link>
-      </Card>
-    )
-  }
+  if (data.accounts.length === 0) return <Navigate to="/welcome" replace />
 
   const base = data.settings.baseCurrency
   const today = todayLocal()
@@ -106,6 +97,14 @@ export function DashboardPage() {
   return (
     <>
       <PageHeader title="ภาพรวม" note={rateNote ? `เรทวันนี้ ${rateNote}` : undefined}>
+        {hasSampleData(data.accounts) && (
+          <Link
+            to="/settings"
+            className="inline-flex h-8 items-center rounded-full border bg-card px-3 text-[12.5px] font-semibold text-ink-2 hover:bg-muted max-md:h-11"
+          >
+            ข้อมูลตัวอย่าง
+          </Link>
+        )}
         <EyeButton />
         <Link to="/transactions/new" className={cn(buttonVariants({ size: 'sm' }), 'max-md:hidden')}>
           <Plus aria-hidden />

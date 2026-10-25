@@ -12,6 +12,7 @@ import {
 } from '../domain/types'
 import { validateFeeTemplate, validateSymbol, validateThesis, validateTransaction } from '../domain/validation'
 import type { DailyValueRecord, JodDB } from './db'
+import { SAMPLE_INSTRUMENT_IDS, SAMPLE_PREFIX } from './sampleData'
 
 export function newId(): string {
   return crypto.randomUUID()
@@ -198,5 +199,21 @@ export async function recordDailyValue(
     if (existing?.valueBase === snapshot.valueBase && existing.netInvestedBase === snapshot.netInvestedBase) return false
     await db.dailyValues.put({ ...snapshot, recordedAt: now.toISOString() })
     return true
+  })
+}
+
+// Sample rows are recognised by their ids, so the user's own accounts and transactions are never touched; a sample
+// instrument goes only once nothing of the user's refers to it.
+export async function removeSampleData(db: JodDB): Promise<void> {
+  await db.transaction('rw', db.accounts, db.instruments, db.transactions, async () => {
+    const sampleAccounts = new Set((await db.accounts.toArray()).filter((a) => a.id.startsWith(SAMPLE_PREFIX)).map((a) => a.id))
+    await db.transactions
+      .filter((tx) => sampleAccounts.has(tx.accountId) || (tx.toAccountId !== undefined && sampleAccounts.has(tx.toAccountId)))
+      .delete()
+    await db.accounts.bulkDelete([...sampleAccounts])
+    const used = new Set(
+      (await db.transactions.toArray()).flatMap((tx) => [tx.instrumentId, tx.toInstrumentId, tx.feeInstrumentId]).filter(Boolean),
+    )
+    await db.instruments.bulkDelete(SAMPLE_INSTRUMENT_IDS.filter((id) => !used.has(id)))
   })
 }

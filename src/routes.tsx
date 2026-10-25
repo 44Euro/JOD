@@ -11,8 +11,10 @@ import { SettingsPage } from './ui/pages/SettingsPage'
 import { TradesPage } from './ui/pages/TradesPage'
 import { TransactionFormPage } from './ui/pages/TransactionFormPage'
 import { TransactionsPage } from './ui/pages/TransactionsPage'
+import { WelcomePage } from './ui/pages/WelcomePage'
 
 export const routes: RouteObject[] = [
+  { path: '/welcome', element: <WelcomePage /> },
   {
     path: '/',
     element: <Layout />,

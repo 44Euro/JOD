@@ -69,9 +69,18 @@ describe('DashboardPage', () => {
     vi.restoreAllMocks()
   })
 
-  it('welcomes a new user who has no account yet', async () => {
-    renderRoute('/')
-    expect(await screen.findByRole('heading', { name: 'ยินดีต้อนรับสู่ JOD' })).toBeInTheDocument()
+  it('sends a new user who has no account yet to the first-run setup', async () => {
+    const router = renderRoute('/')
+    expect(await screen.findByRole('heading', { name: 'สกุลเงินหลัก' })).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/welcome')
+  })
+
+  it('marks the overview while sample data is loaded', async () => {
+    setToday(2024, 6, 1)
+    await seedDime()
+    await db.accounts.add({ id: 'sample-dime', name: 'Dime US', broker: 'Dime', note: '', createdAt: '2024-01-01T00:00:00.000Z' })
+    renderRoute('/', usd())
+    expect(await screen.findByRole('link', { name: 'ข้อมูลตัวอย่าง' })).toHaveAttribute('href', '/settings')
   })
 
   it('shows value today, money invested, total gain and the return since the start under a year', async () => {
