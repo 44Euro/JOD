@@ -1,7 +1,7 @@
 import { isIsoDate } from '../domain/dates'
 import { D, isDecimalString } from '../domain/decimal'
 import { cashDeltaQuote, sortTransactions } from '../domain/ledger'
-import type { Account, FeeTemplate, Instrument, Transaction } from '../domain/types'
+import { THEME_CHOICES, type Account, type FeeTemplate, type Instrument, type Transaction } from '../domain/types'
 import { validateFeeTemplate, validateTransaction } from '../domain/validation'
 import type { DailyValueRecord, JodDB, SettingsRecord } from './db'
 
@@ -78,7 +78,10 @@ export function parseBackup(text: string): BackupFile {
     }
   }
   for (const row of settings) {
-    if (row?.hideNumbersOnLaunch !== undefined && typeof row.hideNumbersOnLaunch !== 'boolean') {
+    if (
+      (row?.hideNumbersOnLaunch !== undefined && typeof row.hideNumbersOnLaunch !== 'boolean') ||
+      (row?.theme !== undefined && !THEME_CHOICES.includes(row.theme))
+    ) {
       throw new BackupError('การตั้งค่าในไฟล์สำรองไม่ถูกต้อง')
     }
   }

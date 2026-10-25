@@ -1,0 +1,50 @@
+import { useEffect } from 'react'
+import type { ThemeChoice } from '../domain/types'
+import { useAppData } from './hooks'
+
+export const THEME_LABELS: Record<ThemeChoice, string> = { light: 'สว่าง', dark: 'มืด', system: 'ตามระบบ' }
+
+// Read by the script in index.html before the first paint, so a dark-theme user never sees a light flash.
+export const THEME_STORAGE_KEY = 'jod-theme'
+
+const DARK_QUERY = '(prefers-color-scheme: dark)'
+const THEME_COLORS = { light: '#f3f5f8', dark: '#0a1424' } as const
+
+export function resolveTheme(choice: ThemeChoice, prefersDark: boolean): 'light' | 'dark' {
+  return choice === 'system' ? (prefersDark ? 'dark' : 'light') : choice
+}
+
+export function applyTheme(resolved: 'light' | 'dark'): void {
+  const root = document.documentElement
+  root.dataset.theme = resolved
+  root.style.colorScheme = resolved
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', THEME_COLORS[resolved])
+}
+
+function prefersDark(): boolean {
+  return typeof globalThis.matchMedia === 'function' && globalThis.matchMedia(DARK_QUERY).matches
+}
+
+// null while the settings are still loading: the theme the page opened with (set by index.html) stays until they arrive.
+export function useThemeSync(choice: ThemeChoice | null): void {
+  useEffect(() => {
+    if (choice === null) return
+    applyTheme(resolveTheme(choice, prefersDark()))
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, choice)
+    } catch {
+      // Private windows can refuse storage; the theme still applies, the next launch may just start light.
+    }
+    if (choice !== 'system' || typeof globalThis.matchMedia !== 'function') return
+    const media = globalThis.matchMedia(DARK_QUERY)
+    const follow = () => applyTheme(resolveTheme('system', media.matches))
+    media.addEventListener('change', follow)
+    return () => media.removeEventListener('change', follow)
+  }, [choice])
+}
+
+export function ThemeSync() {
+  const data = useAppData()
+  useThemeSync(data ? (data.settings.theme ?? 'system') : null)
+  return null
+}

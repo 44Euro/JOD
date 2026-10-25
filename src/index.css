@@ -44,7 +44,46 @@
   --route-neutral: #9aa3b5;
   --income-interest: #7aa2f7;
   --income-asset: #9aa3b5;
+  --selection: #c9d8fb;
 }
+
+/* Same tokens, darker values. The rate board stays a navy panel, set a step below the cards so it still reads apart. */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --background: #0a1424;
+  --foreground: #e6edf7;
+  --ink-2: #c3cfdf;
+  --card: #101c30;
+  --muted: #17253c;
+  --muted-foreground: #93a3bb;
+  --placeholder: #7d8da6;
+  --border: #22324b;
+  --input: #3a4e6c;
+  --ring: #6b93f5;
+  --primary: #6b93f5;
+  --primary-foreground: #0a1424;
+  --primary-ink: #a9c1f5;
+  --primary-soft: #18294a;
+  --board: #071021;
+  --board-line: #22385c;
+  --gain: #5cc98a;
+  --gain-soft: #10301f;
+  --gain-ink: #7ddba9;
+  --loss: #f08a5d;
+  --loss-soft: #3a1d12;
+  --fx: #b79cf0;
+  --fx-soft: #251a3d;
+  --fx-line: #4b3a73;
+  --warning-bg: #3a2f0f;
+  --warning-fg: #f5d27a;
+  --destructive: #ff7b72;
+  --destructive-bg: #3d1717;
+  --route-neutral: #5b6b82;
+  --income-asset: #5b6b82;
+  --selection: #2a3f6b;
+}
+
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
 
 @theme inline {
   --color-background: var(--background);
@@ -106,7 +145,7 @@
     @apply font-display;
   }
   ::selection {
-    background: #c9d8fb;
+    background: var(--selection);
     color: var(--foreground);
   }
 }

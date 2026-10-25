@@ -8,7 +8,7 @@ export function Chip({ active, className, ...props }: ComponentProps<'button'> &
       aria-pressed={active}
       className={cn(
         'inline-flex h-11 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/35 md:h-9',
-        active ? 'border-foreground bg-foreground text-white' : 'bg-card text-ink-2 hover:bg-muted',
+        active ? 'border-foreground bg-foreground text-background' : 'bg-card text-ink-2 hover:bg-muted',
         className,
       )}
       {...props}

@@ -126,6 +126,8 @@ describe('parseBackup', () => {
     expect(parseBackup(file({})).data.settings[0]).not.toHaveProperty('hideNumbersOnLaunch')
     expect(() => parseBackup(file({ hideNumbersOnLaunch: 'yes' }))).toThrow(BackupError)
     expect(() => parseBackup(file({ hideNumbersOnLaunch: 'yes' }))).toThrow('การตั้งค่าในไฟล์สำรองไม่ถูกต้อง')
+    expect(parseBackup(file({ theme: 'dark' })).data.settings[0]).toMatchObject({ theme: 'dark' })
+    expect(() => parseBackup(file({ theme: 'blue' }))).toThrow('การตั้งค่าในไฟล์สำรองไม่ถูกต้อง')
   })
 
   it('rejects a damaged daily value and an unknown version', () => {

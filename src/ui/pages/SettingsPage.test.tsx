@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { db } from '../../db/db'
@@ -38,6 +38,19 @@ describe('SettingsPage', () => {
     await user.click(screen.getByRole('switch', { name: 'ซ่อนตัวเลขทุกครั้งที่เปิดแอป' }))
     expect(await screen.findByRole('switch', { name: 'ซ่อนตัวเลขทุกครั้งที่เปิดแอป', checked: false })).toHaveAttribute('aria-checked', 'false')
     expect((await getSettings(db)).hideNumbersOnLaunch).toBe(false)
+  })
+
+  it('switches the theme and keeps the choice', async () => {
+    await db.accounts.add(account)
+    const user = userEvent.setup()
+    renderRoute('/settings')
+    const themes = await screen.findByRole('group', { name: 'ธีม' })
+    expect(within(themes).getByRole('button', { name: 'ตามระบบ' })).toHaveAttribute('aria-pressed', 'true')
+    await user.click(within(themes).getByRole('button', { name: 'มืด' }))
+    await waitFor(() => expect(document.documentElement.dataset.theme).toBe('dark'))
+    expect((await getSettings(db)).theme).toBe('dark')
+    await user.click(within(themes).getByRole('button', { name: 'สว่าง' }))
+    await waitFor(() => expect(document.documentElement.dataset.theme).toBe('light'))
   })
 
   it('leaves the numbers showing for the rest of this visit when the setting is turned on', async () => {

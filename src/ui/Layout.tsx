@@ -17,6 +17,7 @@ import {
   type NavItem,
 } from './nav'
 import { PrivacyProvider } from './privacy'
+import { ThemeSync } from './theme'
 
 const LEGEND = [
   { label: 'หุ้นสหรัฐ', className: 'bg-market-us' },
@@ -85,6 +86,7 @@ function Shell() {
   return (
     <div className="min-h-dvh md:grid md:grid-cols-[240px_minmax(0,1fr)]">
       <DailyValueRecorder />
+      <ThemeSync />
       <aside className="sticky top-0 hidden h-dvh flex-col gap-0.5 overflow-y-auto border-r bg-card px-4 py-[26px] md:flex">
         <p className="shrink-0 px-2 font-display text-[30px] font-semibold leading-none">
           JOD

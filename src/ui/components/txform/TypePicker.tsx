@@ -14,7 +14,7 @@ export function TypePicker({ type, onChange }: { type: TxType; onChange(type: Tx
       ))}
       <NativeSelect
         aria-label="ประเภทอื่นๆ"
-        className={cn(chipSelectClass, MORE_TX_TYPES.includes(type) && 'border-foreground bg-foreground text-white')}
+        className={cn(chipSelectClass, MORE_TX_TYPES.includes(type) && 'border-foreground bg-foreground text-background')}
         value={MORE_TX_TYPES.includes(type) ? type : ''}
         onChange={(e) => {
           const picked = e.target.value as TxType

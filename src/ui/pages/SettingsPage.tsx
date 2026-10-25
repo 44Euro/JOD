@@ -9,7 +9,9 @@ import { Switch } from '../../components/ui/switch'
 import { db } from '../../db/db'
 import { addAccount, deleteAccount, saveSettings } from '../../db/repo'
 import { AUTO_FX_CURRENCIES } from '../../domain/currencies'
-import type { FeeTemplate } from '../../domain/types'
+import { THEME_CHOICES, type FeeTemplate } from '../../domain/types'
+import { Segmented } from '../../components/ui/segmented'
+import { THEME_LABELS } from '../theme'
 import { AccountEditor } from '../components/AccountEditor'
 import { DataSection } from '../components/DataSection'
 import { PageHeader } from '../components/PageHeader'
@@ -167,6 +169,16 @@ export function SettingsPage() {
         </div>
         <div className="grid content-start gap-3.5 md:gap-4">
           <DataSection data={data} />
+
+          <Card className="grid gap-3">
+            <h2 className="text-lg font-semibold">ธีม</h2>
+            <Segmented
+              label="ธีม"
+              options={THEME_CHOICES.map((value) => ({ value, label: THEME_LABELS[value] }))}
+              value={data.settings.theme ?? 'system'}
+              onChange={(theme) => void saveSettings(db, { ...data.settings, theme })}
+            />
+          </Card>
 
           <Card className="grid gap-3">
             <h2 className="text-lg font-semibold">ความเป็นส่วนตัว</h2>

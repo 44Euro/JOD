@@ -166,10 +166,14 @@ export interface Transaction {
   updatedAt: string
 }
 
+export const THEME_CHOICES = ['light', 'dark', 'system'] as const
+export type ThemeChoice = (typeof THEME_CHOICES)[number]
+
 export interface Settings {
   baseCurrency: string
   lastBackupAt?: string
   hideNumbersOnLaunch?: boolean
+  theme?: ThemeChoice
 }
 
 export const DEFAULT_SETTINGS: Settings = { baseCurrency: 'THB' }

@@ -15,6 +15,7 @@ import { cn } from '../../lib/cn'
 import { BROKER_PRESETS, CHECK_WITH_BROKER, type BrokerPreset } from '../brokers'
 import { feeTemplateSummary } from '../feeTemplateText'
 import { useAppData } from '../hooks'
+import { ThemeSync } from '../theme'
 
 const STEPS = ['สกุลเงินหลัก', 'บัญชีแรก', 'เริ่มต้นใช้งาน'] as const
 
@@ -128,6 +129,7 @@ export function WelcomePage() {
 
   return (
     <div className="grid min-h-dvh content-start justify-items-center bg-background px-4 pt-10 pb-16">
+      <ThemeSync />
       <main className="grid w-full max-w-[640px] gap-[22px]">
         <p className="font-display text-[30px] font-semibold leading-none">
           JOD
