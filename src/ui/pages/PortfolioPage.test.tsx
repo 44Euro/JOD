@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '../../db/db'
@@ -401,6 +401,26 @@ describe('PortfolioPage', () => {
     ])
     renderRoute('/portfolio', fakeFxProvider({ 'USD|THB': '33' }).provider)
     expect(await screen.findByText(/ยังไม่มีราคาล่าสุด 1 ตัว/)).toBeInTheDocument()
+  })
+
+  it('lists the holdings as rows on a laptop too narrow for the table, and as a table from 1180px', async () => {
+    const width = (px: number) =>
+      vi.stubGlobal('matchMedia', (query: string) => ({
+        matches: px >= Number(/min-width: (\d+)px/.exec(query)?.[1] ?? 0),
+        media: query,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      }))
+    await db.transactions.add(makeTx({ quantity: '2' }))
+    width(1024)
+    renderRoute('/portfolio', fakeFxProvider({ 'USD|THB': '33' }).provider)
+    await screen.findByRole('heading', { name: 'พอร์ต' })
+    await waitFor(() => expect(screen.queryByRole('columnheader', { name: /ทุนเฉลี่ย/ })).not.toBeInTheDocument())
+    expect(screen.getByRole('link', { name: /AAPL/ })).toBeInTheDocument()
+    cleanup()
+    width(1180)
+    renderRoute('/portfolio', fakeFxProvider({ 'USD|THB': '33' }).provider)
+    expect(await screen.findByRole('columnheader', { name: /ทุนเฉลี่ย/ })).toBeInTheDocument()
   })
 
   it('lists the cash as two-line rows on a phone', async () => {

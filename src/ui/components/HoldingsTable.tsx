@@ -29,6 +29,10 @@ export function MissingRatesNote({ currencies }: { currencies: readonly string[]
   )
 }
 
+// The table needs about 800px; with the 240px sidebar the card only gets that from about 1180px wide, so narrower
+// screens get the two-line rows instead of a table that hides its right-hand columns.
+const TABLE_MIN_WIDTH = 1180
+
 // With stats (the portfolio page, spec S4) the gain columns become total return and yield on cost;
 // without them (the overview, spec S1) they show the stock and currency parts of the unrealized gain.
 interface HoldingsTableProps {
@@ -105,7 +109,7 @@ function PriceInput({ instrument, rowCurrency }: { instrument: Instrument; rowCu
 }
 
 export function HoldingsTable({ valuations, instruments, accountNames, base, rates, editablePrice, stats }: HoldingsTableProps) {
-  const isDesktop = useIsDesktop()
+  const isDesktop = useIsDesktop(TABLE_MIN_WIDTH)
 
   if (!isDesktop) {
     return (
