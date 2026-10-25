@@ -29,15 +29,14 @@ function byValue(a: PositionValuation, b: PositionValuation): number {
 }
 
 // The instrument with the most money in it, across every account that holds it.
-function largestInstrument(valuations: readonly PositionValuation[]): string | null {
+// Largest first, by value today in the base currency.
+function instrumentsBySize(valuations: readonly PositionValuation[]): string[] {
   const totals = new Map<string, Decimal>()
   for (const v of valuations) {
     const id = v.position.instrumentId
     totals.set(id, (totals.get(id) ?? D(0)).plus(positionValueBase(v)))
   }
-  let best: string | null = null
-  for (const [id, total] of totals) if (best === null || total.greaterThan(totals.get(best) ?? D(0))) best = id
-  return best
+  return [...totals].sort((a, b) => b[1].comparedTo(a[1])).map(([id]) => id)
 }
 
 const NOTICE_ICONS: Partial<Record<NoticeKind, LucideIcon>> = { backup: DatabaseBackup, review: CalendarClock }
@@ -76,10 +75,14 @@ export function DashboardPage() {
   const stale = staleInstruments(ledger.positions, data.instruments, today)
   const dueReviews = data.instruments.filter((i) => held.has(i.id) && i.reviewDate !== undefined && i.reviewDate <= today)
   const top = [...valuations].sort(byValue).slice(0, 5)
-  const largestId = largestInstrument(valuations)
-  const largest = largestId ? instrumentStats(largestId, valuations, ledger, today) : null
+  // An asset held in more than one currency has no single exchange rate to show, so the next largest one is used.
+  const routed = instrumentsBySize(valuations)
+    .map((id) => ({ id, stats: instrumentStats(id, valuations, ledger, today) }))
+    .find(({ stats }) => stats !== null && stats.currency !== null && !stats.quantity.isZero())
+  const largestId = routed?.id ?? null
+  const largest = routed?.stats ?? null
   const largestSymbol = largestId ? (instruments.get(largestId)?.symbol ?? largestId.split(':')[1]) : ''
-  const showRoute = largest !== null && largest.currency !== null && largestId !== null && !largest.quantity.isZero()
+  const showRoute = largest !== null && largestId !== null
   const notices = buildNotices({
     issuesCount: ledger.issues.length,
     lastBackupAt: data.settings.lastBackupAt,
