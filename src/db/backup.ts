@@ -1,7 +1,7 @@
 import { isIsoDate } from '../domain/dates'
 import { D, isDecimalString } from '../domain/decimal'
 import { cashDeltaQuote, sortTransactions } from '../domain/ledger'
-import { THEME_CHOICES, type Account, type FeeTemplate, type Instrument, type Transaction } from '../domain/types'
+import { MARKETS, THEME_CHOICES, UNITS, type Account, type FeeTemplate, type Instrument, type Market, type Transaction } from '../domain/types'
 import { validateFeeTemplate, validateTransaction } from '../domain/validation'
 import type { DailyValueRecord, JodDB, SettingsRecord } from './db'
 
@@ -68,6 +68,9 @@ export function parseBackup(text: string): BackupFile {
       throw new BackupError(`บัญชี ${account.name} มีสูตรค่าธรรมเนียมที่ไม่ถูกต้อง`)
     }
   }
+  for (const instrument of instruments) {
+    if (!isValidInstrument(instrument)) throw new BackupError('พบสินทรัพย์ที่เสียหายในไฟล์')
+  }
   const accountIds = new Set(accounts.map((a) => a.id))
   for (const tx of transactions) {
     if (typeof tx !== 'object' || tx === null) throw new BackupError('พบรายการที่เสียหายในไฟล์')
@@ -113,6 +116,19 @@ export async function restoreBackup(db: JodDB, backup: BackupFile): Promise<void
     await db.settings.bulkAdd(backup.data.settings)
     await db.dailyValues.bulkAdd(backup.data.dailyValues ?? [])
   })
+}
+
+// Pages read these fields directly: an unknown unit would print "undefined" and a non-array trail would crash S5.
+function isValidInstrument(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null) return false
+  const i = value as Partial<Instrument>
+  return (
+    typeof i.id === 'string' &&
+    typeof i.symbol === 'string' &&
+    MARKETS.includes(i.market as Market) &&
+    (i.unit === undefined || UNITS.includes(i.unit)) &&
+    (i.previousSymbols === undefined || (Array.isArray(i.previousSymbols) && i.previousSymbols.every((s) => typeof s === 'string')))
+  )
 }
 
 function csvCell(value: string): string {

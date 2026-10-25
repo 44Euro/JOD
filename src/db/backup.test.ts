@@ -130,6 +130,17 @@ describe('parseBackup', () => {
     expect(() => parseBackup(file({ theme: 'blue' }))).toThrow('การตั้งค่าในไฟล์สำรองไม่ถูกต้อง')
   })
 
+  it('rejects a damaged instrument before it can reach a page', () => {
+    const good = { id: 'US:VOO', market: 'US', symbol: 'VOO', name: 'VOO', assetType: 'etf', currency: 'USD' }
+    const file = (instrument: object) =>
+      JSON.stringify({ app: 'jod', version: 2, exportedAt: '', data: { accounts: [account], instruments: [instrument], settings: [], transactions: [] } })
+    expect(parseBackup(file({ ...good, unit: 'share', previousSymbols: ['VTI'] })).data.instruments).toHaveLength(1)
+    expect(() => parseBackup(file({ ...good, unit: 'kilo' }))).toThrow('พบสินทรัพย์ที่เสียหายในไฟล์')
+    expect(() => parseBackup(file({ ...good, previousSymbols: 'VTI' }))).toThrow('พบสินทรัพย์ที่เสียหายในไฟล์')
+    expect(() => parseBackup(file({ ...good, market: 'MOON' }))).toThrow('พบสินทรัพย์ที่เสียหายในไฟล์')
+    expect(() => parseBackup(file({ ...good, symbol: 7 }))).toThrow(BackupError)
+  })
+
   it('rejects a damaged daily value and an unknown version', () => {
     const file = { app: 'jod', version: 2, exportedAt: '', data: { accounts: [account], instruments: [], settings: [], transactions: [], dailyValues: [{ ...day, valueBase: 'abc' }] } }
     expect(() => parseBackup(JSON.stringify(file))).toThrow('พบมูลค่ารายวันที่เสียหายในไฟล์')
