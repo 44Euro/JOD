@@ -75,6 +75,10 @@ function instrumentIds(tx: Transaction): string[] {
   return [tx.instrumentId, tx.toInstrumentId, tx.feeInstrumentId].filter((id): id is string => id !== undefined)
 }
 
+function showsRate(tx: Transaction): boolean {
+  return (tx.type === 'fx_convert' || tx.fxSource !== 'same') && !feeFreeTransfer(tx)
+}
+
 function UndoButton({ label, className, onUndo }: { label: string; className?: string; onUndo: () => void }) {
   return (
     <button
@@ -408,14 +412,15 @@ export function TransactionsPage() {
                       <span className={cn('shrink-0 font-display font-semibold', net.className)}>{net.text}</span>
                       <span className="col-span-2 flex flex-wrap items-center gap-x-1.5 text-[12.5px] text-muted-foreground">
                         {tx.instrumentId && <span>{accountNames.get(tx.accountId) ?? '—'} ·</span>}
-                        <span>
+                        {/* The dot is drawn after this part, joined by a no-break space, so a wrapped line never starts with one. */}
+                        <span className={cn(showsRate(tx) && "after:content-[' ·']")}>
                           {describeBody(tx, accountNames, instruments)}
                           {!namesCurrency(tx) && ` ${tx.currency}`}
                           {feeNote(tx)}
                         </span>
-                        {(tx.type === 'fx_convert' || tx.fxSource !== 'same') && !feeFreeTransfer(tx) && (
+                        {showsRate(tx) && (
                           <span className="inline-flex items-center gap-x-1.5 whitespace-nowrap">
-                            <span>· เรท</span>
+                            <span>เรท</span>
                             <RateCell tx={tx} />
                           </span>
                         )}

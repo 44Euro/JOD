@@ -377,7 +377,7 @@ describe('TransactionsPage', () => {
     )
     renderRoute('/transactions')
     const list = await screen.findByRole('list', { name: 'รายการทั้งหมด' })
-    const pair = within(list).getByText('· เรท').parentElement!
+    const pair = within(list).getByText('เรท').parentElement!
     expect(pair).toHaveClass('inline-flex', 'whitespace-nowrap')
     expect(within(pair).getByText('แพงกว่าตลาด 1.49%').parentElement).toHaveClass('whitespace-nowrap')
   })
@@ -485,7 +485,9 @@ describe('TransactionsPage', () => {
       const first = within(link).getByText('AAPL').parentElement!
       expect(first).not.toContainElement(account)
       expect(first).not.toHaveTextContent('Dime US')
-      expect(Array.from(second.children).map((part) => part.textContent)).toEqual(['Dime US ·', '1 × 100.00 USD', '· เรท35.00กรอกเอง'])
+      expect(Array.from(second.children).map((part) => part.textContent)).toEqual(['Dime US ·', '1 × 100.00 USD', 'เรท35.00กรอกเอง'])
+      // The dot before the rate is drawn after the amount with a no-break space, so a wrapped line never starts with it.
+      expect(second.children[1]).toHaveClass("after:content-['\u00a0·']")
     })
 
     it('cuts a long symbol on a phone with an ellipsis and never squeezes the pill, the type or the net amount', async () => {
@@ -723,9 +725,9 @@ describe('TransactionsPage', () => {
       expect(within(list).getByText('20,000 THB → IBKR')).toBeInTheDocument()
       expect(within(list).getByText('−25.00')).toHaveClass('text-loss')
       const shares = within(list).getByText('4 หน่วย → IBKR').closest('li')!
-      expect(within(shares).queryByText('· เรท')).not.toBeInTheDocument()
+      expect(within(shares).queryByText('เรท')).not.toBeInTheDocument()
       const buy = within(list).getByText('10 × 100.00 USD').closest('li')!
-      expect(within(buy).getByText('· เรท')).toBeInTheDocument()
+      expect(within(buy).getByText('เรท')).toBeInTheDocument()
       expect(within(shares).getByText('โอน')).toBeInTheDocument()
       expect(within(list).queryByText('โอนระหว่างบัญชี')).not.toBeInTheDocument()
     })
@@ -800,7 +802,7 @@ describe('TransactionsPage', () => {
       renderRoute('/transactions')
       const list = await screen.findByRole('list', { name: 'รายการทั้งหมด' })
       const item = within(list).getByText('0.01 BTC → 0.25 ETH').closest('li')!
-      expect(within(item).getByText('· เรท')).toBeInTheDocument()
+      expect(within(item).getByText('เรท')).toBeInTheDocument()
       expect(within(item).getByText('−52.50')).toHaveClass('text-loss')
     })
   })
