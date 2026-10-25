@@ -5,7 +5,7 @@ import { db } from '../../db/db'
 import { saveSettings } from '../../db/repo'
 import { makeTx } from '../../test/fixtures'
 import { renderRoute, resetDb } from '../../test/render'
-import { UNDO_MS, deleteWithUndo, pendingDeletes, undoDelete } from '../undoDelete'
+import { UNDO_MS, deleteWithUndo, pendingDeletes, resetUndoStoreForTests } from '../undoDelete'
 
 const account = { id: 'acc-1', name: 'Dime US', broker: 'Dime', note: '', createdAt: '2024-01-01T00:00:00.000Z' }
 
@@ -31,7 +31,7 @@ afterEach(async () => {
   vi.useRealTimers()
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
-  await Promise.allSettled(pendingDeletes().map((p) => undoDelete(db, p.tx.id)))
+  resetUndoStoreForTests()
 })
 
 describe('TransactionsPage', () => {
@@ -84,7 +84,50 @@ describe('TransactionsPage', () => {
       await user.click(within(row).getByText('ย้อนกลับ'))
       await waitFor(() => expect(screen.queryByText('ยกเลิกแล้ว')).not.toBeInTheDocument())
       expect(await db.transactions.count()).toBe(1)
-      expect(screen.getByRole('button', { name: 'ลบรายการ ซื้อ 2024-01-10' })).toBeInTheDocument()
+      expect(await screen.findByRole('button', { name: 'ลบรายการ ซื้อ 2024-01-10' })).toBeInTheDocument()
+    })
+
+    it('never shows the empty list while the last row comes back', async () => {
+      await db.transactions.add(makeTx({ id: 'buy-1', date: '2024-01-10' }))
+      const user = userEvent.setup()
+      renderRoute('/transactions')
+      await user.click(await screen.findByRole('button', { name: 'ลบรายการ ซื้อ 2024-01-10' }))
+      const undo = await screen.findByRole('button', { name: 'ย้อนกลับการลบ ซื้อ 2024-01-10' })
+      const container = document.body
+      const seen: string[] = []
+      const observer = new MutationObserver(() => seen.push(container.textContent ?? ''))
+      observer.observe(container, { childList: true, subtree: true, characterData: true })
+      await user.click(undo)
+      await screen.findByRole('button', { name: 'ลบรายการ ซื้อ 2024-01-10' })
+      await waitFor(() => expect(pendingDeletes()).toEqual([]))
+      observer.disconnect()
+      expect(seen.some((text) => text.includes('ยังไม่มีรายการ'))).toBe(false)
+    })
+
+    it('flags a later sell while the buy it needs is waiting for undo, and clears it on undo', async () => {
+      await db.transactions.bulkAdd([
+        makeTx({ id: 'buy-1', quantity: '5', date: '2024-01-10' }),
+        makeTx({ id: 'sell-1', type: 'sell', quantity: '5', date: '2024-01-20' }),
+      ])
+      const user = userEvent.setup()
+      renderRoute('/transactions')
+      await user.click(await screen.findByRole('button', { name: 'ลบรายการ ซื้อ 2024-01-10' }))
+      expect(await screen.findByText('ไม่นับในพอร์ต')).toBeInTheDocument()
+      expect(screen.getByRole('alert')).toHaveTextContent('มี 1 รายการที่คำนวณไม่ได้')
+      await user.click(screen.getByRole('button', { name: 'ย้อนกลับการลบ ซื้อ 2024-01-10' }))
+      await waitFor(() => expect(screen.queryByText('ไม่นับในพอร์ต')).not.toBeInTheDocument())
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    })
+
+    it('masks the amount of a row waiting for undo while the numbers are hidden', async () => {
+      await saveSettings(db, { baseCurrency: 'THB', hideNumbersOnLaunch: true })
+      await db.transactions.add(makeTx({ id: 'buy-1', quantity: '12', price: '345', date: '2024-01-10' }))
+      const user = userEvent.setup()
+      renderRoute('/transactions')
+      await user.click(await screen.findByRole('button', { name: 'ลบรายการ ซื้อ 2024-01-10' }))
+      const row = (await screen.findByRole('button', { name: 'ย้อนกลับการลบ ซื้อ 2024-01-10' })).closest('tr')!
+      expect(row).toHaveTextContent('•••')
+      expect(row.textContent).not.toMatch(/\b12\b/)
     })
 
     it('drops the row once ten seconds have passed', async () => {
@@ -152,7 +195,8 @@ describe('TransactionsPage', () => {
       const undo = await within(list).findByRole('button', { name: 'ย้อนกลับการลบ ซื้อ 2024-01-10' })
       const row = undo.closest('li')!
       expect(within(row).getByText('ยกเลิกแล้ว')).toBeInTheDocument()
-      expect(within(row).getByText('ลบเมื่อสักครู่')).toBeInTheDocument()
+      expect(row).toHaveTextContent('ซื้อ · 1 × 100.00 USD · ลบเมื่อสักครู่')
+      expect(within(row).getByText(/1 × 100\.00/)).toHaveClass('line-through')
       expect(within(row).getByText('AAPL')).toHaveClass('line-through')
       expect(within(row).queryByRole('link')).not.toBeInTheDocument()
       expect(undo).toHaveClass('min-h-11')

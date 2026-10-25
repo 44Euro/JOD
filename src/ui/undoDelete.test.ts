@@ -3,7 +3,7 @@ import { db } from '../db/db'
 import { saveTransaction } from '../db/repo'
 import { makeTx } from '../test/fixtures'
 import { resetDb } from '../test/render'
-import { UNDO_MS, deleteWithUndo, pendingDeletes, undoDelete } from './undoDelete'
+import { UNDO_MS, deleteWithUndo, pendingDeletes, resetUndoStoreForTests, settleRestored, undoDelete } from './undoDelete'
 
 beforeEach(async () => {
   await resetDb()
@@ -11,6 +11,7 @@ beforeEach(async () => {
 })
 
 afterEach(() => {
+  resetUndoStoreForTests()
   vi.useRealTimers()
 })
 
@@ -29,6 +30,18 @@ describe('undoDelete', () => {
     expect(await db.transactions.get(tx.id)).toBeUndefined()
     await undoDelete(db, tx.id)
     expect(await db.transactions.get(tx.id)).toEqual(stored)
+    expect(pendingDeletes().map((p) => [p.tx.id, p.restored])).toEqual([[tx.id, true]])
+  })
+
+  it('keeps an undone row until the stored list has it again, so the page never shows a gap', async () => {
+    const tx = await saved()
+    await deleteWithUndo(db, tx)
+    await undoDelete(db, tx.id)
+    settleRestored(new Set())
+    expect(pendingDeletes().map((p) => p.tx.id)).toEqual([tx.id])
+    vi.advanceTimersByTime(UNDO_MS)
+    expect(pendingDeletes().map((p) => p.tx.id)).toEqual([tx.id])
+    settleRestored(new Set([tx.id]))
     expect(pendingDeletes()).toEqual([])
   })
 
@@ -52,6 +65,7 @@ describe('undoDelete', () => {
     expect(pendingDeletes().map((p) => p.tx.id)).toEqual([b.id])
     await undoDelete(db, b.id)
     expect(await db.transactions.toArray()).toEqual([b])
+    settleRestored(new Set([b.id]))
     expect(pendingDeletes()).toEqual([])
   })
 

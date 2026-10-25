@@ -7,7 +7,7 @@ import { FxUnavailableError, type FxProvider } from '../../fx/frankfurter'
 import { fakeFxProvider } from '../../test/fakeFx'
 import { makeTx } from '../../test/fixtures'
 import { renderRoute, resetDb } from '../../test/render'
-import { pendingDeletes, undoDelete } from '../undoDelete'
+import { resetUndoStoreForTests } from '../undoDelete'
 import { TradeJournalFields } from '../components/txform/TradeJournalFields'
 import { emptyDraft, type Draft } from '../transactionDraft'
 
@@ -21,7 +21,7 @@ beforeEach(async () => {
 afterEach(async () => {
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
-  await Promise.allSettled(pendingDeletes().map((p) => undoDelete(db, p.tx.id)))
+  resetUndoStoreForTests()
 })
 
 describe('TransactionFormPage', () => {

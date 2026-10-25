@@ -1,5 +1,5 @@
 import { Download, Pencil, Plus, Search, Trash2, TriangleAlert, Undo2 } from 'lucide-react'
-import { Fragment, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { Alert } from '../../components/ui/alert'
 import { Badge } from '../../components/ui/badge'
@@ -22,7 +22,7 @@ import { fmtDay } from '../format'
 import { useAppData, useLedger } from '../hooks'
 import { MARKET_LABELS, TX_TYPE_LABELS, TX_TYPE_SHORT_LABELS, marketOf } from '../labels'
 import { describeBody, describeMain, feeFreeTransfer, feeNote, feeNoteText, issueText, netOf, taxNoteText } from '../transactionText'
-import { deleteWithUndo, undoDelete, usePendingDeletes } from '../undoDelete'
+import { deleteWithUndo, settleRestored, undoDelete, usePendingDeletes } from '../undoDelete'
 import { useIsDesktop } from '../useIsDesktop'
 
 // The phone row has no room for the account beside the symbol, so it puts the account on its second line instead, and
@@ -111,19 +111,28 @@ export function TransactionsPage() {
       (!q || instrumentIds(tx).some((id) => id.includes(q)) || tx.note.toUpperCase().includes(q))
   }, [accountId, type, market, query])
 
-  const pendingIds = useMemo(() => new Set(pending.map((p) => p.tx.id)), [pending])
+  const waiting = useMemo(() => pending.filter((p) => !p.restored), [pending])
+  const pendingIds = useMemo(() => new Set(waiting.map((p) => p.tx.id)), [waiting])
 
-  // The live query trails a delete by a moment, so a row waiting for undo is taken out of the stored list by id and
-  // shown from the pending store instead. That keeps it out of the CSV and the count however late the query is.
-  const rows = useMemo(
-    () => (data ? sortTransactions(data.transactions.filter((tx) => !pendingIds.has(tx.id))).reverse().filter(matches) : []),
-    [data, pendingIds, matches],
-  )
+  // The live query trails a delete or an undo by a moment. A row waiting for undo is taken out of the stored list by id
+  // and shown from the pending store; a row just put back is shown from the store until the query returns it, so the
+  // list never has a gap.
+  const rows = useMemo(() => {
+    if (!data) return []
+    const stored = data.transactions.filter((tx) => !pendingIds.has(tx.id))
+    const storedIds = new Set(stored.map((tx) => tx.id))
+    const returning = pending.filter((p) => p.restored && !storedIds.has(p.tx.id)).map((p) => p.tx)
+    return sortTransactions([...stored, ...returning]).reverse().filter(matches)
+  }, [data, pending, pendingIds, matches])
+
+  useEffect(() => {
+    if (data) settleRestored(new Set(data.transactions.map((tx) => tx.id)))
+  }, [data])
 
   const shown = useMemo(() => {
-    const back = pending.map((p) => p.tx).filter(matches)
+    const back = waiting.map((p) => p.tx).filter(matches)
     return back.length === 0 ? rows : sortTransactions([...rows, ...back]).reverse()
-  }, [rows, pending, matches])
+  }, [rows, waiting, matches])
 
   if (!data || !ledger) return <p className="text-muted-foreground">กำลังโหลด…</p>
   const base = data.settings.baseCurrency
@@ -239,7 +248,8 @@ export function TransactionsPage() {
                 <Th>จำนวน / ยอด</Th>
                 <Th>เรท</Th>
                 <Th className="text-right">สุทธิ ({base})</Th>
-                <Th>
+                {/* Wide enough for the undo link as well as the edit and delete icons, so a pending row doesn't shift the columns. */}
+                <Th className="w-28">
                   <span className="sr-only">จัดการ</span>
                 </Th>
               </tr>
@@ -367,7 +377,14 @@ export function TransactionsPage() {
                         <Badge variant="void">ยกเลิกแล้ว</Badge>
                       </div>
                       <div className="flex items-center justify-between gap-2 text-[12.5px] text-muted-foreground">
-                        <span>ลบเมื่อสักครู่</span>
+                        <span className="min-w-0">
+                          {TX_TYPE_SHORT_LABELS[tx.type] ?? TX_TYPE_LABELS[tx.type]} ·{' '}
+                          <span className="line-through">
+                            {describeMain(tx, accountNames, instruments)}
+                            {!namesCurrency(tx) && ` ${tx.currency}`}
+                          </span>{' '}
+                          · ลบเมื่อสักครู่
+                        </span>
                         <UndoButton label={label(tx)} className="-mr-2" onUndo={() => void handleUndo(tx)} />
                       </div>
                     </li>

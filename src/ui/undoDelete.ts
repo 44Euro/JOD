@@ -8,6 +8,8 @@ export const UNDO_MS = 10_000
 export interface PendingDelete {
   tx: Transaction
   deletedAt: number
+  // Put back in the database but not yet returned by the live query, so the page keeps showing it as a normal row.
+  restored: boolean
 }
 
 interface Entry extends PendingDelete {
@@ -20,7 +22,7 @@ const listeners = new Set<() => void>()
 let snapshot: readonly PendingDelete[] = []
 
 function publish(): void {
-  snapshot = [...entries.values()].map(({ tx, deletedAt }) => ({ tx, deletedAt }))
+  snapshot = [...entries.values()].map(({ tx, deletedAt, restored }) => ({ tx, deletedAt, restored }))
   listeners.forEach((listener) => listener())
 }
 
@@ -51,7 +53,34 @@ export async function deleteWithUndo(db: JodDB, tx: Transaction): Promise<void> 
   await deleteTransaction(db, tx.id)
   const previous = entries.get(tx.id)
   if (previous) clearTimeout(previous.timer)
-  entries.set(tx.id, { tx, deletedAt: Date.now(), timer: setTimeout(() => forget(tx.id), UNDO_MS) })
+  entries.set(tx.id, { tx, deletedAt: Date.now(), restored: false, timer: setTimeout(() => forget(tx.id), UNDO_MS) })
+  publish()
+}
+
+function markRestored(txId: string): void {
+  const entry = entries.get(txId)
+  if (!entry) return
+  clearTimeout(entry.timer)
+  entry.restored = true
+  publish()
+}
+
+// Called with the ids the live query now returns: a restored row is let go once the stored list has it again.
+export function settleRestored(storedIds: ReadonlySet<string>): void {
+  let changed = false
+  for (const [id, entry] of entries) {
+    if (entry.restored && storedIds.has(id)) {
+      entries.delete(id)
+      changed = true
+    }
+  }
+  if (changed) publish()
+}
+
+export function resetUndoStoreForTests(): void {
+  for (const entry of entries.values()) clearTimeout(entry.timer)
+  entries.clear()
+  restoring.clear()
   publish()
 }
 
@@ -62,7 +91,7 @@ export function undoDelete(db: JodDB, txId: string): Promise<void> {
   const entry = entries.get(txId)
   if (!entry) return Promise.resolve()
   const run = restoreTransaction(db, entry.tx)
-    .then(() => forget(txId))
+    .then(() => markRestored(txId))
     .finally(() => restoring.delete(txId))
   restoring.set(txId, run)
   return run
