@@ -1,7 +1,7 @@
 import { priceAgeDays } from '../domain/dates'
 import { assetPath } from './nav'
 
-export type NoticeKind = 'issues' | 'backup' | 'unpriced' | 'stale' | 'missing_rate' | 'review'
+export type NoticeKind = 'issues' | 'cash_gap' | 'backup' | 'unpriced' | 'stale' | 'missing_rate' | 'review'
 
 export interface Notice {
   id: string
@@ -16,6 +16,8 @@ export const BACKUP_REMIND_DAYS = 30
 
 export interface NoticeInput {
   issuesCount: number
+  // Accounts that record cash but whose balance is below zero in some currency.
+  negativeCashAccounts?: readonly string[]
   lastBackupAt?: string
   firstTxCreatedAt?: string
   unpricedCount: number
@@ -46,6 +48,18 @@ export function buildNotices(input: NoticeInput): Notice[] {
       text: `มี ${input.issuesCount} รายการที่คำนวณไม่ได้`,
       to: '/transactions',
       linkText: 'ไปตรวจสอบ',
+    })
+  }
+  const short = input.negativeCashAccounts ?? []
+  if (short.length > 0) {
+    // Usually trades recorded from before the app was used: the cash the account had then was never entered.
+    notices.push({
+      id: 'cash_gap',
+      kind: 'cash_gap',
+      tone: 'warning',
+      text: `เงินสดของ ${short.join(', ')} ติดลบ · มักเกิดจากการซื้อขายก่อนเริ่มบันทึกเงินสด`,
+      to: '/transactions/new?type=opening',
+      linkText: 'กรอกยอดยกมาเงินสด',
     })
   }
   const backup = backupNotice(input)

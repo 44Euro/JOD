@@ -150,12 +150,14 @@ export function receivedUnitCost(tx: Transaction): Decimal | null {
 }
 
 // An account that only ever records trades has no cash history, so the cash computed for it only reflects
-// the trades and is not a real balance.
+// the trades and is not a real balance. Cash moved in from another account is real money arriving, so it starts
+// the account's cash history just as a deposit does.
 export function accountTracksCash(transactions: readonly Transaction[], accountId: string): boolean {
   return transactions.some(
     (t) =>
-      t.accountId === accountId &&
-      (t.type === 'deposit' || t.type === 'withdraw' || t.type === 'fx_convert' || (t.type === 'opening' && !t.instrumentId)),
+      (t.accountId === accountId &&
+        (t.type === 'deposit' || t.type === 'withdraw' || t.type === 'fx_convert' || (t.type === 'opening' && !t.instrumentId))) ||
+      (t.type === 'transfer' && !t.instrumentId && t.toAccountId === accountId),
   )
 }
 

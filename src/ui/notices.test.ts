@@ -50,4 +50,16 @@ describe('buildNotices', () => {
     ])
     expect(new Set(notices.map((n) => n.id)).size).toBe(notices.length)
   })
+
+  it('points to opening cash when an account that records cash is below zero', () => {
+    const notices = buildNotices({ ...base, issuesCount: 1, negativeCashAccounts: ['Streaming', 'Dime'], lastBackupAt: '2026-01-01T00:00:00.000Z' })
+    expect(notices.map((n) => n.kind)).toEqual(['issues', 'cash_gap', 'backup'])
+    const gap = notices[1]
+    expect([gap.tone, gap.text, gap.linkText, gap.to]).toEqual([
+      'warning',
+      'เงินสดของ Streaming, Dime ติดลบ · มักเกิดจากการซื้อขายก่อนเริ่มบันทึกเงินสด',
+      'กรอกยอดยกมาเงินสด',
+      '/transactions/new?type=opening',
+    ])
+  })
 })

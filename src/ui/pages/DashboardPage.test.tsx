@@ -231,6 +231,24 @@ describe('DashboardPage', () => {
     expect(board).not.toHaveClass('xl:grid-cols-[minmax(0,1fr)_340px]')
   })
 
+  it('asks for opening cash when an account that received cash had traded before it', async () => {
+    setToday(2024, 6, 1)
+    await db.accounts.bulkAdd([
+      { id: 'kbank', name: 'KBank', broker: 'KBank', note: '', createdAt: '2024-01-01T00:00:00.000Z' },
+      { id: 'streaming', name: 'Streaming', broker: 'Streaming', note: '', createdAt: '2024-01-01T00:00:00.000Z' },
+    ])
+    const thb = { currency: 'THB', fxRate: '1', fxSource: 'same' as const }
+    await db.transactions.bulkAdd([
+      makeTx({ ...thb, accountId: 'streaming', instrumentId: 'SET:PTT', quantity: '500', price: '36', date: '2024-01-02' }),
+      makeTx({ ...thb, accountId: 'kbank', type: 'deposit', instrumentId: undefined, quantity: undefined, price: undefined, amount: '50000', date: '2024-01-03' }),
+      makeTx({ ...thb, accountId: 'kbank', type: 'transfer', toAccountId: 'streaming', instrumentId: undefined, quantity: undefined, price: undefined, amount: '10000', date: '2024-01-05' }),
+    ])
+    await saveSettings(db, { baseCurrency: 'THB', lastBackupAt: '2024-06-30T09:00:00.000Z' })
+    renderRoute('/', usd())
+    const notice = (await screen.findByText(/เงินสดของ Streaming ติดลบ/)).closest('[role="alert"]') as HTMLElement
+    expect(within(notice).getByRole('link', { name: 'กรอกยอดยกมาเงินสด' })).toHaveAttribute('href', '/transactions/new?type=opening')
+  })
+
   it('reminds to back up after thirty days, next to the other notes', async () => {
     setToday(2024, 6, 1)
     await seedDime()

@@ -6,6 +6,7 @@ import { Card } from '../../components/ui/card'
 import { todayLocal } from '../../domain/dates'
 import { D, type Decimal } from '../../domain/decimal'
 import { instrumentStats } from '../../domain/holdings'
+import { accountTracksCash } from '../../domain/ledger'
 import { positionValueBase } from '../../domain/investor'
 import { portfolioReturn, staleInstruments } from '../../domain/returns'
 import { unpricedInstrumentCount, type PositionValuation } from '../../domain/valuation'
@@ -85,6 +86,13 @@ export function DashboardPage() {
   const showRoute = largest !== null && largestId !== null
   const notices = buildNotices({
     issuesCount: ledger.issues.length,
+    negativeCashAccounts: [
+      ...new Set(
+        ledger.cash
+          .filter((c) => c.amount.lessThan(0) && accountTracksCash(data.transactions, c.accountId))
+          .map((c) => data.accounts.find((a) => a.id === c.accountId)?.name ?? c.accountId),
+      ),
+    ],
     lastBackupAt: data.settings.lastBackupAt,
     firstTxCreatedAt: data.transactions.reduce<string | undefined>((first, tx) => (!first || tx.createdAt < first ? tx.createdAt : first), undefined),
     unpricedCount: unpriced,
@@ -93,8 +101,8 @@ export function DashboardPage() {
     dueReviews,
     today,
   })
-  const topNotices = notices.filter((n) => n.kind === 'issues')
-  const sideNotices = notices.filter((n) => n.kind !== 'issues')
+  const topNotices = notices.filter((n) => n.kind === 'issues' || n.kind === 'cash_gap')
+  const sideNotices = notices.filter((n) => n.kind !== 'issues' && n.kind !== 'cash_gap')
   const hasSideColumn = showRoute || sideNotices.length > 0
 
   return (

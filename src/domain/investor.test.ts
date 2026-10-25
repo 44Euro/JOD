@@ -170,16 +170,16 @@ describe('summarizeInvestor across accounts and edge cases', () => {
 })
 
 describe('summarizeInvestor with transfers', () => {
-  it('leaves the gain at the price move alone when cash moves to a trade-only account that then buys', () => {
-    // KBank records cash; Streaming only records trades, so its cash is not part of the value.
+  it('keeps cash moved to another account in the portfolio, and the gain at the price move', () => {
+    // Streaming has no deposit of its own, but the 20,000 that arrives from KBank is real cash and starts its cash history.
     const txs = [
       makeTx({ ...thb, accountId: 'kbank', type: 'deposit', amount: '50000', date: '2024-01-02' }),
       makeTx({ ...thb, accountId: 'kbank', type: 'transfer', toAccountId: 'streaming', amount: '20000', date: '2024-01-03' }),
       makeTx({ ...thb, accountId: 'streaming', type: 'buy', instrumentId: 'SET:PTT', quantity: '500', price: '36', date: '2024-01-04' }),
     ]
     const result = run(txs, { 'SET:PTT': '38' }, { THB: '1' })
-    expect(result.invested.totalBase.toString()).toBe('48000')
-    expect(result.worth.totalBase.toString()).toBe('49000')
+    expect(result.invested.totalBase.toString()).toBe('50000')
+    expect(result.worth.totalBase.toString()).toBe('51000')
     expect(result.gain.totalBase.toString()).toBe('1000')
     expect(result.gain.unrealizedPriceBase.toString()).toBe('1000')
     expect(result.gain.cashFxBase.toString()).toBe('0')
