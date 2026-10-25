@@ -8,7 +8,6 @@ import { Chip } from '../../components/ui/chip'
 import { Field } from '../../components/ui/field'
 import { Input, NativeSelect, Textarea } from '../../components/ui/input'
 import { db } from '../../db/db'
-import { newId, saveTransactions, upsertInstrument } from '../../db/repo'
 import { CURRENCY_OPTIONS, USD_PEGGED } from '../../domain/currencies'
 import { isIsoDate, todayLocal } from '../../domain/dates'
 import { D, isDecimalString } from '../../domain/decimal'
@@ -20,6 +19,7 @@ import type { FxProvider } from '../../fx/frankfurter'
 import { getFxQuote, type FxQuote } from '../../fx/fxService'
 import { cn } from '../../lib/cn'
 import { previewAfterSave } from '../afterSave'
+import { prepareSave, writeSave } from '../saveDraft'
 import { MiniRoute } from '../components/MoneyRoute'
 import { PageHeader } from '../components/PageHeader'
 import { ConvertFields, ConvertSummary } from '../components/txform/ConvertFields'
@@ -62,7 +62,6 @@ import {
   withTransferTarget,
   type Draft,
 } from '../transactionDraft'
-import { issueText } from '../transactionText'
 import { deleteWithUndo } from '../undoDelete'
 import { useIsDesktop } from '../useIsDesktop'
 
@@ -307,56 +306,17 @@ function TransactionForm({
     if (savingRef.current) return
     setSaveFailed(false)
     const at = new Date()
-    const { tx, errors: dividendErrors } = draftToTransaction(draft, {
-      id: existing?.id ?? newId(),
-      createdAt: existing?.createdAt ?? at.toISOString(),
-      baseCurrency: base,
-      today: todayLocal(at),
-      instruments: data.instruments,
-    })
-    // The buy sorts right after the dividend even when both carry the same date and time.
-    const buy = reinvesting
-      ? reinvestTransaction(draft, tx, { id: newId(), createdAt: new Date(at.getTime() + 1).toISOString(), today: todayLocal(at) })
-      : null
-    const written = buy ? [tx, buy.tx] : [tx]
-    const found = [...new Set([...dividendErrors, ...(buy?.errors ?? [])])]
-    const ledgerErrors =
-      found.length > 0
-        ? []
-        : [
-            ...new Set(
-              computeLedger([...others, ...written])
-                .issues.filter((issue) => written.some((t) => t.id === issue.txId))
-                .map(issueText),
-            ),
-          ]
-    if (found.length > 0 || ledgerErrors.length > 0) {
-      setErrors([...found, ...ledgerErrors])
+    const prepared = prepareSave(draft, { existing, others, instruments: data.instruments, baseCurrency: base, reinvesting, at })
+    const { tx } = prepared
+    if (prepared.errors.length > 0) {
+      setErrors(prepared.errors)
       setSavedNote('')
       return
     }
     savingRef.current = true
     setSaving(true)
     try {
-      // A dividend can be paid in another currency than the one the instrument trades in, so a known
-      // instrument keeps what is stored for it.
-      const entered = [
-        { id: tx.instrumentId, market: draft.market, symbol, name: draft.instrumentName, assetType: draft.assetType, unit: draft.unit },
-        {
-          id: tx.toInstrumentId,
-          market: draft.toMarket,
-          symbol: draft.toSymbol.trim().toUpperCase(),
-          name: draft.toInstrumentName,
-          assetType: draft.toAssetType,
-          unit: draft.toUnit,
-        },
-      ]
-      for (const { id, name, ...instrument } of entered) {
-        if (id && !data.instruments.some((i) => i.id === id)) {
-          await upsertInstrument(db, { ...instrument, id, name: name.trim() || instrument.symbol, currency: draft.currency })
-        }
-      }
-      await saveTransactions(db, written, at)
+      await writeSave(db, draft, prepared, data.instruments, at)
     } catch {
       savingRef.current = false
       setSaving(false)
@@ -374,7 +334,7 @@ function TransactionForm({
     setCopiedFrom(undefined)
     setErrors([])
     const subject = tx.toInstrumentId ? `${symbol} → ${symbolOf(tx.toInstrumentId)}` : symbol
-    setSavedNote(buy ? `บันทึกแล้ว · ปันผล + ซื้อ ${symbol}` : `บันทึกแล้ว · ${TX_TYPE_LABELS[tx.type]} ${subject}`.trim())
+    setSavedNote(prepared.written.length > 1 ? `บันทึกแล้ว · ปันผล + ซื้อ ${symbol}` : `บันทึกแล้ว · ${TX_TYPE_LABELS[tx.type]} ${subject}`.trim())
   }
 
   function handleSubmit(event: FormEvent) {
