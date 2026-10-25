@@ -13,6 +13,7 @@ import { THEME_CHOICES, type FeeTemplate } from '../../domain/types'
 import { Segmented } from '../../components/ui/segmented'
 import { THEME_LABELS } from '../theme'
 import { AccountEditor } from '../components/AccountEditor'
+import { AiKeyCard } from '../components/AiKeyCard'
 import { DataSection } from '../components/DataSection'
 import { PageHeader } from '../components/PageHeader'
 import { feeTemplateParts } from '../feeTemplateText'
@@ -169,6 +170,8 @@ export function SettingsPage() {
         </div>
         <div className="grid content-start gap-3.5 md:gap-4">
           <DataSection data={data} />
+
+          <AiKeyCard />
 
           <Card className="grid gap-3">
             <h2 className="text-lg font-semibold">ธีม</h2>

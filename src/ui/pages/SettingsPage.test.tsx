@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { db } from '../../db/db'
 import { getSettings } from '../../db/repo'
 import { makeTx } from '../../test/fixtures'
+import { API_KEY_STORAGE_KEY } from '../../ai/apiKey'
 import { renderRoute, resetDb } from '../../test/render'
 
 const account = { id: 'acc-1', name: 'Dime US', broker: 'Dime', note: '', createdAt: '2024-01-01T00:00:00.000Z' }
@@ -217,5 +218,28 @@ describe('SettingsPage', () => {
       renderRoute('/settings')
       expect(await screen.findByRole('button', { name: 'แก้ไข Streaming SET' })).toHaveClass('size-11', 'md:size-10')
     })
+  })
+
+  it('keeps the AI key on this device only, masks it and tests it', async () => {
+    localStorage.removeItem(API_KEY_STORAGE_KEY)
+    const tested: string[] = []
+    const user = userEvent.setup()
+    renderRoute('/settings', undefined, {
+      read: () => Promise.reject(new Error('unused')),
+      test: async () => {
+        tested.push('called')
+      },
+    })
+    await user.type(await screen.findByLabelText('API key'), 'sk-ant-api03-abcdefghijkl1234')
+    await user.click(screen.getByRole('button', { name: 'บันทึก key' }))
+    expect(localStorage.getItem(API_KEY_STORAGE_KEY)).toBe('sk-ant-api03-abcdefghijkl1234')
+    expect(screen.getByText('sk-ant-…1234')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'ทดสอบการเชื่อมต่อ' }))
+    expect(await screen.findByText('เชื่อมต่อได้ พร้อมให้ AI อ่านรูป')).toBeInTheDocument()
+    expect(tested).toEqual(['called'])
+    expect(JSON.stringify(await db.settings.toArray())).not.toContain('sk-ant')
+    await user.click(screen.getByRole('button', { name: 'ลบ key' }))
+    expect(localStorage.getItem(API_KEY_STORAGE_KEY)).toBeNull()
+    expect(screen.getByLabelText('API key')).toBeInTheDocument()
   })
 })
