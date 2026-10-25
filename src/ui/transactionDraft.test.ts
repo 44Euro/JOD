@@ -282,6 +282,13 @@ describe('changeDate', () => {
       fxSource: 'estimated',
     })
   })
+
+  it('drops a rate borrowed from the dollar when the date moves', () => {
+    expect(changeDate(buyDraft({ currency: 'USDT', fxRate: '33.5', fxSource: 'estimated' }), '2024-01-10')).toMatchObject({
+      fxRate: '',
+      fxSource: 'estimated',
+    })
+  })
 })
 
 describe('draft helpers', () => {

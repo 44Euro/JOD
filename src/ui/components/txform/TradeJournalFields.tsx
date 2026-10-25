@@ -54,7 +54,7 @@ function Scale({ id, label, value, onChange }: { id: string; label: string; valu
         onChange={onChange}
         singleRow
         // 5 x 44px of numbers needs 224px, and the panel has 230px at 320px once it takes the smaller padding.
-        className="col-span-2 max-[359px]:gap-0 max-[359px]:p-0.5 md:col-span-1 md:col-start-1 md:row-start-2 md:w-fit"
+        className="col-span-2 max-[360px]:gap-0 max-[360px]:p-0.5 md:col-span-1 md:col-start-1 md:row-start-2 md:w-fit"
       />
     </div>
   )
@@ -92,7 +92,7 @@ export function TradeJournalFields({
           {!open && (
             <span aria-hidden className="text-muted-foreground">
               {' '}
-              ·&nbsp;กลยุทธ์ เหตุผล อารมณ์ Stop loss
+              ·&nbsp;กลยุทธ์ เหตุผล อารมณ์ Stop&nbsp;loss
             </span>
           )}
         </span>

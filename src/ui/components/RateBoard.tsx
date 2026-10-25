@@ -109,7 +109,7 @@ export function RateBoard({ rows, base, full = false, caption = 'เรทเฉ
                       className={cn(
                         'flex items-baseline gap-x-1.5 whitespace-nowrap font-display font-semibold',
                         small ? layout.smallSize : layout.size,
-                        'leading-tight',
+                        'leading-[1.1]',
                         layout.rates,
                       )}
                     >

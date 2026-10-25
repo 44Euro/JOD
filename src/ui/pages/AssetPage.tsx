@@ -113,10 +113,10 @@ export function AssetPage() {
             {lastBuy && (
               <Link
                 to={`/transactions/new?from=${lastBuy.id}`}
-                className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'max-[359px]:w-11 max-[359px]:px-0')}
+                className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'max-[360px]:w-11 max-[360px]:px-0')}
               >
                 <Copy aria-hidden />
-                <span className="max-[359px]:sr-only">ทำซ้ำรายการซื้อ</span>
+                <span className="max-[360px]:sr-only">ทำซ้ำรายการซื้อ</span>
               </Link>
             )}
             {instrument && (

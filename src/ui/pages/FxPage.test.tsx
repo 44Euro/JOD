@@ -222,11 +222,11 @@ describe('FxPage', () => {
       const rows = within(await board()).getAllByRole('listitem')
       const rateOf = (row: HTMLElement) => row.children[1].children[0]
       expect(within(rows[0]).getByText('0.216348')).toBeInTheDocument()
-      expect(rateOf(rows[0])).toHaveClass('text-base', '@min-[800px]:text-2xl', 'leading-tight')
+      expect(rateOf(rows[0])).toHaveClass('text-base', '@min-[800px]:text-2xl', 'leading-[1.1]')
       expect(rateOf(rows[0])).not.toHaveClass('text-lg')
       expect(rateOf(rows[0])).not.toHaveClass('text-[22px]')
       expect(rateOf(rows[0])).not.toHaveClass('@min-[800px]:text-[34px]')
-      expect(rateOf(rows[1])).toHaveClass('text-[22px]', '@min-[800px]:text-[34px]', 'leading-tight')
+      expect(rateOf(rows[1])).toHaveClass('text-[22px]', '@min-[800px]:text-[34px]', 'leading-[1.1]')
     })
   })
 

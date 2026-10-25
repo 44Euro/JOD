@@ -222,7 +222,9 @@ export function changeCurrency(draft: Draft, currency: string): Draft {
 // A rate fetched for the old date must not survive as an "auto" rate for the new one.
 export function changeDate(draft: Draft, date: string): Draft {
   const next = { ...draft, date, referenceFxRate: '', fxRateDate: '', marketRate: '', marketRateDate: '' }
-  return draft.fxSource === 'auto' ? { ...next, fxRate: '' } : next
+  // A rate borrowed from the dollar belongs to the old day as much as an automatic one does.
+  const fetched = draft.fxSource === 'auto' || (draft.fxSource === 'estimated' && !isOpeningAsset(draft))
+  return fetched ? { ...next, fxRate: '' } : next
 }
 
 // An opening holding's rate means "my average purchase rate", not the day's rate,

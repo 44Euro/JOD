@@ -480,7 +480,7 @@ describe('DashboardPage', () => {
       const [rates, effect] = [...second.children]
       expect(currency).toHaveClass('flex-1', 'min-w-0')
       expect(gap).toHaveClass('text-right', '@min-[680px]:order-1')
-      expect(rates).toHaveClass('whitespace-nowrap', 'leading-tight', 'text-[22px]', '@min-[680px]:text-[34px]')
+      expect(rates).toHaveClass('whitespace-nowrap', 'leading-[1.1]', 'text-[22px]', '@min-[680px]:text-[34px]')
       expect(effect).toHaveClass('ml-auto', 'text-right', '@min-[680px]:order-2')
       expect(effect).toHaveTextContent('−360 ฿')
     })

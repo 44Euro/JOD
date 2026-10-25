@@ -2495,7 +2495,7 @@ describe('TransactionFormPage', () => {
       for (const name of ['ความมั่นใจ', 'คะแนนการลงมือ']) {
         const scale = group(name)
         expect(scale).not.toHaveClass('max-[380px]:grid', 'max-[380px]:grid-cols-2')
-        expect(scale).toHaveClass('max-[359px]:gap-0', 'max-[359px]:p-0.5')
+        expect(scale).toHaveClass('max-[360px]:gap-0', 'max-[360px]:p-0.5')
         const numbers = within(scale).getAllByRole('button')
         expect(numbers.map((n) => n.textContent)).toEqual(['1', '2', '3', '4', '5'])
         for (const number of numbers) expect(number).toHaveClass('h-11', 'min-w-11')
@@ -2523,7 +2523,7 @@ describe('TransactionFormPage', () => {
 
     it('keeps the dot of the folded hint with the word after it, so a line never ends on the dot', async () => {
       await openBuy()
-      expect(toggle().textContent).toContain('·\u00a0กลยุทธ์ เหตุผล อารมณ์ Stop loss')
+      expect(toggle().textContent).toContain('·\u00a0กลยุทธ์ เหตุผล อารมณ์ Stop\u00a0loss')
     })
   })
 

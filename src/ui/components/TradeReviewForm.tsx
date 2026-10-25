@@ -91,7 +91,7 @@ export function TradeReviewForm({
           value={score}
           onChange={(value) => setScore((current) => (current === value ? '' : value))}
           singleRow
-          className="max-[359px]:gap-0 max-[359px]:p-0.5 md:w-fit"
+          className="max-[360px]:gap-0 max-[360px]:p-0.5 md:w-fit"
         />
       </div>
       {error && (

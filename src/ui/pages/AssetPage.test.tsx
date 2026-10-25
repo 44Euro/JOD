@@ -619,8 +619,8 @@ describe('AssetPage', () => {
     it('turns the repeat link into a 44px icon below 360px without losing its name', async () => {
       renderRoute('/assets/US%3AFB', usd)
       const repeat = await screen.findByRole('link', { name: 'ทำซ้ำรายการซื้อ' })
-      expect(repeat).toHaveClass('h-11', 'max-[359px]:w-11', 'max-[359px]:px-0')
-      expect(within(repeat).getByText('ทำซ้ำรายการซื้อ')).toHaveClass('max-[359px]:sr-only')
+      expect(repeat).toHaveClass('h-11', 'max-[360px]:w-11', 'max-[360px]:px-0')
+      expect(within(repeat).getByText('ทำซ้ำรายการซื้อ')).toHaveClass('max-[360px]:sr-only')
     })
 
     it('opens and closes the form from the same button and shows it pressed while open', async () => {
