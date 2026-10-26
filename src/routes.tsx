@@ -2,11 +2,13 @@ import type { RouteObject } from 'react-router'
 import { Layout } from './ui/Layout'
 import { AssetPage } from './ui/pages/AssetPage'
 import { DashboardPage } from './ui/pages/DashboardPage'
+import { ErrorPage } from './ui/pages/ErrorPage'
 import { FxPage } from './ui/pages/FxPage'
 import { ImportPage } from './ui/pages/ImportPage'
 import { IncomePage } from './ui/pages/IncomePage'
 import { MorePage } from './ui/pages/MorePage'
 import { PlansPage } from './ui/pages/PlansPage'
+import { PrivacyPage } from './ui/pages/PrivacyPage'
 import { PortfolioPage } from './ui/pages/PortfolioPage'
 import { SettingsPage } from './ui/pages/SettingsPage'
 import { SummaryPage } from './ui/pages/SummaryPage'
@@ -16,10 +18,11 @@ import { TransactionsPage } from './ui/pages/TransactionsPage'
 import { WelcomePage } from './ui/pages/WelcomePage'
 
 export const routes: RouteObject[] = [
-  { path: '/welcome', element: <WelcomePage /> },
+  { path: '/welcome', element: <WelcomePage />, errorElement: <ErrorPage /> },
   {
     path: '/',
     element: <Layout />,
+    errorElement: <ErrorPage />,
     children: [
       { index: true, element: <DashboardPage /> },
       { path: 'portfolio', element: <PortfolioPage /> },
@@ -32,6 +35,7 @@ export const routes: RouteObject[] = [
       { path: 'import', element: <ImportPage /> },
       { path: 'more', element: <MorePage /> },
       { path: 'settings', element: <SettingsPage /> },
+      { path: 'privacy', element: <PrivacyPage /> },
       { path: 'transactions', element: <TransactionsPage /> },
       { path: 'transactions/new', element: <TransactionFormPage /> },
       { path: 'transactions/:id', element: <TransactionFormPage /> },

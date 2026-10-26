@@ -1,5 +1,6 @@
 import { Lock, Pencil, Trash2 } from 'lucide-react'
 import { useRef, useState, type FormEvent } from 'react'
+import { Link } from 'react-router'
 import { Alert } from '../../components/ui/alert'
 import { Button } from '../../components/ui/button'
 import { Card } from '../../components/ui/card'
@@ -14,6 +15,7 @@ import { Segmented } from '../../components/ui/segmented'
 import { THEME_LABELS } from '../theme'
 import { AccountEditor } from '../components/AccountEditor'
 import { AiKeyCard } from '../components/AiKeyCard'
+import { ErrorReportCard } from '../components/ErrorReportCard'
 import { LockCard } from '../components/LockCard'
 import { PriceSourcesCard } from '../components/PriceSourcesCard'
 import { DataSection } from '../components/DataSection'
@@ -189,6 +191,8 @@ export function SettingsPage() {
 
           <LockCard />
 
+          <ErrorReportCard />
+
           <Card className="grid gap-3">
             <h2 className="text-lg font-semibold">ความเป็นส่วนตัว</h2>
             <div className="flex items-center justify-between gap-3">
@@ -207,6 +211,9 @@ export function SettingsPage() {
                 onCheckedChange={(hide) => void saveSettings(db, { ...data.settings, hideNumbersOnLaunch: hide })}
               />
             </div>
+            <Link to="/privacy" className="inline-flex min-h-11 items-center text-sm font-semibold text-primary-ink underline underline-offset-[3px]">
+              อ่านนโยบายความเป็นส่วนตัว
+            </Link>
           </Card>
         </div>
       </div>

@@ -103,6 +103,12 @@ export function WelcomePage() {
           <span className="mt-1 block font-sans text-xs font-normal text-muted-foreground">จดทุกเทรด รู้ทุกบาท</span>
         </p>
         <Stations steps={STEPS} step={step} />
+        <p className="text-[12.5px] text-muted-foreground">
+          ข้อมูลทั้งหมดอยู่ในเครื่องนี้ ไม่มีบัญชีผู้ใช้หรือตัวติดตาม ·{' '}
+          <Link to="/privacy" className="font-semibold text-primary-ink underline underline-offset-[3px]">
+            นโยบายความเป็นส่วนตัว
+          </Link>
+        </p>
 
         {step === 0 && (
           <Card className="grid gap-4">

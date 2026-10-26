@@ -1,0 +1,37 @@
+import { screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { beforeEach, describe, expect, it } from 'vitest'
+import { db } from '../../db/db'
+import { logError, resetErrorsForTests } from '../../errors/log'
+import { renderRoute, resetDb } from '../../test/render'
+
+beforeEach(async () => {
+  await resetDb()
+  await db.accounts.add({ id: 'acc-1', name: 'Dime US', broker: 'Dime', note: '', createdAt: '2024-01-01T00:00:00.000Z' })
+  resetErrorsForTests()
+})
+
+describe('privacy and problem reports', () => {
+  it('links the policy from settings and says what leaves the device', async () => {
+    const user = userEvent.setup()
+    renderRoute('/settings')
+    await user.click(await screen.findByRole('link', { name: 'อ่านนโยบายความเป็นส่วนตัว' }))
+    expect(await screen.findByRole('heading', { name: 'นโยบายความเป็นส่วนตัว' })).toBeInTheDocument()
+    expect(screen.getByText(/ส่งเฉพาะคู่สกุลเงินและวันที่/)).toBeInTheDocument()
+  })
+
+  it('shows logged problems in settings and clears them', async () => {
+    logError(new Error('boom 123'), '#/fx')
+    const user = userEvent.setup()
+    renderRoute('/settings')
+    expect(await screen.findByText(/มี 1 ปัญหา/)).toBeInTheDocument()
+    expect(screen.getByText('#/fx · Error: boom #')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'ล้าง' }))
+    expect(screen.getByText('ยังไม่มีปัญหาที่บันทึกไว้')).toBeInTheDocument()
+  })
+
+  it('shows a friendly page instead of a crash for an unknown address', async () => {
+    renderRoute('/nowhere')
+    expect(await screen.findByRole('heading', { name: 'ไม่พบหน้านี้' })).toBeInTheDocument()
+  })
+})
