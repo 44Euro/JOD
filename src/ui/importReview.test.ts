@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { Extraction, ExtractedRow } from '../ai/extraction'
 import { makeTx } from '../test/fixtures'
-import { buildImport, checkTotal, guessAssetType, rowProblems, toReviewRows, type BuildContext, type ReviewRow } from './importReview'
+import { D } from '../domain/decimal'
+import { buildImport, checkTotal, compareHoldings, guessAssetType, patchRow, priceUpdates, rowProblems, toReviewRows, type BuildContext, type ReviewRow } from './importReview'
 
 function raw(overrides: Partial<ExtractedRow> = {}): ExtractedRow {
   return {
@@ -114,5 +115,51 @@ describe('buildImport', () => {
   it('refuses a sell the ledger would skip', () => {
     const rows = toReviewRows(extraction([raw({ kind: 'sell', symbol: 'AAPL', date: '2026-10-01', quantity: '5', price: '200' })], { source: 'orders' }), ctx)
     expect(buildImport([{ ...rows[0], fxRate: '34' }], build()).errors).toEqual(['AAPL: ขาย 5 หน่วย แต่ถืออยู่ 0 หน่วย'])
+  })
+})
+
+describe('patchRow', () => {
+  const [row] = toReviewRows(extraction([raw({ kind: 'buy', date: '2026-10-01', uncertain: ['price'] })]), ctx)
+
+  it('clears a fetched rate when the day or the currency changes, and keeps a typed one', () => {
+    const fetched = { ...row, fxRate: '34', fxSource: 'auto' as const }
+    expect(patchRow(fetched, { date: '2026-10-02' }, ctx)).toMatchObject({ fxRate: '', fxSource: 'auto' })
+    expect(patchRow({ ...fetched, fxSource: 'manual' }, { date: '2026-10-02' }, ctx)).toMatchObject({ fxRate: '34', fxSource: 'manual' })
+    expect(patchRow(fetched, { currency: 'THB' }, ctx)).toMatchObject({ fxRate: '1', fxSource: 'same' })
+  })
+
+  it('stops flagging a field once the user has edited it', () => {
+    expect(patchRow(row, { price: '118.50' }, ctx).uncertain).toEqual([])
+  })
+})
+
+describe('priceUpdates', () => {
+  const voo = { id: 'US:VOO', market: 'US' as const, symbol: 'VOO', name: 'VOO', assetType: 'etf' as const, currency: 'USD' }
+
+  it('takes the latest price of known assets, matching by symbol when the market guess is off', () => {
+    const rows = toReviewRows(extraction([raw({ market: 'SET' }), raw({ symbol: 'ZZZ' })]), ctx)
+    const { updates, unknown } = priceUpdates(rows, [voo])
+    expect(updates.map((u) => [u.instrument.id, u.price])).toEqual([['US:VOO', '512.3']])
+    expect(unknown).toEqual(['ZZZ'])
+  })
+})
+
+describe('compareHoldings', () => {
+  const instruments = ['VOO', 'AAPL', 'TSLA'].map((s) => ({ id: `US:${s}`, market: 'US' as const, symbol: s, name: s, assetType: 'stock' as const, currency: 'USD' }))
+  const positions = [
+    { accountId: 'acc-1', instrumentId: 'US:VOO', quantity: D('40') },
+    { accountId: 'acc-1', instrumentId: 'US:AAPL', quantity: D('10') },
+    { accountId: 'acc-1', instrumentId: 'US:TSLA', quantity: D('3') },
+    { accountId: 'acc-2', instrumentId: 'US:NVDA', quantity: D('5') },
+  ]
+
+  it('marks each holding as matching, differing, missing in the app or not on the screen', () => {
+    const rows = toReviewRows(extraction([raw(), raw({ symbol: 'AAPL', quantity: '15' }), raw({ symbol: 'NVDA', quantity: '5' })]), ctx)
+    expect(compareHoldings(rows, positions, instruments, 'acc-1').map((l) => [l.symbol, l.state])).toEqual([
+      ['VOO', 'match'],
+      ['AAPL', 'differ'],
+      ['NVDA', 'not_in_app'],
+      ['TSLA', 'not_on_screen'],
+    ])
   })
 })

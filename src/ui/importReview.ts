@@ -270,3 +270,84 @@ export function latestPrices(rows: readonly ReviewRow[]): { id: string; price: s
   }
   return [...prices].map(([id, price]) => ({ id, price }))
 }
+
+// Changing the currency or the day makes the fetched rate wrong, so it is fetched again; a rate the user typed stays.
+export function patchRow(row: ReviewRow, patch: Partial<ReviewRow>, ctx: ReviewContext): ReviewRow {
+  const next = { ...row, ...patch }
+  if ('currency' in patch || 'kind' in patch) {
+    const isBase = next.currency === ctx.baseCurrency
+    next.fxRate = isBase ? '1' : 'currency' in patch || next.fxSource === 'same' ? '' : next.fxRate
+    next.fxSource = isBase ? 'same' : 'currency' in patch || next.fxSource === 'same' ? 'auto' : next.fxSource
+  }
+  if ('date' in patch && next.fxSource !== 'manual' && next.currency !== ctx.baseCurrency) {
+    next.fxRate = ''
+    next.fxSource = 'auto'
+  }
+  const touched = Object.keys(patch) as (keyof ReviewRow)[]
+  next.uncertain = next.uncertain.filter((field) => !touched.includes(field))
+  if (touched.some((f) => f !== 'include')) next.duplicate = findDuplicate(next, ctx)
+  return next
+}
+
+function findInstrumentFor(row: ReviewRow, instruments: readonly Instrument[]): Instrument | undefined {
+  const symbol = row.symbol.trim().toUpperCase()
+  return instruments.find((i) => i.id === instrumentKey(row.market, symbol)) ?? instruments.find((i) => i.symbol === symbol)
+}
+
+export interface PriceUpdate {
+  key: string
+  instrument: Instrument
+  price: string
+}
+
+// A screenshot's market guess can be wrong, so an asset is also found by its symbol alone.
+export function priceUpdates(rows: readonly ReviewRow[], instruments: readonly Instrument[]): { updates: PriceUpdate[]; unknown: string[] } {
+  const updates: PriceUpdate[] = []
+  const unknown: string[] = []
+  for (const row of rows) {
+    const price = row.lastPrice || (row.kind === 'opening' ? '' : row.price)
+    if (!row.symbol || !price) continue
+    const instrument = findInstrumentFor(row, instruments)
+    if (instrument) updates.push({ key: row.key, instrument, price })
+    else unknown.push(row.symbol)
+  }
+  return { updates, unknown }
+}
+
+export type CompareState = 'match' | 'differ' | 'not_in_app' | 'not_on_screen'
+
+export interface CompareLine {
+  symbol: string
+  broker: Decimal | null
+  app: Decimal | null
+  state: CompareState
+}
+
+// What the broker shows against what the app counts for the same account; a holding missing from the screen may
+// only be scrolled off it, so it is listed rather than called wrong.
+export function compareHoldings(
+  rows: readonly ReviewRow[],
+  positions: readonly { accountId: string; instrumentId: string; quantity: Decimal }[],
+  instruments: readonly Instrument[],
+  accountId: string,
+): CompareLine[] {
+  const held = positions.filter((p) => p.accountId === accountId && p.quantity.gt(0))
+  const seen = new Set<string>()
+  const lines: CompareLine[] = []
+  for (const row of rows) {
+    if (!row.symbol || !usesUnits(row.kind)) continue
+    const broker = num(row.quantity)
+    const instrument = findInstrumentFor(row, instruments)
+    const position = instrument && held.find((p) => p.instrumentId === instrument.id)
+    if (instrument) seen.add(instrument.id)
+    const app = position ? position.quantity : null
+    const state: CompareState = !app ? 'not_in_app' : broker !== null && app.eq(broker) ? 'match' : 'differ'
+    lines.push({ symbol: row.symbol, broker: broker === null ? null : D(broker), app, state })
+  }
+  for (const p of held) {
+    if (!seen.has(p.instrumentId)) {
+      lines.push({ symbol: instruments.find((i) => i.id === p.instrumentId)?.symbol ?? p.instrumentId, broker: null, app: p.quantity, state: 'not_on_screen' })
+    }
+  }
+  return lines
+}
