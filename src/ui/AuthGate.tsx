@@ -35,7 +35,7 @@ function messageOf(error: unknown): string {
 // the app is about, so it opens the app instead of a picture.
 function BoardRoute() {
   const stations = [
-    { label: t('บาท'), ring: 'border-white' },
+    { label: t('เงินสด'), ring: 'border-white' },
     { label: t('แลกเงิน'), ring: 'border-board-fx' },
     { label: t('สินทรัพย์'), ring: 'border-white' },
   ]
