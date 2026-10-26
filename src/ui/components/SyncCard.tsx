@@ -7,16 +7,15 @@ import { db } from '../../db/db'
 import { t } from '../../i18n'
 import { SyncError } from '../../sync/client'
 import { syncNow, type SyncOutcome } from '../../sync/engine'
-import { deleteAccount, keepSide, renewRecoveryCode, serverClient, signOut } from '../../sync/session'
+import { deleteAccount, renewRecoveryCode, serverClient, signOut } from '../../sync/session'
 import { useDirty, useSyncState } from '../../sync/state'
 import { fmtDate } from '../format'
 import { PasswordResetForm } from './PasswordResetForm'
 
 function describe(outcome: SyncOutcome): string {
-  if (outcome.kind === 'pushed') return t('ส่งข้อมูลจากเครื่องนี้ขึ้นแล้ว')
-  if (outcome.kind === 'pulled') return t('รับข้อมูลจากเครื่องอื่นมาแล้ว')
-  if (outcome.kind === 'up-to-date') return t('ข้อมูลตรงกันแล้ว')
-  return ''
+  if (outcome.kind === 'pushed') return t('ส่ง {0} รายการจากเครื่องนี้ขึ้นแล้ว', outcome.count)
+  if (outcome.kind === 'pulled') return t('รับ {0} รายการจากเครื่องอื่นมาแล้ว', outcome.count)
+  return t('ข้อมูลตรงกันแล้ว')
 }
 
 export function SyncCard() {
@@ -24,7 +23,6 @@ export function SyncCard() {
   const dirty = useDirty()
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
-  const [conflict, setConflict] = useState(false)
   const [unsent, setUnsent] = useState(false)
   // A reset link opened on a signed-in device lands here with its code.
   const [params] = useSearchParams()
@@ -44,8 +42,7 @@ export function SyncCard() {
   }
 
   function show(outcome: SyncOutcome) {
-    setConflict(outcome.kind === 'conflict')
-    if (outcome.kind !== 'conflict') setMessage({ tone: 'ok', text: describe(outcome) })
+    setMessage({ tone: 'ok', text: describe(outcome) })
   }
 
   if (!state) return null
@@ -60,19 +57,6 @@ export function SyncCard() {
           {dirty && ` · ${t('มีการแก้ไขที่ยังไม่ได้ส่ง')}`}
         </span>
       </p>
-      {conflict && (
-        <Alert>
-          {t('ทั้งเครื่องนี้และเครื่องอื่นแก้ข้อมูลตั้งแต่ซิงก์ครั้งก่อน เลือกว่าจะเก็บของฝั่งไหน อีกฝั่งจะถูกแทนที่')}
-          <span className="mt-2 flex flex-wrap gap-2">
-            <Button type="button" size="sm" disabled={busy} onClick={() => void run(async () => show(await keepSide('device')))}>
-              {t('ใช้ของเครื่องนี้')}
-            </Button>
-            <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void run(async () => show(await keepSide('server')))}>
-              {t('ใช้ของบนเซิร์ฟเวอร์')}
-            </Button>
-          </span>
-        </Alert>
-      )}
       {unsent && (
         <Alert tone="error">
           {t('ส่งการแก้ไขล่าสุดขึ้นเซิร์ฟเวอร์ไม่ได้ ถ้าออกจากระบบตอนนี้ ส่วนที่ยังไม่ได้ส่งจะหายจากเครื่องนี้')}
@@ -104,7 +88,7 @@ export function SyncCard() {
         </Button>
       </div>
       <p className="text-[12px] text-muted-foreground">
-        {t('ออกจากระบบจะซิงก์ก่อนแล้วล้างข้อมูลในเครื่องนี้ เข้าใหม่แล้วข้อมูลจะกลับมา · รูปประกอบเทรดไม่ถูกซิงก์')}
+        {t('ออกจากระบบจะซิงก์ก่อนแล้วล้างข้อมูลในเครื่องนี้ เข้าใหม่แล้วข้อมูลจะกลับมา · ซิงก์ทีละรายการ ถ้าสองเครื่องแก้รายการเดียวกัน ใช้ของที่ส่งทีหลัง')}
       </p>
       <div className="grid gap-3 border-t pt-4">
         <div>

@@ -1,0 +1,80 @@
+// The sync server's database. Accounts and sign-in are plain columns; every record of a person's portfolio is one
+// row whose content is sealed on their device, so the database keeps the structure but cannot read the money.
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../server/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "ts"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                String   @id @default(uuid()) @db.Uuid
+  email             String   @unique
+  salt              String
+  hash              String
+  // The data key sealed with the password and with the recovery code; only the person's devices can open them.
+  sealedPasswordKey String?  @map("sealed_password_key")
+  sealedRecoveryKey String?  @map("sealed_recovery_key")
+  // Counts every record written; a device asks for the records changed after the last count it saw.
+  changeCount       Int      @default(0) @map("change_count")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  sessions Session[]
+  records  SyncRecord[]
+
+  @@map("users")
+}
+
+model Session {
+  tokenHash String   @id @map("token_hash")
+  userId    String   @map("user_id") @db.Uuid
+  expiresAt DateTime @map("expires_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model PasswordReset {
+  email     String   @id
+  codeHash  String   @map("code_hash")
+  expiresAt DateTime @map("expires_at")
+  attempts  Int      @default(0)
+
+  @@map("password_resets")
+}
+
+// One kind for each table the app keeps on the device; exchange rates are a cache and stay on the device.
+enum RecordKind {
+  account
+  instrument
+  transaction
+  setting
+  daily_value
+  import
+  plan
+  watch
+  picture
+
+  @@map("record_kind")
+}
+
+model SyncRecord {
+  userId    String     @map("user_id") @db.Uuid
+  kind      RecordKind
+  recordId  String     @map("record_id")
+  // Null once the record is deleted, so other devices learn to delete it too.
+  sealed    String?
+  change    Int
+  updatedAt DateTime   @updatedAt @map("updated_at")
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, kind, recordId])
+  @@index([userId, change])
+  @@map("sync_records")
+}

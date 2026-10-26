@@ -1,11 +1,12 @@
-import { createHash, randomBytes, randomUUID, scrypt, timingSafeEqual } from 'node:crypto'
+import { createHash, randomBytes, scrypt, timingSafeEqual } from 'node:crypto'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { promisify } from 'node:util'
-import type { FileStore, SealedKeys, User } from './store.ts'
+import { RECORD_KINDS, type IncomingRecord, type SealedKeys, type Store, type User } from './store.ts'
 
 const scryptAsync = promisify(scrypt) as (password: string, salt: string, length: number) => Promise<Buffer>
 
 const MAX_BODY = 25 * 1024 * 1024
+const PAGE = 500
 const SESSION_DAYS = 90
 const LOGIN_LIMIT = 10
 const RESET_MINUTES = 30
@@ -14,7 +15,7 @@ const RESET_ATTEMPTS = 5
 const CODE_LETTERS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
 
 export interface AppOptions {
-  store: FileStore
+  store: Store
   // Origins allowed to call the API from a browser; '*' allows any.
   origin?: string
   // Where the reset link in an email points.
@@ -53,7 +54,7 @@ async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> 
 }
 
 // The server never sees the password or the data: the app sends a key derived from the password for signing in, and
-// the data sealed with another key derived on the device.
+// each record sealed on the device with a key the server never gets.
 export function createApp({ store, origin = '*', appUrl = 'http://localhost:5173', sendMail = logMail }: AppOptions) {
   const attempts = new Map<string, { count: number; resetAt: number }>()
 
@@ -70,7 +71,7 @@ export function createApp({ store, origin = '*', appUrl = 'http://localhost:5173
 
   async function newSession(userId: string) {
     const token = randomBytes(32).toString('hex')
-    const expiresAt = new Date(Date.now() + SESSION_DAYS * 86_400_000).toISOString()
+    const expiresAt = new Date(Date.now() + SESSION_DAYS * 86_400_000)
     await store.addSession({ tokenHash: sha256(token), userId, expiresAt })
     return token
   }
@@ -103,6 +104,17 @@ export function createApp({ store, origin = '*', appUrl = 'http://localhost:5173
     return keys
   }
 
+  function incoming(value: unknown): IncomingRecord[] {
+    if (!Array.isArray(value) || value.length > PAGE) throw new HttpError(400, 'bad records')
+    return value.map((item) => {
+      const record = item as Record<string, unknown>
+      const kind = RECORD_KINDS.find((k) => k === record.kind)
+      if (!kind || typeof record.id !== 'string' || record.id === '' || record.id.length > 200) throw new HttpError(400, 'bad records')
+      if (record.sealed !== null && typeof record.sealed !== 'string') throw new HttpError(400, 'bad records')
+      return { kind, id: record.id, sealed: record.sealed }
+    })
+  }
+
   async function hashed(loginKey: string) {
     const salt = randomBytes(16).toString('hex')
     return { salt, hash: (await scryptAsync(loginKey, salt, 32)).toString('hex') }
@@ -117,7 +129,7 @@ export function createApp({ store, origin = '*', appUrl = 'http://localhost:5173
     if (!reset || !user) throw new HttpError(400, 'bad code')
     const given = Buffer.from(sha256(code))
     if (!timingSafeEqual(given, Buffer.from(reset.codeHash))) {
-      await store.updateReset(email, (r) => (r.attempts + 1 >= RESET_ATTEMPTS ? null : { ...r, attempts: r.attempts + 1 }))
+      await store.countWrongCode(email, RESET_ATTEMPTS)
       throw new HttpError(400, 'bad code')
     }
     return user
@@ -136,8 +148,7 @@ export function createApp({ store, origin = '*', appUrl = 'http://localhost:5173
         const { email, loginKey } = credentials(body)
         const keys = sealedKeys(body.keys)
         if (await store.findUser(email)) throw new HttpError(409, 'email taken')
-        const user = { id: randomUUID(), email, ...(await hashed(loginKey)), createdAt: new Date().toISOString(), keys }
-        await store.addUser(user)
+        const user = await store.addUser({ email, ...(await hashed(loginKey)), keys })
         return { status: 201, body: { token: await newSession(user.id) } }
       }
       case 'POST /api/login': {
@@ -146,13 +157,11 @@ export function createApp({ store, origin = '*', appUrl = 'http://localhost:5173
         const user = await store.findUser(email)
         const hash = await scryptAsync(loginKey, user?.salt ?? 'no-user-salt', 32)
         if (!user || !timingSafeEqual(hash, Buffer.from(user.hash, 'hex'))) throw new HttpError(401, 'wrong email or password')
-        return { status: 200, body: { token: await newSession(user.id), keys: user.keys ?? {} } }
+        return { status: 200, body: { token: await newSession(user.id), keys: user.keys } }
       }
       case 'PUT /api/keys': {
         const { userId } = await userOf(req)
-        const keys = sealedKeys((await readJson(req)).keys)
-        const user = (await store.findUserById(userId))!
-        await store.updateUser(userId, { keys: { ...user.keys, ...keys } })
+        await store.setKeys(userId, sealedKeys((await readJson(req)).keys))
         return { status: 204, body: null }
       }
       case 'POST /api/reset/request': {
@@ -161,7 +170,7 @@ export function createApp({ store, origin = '*', appUrl = 'http://localhost:5173
         // The answer is the same whether or not the email has an account, so the form cannot be used to find accounts.
         if (await store.findUser(email)) {
           const code = Array.from(randomBytes(8), (b) => CODE_LETTERS[b % CODE_LETTERS.length]).join('')
-          const expiresAt = new Date(Date.now() + RESET_MINUTES * 60_000).toISOString()
+          const expiresAt = new Date(Date.now() + RESET_MINUTES * 60_000)
           await store.putReset({ email, codeHash: sha256(code), expiresAt, attempts: 0 })
           const shown = `${code.slice(0, 4)}-${code.slice(4)}`
           const link = `${appUrl.replace(/\/+$/, '')}/#/reset?email=${encodeURIComponent(email)}&code=${shown}`
@@ -176,7 +185,7 @@ export function createApp({ store, origin = '*', appUrl = 'http://localhost:5173
       case 'POST /api/reset/verify': {
         if (limited(ip)) throw new HttpError(429, 'slow down')
         const user = await checkCode(await readJson(req))
-        return { status: 200, body: { recovery: user.keys?.recovery ?? null } }
+        return { status: 200, body: { recovery: user.keys.recovery ?? null } }
       }
       case 'POST /api/reset/complete': {
         if (limited(ip)) throw new HttpError(429, 'slow down')
@@ -187,9 +196,11 @@ export function createApp({ store, origin = '*', appUrl = 'http://localhost:5173
         if (!keys.password) throw new HttpError(400, 'bad keys')
         // Starting fresh drops what the server holds: without the old key nobody can open it any more.
         const fresh = body.fresh === true
-        if (fresh) await store.removeBlob(user.id)
-        await store.updateUser(user.id, { ...(await hashed(loginKey)), keys: fresh ? keys : { ...user.keys, ...keys } })
-        await store.updateReset(user.email, () => null)
+        if (fresh) await store.removeRecords(user.id)
+        const { salt, hash } = await hashed(loginKey)
+        await store.setPassword(user.id, salt, hash)
+        await store.setKeys(user.id, fresh ? { password: keys.password, recovery: keys.recovery ?? null } : keys)
+        await store.removeReset(user.email)
         await store.removeSessionsOf(user.id)
         return { status: 200, body: { token: await newSession(user.id) } }
       }
@@ -198,17 +209,17 @@ export function createApp({ store, origin = '*', appUrl = 'http://localhost:5173
         await store.removeSession(tokenHash)
         return { status: 204, body: null }
       }
-      case 'GET /api/sync': {
+      case 'GET /api/records': {
         const { userId } = await userOf(req)
-        return { status: 200, body: (await store.getBlob(userId)) ?? { version: 0, data: null, updatedAt: null } }
+        const after = Number(url.searchParams.get('after') ?? 0)
+        if (!Number.isInteger(after) || after < 0) throw new HttpError(400, 'bad after')
+        const { change, records } = await store.records(userId, after, PAGE)
+        return { status: 200, body: { change, records, more: records.length === PAGE } }
       }
-      case 'PUT /api/sync': {
+      case 'POST /api/records': {
         const { userId } = await userOf(req)
-        const body = await readJson(req)
-        if (!Number.isInteger(body.baseVersion) || typeof body.data !== 'string') throw new HttpError(400, 'bad sync body')
-        const saved = await store.putBlob(userId, body.baseVersion as number, body.data)
-        if (!saved) return { status: 409, body: { version: (await store.getBlob(userId))?.version ?? 0 } }
-        return { status: 200, body: { version: saved.version, updatedAt: saved.updatedAt } }
+        const records = incoming((await readJson(req)).records)
+        return { status: 200, body: { change: await store.putRecords(userId, records) } }
       }
       case 'DELETE /api/account': {
         const { userId } = await userOf(req)

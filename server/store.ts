@@ -1,202 +1,164 @@
-import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import type { PrismaClient } from './generated/prisma/client.ts'
+import type { RecordKind } from './generated/prisma/enums.ts'
 
-export interface User {
-  id: string
-  email: string
-  salt: string
-  hash: string
-  createdAt: string
-  // The data key sealed on the device, once with the password and once with the recovery code. The server keeps them
-  // for the person's other devices and cannot open either.
-  keys?: SealedKeys
-}
+export const RECORD_KINDS = ['account', 'instrument', 'transaction', 'setting', 'daily_value', 'import', 'plan', 'watch', 'picture'] as const
 
 export interface SealedKeys {
   password?: string
   recovery?: string
 }
 
+export interface User {
+  id: string
+  email: string
+  salt: string
+  hash: string
+  keys: SealedKeys
+}
+
 export interface Reset {
   email: string
   codeHash: string
-  expiresAt: string
+  expiresAt: Date
   attempts: number
 }
 
-export interface Session {
-  tokenHash: string
-  userId: string
-  expiresAt: string
+export interface StoredRecord {
+  kind: RecordKind
+  id: string
+  // Null for a deleted record.
+  sealed: string | null
+  change: number
 }
 
-export interface Blob {
-  version: number
-  data: string
-  updatedAt: string
+export interface IncomingRecord {
+  kind: RecordKind
+  id: string
+  sealed: string | null
 }
 
-interface Index {
-  users: User[]
-  sessions: Session[]
-  resets?: Reset[]
+type UserRow = { id: string; email: string; salt: string; hash: string; sealedPasswordKey: string | null; sealedRecoveryKey: string | null }
+
+function toUser(row: UserRow | null): User | undefined {
+  if (!row) return undefined
+  const keys: SealedKeys = {}
+  if (row.sealedPasswordKey) keys.password = row.sealedPasswordKey
+  if (row.sealedRecoveryKey) keys.recovery = row.sealedRecoveryKey
+  return { id: row.id, email: row.email, salt: row.salt, hash: row.hash, keys }
 }
 
-// Plain JSON files: one index of users and sessions, one file per user's sealed data. Enough for a self-hosted server
-// with a handful of people; every write goes through a temporary file so a crash never leaves half a file.
-export class FileStore {
-  private dir: string
-  private index: Index | null = null
-  private queue: Promise<unknown> = Promise.resolve()
+function keyColumns(keys: SealedKeys) {
+  return {
+    ...(keys.password !== undefined ? { sealedPasswordKey: keys.password } : {}),
+    ...(keys.recovery !== undefined ? { sealedRecoveryKey: keys.recovery } : {}),
+  }
+}
 
-  constructor(dir: string) {
-    this.dir = dir
+// Everything the sync server keeps, in Postgres through Prisma.
+export class Store {
+  private db: PrismaClient
+
+  constructor(db: PrismaClient) {
+    this.db = db
   }
 
-  private async load(): Promise<Index> {
-    if (this.index) return this.index
-    await mkdir(join(this.dir, 'data'), { recursive: true })
-    try {
-      this.index = JSON.parse(await readFile(join(this.dir, 'index.json'), 'utf8')) as Index
-    } catch {
-      this.index = { users: [], sessions: [] }
-    }
-    return this.index
+  async findUser(email: string): Promise<User | undefined> {
+    return toUser(await this.db.user.findUnique({ where: { email } }))
   }
 
-  private async write(file: string, content: string) {
-    const tmp = `${file}.tmp`
-    await writeFile(tmp, content)
-    await rename(tmp, file)
+  async findUserById(id: string): Promise<User | undefined> {
+    return toUser(await this.db.user.findUnique({ where: { id } }))
   }
 
-  // Writes run one after another, so two requests never interleave their read and write of the index.
-  private serial<T>(work: () => Promise<T>): Promise<T> {
-    const next = this.queue.then(work, work)
-    this.queue = next.catch(() => {})
-    return next
+  async addUser(user: { email: string; salt: string; hash: string; keys: SealedKeys }): Promise<User> {
+    return toUser(await this.db.user.create({ data: { email: user.email, salt: user.salt, hash: user.hash, ...keyColumns(user.keys) } }))!
   }
 
-  private saveIndex() {
-    return this.write(join(this.dir, 'index.json'), JSON.stringify(this.index))
+  async setPassword(userId: string, salt: string, hash: string): Promise<void> {
+    await this.db.user.update({ where: { id: userId }, data: { salt, hash } })
   }
 
-  findUser(email: string): Promise<User | undefined> {
-    return this.load().then((i) => i.users.find((u) => u.email === email))
-  }
-
-  findUserById(id: string): Promise<User | undefined> {
-    return this.load().then((i) => i.users.find((u) => u.id === id))
-  }
-
-  addUser(user: User): Promise<void> {
-    return this.serial(async () => {
-      const i = await this.load()
-      if (i.users.some((u) => u.email === user.email)) throw new Error('exists')
-      i.users.push(user)
-      await this.saveIndex()
+  // Keys left out stay as they are; null clears one.
+  async setKeys(userId: string, keys: { password?: string | null; recovery?: string | null }): Promise<void> {
+    await this.db.user.update({
+      where: { id: userId },
+      data: {
+        ...(keys.password !== undefined ? { sealedPasswordKey: keys.password } : {}),
+        ...(keys.recovery !== undefined ? { sealedRecoveryKey: keys.recovery } : {}),
+      },
     })
   }
 
-  addSession(session: Session): Promise<void> {
-    return this.serial(async () => {
-      const i = await this.load()
-      const now = new Date().toISOString()
-      i.sessions = [...i.sessions.filter((s) => s.expiresAt > now), session]
-      await this.saveIndex()
-    })
+  async addSession(session: { tokenHash: string; userId: string; expiresAt: Date }): Promise<void> {
+    await this.db.$transaction([this.db.session.deleteMany({ where: { expiresAt: { lt: new Date() } } }), this.db.session.create({ data: session })])
   }
 
   async sessionUser(tokenHash: string): Promise<string | null> {
-    const i = await this.load()
-    const s = i.sessions.find((x) => x.tokenHash === tokenHash && x.expiresAt > new Date().toISOString())
-    return s?.userId ?? null
+    const session = await this.db.session.findUnique({ where: { tokenHash } })
+    return session && session.expiresAt > new Date() ? session.userId : null
   }
 
-  removeSession(tokenHash: string): Promise<void> {
-    return this.serial(async () => {
-      const i = await this.load()
-      i.sessions = i.sessions.filter((s) => s.tokenHash !== tokenHash)
-      await this.saveIndex()
-    })
+  async removeSession(tokenHash: string): Promise<void> {
+    await this.db.session.deleteMany({ where: { tokenHash } })
   }
 
-  updateUser(userId: string, patch: Partial<Pick<User, 'salt' | 'hash' | 'keys'>>): Promise<User | undefined> {
-    return this.serial(async () => {
-      const i = await this.load()
-      const user = i.users.find((u) => u.id === userId)
-      if (!user) return undefined
-      Object.assign(user, patch)
-      await this.saveIndex()
-      return user
-    })
-  }
-
-  removeSessionsOf(userId: string): Promise<void> {
-    return this.serial(async () => {
-      const i = await this.load()
-      i.sessions = i.sessions.filter((s) => s.userId !== userId)
-      await this.saveIndex()
-    })
+  async removeSessionsOf(userId: string): Promise<void> {
+    await this.db.session.deleteMany({ where: { userId } })
   }
 
   // One open reset per email: asking again replaces the earlier code.
-  putReset(reset: Reset): Promise<void> {
-    return this.serial(async () => {
-      const i = await this.load()
-      i.resets = [...(i.resets ?? []).filter((r) => r.email !== reset.email), reset]
-      await this.saveIndex()
-    })
+  async putReset(reset: Reset): Promise<void> {
+    await this.db.passwordReset.upsert({ where: { email: reset.email }, create: reset, update: reset })
   }
 
   async getReset(email: string): Promise<Reset | undefined> {
-    const i = await this.load()
-    return i.resets?.find((r) => r.email === email && r.expiresAt > new Date().toISOString())
+    const reset = await this.db.passwordReset.findUnique({ where: { email } })
+    return reset && reset.expiresAt > new Date() ? reset : undefined
   }
 
-  updateReset(email: string, change: (reset: Reset) => Reset | null): Promise<void> {
-    return this.serial(async () => {
-      const i = await this.load()
-      i.resets = (i.resets ?? []).flatMap((r) => (r.email === email ? (change(r) ?? []) : [r]))
-      await this.saveIndex()
+  async countWrongCode(email: string, limit: number): Promise<void> {
+    const reset = await this.db.passwordReset.update({ where: { email }, data: { attempts: { increment: 1 } } })
+    if (reset.attempts >= limit) await this.removeReset(email)
+  }
+
+  async removeReset(email: string): Promise<void> {
+    await this.db.passwordReset.deleteMany({ where: { email } })
+  }
+
+  async removeUser(userId: string): Promise<void> {
+    await this.db.user.delete({ where: { id: userId } })
+  }
+
+  async records(userId: string, after: number, limit: number): Promise<{ change: number; records: StoredRecord[] }> {
+    const [user, rows] = await this.db.$transaction([
+      this.db.user.findUniqueOrThrow({ where: { id: userId }, select: { changeCount: true } }),
+      this.db.syncRecord.findMany({ where: { userId, change: { gt: after } }, orderBy: { change: 'asc' }, take: limit }),
+    ])
+    return { change: user.changeCount, records: rows.map((r) => ({ kind: r.kind, id: r.recordId, sealed: r.sealed, change: r.change })) }
+  }
+
+  // Each record written gets the next number of the person's count, so a device that has seen up to a number has
+  // seen everything before it. The last write of a record wins.
+  async putRecords(userId: string, records: IncomingRecord[]): Promise<number> {
+    return this.db.$transaction(async (tx) => {
+      const { changeCount } = await tx.user.update({ where: { id: userId }, data: { changeCount: { increment: records.length } } })
+      let change = changeCount - records.length
+      for (const record of records) {
+        change += 1
+        const key = { userId_kind_recordId: { userId, kind: record.kind, recordId: record.id } }
+        await tx.syncRecord.upsert({
+          where: key,
+          create: { userId, kind: record.kind, recordId: record.id, sealed: record.sealed, change },
+          update: { sealed: record.sealed, change },
+        })
+      }
+      return changeCount
     })
   }
 
-  removeBlob(userId: string): Promise<void> {
-    return this.serial(() => rm(this.blobFile(userId), { force: true }))
-  }
-
-  private blobFile(userId: string) {
-    return join(this.dir, 'data', `${userId}.json`)
-  }
-
-  async getBlob(userId: string): Promise<Blob | null> {
-    await this.load()
-    try {
-      return JSON.parse(await readFile(this.blobFile(userId), 'utf8')) as Blob
-    } catch {
-      return null
-    }
-  }
-
-  // Saves only when the caller saw the latest version; returns the stored version, or null on a conflict.
-  putBlob(userId: string, baseVersion: number, data: string): Promise<Blob | null> {
-    return this.serial(async () => {
-      const current = await this.getBlob(userId)
-      if ((current?.version ?? 0) !== baseVersion) return null
-      const blob = { version: baseVersion + 1, data, updatedAt: new Date().toISOString() }
-      await this.write(this.blobFile(userId), JSON.stringify(blob))
-      return blob
-    })
-  }
-
-  removeUser(userId: string): Promise<void> {
-    return this.serial(async () => {
-      const i = await this.load()
-      i.users = i.users.filter((u) => u.id !== userId)
-      i.sessions = i.sessions.filter((s) => s.userId !== userId)
-      await this.saveIndex()
-      await rm(this.blobFile(userId), { force: true })
-    })
+  // A reset that starts fresh leaves nothing behind that the old key sealed. The count carries on, so a device that
+  // still remembers an old number cannot mistake new records for ones it has seen.
+  async removeRecords(userId: string): Promise<void> {
+    await this.db.syncRecord.deleteMany({ where: { userId } })
   }
 }

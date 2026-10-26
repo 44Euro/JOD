@@ -1,10 +1,14 @@
-import { exportBackup, parseBackup, restoreBackup } from '../db/backup'
+import type Dexie from 'dexie'
 import type { JodDB } from '../db/db'
 import { asEncrypted, decryptText, encryptText, keyIterations } from '../security/crypto'
-import type { SyncClient } from './client'
-import { isDirty, readSync, setDirty, writeSync, type SyncState } from './state'
+import type { SyncClient, SyncRecord } from './client'
+import { clearPending, markChanged, pendingChanges, pendingKey, readSync, SYNC_PROTOCOL, writeSync, type SyncState } from './state'
 
-const SYNC_SALT_ITERATIONS = 1000
+// Each record is sealed with the data key, which is long and random already, so a light key-stretch is enough.
+const SEAL_ITERATIONS = 1000
+// Kept under the server's request limit even when pictures are in the batch.
+const BATCH_CHARS = 8_000_000
+const BATCH_RECORDS = 500
 
 function hex(bytes: ArrayBuffer): string {
   return [...new Uint8Array(bytes)].map((b) => b.toString(16).padStart(2, '0')).join('')
@@ -24,37 +28,79 @@ export async function deriveKeys(email: string, password: string, iterations = k
   return { loginKey: hex(await derive('login')), passwordKey: hex(await derive('data')) }
 }
 
+// Every table the app keeps for the person, and the kind each record has on the server. Exchange rates are a cache
+// that every device fetches for itself, so they are not synced.
+const KINDS = {
+  accounts: 'account',
+  instruments: 'instrument',
+  transactions: 'transaction',
+  settings: 'setting',
+  dailyValues: 'daily_value',
+  imports: 'import',
+  plans: 'plan',
+  watchlist: 'watch',
+  pictures: 'picture',
+} as const
+
+type TableName = keyof typeof KINDS
+const TABLES = Object.keys(KINDS) as TableName[]
+const TABLE_OF = Object.fromEntries(TABLES.map((t) => [KINDS[t], t])) as Record<string, TableName>
+
 let applying = false
 
-// Changes written while a pulled copy is put in place are not the user's, so they must not mark the device as changed.
+// Changes written while pulled records are put in place are not the person's, so they must not be sent back.
 export function isApplyingRemote() {
   return applying
 }
 
-async function seal(db: JodDB, dataKey: string): Promise<string> {
-  return JSON.stringify(await encryptText(JSON.stringify(await exportBackup(db)), dataKey, SYNC_SALT_ITERATIONS))
+function table(db: JodDB, name: TableName) {
+  return db[name] as unknown as Dexie.Table<Record<string, unknown>, string>
 }
 
-async function apply(db: JodDB, data: string, dataKey: string) {
-  const sealed = asEncrypted(JSON.parse(data))
-  if (!sealed) throw new Error('not sealed')
-  const backup = parseBackup(await decryptText(sealed, dataKey))
-  applying = true
-  try {
-    await restoreBackup(db, backup)
-  } finally {
-    applying = false
-  }
+function readBytes(blob: Blob): Promise<Uint8Array> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(new Uint8Array(reader.result as ArrayBuffer))
+    reader.onerror = () => reject(reader.error)
+    reader.readAsArrayBuffer(blob)
+  })
 }
 
-export type SyncOutcome =
-  | { kind: 'up-to-date' }
-  | { kind: 'pushed'; version: number }
-  | { kind: 'pulled'; version: number }
-  | { kind: 'conflict'; remoteVersion: number }
+async function toBase64(blob: Blob): Promise<string> {
+  const bytes = await readBytes(blob)
+  let text = ''
+  for (let i = 0; i < bytes.length; i += 0x8000) text += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
+  return btoa(text)
+}
 
-// Two syncs at once (the automatic one and a tap) would both build on the same version and one would be refused as a
-// conflict, so they run one after the other.
+function fromBase64(data: string, type: string): Blob {
+  return new Blob([Uint8Array.from(atob(data), (c) => c.charCodeAt(0))], { type })
+}
+
+// Checked by shape: a Blob read back from IndexedDB is not always an instance of this window's Blob.
+function isBlob(value: unknown): value is Blob {
+  if (typeof value !== 'object' || value === null) return false
+  const blob = value as Blob
+  return typeof blob.size === 'number' && typeof blob.type === 'string' && typeof blob.slice === 'function'
+}
+
+export async function sealRecord(name: TableName, row: Record<string, unknown>, dataKey: string): Promise<string> {
+  const plain = name === 'pictures' && isBlob(row.blob) ? { ...row, blob: { type: row.blob.type, data: await toBase64(row.blob) } } : row
+  return JSON.stringify(await encryptText(JSON.stringify(plain), dataKey, SEAL_ITERATIONS))
+}
+
+export async function openRecord(name: TableName, sealed: string, dataKey: string): Promise<Record<string, unknown>> {
+  const file = asEncrypted(JSON.parse(sealed))
+  if (!file) throw new Error('not sealed')
+  const row = JSON.parse(await decryptText(file, dataKey)) as Record<string, unknown>
+  const blob = row.blob as { type?: unknown; data?: unknown } | undefined
+  if (name === 'pictures' && typeof blob?.data === 'string') return { ...row, blob: fromBase64(blob.data, String(blob.type ?? '')) }
+  return row
+}
+
+export type SyncOutcome = { kind: 'up-to-date' } | { kind: 'pushed'; count: number } | { kind: 'pulled'; count: number }
+
+// Two syncs at once (the automatic one and a tap) would send the same changes twice, so they run one after the other.
 let queue: Promise<unknown> = Promise.resolve()
 
 function oneAtATime<T>(work: () => Promise<T>): Promise<T> {
@@ -66,12 +112,12 @@ function oneAtATime<T>(work: () => Promise<T>): Promise<T> {
 // Built on what is stored now rather than the copy read when the sync began: the person may have changed it meanwhile,
 // such as confirming the recovery code while the first sync was still running.
 function saved(state: SyncState, version: number, now: Date) {
-  writeSync({ ...(readSync() ?? state), version, syncedAt: now.toISOString() })
-  setDirty(false)
+  writeSync({ ...(readSync() ?? state), version, syncedAt: now.toISOString(), protocol: SYNC_PROTOCOL })
 }
 
-// The device remembers the version it last matched. Only one side changed: that side wins. Both changed: the user
-// picks, since merging two edited ledgers by record could keep a sale while dropping the buy it needs.
+// Record by record: first take what other devices sent since the last number seen, skipping records this device has
+// changed and not sent yet, then send those. Two devices editing different records both keep their edits; when both
+// edited the same record, the one sent last stays.
 export function syncNow(db: JodDB, client: SyncClient, now: Date = new Date()): Promise<SyncOutcome> {
   return oneAtATime(() => syncOnce(db, client, now))
 }
@@ -79,52 +125,88 @@ export function syncNow(db: JodDB, client: SyncClient, now: Date = new Date()): 
 async function syncOnce(db: JodDB, client: SyncClient, now: Date): Promise<SyncOutcome> {
   const state = readSync()
   if (!state) throw new Error('not signed in')
-  const remote = await client.pull(state.token)
-  const changedHere = isDirty() || state.syncedAt === null
-  if (remote.version === state.version || remote.data === null) {
-    if (!changedHere && remote.data !== null) return { kind: 'up-to-date' }
-    const result = await client.push(state.token, remote.version, await seal(db, state.dataKey))
-    if ('conflict' in result) return { kind: 'conflict', remoteVersion: result.conflict }
-    saved(state, result.version, now)
-    return { kind: 'pushed', version: result.version }
+  // On a device's first sync, whatever it already holds joins the account rather than being lost or overwritten.
+  const first = state.syncedAt === null || state.protocol !== SYNC_PROTOCOL
+  if (first) await markEverything(db)
+  let after = first ? 0 : state.version
+  let pulled = 0
+  let count = 0
+  for (;;) {
+    const page = await client.pullRecords(state.token, after)
+    const waiting = pendingChanges()
+    for (const record of page.records) {
+      if (!waiting[pendingKey(record.kind, record.id)] && (await applyRecord(db, record, state.dataKey))) pulled += 1
+    }
+    after = page.more ? page.records[page.records.length - 1].change : Math.max(after, page.change)
+    count = page.change
+    if (!page.more) break
   }
-  if (changedHere && state.syncedAt !== null) return { kind: 'conflict', remoteVersion: remote.version }
-  if (changedHere && state.syncedAt === null && !(await isEmpty(db))) return { kind: 'conflict', remoteVersion: remote.version }
-  await apply(db, remote.data, state.dataKey)
-  saved(state, remote.version, now)
-  return { kind: 'pulled', version: remote.version }
+  const pushed = await pushPending(db, client, state, (change, sent) => {
+    // When nothing else was written between the pull and this push, the numbers just used are all this device's own
+    // records, so the next pull can start after them instead of fetching them back.
+    if (change === count + sent && after === count) after = change
+    count = change
+  })
+  saved(state, after, now)
+  if (pulled > 0) return { kind: 'pulled', count: pulled }
+  if (pushed > 0) return { kind: 'pushed', count: pushed }
+  return { kind: 'up-to-date' }
 }
 
-async function isEmpty(db: JodDB) {
-  return (await db.transactions.count()) === 0 && (await db.accounts.count()) === 0
-}
-
-export function resolveConflict(db: JodDB, client: SyncClient, keep: 'device' | 'server', now: Date = new Date()): Promise<SyncOutcome> {
-  return oneAtATime(() => resolveOnce(db, client, keep, now))
-}
-
-async function resolveOnce(db: JodDB, client: SyncClient, keep: 'device' | 'server', now: Date): Promise<SyncOutcome> {
-  const state = readSync()
-  if (!state) throw new Error('not signed in')
-  const remote = await client.pull(state.token)
-  if (keep === 'server' && remote.data !== null) {
-    await apply(db, remote.data, state.dataKey)
-    saved(state, remote.version, now)
-    return { kind: 'pulled', version: remote.version }
+async function applyRecord(db: JodDB, record: SyncRecord, dataKey: string): Promise<boolean> {
+  const name = TABLE_OF[record.kind]
+  if (!name) return false
+  applying = true
+  try {
+    if (record.sealed === null) await table(db, name).delete(record.id)
+    else await table(db, name).put(await openRecord(name, record.sealed, dataKey))
+  } finally {
+    applying = false
   }
-  const result = await client.push(state.token, remote.version, await seal(db, state.dataKey))
-  if ('conflict' in result) return { kind: 'conflict', remoteVersion: result.conflict }
-  saved(state, result.version, now)
-  return { kind: 'pushed', version: result.version }
+  return true
+}
+
+async function pushPending(db: JodDB, client: SyncClient, state: SyncState, onPushed: (change: number, sent: number) => void): Promise<number> {
+  const sent = { ...pendingChanges() }
+  const keys = Object.keys(sent)
+  let batch: SyncRecord[] = []
+  let size = 0
+  const flush = async () => {
+    if (batch.length > 0) onPushed(await client.pushRecords(state.token, batch), batch.length)
+    batch = []
+    size = 0
+  }
+  for (const key of keys) {
+    const split = key.indexOf(':')
+    const kind = key.slice(0, split)
+    const id = key.slice(split + 1)
+    const name = TABLE_OF[kind]
+    if (!name) continue
+    const row = await table(db, name).get(id)
+    const sealed = row ? await sealRecord(name, row, state.dataKey) : null
+    if (batch.length >= BATCH_RECORDS || (batch.length > 0 && size + (sealed?.length ?? 0) > BATCH_CHARS)) await flush()
+    batch.push({ kind, id, sealed })
+    size += sealed?.length ?? 0
+  }
+  await flush()
+  clearPending(sent)
+  return keys.length
+}
+
+async function markEverything(db: JodDB) {
+  for (const name of TABLES) {
+    for (const key of await table(db, name).toCollection().primaryKeys()) markChanged(KINDS[name], String(key))
+  }
 }
 
 export function installDirtyTracking(db: JodDB) {
-  const mark = () => {
-    if (!applying) setDirty(true)
-  }
-  for (const table of [db.accounts, db.instruments, db.transactions, db.settings, db.dailyValues, db.imports, db.plans, db.watchlist]) {
-    table.hook('creating', mark)
-    table.hook('updating', mark)
-    table.hook('deleting', mark)
+  for (const name of TABLES) {
+    const mark = (key: unknown) => {
+      if (!applying && key !== undefined) markChanged(KINDS[name], String(key))
+    }
+    const t = table(db, name)
+    t.hook('creating', (key, row) => mark(key ?? row[t.schema.primKey.keyPath as string]))
+    t.hook('updating', (_mods, key) => mark(key))
+    t.hook('deleting', (key) => mark(key))
   }
 }

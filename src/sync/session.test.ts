@@ -1,19 +1,19 @@
-import { mkdtemp } from 'node:fs/promises'
 import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createApp } from '../../server/app.ts'
-import { FileStore } from '../../server/store.ts'
+import { createTestStore } from '../../server/testStore.ts'
 import { db } from '../db/db'
 import { resetDb } from '../test/render'
 import { createSyncClient } from './client'
-import { deriveKeys, syncNow } from './engine'
+import { deriveKeys, installDirtyTracking, syncNow } from './engine'
 import { confirmRecoverySaved, renewRecoveryCode, requestPasswordReset, resetPassword, serverClient, setSyncServerForTests, signIn } from './session'
-import { readSync, setDirty, writeSync } from './state'
+import { clearPending, readSync, writeSync } from './state'
 
 let server: Server
+
+// As main.tsx does in the app, so local changes are known to need sending.
+installDirtyTracking(db)
 let base = ''
 let mails: string[] = []
 const account = { id: 'acc-1', name: 'Dime US', broker: 'Dime', note: '', createdAt: '2024-01-01T00:00:00.000Z' }
@@ -22,12 +22,12 @@ beforeEach(async () => {
   await resetDb()
   mails = []
   const sendMail = async (_to: string, _subject: string, text: string) => void mails.push(text)
-  server = createServer(createApp({ store: new FileStore(await mkdtemp(join(tmpdir(), 'jod-session-'))), sendMail }))
+  server = createServer(createApp({ store: await createTestStore(), sendMail }))
   await new Promise<void>((resolve) => server.listen(0, resolve))
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
   setSyncServerForTests(base)
   writeSync(null)
-  setDirty(false)
+  clearPending()
 })
 
 afterEach(() => new Promise<void>((resolve) => server.close(() => resolve())))
@@ -36,6 +36,7 @@ afterEach(() => new Promise<void>((resolve) => server.close(() => resolve())))
 async function otherDevice() {
   writeSync(null)
   await resetDb()
+  clearPending()
 }
 
 async function emailedCode(email: string) {
@@ -48,7 +49,6 @@ async function signUpWithAccount() {
   const recovery = readSync()!.recoveryCode!
   confirmRecoverySaved()
   await db.accounts.add(account)
-  setDirty(true)
   expect((await syncNow(db, serverClient())).kind).toBe('pushed')
   return recovery
 }

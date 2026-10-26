@@ -1,16 +1,14 @@
 // @vitest-environment node
-import { mkdtemp, readFile } from 'node:fs/promises'
 import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createApp } from './app.ts'
-import { FileStore } from './store.ts'
+import type { Store } from './store.ts'
+import { createTestStore } from './testStore.ts'
 
 let server: Server
 let base = ''
-let dir = ''
+let store: Store
 let mails: { to: string; text: string }[] = []
 const key = (c: string) => c.repeat(64)
 
@@ -25,10 +23,10 @@ async function call(method: string, path: string, body?: unknown, token?: string
 }
 
 beforeEach(async () => {
-  dir = await mkdtemp(join(tmpdir(), 'jod-sync-'))
+  store = await createTestStore()
   mails = []
   const sendMail = async (to: string, _subject: string, text: string) => void mails.push({ to, text })
-  server = createServer(createApp({ store: new FileStore(dir), sendMail, appUrl: 'https://jod.test' }))
+  server = createServer(createApp({ store, sendMail, appUrl: 'https://jod.test' }))
   await new Promise<void>((resolve) => server.listen(0, resolve))
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
 })
@@ -43,26 +41,31 @@ describe('sync server', () => {
     const ok = await call('POST', '/api/login', { email: 'a@x.io', loginKey: key('a') })
     expect(ok.status).toBe(200)
     expect(ok.body.token).toMatch(/^[0-9a-f]{64}$/)
-    const index = await readFile(join(dir, 'index.json'), 'utf8')
-    expect(index).not.toContain(key('a'))
-    expect(index).not.toContain(ok.body.token)
+    const stored = await store.findUser('a@x.io')
+    expect(JSON.stringify(stored)).not.toContain(key('a'))
+    expect(await store.sessionUser(ok.body.token)).toBeNull()
   })
 
-  it('keeps one sealed copy per user and refuses a write based on an old version', async () => {
+  it('numbers every record written and hands back only what changed after a number', async () => {
     const { body } = await call('POST', '/api/signup', { email: 'a@x.io', loginKey: key('a') })
-    expect((await call('GET', '/api/sync', undefined, body.token)).body).toEqual({ version: 0, data: null, updatedAt: null })
-    expect((await call('PUT', '/api/sync', { baseVersion: 0, data: 'sealed-1' }, body.token)).body.version).toBe(1)
-    expect(await call('PUT', '/api/sync', { baseVersion: 0, data: 'sealed-x' }, body.token)).toEqual({ status: 409, body: { version: 1 } })
-    expect((await call('PUT', '/api/sync', { baseVersion: 1, data: 'sealed-2' }, body.token)).body.version).toBe(2)
-    expect((await call('GET', '/api/sync', undefined, body.token)).body).toMatchObject({ version: 2, data: 'sealed-2' })
+    expect((await call('GET', '/api/records?after=0', undefined, body.token)).body).toEqual({ change: 0, records: [], more: false })
+    const first = await call('POST', '/api/records', { records: [{ kind: 'account', id: 'acc-1', sealed: 's1' }, { kind: 'transaction', id: 'tx-1', sealed: 's2' }] }, body.token)
+    expect(first.body).toEqual({ change: 2 })
+    await call('POST', '/api/records', { records: [{ kind: 'account', id: 'acc-1', sealed: 's3' }, { kind: 'transaction', id: 'tx-1', sealed: null }] }, body.token)
+    expect((await call('GET', '/api/records?after=0', undefined, body.token)).body.records).toEqual([
+      { kind: 'account', id: 'acc-1', sealed: 's3', change: 3 },
+      { kind: 'transaction', id: 'tx-1', sealed: null, change: 4 },
+    ])
+    expect((await call('GET', '/api/records?after=3', undefined, body.token)).body.records.map((r: { id: string }) => r.id)).toEqual(['tx-1'])
+    expect((await call('POST', '/api/records', { records: [{ kind: 'nope', id: 'x', sealed: 's' }] }, body.token)).status).toBe(400)
   })
 
   it('needs a valid session, ends it on sign out, and deletes everything on request', async () => {
-    expect((await call('GET', '/api/sync')).status).toBe(401)
+    expect((await call('GET', '/api/records')).status).toBe(401)
     const { body } = await call('POST', '/api/signup', { email: 'a@x.io', loginKey: key('a') })
-    await call('PUT', '/api/sync', { baseVersion: 0, data: 'sealed' }, body.token)
+    await call('POST', '/api/records', { records: [{ kind: 'account', id: 'acc-1', sealed: 's' }] }, body.token)
     expect((await call('DELETE', '/api/account', undefined, body.token)).status).toBe(204)
-    expect((await call('GET', '/api/sync', undefined, body.token)).status).toBe(401)
+    expect((await call('GET', '/api/records', undefined, body.token)).status).toBe(401)
     expect((await call('POST', '/api/login', { email: 'a@x.io', loginKey: key('a') })).status).toBe(401)
   })
 
@@ -81,7 +84,7 @@ describe('sync server', () => {
 
   it('resets the password with an emailed code, keeps the data, and ends every old session', async () => {
     const { body } = await call('POST', '/api/signup', { email: 'a@x.io', loginKey: key('a'), keys: { password: 'sealed-p', recovery: 'sealed-r' } })
-    await call('PUT', '/api/sync', { baseVersion: 0, data: 'sealed-data' }, body.token)
+    await call('POST', '/api/records', { records: [{ kind: 'account', id: 'acc-1', sealed: 'sealed-data' }] }, body.token)
     expect((await call('POST', '/api/reset/request', { email: 'nobody@x.io' })).status).toBe(204)
     expect(mails).toEqual([])
     expect((await call('POST', '/api/reset/request', { email: 'A@x.io' })).status).toBe(204)
@@ -92,8 +95,8 @@ describe('sync server', () => {
     expect((await call('POST', '/api/reset/verify', { email: 'a@x.io', code: code.toLowerCase() })).body).toEqual({ recovery: 'sealed-r' })
     const done = await call('POST', '/api/reset/complete', { email: 'a@x.io', code, loginKey: key('b'), keys: { password: 'sealed-p2' } })
     expect(done.status).toBe(200)
-    expect((await call('GET', '/api/sync', undefined, body.token)).status).toBe(401)
-    expect((await call('GET', '/api/sync', undefined, done.body.token)).body.data).toBe('sealed-data')
+    expect((await call('GET', '/api/records', undefined, body.token)).status).toBe(401)
+    expect((await call('GET', '/api/records', undefined, done.body.token)).body.records[0].sealed).toBe('sealed-data')
     expect((await call('POST', '/api/login', { email: 'a@x.io', loginKey: key('a') })).status).toBe(401)
     expect((await call('POST', '/api/login', { email: 'a@x.io', loginKey: key('b') })).body.keys).toEqual({ password: 'sealed-p2', recovery: 'sealed-r' })
     expect((await call('POST', '/api/reset/complete', { email: 'a@x.io', code, loginKey: key('c'), keys: { password: 'x' } })).status).toBe(400)
@@ -109,11 +112,11 @@ describe('sync server', () => {
 
   it('starts fresh on request, leaving no old data or recovery key behind', async () => {
     const { body } = await call('POST', '/api/signup', { email: 'a@x.io', loginKey: key('a'), keys: { password: 'sealed-p', recovery: 'sealed-r' } })
-    await call('PUT', '/api/sync', { baseVersion: 0, data: 'sealed-data' }, body.token)
+    await call('POST', '/api/records', { records: [{ kind: 'account', id: 'acc-1', sealed: 'sealed-data' }] }, body.token)
     await call('POST', '/api/reset/request', { email: 'a@x.io' })
     const code = /([A-Z0-9]{4}-[A-Z0-9]{4})/.exec(mails[0].text)![1]
     const done = await call('POST', '/api/reset/complete', { email: 'a@x.io', code, loginKey: key('b'), keys: { password: 'new-p', recovery: 'new-r' }, fresh: true })
-    expect((await call('GET', '/api/sync', undefined, done.body.token)).body).toEqual({ version: 0, data: null, updatedAt: null })
+    expect((await call('GET', '/api/records', undefined, done.body.token)).body.records).toEqual([])
     expect((await call('POST', '/api/login', { email: 'a@x.io', loginKey: key('b') })).body.keys).toEqual({ password: 'new-p', recovery: 'new-r' })
   })
 })

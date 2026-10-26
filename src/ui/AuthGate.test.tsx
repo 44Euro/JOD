@@ -1,13 +1,10 @@
-import { mkdtemp } from 'node:fs/promises'
 import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
 import { cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createApp } from '../../server/app.ts'
-import { FileStore } from '../../server/store.ts'
+import { createTestStore } from '../../server/testStore.ts'
 import { db } from '../db/db'
 import { LOCK_STORAGE_KEY, resetLockForTests } from '../security/lock'
 import { installDirtyTracking } from '../sync/engine'
@@ -26,7 +23,7 @@ beforeEach(async () => {
   await resetDb()
   mails = []
   const sendMail = async (_to: string, _subject: string, text: string) => void mails.push(text)
-  server = createServer(createApp({ store: new FileStore(await mkdtemp(join(tmpdir(), 'jod-auth-'))), sendMail }))
+  server = createServer(createApp({ store: await createTestStore(), sendMail }))
   await new Promise<void>((resolve) => server.listen(0, resolve))
   setSyncServerForTests(`http://127.0.0.1:${(server.address() as AddressInfo).port}`)
   writeSync(null)

@@ -8,3 +8,4 @@ sync-data/
 .env
 .env.*
 !.env.example
+server/generated/

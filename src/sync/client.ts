@@ -9,9 +9,18 @@ export class SyncError extends Error {
   }
 }
 
-export interface Remote {
-  version: number
-  data: string | null
+export interface SyncRecord {
+  kind: string
+  id: string
+  // Null when the record was deleted.
+  sealed: string | null
+}
+
+export interface RecordPage {
+  // The account's change count when the page was read.
+  change: number
+  records: (SyncRecord & { change: number })[]
+  more: boolean
 }
 
 export interface SealedKeys {
@@ -28,8 +37,8 @@ export interface SyncClient {
   verifyReset(email: string, code: string): Promise<string | null>
   completeReset(reset: { email: string; code: string; loginKey: string; keys: SealedKeys; fresh?: boolean }): Promise<string>
   logout(token: string): Promise<void>
-  pull(token: string): Promise<Remote>
-  push(token: string, baseVersion: number, data: string): Promise<{ version: number } | { conflict: number }>
+  pullRecords(token: string, after: number): Promise<RecordPage>
+  pushRecords(token: string, records: SyncRecord[]): Promise<number>
   deleteAccount(token: string): Promise<void>
 }
 
@@ -85,13 +94,11 @@ export function createSyncClient(server: string, fetchFn: typeof fetch = (i, o) 
     async logout(token) {
       await call('POST', '/api/logout', token).catch(() => {})
     },
-    async pull(token) {
-      const { body } = await call('GET', '/api/sync', token)
-      return { version: body.version as number, data: (body.data as string | null) ?? null }
+    async pullRecords(token, after) {
+      return (await call('GET', `/api/records?after=${after}`, token)).body as unknown as RecordPage
     },
-    async push(token, baseVersion, data) {
-      const { status, body } = await call('PUT', '/api/sync', token, { baseVersion, data }, [409])
-      return status === 409 ? { conflict: body.version as number } : { version: body.version as number }
+    async pushRecords(token, records) {
+      return (await call('POST', '/api/records', token, { records })).body.change as number
     },
     async deleteAccount(token) {
       await call('DELETE', '/api/account', token)

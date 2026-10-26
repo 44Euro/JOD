@@ -10,8 +10,7 @@ import { PinPad } from './components/PinPad'
 import { t } from '../i18n'
 import { hasBiometrics, noteVisibility, setPin, unlockWithBiometrics, unlockWithPin, useLockState, validPin } from '../security/lock'
 import { SyncError } from '../sync/client'
-import type { SyncOutcome } from '../sync/engine'
-import { authBypassed, confirmRecoverySaved, keepSide, MIN_PASSWORD, signIn, signOut } from '../sync/session'
+import { authBypassed, confirmRecoverySaved, MIN_PASSWORD, signIn, signOut } from '../sync/session'
 import { useSyncState } from '../sync/state'
 import { cn } from '../lib/cn'
 import { ThemeSync, useBoardStatusBar } from './theme'
@@ -193,7 +192,6 @@ function SignInScreen({ initialMode = 'login', onForgot }: { initialMode?: 'logi
   const [agreed, setAgreed] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [conflict, setConflict] = useState(false)
   const signup = mode === 'signup'
 
   function switchTo(next: 'login' | 'signup') {
@@ -209,30 +207,12 @@ function SignInScreen({ initialMode = 'login', onForgot }: { initialMode?: 'logi
     if (signup && !agreed) return setError(t('กรุณายอมรับนโยบายความเป็นส่วนตัวก่อนสมัคร'))
     setBusy(true)
     try {
-      const outcome: SyncOutcome = await signIn(mode, email, password)
-      setConflict(outcome.kind === 'conflict')
+      await signIn(mode, email, password)
     } catch (e) {
       setError(messageOf(e))
     } finally {
       setBusy(false)
     }
-  }
-
-  if (conflict) {
-    return (
-      <BoardScreen>
-        <div className="grid gap-3">
-          <h1 className="text-[26px] leading-tight font-semibold">{t('มีข้อมูลทั้งในเครื่องนี้และในบัญชี')}</h1>
-          <p className="text-sm text-muted-foreground">{t('เลือกว่าจะใช้ข้อมูลชุดไหน อีกชุดจะถูกแทนที่')}</p>
-          <Button type="button" className="h-12" disabled={busy} onClick={() => void keepSide('server').then(() => setConflict(false))}>
-            {t('ใช้ข้อมูลในบัญชี')}
-          </Button>
-          <Button type="button" variant="outline" className="h-12" disabled={busy} onClick={() => void keepSide('device').then(() => setConflict(false))}>
-            {t('ใช้ข้อมูลในเครื่องนี้')}
-          </Button>
-        </div>
-      </BoardScreen>
-    )
   }
 
   return (

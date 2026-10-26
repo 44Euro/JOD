@@ -1,47 +1,54 @@
-import { mkdtemp } from 'node:fs/promises'
 import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createApp } from '../../server/app.ts'
-import { FileStore } from '../../server/store.ts'
+import { createTestStore } from '../../server/testStore.ts'
 import { createDb, type JodDB } from '../db/db'
 import { makeTx } from '../test/fixtures'
-import { createSyncClient } from './client'
-import { deriveKeys, installDirtyTracking, resolveConflict, syncNow } from './engine'
-import { isDirty, readSync, setDirty, writeSync, type SyncState } from './state'
+import { createSyncClient, type SyncClient } from './client'
+import { deriveKeys, installDirtyTracking, openRecord, sealRecord, syncNow } from './engine'
+import { clearPending, isDirty, pendingChanges, readSync, SYNC_PROTOCOL, writeSync, type PendingChanges, type SyncState } from './state'
 
 let server: Server
 let base = ''
 const account = { id: 'acc-1', name: 'Dime US', broker: 'Dime', note: '', createdAt: '2024-01-01T00:00:00.000Z' }
 
 beforeEach(async () => {
-  server = createServer(createApp({ store: new FileStore(await mkdtemp(join(tmpdir(), 'jod-sync-'))) }))
+  server = createServer(createApp({ store: await createTestStore() }))
   await new Promise<void>((resolve) => server.listen(0, resolve))
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
   writeSync(null)
-  setDirty(false)
+  clearPending()
 })
 
 afterEach(() => new Promise<void>((resolve) => server.close(() => resolve())))
 
-// Two devices share this test's localStorage, so each keeps its own copy of the sync state and swaps it in.
+// Two devices share this test's localStorage, so each keeps its own sync state and pending list and swaps them in.
 function device(db: JodDB) {
   let state: SyncState | null = null
-  let dirty = false
+  let waiting: PendingChanges = {}
+  installDirtyTracking(db)
   return {
     db,
     use() {
       writeSync(state)
-      setDirty(dirty)
+      clearPending()
+      localStorage.setItem('jod-sync-pending', JSON.stringify(waiting))
     },
     keep() {
       state = readSync()
-      dirty = isDirty()
+      waiting = { ...pendingChanges() }
     },
   }
 }
+
+async function account2(client: SyncClient) {
+  const keys = await deriveKeys('a@x.io', 'pw', 1000)
+  const token = await client.signup('a@x.io', keys.loginKey)
+  return { server: base, email: 'a@x.io', token, dataKey: keys.passwordKey, version: 0, syncedAt: null }
+}
+
+const ids = async (db: JodDB) => (await db.transactions.toArray()).map((t) => t.id).sort()
 
 describe('sync', () => {
   it('derives a login key and a separate password key from one password', async () => {
@@ -52,53 +59,51 @@ describe('sync', () => {
     expect(a.loginKey).toMatch(/^[0-9a-f]{64}$/)
   })
 
-  it('carries records from one device to another, the server holding only sealed data', async () => {
+  it('carries records from one device to another, the server holding one sealed row per record', async () => {
     const client = createSyncClient(base)
-    const keys = await deriveKeys('a@x.io', 'pw', 1000)
-    const token = await client.signup('a@x.io', keys.loginKey)
+    const signedIn = await account2(client)
     const one = device(createDb(`test-${crypto.randomUUID()}`))
     const two = device(createDb(`test-${crypto.randomUUID()}`))
-    installDirtyTracking(one.db)
-    installDirtyTracking(two.db)
 
     one.use()
-    writeSync({ server: base, email: 'a@x.io', token, dataKey: keys.passwordKey, version: 0, syncedAt: null })
+    writeSync(signedIn)
     await one.db.accounts.add(account)
     await one.db.transactions.add(makeTx({ id: 'first' }))
-    expect(await syncNow(one.db, client)).toEqual({ kind: 'pushed', version: 1 })
-    const stored = await client.pull(token)
-    expect(stored.data).not.toContain('Dime US')
+    expect(await syncNow(one.db, client)).toEqual({ kind: 'pushed', count: 2 })
+    expect(isDirty()).toBe(false)
+    const stored = await client.pullRecords(signedIn.token, 0)
+    expect(stored.records.map((r) => `${r.kind}:${r.id}`).sort()).toEqual(['account:acc-1', 'transaction:first'])
+    expect(JSON.stringify(stored)).not.toContain('Dime US')
     one.keep()
 
     two.use()
-    writeSync({ server: base, email: 'a@x.io', token, dataKey: keys.passwordKey, version: 0, syncedAt: null })
-    expect(await syncNow(two.db, client)).toEqual({ kind: 'pulled', version: 1 })
-    expect(await two.db.transactions.get('first')).toBeDefined()
+    writeSync(signedIn)
+    expect(await syncNow(two.db, client)).toEqual({ kind: 'pulled', count: 2 })
+    expect(await ids(two.db)).toEqual(['first'])
     expect(isDirty()).toBe(false)
     await two.db.transactions.add(makeTx({ id: 'second' }))
-    expect(await syncNow(two.db, client)).toEqual({ kind: 'pushed', version: 2 })
+    await two.db.transactions.delete('first')
+    expect(await syncNow(two.db, client)).toEqual({ kind: 'pushed', count: 2 })
     two.keep()
 
     one.use()
-    expect(await syncNow(one.db, client)).toEqual({ kind: 'pulled', version: 2 })
-    expect((await one.db.transactions.toArray()).map((t) => t.id).sort()).toEqual(['first', 'second'])
+    expect(await syncNow(one.db, client)).toEqual({ kind: 'pulled', count: 2 })
+    expect(await ids(one.db)).toEqual(['second'])
+    expect(readSync()!.protocol).toBe(SYNC_PROTOCOL)
   })
 
-  it('asks when both devices changed, and keeps the side the user picks', async () => {
+  it('keeps edits from both devices when they changed different records', async () => {
     const client = createSyncClient(base)
-    const keys = await deriveKeys('a@x.io', 'pw', 1000)
-    const token = await client.signup('a@x.io', keys.loginKey)
+    const signedIn = await account2(client)
     const one = device(createDb(`test-${crypto.randomUUID()}`))
     const two = device(createDb(`test-${crypto.randomUUID()}`))
-    installDirtyTracking(one.db)
-    installDirtyTracking(two.db)
     one.use()
-    writeSync({ server: base, email: 'a@x.io', token, dataKey: keys.passwordKey, version: 0, syncedAt: null })
+    writeSync(signedIn)
     await one.db.accounts.add(account)
     await syncNow(one.db, client)
     one.keep()
     two.use()
-    writeSync({ server: base, email: 'a@x.io', token, dataKey: keys.passwordKey, version: 0, syncedAt: null })
+    writeSync(signedIn)
     await syncNow(two.db, client)
     await two.db.transactions.add(makeTx({ id: 'from-two' }))
     await syncNow(two.db, client)
@@ -106,9 +111,83 @@ describe('sync', () => {
 
     one.use()
     await one.db.transactions.add(makeTx({ id: 'from-one' }))
-    expect(await syncNow(one.db, client)).toEqual({ kind: 'conflict', remoteVersion: 2 })
-    expect(await resolveConflict(one.db, client, 'server')).toEqual({ kind: 'pulled', version: 2 })
-    expect((await one.db.transactions.toArray()).map((t) => t.id)).toEqual(['from-two'])
+    await one.db.accounts.update('acc-1', { name: 'Dime' })
+    await syncNow(one.db, client)
+    expect(await ids(one.db)).toEqual(['from-one', 'from-two'])
+    one.keep()
+    two.use()
+    await syncNow(two.db, client)
+    expect(await ids(two.db)).toEqual(['from-one', 'from-two'])
+    expect((await two.db.accounts.get('acc-1'))?.name).toBe('Dime')
+  })
+
+  it('lets the edit sent last win when both devices changed the same record', async () => {
+    const client = createSyncClient(base)
+    const signedIn = await account2(client)
+    const one = device(createDb(`test-${crypto.randomUUID()}`))
+    const two = device(createDb(`test-${crypto.randomUUID()}`))
+    one.use()
+    writeSync(signedIn)
+    await one.db.accounts.add(account)
+    await syncNow(one.db, client)
+    one.keep()
+    two.use()
+    writeSync(signedIn)
+    await syncNow(two.db, client)
+    await two.db.accounts.update('acc-1', { name: 'from two' })
+    two.keep()
+    one.use()
+    await one.db.accounts.update('acc-1', { name: 'from one' })
+    await syncNow(one.db, client)
+    one.keep()
+    two.use()
+    await syncNow(two.db, client)
+    expect((await two.db.accounts.get('acc-1'))?.name).toBe('from two')
+    two.keep()
+    one.use()
+    await syncNow(one.db, client)
+    expect((await one.db.accounts.get('acc-1'))?.name).toBe('from two')
+  })
+
+  it('syncs trade pictures with the record they belong to', async () => {
+    const client = createSyncClient(base)
+    const signedIn = await account2(client)
+    const one = device(createDb(`test-${crypto.randomUUID()}`))
+    const two = device(createDb(`test-${crypto.randomUUID()}`))
+    one.use()
+    writeSync(signedIn)
+    await one.db.pictures.add({ id: 'pic-1', txId: 'tx-1', name: 'chart.png', blob: new Blob([new Uint8Array([1, 2, 3, 250])], { type: 'image/png' }), createdAt: '2024-01-02T00:00:00.000Z' })
+    await syncNow(one.db, client)
+    one.keep()
+    two.use()
+    writeSync(signedIn)
+    await syncNow(two.db, client)
+    expect((await two.db.pictures.get('pic-1'))?.name).toBe('chart.png')
+  })
+
+  // The test database drops a Blob's bytes when it stores one, so the picture's bytes are checked on the sealing alone.
+  it('seals a picture with its bytes and type and opens it back', async () => {
+    const row = { id: 'pic-1', txId: 'tx-1', name: 'chart.png', blob: new Blob([new Uint8Array([1, 2, 3, 250])], { type: 'image/png' }), createdAt: 'x' }
+    const opened = await openRecord('pictures', await sealRecord('pictures', row, 'k'.repeat(64)), 'k'.repeat(64))
+    const blob = opened.blob as Blob
+    expect([blob.type, blob.size]).toEqual(['image/png', 4])
+    expect([...new Uint8Array(await new Promise<ArrayBuffer>((resolve) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result as ArrayBuffer)
+      reader.readAsArrayBuffer(blob)
+    }))]).toEqual([1, 2, 3, 250])
+  })
+
+  it('sends what a device already held, on its first sync or after the whole-copy sync it used before', async () => {
+    const client = createSyncClient(base)
+    const signedIn = await account2(client)
+    const one = device(createDb(`test-${crypto.randomUUID()}`))
+    one.use()
+    await one.db.transactions.bulkAdd([makeTx({ id: 'kept-1' }), makeTx({ id: 'kept-2' })])
+    clearPending()
+    writeSync({ ...signedIn, version: 7, syncedAt: '2026-10-01T00:00:00.000Z' })
+    expect(await syncNow(one.db, client)).toEqual({ kind: 'pushed', count: 2 })
+    expect((await client.pullRecords(signedIn.token, 0)).records).toHaveLength(2)
   })
 
   it('refuses a wrong password', async () => {
