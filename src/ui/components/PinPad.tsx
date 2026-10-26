@@ -53,36 +53,46 @@ export function PinPad({
   })
 
   const keyClass =
-    'grid size-[72px] place-items-center rounded-full font-display text-[28px] font-semibold text-white transition-colors hover:bg-board-line active:bg-board-line focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-board-mine/60 disabled:opacity-40'
+    'grid size-[76px] place-items-center justify-self-center rounded-full font-display text-[30px] font-medium text-white tabular-nums transition-[background-color,transform] duration-150 select-none focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-board-mine/60 active:scale-[0.94] disabled:opacity-40'
+  const digitKey = cn(keyClass, 'bg-[color-mix(in_oklab,var(--board-line)_60%,var(--board))] hover:bg-board-line active:bg-board-line')
 
   return (
-    <div className="grid justify-items-center gap-8">
+    <div className="grid w-full gap-10">
       <div
         role="status"
         aria-label={t('{0} ใส่แล้ว {1} จาก {2} หลัก', label, pin.length, PIN_LENGTH)}
         key={shake}
-        className={cn('flex gap-4', shake && 'animate-[pin-shake_0.35s_ease-in-out]')}
+        className={cn('flex justify-center gap-5', shake && 'animate-[pin-shake_0.35s_ease-in-out]')}
       >
         {Array.from({ length: PIN_LENGTH }, (_, i) => (
           <span
             key={i}
             aria-hidden
-            className={cn('size-4 rounded-full border-2 border-board-muted transition-colors', i < pin.length && 'border-white bg-white')}
+            className={cn(
+              'size-3.5 rounded-full border-2 border-board-muted/70 transition-[background-color,border-color,transform] duration-200',
+              i < pin.length && 'scale-110 border-white bg-white',
+            )}
           />
         ))}
       </div>
-      <div role="group" aria-label={label} className="grid grid-cols-3 gap-x-6 gap-y-3">
+      <div role="group" aria-label={label} className="grid grid-cols-3 gap-x-4 gap-y-4">
         {KEYS.map((digit) => (
-          <button key={digit} type="button" className={keyClass} disabled={disabled} onClick={() => press(digit)}>
+          <button key={digit} type="button" className={digitKey} disabled={disabled} onClick={() => press(digit)}>
             {digit}
           </button>
         ))}
-        <span className="grid size-[72px] place-items-center">{extraKey}</span>
-        <button type="button" className={keyClass} disabled={disabled} onClick={() => press('0')}>
+        <span className="grid size-[76px] place-items-center justify-self-center">{extraKey}</span>
+        <button type="button" className={digitKey} disabled={disabled} onClick={() => press('0')}>
           0
         </button>
-        <button type="button" aria-label={t('ลบตัวเลข')} className={cn(keyClass, 'text-board-muted')} disabled={disabled || pin.length === 0} onClick={back}>
-          <Delete className="size-7" aria-hidden />
+        <button
+          type="button"
+          aria-label={t('ลบตัวเลข')}
+          className={cn(keyClass, 'text-board-muted hover:text-white disabled:opacity-0')}
+          disabled={disabled || pin.length === 0}
+          onClick={back}
+        >
+          <Delete className="size-7" strokeWidth={1.75} aria-hidden />
         </button>
       </div>
     </div>

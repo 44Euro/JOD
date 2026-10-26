@@ -517,7 +517,6 @@ export const EN: Record<string, string> = {
   "พฤหัสบดี": "Thursday",
   "พอร์ต": "Portfolio",
   "พิมพ์ / บันทึกเป็น PDF": "Print / save as PDF",
-  "พิมพ์เอง": "Type yourself",
   "พุธ": "Wednesday",
   "ภาพรวม": "Overview",
   "ภาษี": "Tax",
@@ -1233,4 +1232,7 @@ export const EN: Record<string, string> = {
   "หน้า {0} จาก {1}": "Page {0} of {1}",
   "สมัครบัญชี": "Create account",
   "มีบัญชีแล้ว เข้าสู่ระบบ": "I have an account, sign in",
+  "ยืนยัน": "Confirm",
+  "PIN นี้ใช้เฉพาะเครื่องนี้ ไม่ส่งขึ้นเซิร์ฟเวอร์": "This PIN stays on this device and is never sent to the server",
+  "ลองใส่ PIN อีกครั้ง": "Try the PIN again",
 }

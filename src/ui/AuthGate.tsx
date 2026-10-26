@@ -1,4 +1,4 @@
-import { Eye, EyeOff, Fingerprint, Lock, LockKeyhole, Mail, type LucideIcon } from 'lucide-react'
+import { Eye, EyeOff, Fingerprint, Lock, LockKeyhole, Mail, ShieldCheck, type LucideIcon } from 'lucide-react'
 import { useEffect, useState, type ComponentProps, type FormEvent, type ReactNode } from 'react'
 import { Link, Outlet, useLocation } from 'react-router'
 import { Alert } from '../components/ui/alert'
@@ -17,14 +17,33 @@ import { ThemeSync, useBoardStatusBar } from './theme'
 import { seenWelcome } from './welcome'
 import { WelcomeScreen } from './WelcomeScreen'
 
-// The PIN screens stay on the board from edge to edge: the keypad is the whole screen, as in a banking app.
-function PinScreen({ children }: { children: ReactNode }) {
+// The PIN screens stay on the board from edge to edge, as in a banking app. The keypad sits at the bottom where the
+// thumb rests; what the screen asks for takes the open space above it.
+function PinScreen({ intro, footer, children }: { intro: ReactNode; footer?: ReactNode; children: ReactNode }) {
   useBoardStatusBar()
   return (
-    <div className="grid min-h-[calc(100dvh-env(safe-area-inset-top))] grid-rows-[auto_1fr] bg-board px-6 pt-6 pb-[max(env(safe-area-inset-bottom),24px)] text-white">
+    <div className="flex min-h-[calc(100dvh-env(safe-area-inset-top))] flex-col bg-board px-6 pt-5 pb-[max(env(safe-area-inset-bottom),16px)] text-white">
       <ThemeSync />
       <p className="font-display text-[22px] leading-none font-semibold tracking-[-0.01em]">JOD</p>
-      <main className="grid content-center justify-items-center gap-8 py-8 text-center">{children}</main>
+      <main className="mx-auto flex w-full max-w-[340px] flex-1 flex-col">
+        <div className="grid flex-1 content-center justify-items-center gap-2 py-8 text-center">{intro}</div>
+        {children}
+        <div className="grid min-h-16 place-items-center pt-3">{footer}</div>
+      </main>
+    </div>
+  )
+}
+
+// Setting a PIN is two stops on the money route: choose it, then confirm it.
+function PinSteps({ step }: { step: 1 | 2 }) {
+  return (
+    <div aria-hidden className="mb-5 grid grid-cols-[auto_64px_auto] items-center gap-x-2 gap-y-2 text-[12.5px]">
+      <span className={cn('size-4 justify-self-center rounded-full border-4', step === 1 ? 'border-white bg-board' : 'border-board-mine bg-board-mine')} />
+      <span className={cn('h-1 rounded-full transition-colors duration-300', step === 2 ? 'bg-board-mine' : 'bg-board-muted/35')} />
+      <span className={cn('size-4 justify-self-center rounded-full border-4 bg-board', step === 2 ? 'border-white' : 'border-board-muted/45')} />
+      <span className={step === 1 ? 'text-white' : 'text-board-mine'}>{t('ตั้ง PIN')}</span>
+      <span />
+      <span className={step === 2 ? 'text-white' : 'text-board-muted'}>{t('ยืนยัน')}</span>
     </div>
   )
 }
@@ -262,11 +281,21 @@ function SetPinScreen() {
   const [error, setError] = useState('')
   const [shake, setShake] = useState(0)
   return (
-    <PinScreen>
-      <div className="grid gap-2">
-        <h1 className="font-display text-[26px] leading-tight font-semibold">{first ? t('ใส่ PIN อีกครั้ง') : t('ตั้ง PIN 6 หลัก')}</h1>
-        <p className={cn('text-[15px]', error ? 'text-board-loss' : 'text-board-muted')}>{error || t('ใช้เข้าแอปครั้งต่อไปแทนรหัสผ่าน')}</p>
-      </div>
+    <PinScreen
+      intro={
+        <>
+          <PinSteps step={first ? 2 : 1} />
+          <h1 className="font-display text-[28px] leading-tight font-semibold">{first ? t('ใส่ PIN อีกครั้ง') : t('ตั้ง PIN 6 หลัก')}</h1>
+          <p className={cn('text-[15px]', error ? 'text-board-loss' : 'text-board-muted')}>{error || t('ใช้เข้าแอปครั้งต่อไปแทนรหัสผ่าน')}</p>
+        </>
+      }
+      footer={
+        <p className="flex items-center gap-1.5 text-[12.5px] text-board-muted">
+          <ShieldCheck className="size-4 shrink-0" strokeWidth={1.75} aria-hidden />
+          {t('PIN นี้ใช้เฉพาะเครื่องนี้ ไม่ส่งขึ้นเซิร์ฟเวอร์')}
+        </p>
+      }
+    >
       <PinPad
         key={first ?? 'first'}
         label={first ? t('PIN อีกครั้ง') : t('PIN ใหม่')}
@@ -291,6 +320,7 @@ function SetPinScreen() {
 }
 
 function UnlockScreen() {
+  const session = useSyncState()
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [forgot, setForgot] = useState(false)
@@ -302,16 +332,49 @@ function UnlockScreen() {
   }, [biometrics])
 
   return (
-    <PinScreen>
-      <div className="grid justify-items-center gap-2">
-        <Lock className="size-7 text-board-mine" aria-hidden />
-        <h1 className="font-display text-[26px] leading-tight font-semibold">{t('ใส่ PIN เพื่อเข้าแอป')}</h1>
-        {error && (
-          <p role="alert" className="text-[15px] text-board-loss">
-            {error}
-          </p>
-        )}
-      </div>
+    <PinScreen
+      intro={
+        forgot ? (
+          <div role="alert" className="grid gap-4 rounded-2xl border border-board-line px-5 py-5 text-left text-sm leading-relaxed text-board-muted">
+            <p className="font-display text-lg font-semibold text-white">{t('ลืม PIN?')}</p>
+            {t('ออกจากระบบแล้วเข้าใหม่ด้วยอีเมลและรหัสผ่าน ข้อมูลที่ซิงก์แล้วจะกลับมา ส่วนที่ยังไม่ได้ซิงก์จะหาย')}
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="h-11 rounded-xl bg-white px-4 font-semibold text-board hover:bg-board-mine"
+                onClick={() => void signOut(true)}
+              >
+                {t('ออกจากระบบ')}
+              </button>
+              <button type="button" className="h-11 rounded-xl px-4 font-semibold text-white hover:bg-board-line" onClick={() => setForgot(false)}>
+                {t('ลองใส่ PIN อีกครั้ง')}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <span className="mb-4 grid size-16 place-items-center rounded-full border border-board-line bg-[color-mix(in_oklab,var(--board-line)_45%,var(--board))]">
+              <Lock className="size-7 text-board-mine" strokeWidth={1.75} aria-hidden />
+            </span>
+            <h1 className="font-display text-[28px] leading-tight font-semibold">{t('ใส่ PIN เพื่อเข้าแอป')}</h1>
+            {error ? (
+              <p role="alert" className="text-[15px] text-board-loss">
+                {error}
+              </p>
+            ) : (
+              session && <p className="text-[15px] text-board-muted">{session.email}</p>
+            )}
+          </>
+        )
+      }
+      footer={
+        !forgot && (
+          <button type="button" className="min-h-11 px-3 text-sm font-semibold text-board-mine underline underline-offset-[3px]" onClick={() => setForgot(true)}>
+            {t('ลืม PIN?')}
+          </button>
+        )
+      }
+    >
       <PinPad
         label="PIN"
         disabled={busy}
@@ -321,10 +384,10 @@ function UnlockScreen() {
             <button
               type="button"
               aria-label={t('ใช้สแกนนิ้วหรือใบหน้า')}
-              className="grid size-[72px] place-items-center rounded-full text-board-mine hover:bg-board-line focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-board-mine/60"
+              className="grid size-[76px] place-items-center rounded-full text-board-mine hover:bg-board-line focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-board-mine/60"
               onClick={() => void unlockWithBiometrics()}
             >
-              <Fingerprint className="size-8" aria-hidden />
+              <Fingerprint className="size-8" strokeWidth={1.75} aria-hidden />
             </button>
           )
         }
@@ -339,22 +402,6 @@ function UnlockScreen() {
           })
         }}
       />
-      {forgot ? (
-        <div role="alert" className="grid max-w-sm gap-3 rounded-2xl border border-board-line px-5 py-4 text-left text-sm leading-relaxed text-board-muted">
-          {t('ออกจากระบบแล้วเข้าใหม่ด้วยอีเมลและรหัสผ่าน ข้อมูลที่ซิงก์แล้วจะกลับมา ส่วนที่ยังไม่ได้ซิงก์จะหาย')}
-          <button
-            type="button"
-            className="h-11 justify-self-start rounded-xl border border-board-muted/50 px-4 font-semibold text-white hover:bg-board-line"
-            onClick={() => void signOut(true)}
-          >
-            {t('ออกจากระบบ')}
-          </button>
-        </div>
-      ) : (
-        <button type="button" className="min-h-11 text-sm font-semibold text-board-mine underline underline-offset-[3px]" onClick={() => setForgot(true)}>
-          {t('ลืม PIN?')}
-        </button>
-      )}
     </PinScreen>
   )
 }
