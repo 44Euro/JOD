@@ -19,12 +19,14 @@ import { marketOf, unitLabel } from '../labels'
 import { assetPath } from '../nav'
 import { useIsDesktop } from '../useIsDesktop'
 import { MarketPill } from './MarketPill'
+import { t } from '../../i18n'
 
 export function MissingRatesNote({ currencies }: { currencies: readonly string[] }) {
   if (currencies.length === 0) return null
   return (
     <Alert role="note">
-      ยังไม่มีเรทวันนี้ของ {currencies.join(', ')} · สินทรัพย์สกุลนี้นับที่ทุน และยังไม่รวมเงินสดสกุลนี้
+      
+      {t('ยังไม่มีเรทวันนี้ของ ')}{currencies.join(', ')} {t(' · สินทรัพย์สกุลนี้นับที่ทุน และยังไม่รวมเงินสดสกุลนี้')}
     </Alert>
   )
 }
@@ -88,7 +90,7 @@ function PriceInput({ instrument, rowCurrency }: { instrument: Instrument; rowCu
   return (
     <span className="inline-flex flex-wrap items-center gap-1.5 md:flex-col md:items-end">
       <Input
-        aria-label={`ราคาล่าสุด ${instrument.symbol}`}
+        aria-label={t('ราคาล่าสุด {0}', instrument.symbol)}
         aria-invalid={invalid}
         inputMode="decimal"
         className="h-[46px] w-28 rounded-[10px] px-2.5 md:h-[34px]"
@@ -103,7 +105,7 @@ function PriceInput({ instrument, rowCurrency }: { instrument: Instrument; rowCu
         }}
       />
       {instrument.currency !== rowCurrency && <span className="text-[12.5px] text-muted-foreground">{instrument.currency}</span>}
-      {age !== null && age > STALE_PRICE_DAYS && <Badge variant="warning">{age} วันก่อน</Badge>}
+      {age !== null && age > STALE_PRICE_DAYS && <Badge variant="warning">{age} {t(' วันก่อน')}</Badge>}
     </span>
   )
 }
@@ -113,7 +115,7 @@ export function HoldingsTable({ valuations, instruments, accountNames, base, rat
 
   if (!isDesktop) {
     return (
-      <ul aria-label="สินทรัพย์ที่ถืออยู่">
+      <ul aria-label={t('สินทรัพย์ที่ถืออยู่')}>
         {valuations.map((v) => {
           const p = v.position
           const instrument = instruments.get(p.instrumentId)
@@ -129,17 +131,20 @@ export function HoldingsTable({ valuations, instruments, accountNames, base, rat
                 {stats ? (
                   <>
                     <span className="whitespace-nowrap">
-                      ยังไม่ขาย <span className={plClass(v.unrealizedBase)}>{fmtSigned(v.unrealizedBase, 0)}</span>
+                      
+                      {t('ยังไม่ขาย ')}<span className={plClass(v.unrealizedBase)}>{fmtSigned(v.unrealizedBase, 0)}</span>
                     </span>{' '}
                     <span className="whitespace-nowrap">
-                      · รวมปันผล <span className={plClass(own?.totalReturnBase)}>{fmtSigned(own?.totalReturnBase, 0)}</span>
+                      
+                      {t('· รวมปันผล ')}<span className={plClass(own?.totalReturnBase)}>{fmtSigned(own?.totalReturnBase, 0)}</span>
                     </span>
                   </>
                 ) : (
                   <>
                     <span className="whitespace-nowrap">{fmtNumber(p.quantity, 8)} {unitLabel(instrument)}</span>{' '}
                     <span className="whitespace-nowrap">
-                      · หุ้น <span className={plClass(v.priceEffectBase)}>{fmtSigned(v.priceEffectBase, 0)}</span>
+                      
+                      {t('· หุ้น ')}<span className={plClass(v.priceEffectBase)}>{fmtSigned(v.priceEffectBase, 0)}</span>
                     </span>
                   </>
                 )}
@@ -147,14 +152,15 @@ export function HoldingsTable({ valuations, instruments, accountNames, base, rat
                   <>
                     {' '}
                     <span className="whitespace-nowrap">
-                      · ค่าเงิน <span className="text-fx">{fmtSigned(v.fxEffectBase, 0)}</span>
+                      
+                      {t('· ค่าเงิน ')}<span className="text-fx">{fmtSigned(v.fxEffectBase, 0)}</span>
                     </span>
                   </>
                 )}
               </span>
               {editablePrice && instrument && (
                 <span className="col-span-2 flex items-center gap-2 text-[12.5px] text-muted-foreground">
-                  <span className="shrink-0 whitespace-nowrap">ราคาล่าสุด</span>
+                  <span className="shrink-0 whitespace-nowrap">{t('ราคาล่าสุด')}</span>
                   <PriceInput key={priceInputKey(instrument)} instrument={instrument} rowCurrency={p.currency} />
                 </span>
               )}
@@ -172,22 +178,22 @@ export function HoldingsTable({ valuations, instruments, accountNames, base, rat
     <Table className={stats ? 'max-[1366px]:[&_td]:px-1.5 max-[1366px]:[&_th]:px-1.5' : undefined}>
       <thead>
         <tr>
-          <Th>สินทรัพย์</Th>
-          <Th className="text-right">จำนวน</Th>
-          <Th className="text-right">ทุนเฉลี่ย</Th>
-          {editablePrice && <Th className="text-right">ราคาล่าสุด</Th>}
-          <Th className="text-right">เรทซื้อ → วันนี้</Th>
-          <Th className="text-right">มูลค่า ({base})</Th>
-          <Th className="text-right">ยังไม่ขาย</Th>
+          <Th>{t('สินทรัพย์')}</Th>
+          <Th className="text-right">{t('จำนวน')}</Th>
+          <Th className="text-right">{t('ทุนเฉลี่ย')}</Th>
+          {editablePrice && <Th className="text-right">{t('ราคาล่าสุด')}</Th>}
+          <Th className="text-right">{t('เรทซื้อ → วันนี้')}</Th>
+          <Th className="text-right">{t('มูลค่า (')}{base})</Th>
+          <Th className="text-right">{t('ยังไม่ขาย')}</Th>
           {stats ? (
             <>
-              <Th className="text-right">ผลตอบแทนรวม</Th>
-              <Th className="text-right">ปันผล/ทุน</Th>
+              <Th className="text-right">{t('ผลตอบแทนรวม')}</Th>
+              <Th className="text-right">{t('ปันผล/ทุน')}</Th>
             </>
           ) : (
             <>
-              <Th className="text-right">จากหุ้น</Th>
-              <Th className="text-right">จากค่าเงิน</Th>
+              <Th className="text-right">{t('จากหุ้น')}</Th>
+              <Th className="text-right">{t('จากค่าเงิน')}</Th>
             </>
           )}
         </tr>

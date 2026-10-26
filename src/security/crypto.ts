@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 // Everything here uses the browser's own Web Crypto: PBKDF2 turns a passphrase into a key, AES-GCM seals the data and
 // refuses to open it if a single byte was changed.
 
@@ -58,7 +59,7 @@ export async function decryptText(file: EncryptedFile, passphrase: string): Prom
     const opened = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: fromBase64(file.iv) }, key, fromBase64(file.data))
     return new TextDecoder().decode(opened)
   } catch {
-    throw new DecryptError('รหัสผ่านไม่ถูก หรือไฟล์เสียหาย')
+    throw new DecryptError(t('รหัสผ่านไม่ถูก หรือไฟล์เสียหาย'))
   }
 }
 

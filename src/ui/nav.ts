@@ -1,4 +1,5 @@
 import { ArrowLeftRight, Briefcase, ChartLine, Coins, Ellipsis, FileText, House, List, Settings, Target, Upload, type LucideIcon } from 'lucide-react'
+import { t } from '../i18n'
 
 export interface NavItem {
   to: string
@@ -6,17 +7,17 @@ export interface NavItem {
   icon: LucideIcon
 }
 
-export const HOME: NavItem = { to: '/', label: 'ภาพรวม', icon: House }
-export const PORTFOLIO: NavItem = { to: '/portfolio', label: 'พอร์ต', icon: Briefcase }
-export const TRANSACTIONS: NavItem = { to: '/transactions', label: 'รายการ', icon: List }
-export const TRADES: NavItem = { to: '/trades', label: 'เทรด', icon: ChartLine }
-export const PLANS: NavItem = { to: '/plans', label: 'แผน', icon: Target }
-export const SUMMARY: NavItem = { to: '/summary', label: 'สรุปประจำปี', icon: FileText }
-export const INCOME: NavItem = { to: '/income', label: 'รายได้', icon: Coins }
-export const FX: NavItem = { to: '/fx', label: 'ค่าเงิน', icon: ArrowLeftRight }
-export const IMPORT: NavItem = { to: '/import', label: 'นำเข้าข้อมูล', icon: Upload }
-export const SETTINGS: NavItem = { to: '/settings', label: 'ตั้งค่า', icon: Settings }
-export const MORE: NavItem = { to: '/more', label: 'เพิ่มเติม', icon: Ellipsis }
+export const HOME: NavItem = { to: '/', label: t('ภาพรวม'), icon: House }
+export const PORTFOLIO: NavItem = { to: '/portfolio', label: t('พอร์ต'), icon: Briefcase }
+export const TRANSACTIONS: NavItem = { to: '/transactions', label: t('รายการ'), icon: List }
+export const TRADES: NavItem = { to: '/trades', label: t('เทรด'), icon: ChartLine }
+export const PLANS: NavItem = { to: '/plans', label: t('แผน'), icon: Target }
+export const SUMMARY: NavItem = { to: '/summary', label: t('สรุปประจำปี'), icon: FileText }
+export const INCOME: NavItem = { to: '/income', label: t('รายได้'), icon: Coins }
+export const FX: NavItem = { to: '/fx', label: t('ค่าเงิน'), icon: ArrowLeftRight }
+export const IMPORT: NavItem = { to: '/import', label: t('นำเข้าข้อมูล'), icon: Upload }
+export const SETTINGS: NavItem = { to: '/settings', label: t('ตั้งค่า'), icon: Settings }
+export const MORE: NavItem = { to: '/more', label: t('เพิ่มเติม'), icon: Ellipsis }
 export const NEW_TRANSACTION = '/transactions/new'
 
 export const SIDEBAR_PAGES: readonly NavItem[] = [HOME, PORTFOLIO, TRANSACTIONS, TRADES, PLANS, INCOME, SUMMARY, FX, IMPORT, SETTINGS]

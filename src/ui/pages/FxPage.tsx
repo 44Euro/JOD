@@ -16,6 +16,7 @@ import { currencyMark, fmtAmount, fmtDate, fmtHeadline, fmtNumber, fmtPct, fmtRa
 import { useAppData, useInvestor } from '../hooks'
 import { buildRateBoard } from '../rateBoard'
 import { useIsDesktop } from '../useIsDesktop'
+import { t } from '../../i18n'
 
 const NEW_EXCHANGE = '/transactions/new?type=fx_convert'
 
@@ -31,17 +32,17 @@ function shown(value: Decimal | null): value is Decimal {
 // the sign and the word after it are held by non-breaking spaces as well.
 function effectCaption(asset: Decimal | null, cash: Decimal | null, mark: string): ReactNode {
   const parts = [
-    shown(asset) && `${fmtSigned(asset, 0)}\u00A0${mark}\u00A0จากสินทรัพย์`,
-    shown(cash) && `${fmtSigned(cash, 0)}\u00A0${mark}\u00A0จากเงินสดที่ถืออยู่`,
+    shown(asset) && t('{0} {1} จากสินทรัพย์', fmtSigned(asset, 0), mark),
+    shown(cash) && t('{0} {1} จากเงินสดที่ถืออยู่', fmtSigned(cash, 0), mark),
   ].filter((part): part is string => part !== false)
   if (parts.length === 0) return undefined
   const total = (asset ?? D(0)).plus(cash ?? D(0))
   return (
     <>
-      <span className="whitespace-nowrap">{`ค่าเงินทำให้พอร์ต${total.isNegative() ? 'ลดลง' : 'เพิ่มขึ้น'}`}</span>{' '}
+      <span className="whitespace-nowrap">{t('ค่าเงินทำให้พอร์ต{0}', total.isNegative() ? t('ลดลง') : t('เพิ่มขึ้น'))}</span>{' '}
       {parts.map((part, i) => (
         <Fragment key={part}>
-          {i > 0 && ' และ '}
+          {i > 0 && t(' และ ')}
           <span className="whitespace-nowrap">{part}</span>
         </Fragment>
       ))}
@@ -110,11 +111,11 @@ function CashRows({
       <Table>
         <thead>
           <tr>
-            <Th>บัญชี</Th>
-            <Th className="text-right">จำนวน</Th>
-            <Th className="text-right">ต้นทุน ({mark})</Th>
-            <Th className="text-right">มูลค่าวันนี้ ({mark})</Th>
-            <Th className="text-right">ผลค่าเงิน ({mark})</Th>
+            <Th>{t('บัญชี')}</Th>
+            <Th className="text-right">{t('จำนวน')}</Th>
+            <Th className="text-right">{t('ต้นทุน (')}{mark})</Th>
+            <Th className="text-right">{t('มูลค่าวันนี้ (')}{mark})</Th>
+            <Th className="text-right">{t('ผลค่าเงิน (')}{mark})</Th>
           </tr>
         </thead>
         <tbody>
@@ -143,7 +144,7 @@ function CashRows({
           <CashLabel currency={row.currency} accountName={nameOf(row)} />
           <span className="font-display font-semibold text-fx">{fmtSigned(row.effectBase, 0)}</span>
           <span className="col-span-2 text-[12.5px] text-muted-foreground">
-            {`${fmtAmount(row.amount)} ${row.currency} · ต้นทุน ${fmtNumber(row.costBase, 0)} · วันนี้ ${fmtNumber(row.valueBase, 0)}`}
+            {t('{0} {1} · ต้นทุน {2} · วันนี้ {3}', fmtAmount(row.amount), row.currency, fmtNumber(row.costBase, 0), fmtNumber(row.valueBase, 0))}
           </span>
         </li>
       ))}
@@ -157,11 +158,11 @@ function HistoryRows({ rows, base, isDesktop }: { rows: readonly ConvertRow[]; b
       <Table>
         <thead>
           <tr>
-            <Th>วันที่</Th>
-            <Th>จาก → เป็น</Th>
-            <Th className="text-right">เรทที่ได้</Th>
-            <Th className="text-right">เรทตลาด</Th>
-            <Th className="text-right">ส่วนต่าง</Th>
+            <Th>{t('วันที่')}</Th>
+            <Th>{t('จาก → เป็น')}</Th>
+            <Th className="text-right">{t('เรทที่ได้')}</Th>
+            <Th className="text-right">{t('เรทตลาด')}</Th>
+            <Th className="text-right">{t('ส่วนต่าง')}</Th>
           </tr>
         </thead>
         <tbody>
@@ -191,7 +192,7 @@ function HistoryRows({ rows, base, isDesktop }: { rows: readonly ConvertRow[]; b
           <span className="font-display font-semibold">{fmtRate(row.effectiveRate)}</span>
           <span className="col-span-2 text-[12.5px] text-muted-foreground">
             {`${fmtAmount(row.amount)}${row.from === base ? '' : ` ${row.from}`} → ${fmtAmount(row.toAmount)} ${row.to}`}
-            {row.marketRate && ` · ตลาด ${fmtRate(row.marketRate)}`}
+            {row.marketRate && t(' · ตลาด {0}', fmtRate(row.marketRate))}
             {row.spreadPct && (
               <>
                 {' · '}
@@ -209,7 +210,7 @@ export function FxPage() {
   const data = useAppData()
   const { ledger, valuations, rates, investor } = useInvestor(data)
   const isDesktop = useIsDesktop(TABLE_MIN_WIDTH)
-  if (!data || !ledger || !investor) return <p className="text-muted-foreground">กำลังโหลด…</p>
+  if (!data || !ledger || !investor) return <p className="text-muted-foreground">{t('กำลังโหลด…')}</p>
 
   const base = data.settings.baseCurrency
   const mark = currencyMark(base)
@@ -225,22 +226,23 @@ export function FxPage() {
     mark,
   )
   const ecbNote = Object.values(rates).find((info) => info.note.startsWith('ECB'))?.note
-  const lostWord = base === 'THB' ? 'บาท' : base
+  const lostWord = base === 'THB' ? t('บาท') : base
   const exchangeLink = (
     <Link to={NEW_EXCHANGE} className={buttonVariants({ size: 'sm' })}>
       <Plus aria-hidden />
-      บันทึกการแลกเงิน
+      
+      {t('บันทึกการแลกเงิน')}
     </Link>
   )
 
   if (board.length + cashRows.length + summaries.length + history.length + remittances.length === 0) {
     return (
       <>
-        <PageHeader title="ค่าเงิน" />
+        <PageHeader title={t('ค่าเงิน')} />
         <Card className="grid justify-items-start gap-3">
           <div>
-            <p className="font-semibold">ยังไม่มีเงินหรือสินทรัพย์ต่างประเทศ</p>
-            <p className="text-muted-foreground">แลกเงินหรือซื้อสินทรัพย์ต่างประเทศแล้วผลของค่าเงินจะขึ้นที่นี่</p>
+            <p className="font-semibold">{t('ยังไม่มีเงินหรือสินทรัพย์ต่างประเทศ')}</p>
+            <p className="text-muted-foreground">{t('แลกเงินหรือซื้อสินทรัพย์ต่างประเทศแล้วผลของค่าเงินจะขึ้นที่นี่')}</p>
           </div>
           {exchangeLink}
         </Card>
@@ -250,15 +252,15 @@ export function FxPage() {
 
   return (
     <>
-      <PageHeader title="ค่าเงิน" note={ecbNote ? `เรทกลาง ${ecbNote}` : undefined} />
+      <PageHeader title={t('ค่าเงิน')} note={ecbNote ? t('เรทกลาง {0}', ecbNote) : undefined} />
 
       {board.length > 0 && <RateBoard rows={board} base={base} caption={caption} full />}
 
       {cashRows.length > 0 && (
-        <Section id="fx-cash-title" title="เงินสดต่างประเทศ">
+        <Section id="fx-cash-title" title={t('เงินสดต่างประเทศ')}>
           {board.length === 0 && caption && <p className="mb-3 text-[13px] text-muted-foreground">{caption}</p>}
-          <p className="mb-3 text-[13px] text-muted-foreground">เฉพาะเงินสดที่ยังถืออยู่ · ไม่รวมส่วนที่ใช้ไปแล้ว</p>
-          <div role="group" aria-label="เงินแต่ละสกุล" className="mb-4 grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
+          <p className="mb-3 text-[13px] text-muted-foreground">{t('เฉพาะเงินสดที่ยังถืออยู่ · ไม่รวมส่วนที่ใช้ไปแล้ว')}</p>
+          <div role="group" aria-label={t('เงินแต่ละสกุล')} className="mb-4 grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
             {fxWallet(cashRows).map((w) => (
               <div key={w.currency} className="grid gap-0.5 rounded-xl border bg-background px-4 py-3">
                 <span className="flex items-baseline justify-between gap-2">
@@ -266,7 +268,8 @@ export function FxPage() {
                   <span className="font-display font-semibold text-fx">{fmtSigned(w.effectBase, 0)}</span>
                 </span>
                 <span className="text-[13px] text-muted-foreground tabular-nums">
-                  เรทเฉลี่ยที่ได้มา {fmtRate(w.avgRate)} → วันนี้ {fmtRate(w.todayRate)}
+                  
+                  {t('เรทเฉลี่ยที่ได้มา ')}{fmtRate(w.avgRate)} {t(' → วันนี้ ')}{fmtRate(w.todayRate)}
                 </span>
               </div>
             ))}
@@ -278,24 +281,24 @@ export function FxPage() {
       {(summaries.length > 0 || remittances.length > 0) && (
         <div className="grid items-start gap-3.5 md:gap-[22px] xl:grid-cols-2">
           {summaries.length > 0 && (
-            <Section id="fx-summary-title" title="สรุปการแลกเงิน">
+            <Section id="fx-summary-title" title={t('สรุปการแลกเงิน')}>
               <div className="[&>dl+dl]:mt-3 [&>dl+dl]:border-t [&>dl+dl]:border-muted">
                 {summaries.map((pair) => {
                   const cheaper = pair.avgSpreadPct?.toDecimalPlaces(2).lessThan(0) === true
                   return (
                     <dl key={`${pair.from}|${pair.to}`}>
                       <Line label={`${pair.from} → ${pair.to}`}>
-                        {`${pair.count} ครั้ง · ${fmtAmount(pair.fromTotal)} → ${fmtAmount(pair.toTotal)}`}
+                        {t('{0} ครั้ง · {1} → {2}', pair.count, fmtAmount(pair.fromTotal), fmtAmount(pair.toTotal))}
                       </Line>
-                      <Line label="เรทเฉลี่ยที่ได้">
+                      <Line label={t('เรทเฉลี่ยที่ได้')}>
                         <span className="font-display font-semibold">{fmtRate(pair.avgRate)}</span>
                       </Line>
-                      <Line label={cheaper ? 'ถูกกว่าเรทกลางเฉลี่ย' : 'แพงกว่าเรทกลางเฉลี่ย'}>
+                      <Line label={cheaper ? t('ถูกกว่าเรทกลางเฉลี่ย') : t('แพงกว่าเรทกลางเฉลี่ย')}>
                         <span className="font-display font-semibold text-fx">
                           {cheaper ? fmtPct(pair.avgSpreadPct?.abs(), 2, 2) : fmtSignedPct(pair.avgSpreadPct, 2)}
                         </span>
                       </Line>
-                      <Line label="spread ที่เสียไปรวม">
+                      <Line label={t('spread ที่เสียไปรวม')}>
                         <span className={cn('font-display font-semibold', pair.spreadLostBase?.greaterThan(0) && 'text-loss')}>
                           {pair.spreadLostBase ? `≈ ${fmtNumber(pair.spreadLostBase, 0)} ${lostWord}` : '—'}
                         </span>
@@ -307,28 +310,29 @@ export function FxPage() {
             </Section>
           )}
           {remittances.length > 0 && (
-            <Section id="fx-remit-title" title="เงินโอนกลับเข้าไทย">
+            <Section id="fx-remit-title" title={t('เงินโอนกลับเข้าไทย')}>
               <dl>
                 {remittances.map((year) => (
-                  <Line key={year.taxYear} label={`ปีภาษี ${year.taxYear + 543} (${year.taxYear})`} plain>
+                  <Line key={year.taxYear} label={t('ปีภาษี {0} ({1})', year.taxYear + 543, year.taxYear)} plain>
                     <span className="font-display font-semibold">{fmtHeadline(year.totalBase, base)}</span>{' '}
-                    <span className="text-[12.5px] text-muted-foreground">{`· ${year.count} ครั้ง`}</span>
+                    <span className="text-[12.5px] text-muted-foreground">{t('· {0} ครั้ง', year.count)}</span>
                   </Line>
                 ))}
               </dl>
               <p className="mt-2.5 text-[12.5px] text-muted-foreground">
-                ใช้เตรียมข้อมูลเงินได้จากต่างประเทศที่นำเข้าไทย ไม่ใช่คำแนะนำภาษี
+                
+                {t('ใช้เตรียมข้อมูลเงินได้จากต่างประเทศที่นำเข้าไทย ไม่ใช่คำแนะนำภาษี')}
               </p>
             </Section>
           )}
         </div>
       )}
 
-      <Section id="fx-history-title" title="ประวัติการแลกเงิน" action={exchangeLink}>
+      <Section id="fx-history-title" title={t('ประวัติการแลกเงิน')} action={exchangeLink}>
         {history.length > 0 ? (
           <HistoryRows rows={history} base={base} isDesktop={isDesktop} />
         ) : (
-          <p className="text-muted-foreground">ยังไม่มีการแลกเงิน</p>
+          <p className="text-muted-foreground">{t('ยังไม่มีการแลกเงิน')}</p>
         )}
       </Section>
     </>

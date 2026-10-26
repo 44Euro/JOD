@@ -9,6 +9,7 @@ import { todayLocal } from '../../../domain/dates'
 import type { Account } from '../../../domain/types'
 import { fmtDate } from '../../format'
 import { IMPORT_SOURCE_LABELS } from '../../labels'
+import { t } from '../../../i18n'
 
 export function ImportHistory({ accounts }: { accounts: readonly Account[] }) {
   const batches = useLiveQuery(() => db.imports.orderBy('createdAt').reverse().toArray(), [])
@@ -17,16 +18,16 @@ export function ImportHistory({ accounts }: { accounts: readonly Account[] }) {
   const names = new Map(accounts.map((a) => [a.id, a.name]))
 
   async function undo(id: string, count: number) {
-    if (!window.confirm(`ยกเลิกการนำเข้าครั้งนี้? รายการที่นำเข้า ${count} รายการจะถูกลบ`)) return
+    if (!window.confirm(t('ยกเลิกการนำเข้าครั้งนี้? รายการที่นำเข้า {0} รายการจะถูกลบ', count))) return
     const removed = await undoImport(db, id)
-    setMessage(`ลบ ${removed} รายการจากการนำเข้าครั้งนั้นแล้ว`)
+    setMessage(t('ลบ {0} รายการจากการนำเข้าครั้งนั้นแล้ว', removed))
   }
 
   return (
     <Card className="grid gap-3">
-      <h2 className="text-lg font-semibold">ประวัติการนำเข้า</h2>
+      <h2 className="text-lg font-semibold">{t('ประวัติการนำเข้า')}</h2>
       {message && <Alert tone="ok">{message}</Alert>}
-      {batches.length === 0 && <p className="text-sm text-muted-foreground">ไม่มีการนำเข้าที่ยกเลิกได้</p>}
+      {batches.length === 0 && <p className="text-sm text-muted-foreground">{t('ไม่มีการนำเข้าที่ยกเลิกได้')}</p>}
       <ul>
         {batches.map((batch) => (
           <li
@@ -35,10 +36,10 @@ export function ImportHistory({ accounts }: { accounts: readonly Account[] }) {
           >
             <span className="min-w-0">
               <span className="block">
-                {fmtDate(todayLocal(new Date(batch.createdAt)))} · {names.get(batch.accountId) ?? 'บัญชีที่ลบไปแล้ว'}
+                {fmtDate(todayLocal(new Date(batch.createdAt)))} · {names.get(batch.accountId) ?? t('บัญชีที่ลบไปแล้ว')}
               </span>
               <span className="block text-[12.5px] text-muted-foreground">
-                {IMPORT_SOURCE_LABELS[batch.source]} {batch.fileCount} ไฟล์ · {batch.count} รายการ
+                {IMPORT_SOURCE_LABELS[batch.source]} {batch.fileCount} {t(' ไฟล์ · ')}{batch.count} {t(' รายการ')}
               </span>
             </span>
             <button
@@ -47,7 +48,8 @@ export function ImportHistory({ accounts }: { accounts: readonly Account[] }) {
               onClick={() => void undo(batch.id, batch.count)}
             >
               <Undo2 className="size-4" aria-hidden />
-              ยกเลิกการนำเข้าครั้งนี้
+              
+              {t('ยกเลิกการนำเข้าครั้งนี้')}
             </button>
           </li>
         ))}

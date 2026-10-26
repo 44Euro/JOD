@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 export const MAX_IMAGE_EDGE = 2576
 
 const SENDABLE_IMAGES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const
@@ -42,7 +43,7 @@ async function prepareImage(file: File): Promise<PreparedFile> {
   try {
     bitmap = await createImageBitmap(file)
   } catch {
-    throw new FileError(`เปิดรูป ${file.name} ไม่ได้`)
+    throw new FileError(t('เปิดรูป {0} ไม่ได้', file.name))
   }
   const size = fitWithin(bitmap.width, bitmap.height)
   let blob: Blob = file
@@ -53,7 +54,7 @@ async function prepareImage(file: File): Promise<PreparedFile> {
     canvas.height = size.height
     canvas.getContext('2d')!.drawImage(bitmap, 0, 0, size.width, size.height)
     blob = await new Promise<Blob>((resolve, reject) =>
-      canvas.toBlob((b) => (b ? resolve(b) : reject(new FileError(`ย่อรูป ${file.name} ไม่ได้`))), 'image/jpeg', 0.9),
+      canvas.toBlob((b) => (b ? resolve(b) : reject(new FileError(t('ย่อรูป {0} ไม่ได้', file.name)))), 'image/jpeg', 0.9),
     )
     mediaType = 'image/jpeg'
   }
@@ -79,8 +80,8 @@ export async function prepareFile(file: File): Promise<PreparedFile> {
   if (/\.(csv|txt|tsv)$/.test(name) || file.type.startsWith('text/')) {
     return { kind: 'text', name: file.name, data: await file.text() }
   }
-  if (/\.(xlsx?|numbers)$/.test(name)) throw new FileError(`${file.name}: บันทึกไฟล์ Excel เป็น CSV ก่อนแล้วใส่ใหม่`)
-  throw new FileError(`${file.name}: ใส่ได้เฉพาะรูป, PDF หรือ CSV`)
+  if (/\.(xlsx?|numbers)$/.test(name)) throw new FileError(t('{0}: บันทึกไฟล์ Excel เป็น CSV ก่อนแล้วใส่ใหม่', file.name))
+  throw new FileError(t('{0}: ใส่ได้เฉพาะรูป, PDF หรือ CSV', file.name))
 }
 
 // Rough token counts: an image costs about width × height ÷ 750, a PDF page (text plus its picture) about 2,000, and

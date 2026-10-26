@@ -3,6 +3,7 @@ import { acquisitionCostQuote, cashDeltaQuote, type LedgerIssue } from '../domai
 import { symbolOf, type Instrument, type Transaction } from '../domain/types'
 import { fmtNumber, fmtPlain, fmtPrice, fmtSigned, fmtValue, plClass } from './format'
 import { RECEIVE_KIND_LABELS, TX_TYPE_LABELS, unitLabel } from './labels'
+import { t } from '../i18n'
 
 type Names = ReadonlyMap<string, string>
 type Instruments = ReadonlyMap<string, Instrument>
@@ -22,9 +23,9 @@ export function feeFreeTransfer(tx: Transaction): boolean {
 // A fee paid in cash is in the net column; one paid in units is not, so the row says how many.
 export function feeNoteText(tx: Transaction): string {
   if (tx.feePaidIn === 'received') {
-    return `หัก ${fmtNumber(tx.feeQuantity, 8)} ${symbolOf(tx.type === 'swap' ? tx.toInstrumentId : tx.instrumentId)}`
+    return t('หัก {0} {1}', fmtNumber(tx.feeQuantity, 8), symbolOf(tx.type === 'swap' ? tx.toInstrumentId : tx.instrumentId))
   }
-  return tx.feePaidIn === 'asset' ? `ค่าธรรมเนียม ${fmtNumber(tx.feeQuantity, 8)} ${symbolOf(tx.feeInstrumentId)}` : ''
+  return tx.feePaidIn === 'asset' ? t('ค่าธรรมเนียม {0} {1}', fmtNumber(tx.feeQuantity, 8), symbolOf(tx.feeInstrumentId)) : ''
 }
 
 export function feeNote(tx: Transaction): string {
@@ -34,7 +35,7 @@ export function feeNote(tx: Transaction): string {
 
 export function taxNoteText(tx: Transaction): string {
   const income = tx.type === 'dividend' || tx.type === 'interest' || tx.type === 'receive_asset'
-  return income && D(tx.tax).greaterThan(0) ? `หัก ณ ที่จ่าย ${fmtNumber(tx.tax)}` : ''
+  return income && D(tx.tax).greaterThan(0) ? t('หัก ณ ที่จ่าย {0}', fmtNumber(tx.tax)) : ''
 }
 
 export function describeAmount(tx: Transaction, accountNames?: Names, instruments?: Instruments): string {
@@ -52,7 +53,7 @@ export function describeMain(tx: Transaction, accountNames?: Names, instruments?
   switch (tx.type) {
     case 'buy':
     case 'sell':
-      return `${fmtNumber(tx.quantity, 8)} × ${fmtPrice(tx.price)}${tx.rightsOffer ? ' · หุ้นเพิ่มทุน (XR)' : ''}`
+      return `${fmtNumber(tx.quantity, 8)} × ${fmtPrice(tx.price)}${tx.rightsOffer ? t(' · หุ้นเพิ่มทุน (XR)') : ''}`
     case 'opening':
       return tx.instrumentId ? `${fmtNumber(tx.quantity, 8)} × ${fmtPrice(tx.price)}` : fmtNumber(tx.amount)
     case 'split':
@@ -66,7 +67,7 @@ export function describeMain(tx: Transaction, accountNames?: Names, instruments?
         : `${fmtNumber(tx.amount)} ${tx.currency} → ${to}`
     }
     case 'swap':
-      return `${tx.exercise ? 'ใช้สิทธิ ' : ''}${fmtNumber(tx.quantity, 8)} ${symbolOf(tx.instrumentId)} → ${fmtNumber(tx.toQuantity, 8)} ${symbolOf(tx.toInstrumentId)}${tx.exercise ? ` · จ่าย ${fmtNumber(tx.paid)}` : ''}`
+      return `${tx.exercise ? t('ใช้สิทธิ ') : ''}${fmtNumber(tx.quantity, 8)} ${symbolOf(tx.instrumentId)} → ${fmtNumber(tx.toQuantity, 8)} ${symbolOf(tx.toInstrumentId)}${tx.exercise ? t(' · จ่าย {0}', fmtNumber(tx.paid)) : ''}`
     case 'receive_asset':
       return `${fmtNumber(tx.quantity, 8)} × ${fmtPrice(tx.price)} · ${RECEIVE_KIND_LABELS[tx.receiveKind ?? 'other']}`
     default:
@@ -90,7 +91,7 @@ export function feePaidNet(tx: Transaction, skipped: boolean): { text: string; c
 export function netOf(tx: Transaction, skipped: boolean): { text: string; className: string } {
   if (skipped || tx.type === 'split') return { text: '—', className: 'text-muted-foreground' }
   if (tx.type === 'opening' && tx.instrumentId) {
-    return { text: `ทุน ${fmtValue(acquisitionCostQuote(tx).times(D(tx.fxRate)))}`, className: 'text-muted-foreground' }
+    return { text: t('ทุน {0}', fmtValue(acquisitionCostQuote(tx).times(D(tx.fxRate)))), className: 'text-muted-foreground' }
   }
   if (tx.type === 'transfer') {
     // Moving something to another account of your own costs nothing but the fee.

@@ -2,9 +2,10 @@ import { useRef, useState, type PointerEvent } from 'react'
 import { isUsable, rectBetween, renderEdit, type Rect } from '../../../ai/imageEdit'
 import { Button } from '../../../components/ui/button'
 import { Segmented } from '../../../components/ui/segmented'
+import { t } from '../../../i18n'
 
 type Tool = 'cover' | 'crop'
-const TOOL_LABELS: Record<Tool, string> = { cover: 'ปิดข้อมูล', crop: 'ครอป' }
+const TOOL_LABELS: Record<Tool, string> = { cover: t('ปิดข้อมูล'), crop: t('ครอป') }
 
 const pct = (n: number) => `${n * 100}%`
 
@@ -52,9 +53,9 @@ export function ImageEditor({
 
   return (
     <div className="grid gap-3 rounded-2xl border bg-background p-3">
-      <Segmented label="เครื่องมือแก้รูป" options={(['cover', 'crop'] as const).map((value) => ({ value, label: TOOL_LABELS[value] }))} value={tool} onChange={setTool} />
+      <Segmented label={t('เครื่องมือแก้รูป')} options={(['cover', 'crop'] as const).map((value) => ({ value, label: TOOL_LABELS[value] }))} value={tool} onChange={setTool} />
       <p className="text-[12.5px] text-muted-foreground">
-        {tool === 'cover' ? 'ลากคลุมเลขบัญชี ชื่อ หรือสิ่งที่ไม่อยากให้อ่าน ส่วนที่ปิดจะถูกลบออกจากรูปจริง' : 'ลากกรอบส่วนที่จะเก็บไว้'}
+        {tool === 'cover' ? t('ลากคลุมเลขบัญชี ชื่อ หรือสิ่งที่ไม่อยากให้อ่าน ส่วนที่ปิดจะถูกลบออกจากรูปจริง') : t('ลากกรอบส่วนที่จะเก็บไว้')}
       </p>
       <div
         ref={frame}
@@ -68,7 +69,7 @@ export function ImageEditor({
         onPointerUp={finish}
         onPointerCancel={finish}
       >
-        <img src={previewUrl} alt={`แก้ ${name}`} className="block w-full rounded-lg" draggable={false} />
+        <img src={previewUrl} alt={t('แก้ {0}', name)} className="block w-full rounded-lg" draggable={false} />
         {crop && (
           <div
             aria-hidden
@@ -89,7 +90,8 @@ export function ImageEditor({
       </div>
       <div className="flex flex-wrap gap-2">
         <Button type="button" disabled={busy || (!crop && covers.length === 0)} onClick={() => void apply()}>
-          ใช้รูปนี้
+          
+          {t('ใช้รูปนี้')}
         </Button>
         <Button
           type="button"
@@ -100,10 +102,12 @@ export function ImageEditor({
             setCrop(null)
           }}
         >
-          ล้าง
+          
+          {t('ล้าง')}
         </Button>
         <Button type="button" variant="ghost" onClick={onCancel}>
-          ยกเลิก
+          
+          {t('ยกเลิก')}
         </Button>
       </div>
     </div>

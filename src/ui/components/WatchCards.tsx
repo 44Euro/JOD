@@ -15,6 +15,7 @@ import { fmtPrice } from '../format'
 import type { AppData } from '../hooks'
 import { MARKET_LABELS } from '../labels'
 import { MarketPill } from './MarketPill'
+import { t } from '../../i18n'
 
 export function WatchlistCard({ data }: { data: AppData }) {
   const items = useLiveQuery(() => db.watchlist.orderBy('symbol').toArray(), [])
@@ -40,9 +41,9 @@ export function WatchlistCard({ data }: { data: AppData }) {
 
   return (
     <Card className="grid gap-3">
-      <h2 className="text-lg font-semibold">ติดตาม (watchlist)</h2>
+      <h2 className="text-lg font-semibold">{t('ติดตาม (watchlist)')}</h2>
       {items && items.length > 0 && (
-        <ul aria-label="สินทรัพย์ที่ติดตาม">
+        <ul aria-label={t('สินทรัพย์ที่ติดตาม')}>
           {items.map((item) => {
             const instrument = data.instruments.find((i) => i.id === instrumentKey(item.market, item.symbol))
             const price = instrument?.lastPrice
@@ -52,14 +53,14 @@ export function WatchlistCard({ data }: { data: AppData }) {
                 <span className="flex min-w-0 flex-wrap items-center gap-2">
                   <MarketPill market={item.market} />
                   <b className="font-display">{item.symbol}</b>
-                  {reached && <Badge variant="ok">ถึงราคาที่อยากซื้อ</Badge>}
+                  {reached && <Badge variant="ok">{t('ถึงราคาที่อยากซื้อ')}</Badge>}
                 </span>
-                <Button type="button" variant="ghost" size="icon" aria-label={`เลิกติดตาม ${item.symbol}`} onClick={() => void deleteWatchItem(db, item.id)}>
+                <Button type="button" variant="ghost" size="icon" aria-label={t('เลิกติดตาม {0}', item.symbol)} onClick={() => void deleteWatchItem(db, item.id)}>
                   <Trash2 aria-hidden />
                 </Button>
                 <span className="col-span-2 text-[13px] text-muted-foreground">
-                  {[price && `ล่าสุด ${fmtPrice(price)}`, item.buyBelow && `อยากซื้อต่ำกว่า ${fmtPrice(item.buyBelow)}`, item.note].filter(Boolean).join(' · ') ||
-                    'ยังไม่มีราคา'}
+                  {[price && t('ล่าสุด {0}', fmtPrice(price)), item.buyBelow && t('อยากซื้อต่ำกว่า {0}', fmtPrice(item.buyBelow)), item.note].filter(Boolean).join(' · ') ||
+                    t('ยังไม่มีราคา')}
                 </span>
               </li>
             )
@@ -67,7 +68,7 @@ export function WatchlistCard({ data }: { data: AppData }) {
         </ul>
       )}
       <form onSubmit={(e) => void add(e)} className="grid gap-3 border-t pt-4 sm:grid-cols-3">
-        <Field id="watch-market" label="ตลาด">
+        <Field id="watch-market" label={t('ตลาด')}>
           <NativeSelect id="watch-market" value={market} onChange={(e) => setMarket(e.target.value as Market)}>
             {MARKETS.map((m) => (
               <option key={m} value={m}>
@@ -76,13 +77,13 @@ export function WatchlistCard({ data }: { data: AppData }) {
             ))}
           </NativeSelect>
         </Field>
-        <Field id="watch-symbol" label="สัญลักษณ์">
+        <Field id="watch-symbol" label={t('สัญลักษณ์')}>
           <Input id="watch-symbol" className="uppercase" value={symbol} onChange={(e) => setSymbol(e.target.value)} />
         </Field>
-        <Field id="watch-below" label="อยากซื้อต่ำกว่า (ไม่บังคับ)">
+        <Field id="watch-below" label={t('อยากซื้อต่ำกว่า (ไม่บังคับ)')}>
           <Input id="watch-below" inputMode="decimal" value={buyBelow} onChange={(e) => setBuyBelow(e.target.value)} />
         </Field>
-        <Field id="watch-note" label="หมายเหตุ" className="sm:col-span-3">
+        <Field id="watch-note" label={t('หมายเหตุ')} className="sm:col-span-3">
           <Input id="watch-note" value={note} onChange={(e) => setNote(e.target.value)} />
         </Field>
         {error && (
@@ -92,11 +93,12 @@ export function WatchlistCard({ data }: { data: AppData }) {
         )}
         <div className="sm:col-span-3">
           <Button type="submit" disabled={!symbol.trim()}>
-            เพิ่มเข้า watchlist
+            
+            {t('เพิ่มเข้า watchlist')}
           </Button>
         </div>
       </form>
-      <p className="text-[12px] text-muted-foreground">ราคาล่าสุดขึ้นเมื่อมีสินทรัพย์นี้ในแอปและอัปเดตราคาแล้ว</p>
+      <p className="text-[12px] text-muted-foreground">{t('ราคาล่าสุดขึ้นเมื่อมีสินทรัพย์นี้ในแอปและอัปเดตราคาแล้ว')}</p>
     </Card>
   )
 }
@@ -108,17 +110,17 @@ export function ChecklistCard({ data }: { data: AppData }) {
   return (
     <Card className="grid gap-3">
       <div>
-        <h2 className="text-lg font-semibold">เช็คลิสต์ก่อนเข้าเทรด</h2>
-        <p className="text-[12.5px] text-muted-foreground">ขึ้นให้ติ๊กตอนบันทึกการซื้อ ข้อที่ติ๊กเก็บไว้ในบันทึกเทรด</p>
+        <h2 className="text-lg font-semibold">{t('เช็คลิสต์ก่อนเข้าเทรด')}</h2>
+        <p className="text-[12.5px] text-muted-foreground">{t('ขึ้นให้ติ๊กตอนบันทึกการซื้อ ข้อที่ติ๊กเก็บไว้ในบันทึกเทรด')}</p>
       </div>
       {items.length > 0 && (
-        <ol aria-label="ข้อในเช็คลิสต์" className="grid gap-1.5">
+        <ol aria-label={t('ข้อในเช็คลิสต์')} className="grid gap-1.5">
           {items.map((item, i) => (
             <li key={`${item}-${i}`} className="flex items-center justify-between gap-2 rounded-xl border px-3 py-1.5 text-sm">
               <span>
                 {i + 1}. {item}
               </span>
-              <Button type="button" variant="ghost" size="icon" aria-label={`ลบข้อ ${item}`} onClick={() => void save(items.filter((_, j) => j !== i))}>
+              <Button type="button" variant="ghost" size="icon" aria-label={t('ลบข้อ {0}', item)} onClick={() => void save(items.filter((_, j) => j !== i))}>
                 <X aria-hidden />
               </Button>
             </li>
@@ -135,11 +137,12 @@ export function ChecklistCard({ data }: { data: AppData }) {
           setDraft('')
         }}
       >
-        <Field id="checklist-item" label="เพิ่มข้อ">
-          <Input id="checklist-item" placeholder="เช่น ตามแผนที่เขียนไว้, ตั้ง Stop loss แล้ว" value={draft} onChange={(e) => setDraft(e.target.value)} />
+        <Field id="checklist-item" label={t('เพิ่มข้อ')}>
+          <Input id="checklist-item" placeholder={t('เช่น ตามแผนที่เขียนไว้, ตั้ง Stop loss แล้ว')} value={draft} onChange={(e) => setDraft(e.target.value)} />
         </Field>
         <Button type="submit" variant="outline" className="h-[46px]" disabled={!draft.trim()}>
-          เพิ่ม
+          
+          {t('เพิ่ม')}
         </Button>
       </form>
     </Card>

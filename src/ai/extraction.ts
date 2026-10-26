@@ -1,6 +1,7 @@
 import { isIsoDate } from '../domain/dates'
 import { parseDecimalInput } from '../domain/decimal'
 import { IMPORT_SOURCES, MARKETS, type ImportSource, type Market } from '../domain/types'
+import { t } from '../i18n'
 
 export const ROW_KINDS = ['opening', 'buy', 'sell', 'dividend', 'interest'] as const
 export type RowKind = (typeof ROW_KINDS)[number]
@@ -153,9 +154,9 @@ export class ExtractionError extends Error {
 }
 
 export function parseExtraction(json: unknown): Extraction {
-  if (typeof json !== 'object' || json === null) throw new ExtractionError('AI ตอบกลับมาในรูปแบบที่อ่านไม่ได้')
+  if (typeof json !== 'object' || json === null) throw new ExtractionError(t('AI ตอบกลับมาในรูปแบบที่อ่านไม่ได้'))
   const raw = json as Record<string, unknown>
-  if (!Array.isArray(raw.rows)) throw new ExtractionError('AI ตอบกลับมาในรูปแบบที่อ่านไม่ได้')
+  if (!Array.isArray(raw.rows)) throw new ExtractionError(t('AI ตอบกลับมาในรูปแบบที่อ่านไม่ได้'))
   const rows = raw.rows.map(parseRow).filter((row): row is ExtractedRow => row !== null)
   const total = stringOrNull(raw.statedTotal)
   return {

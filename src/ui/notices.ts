@@ -1,5 +1,6 @@
 import { priceAgeDays } from '../domain/dates'
 import { assetPath } from './nav'
+import { t } from '../i18n'
 
 export type NoticeKind = 'issues' | 'cash_gap' | 'backup' | 'unpriced' | 'stale' | 'missing_rate' | 'review'
 
@@ -29,13 +30,13 @@ export interface NoticeInput {
 
 // Everything is kept on this device, so a user who never backs up loses it all with the browser's data (spec 5.8).
 function backupNotice({ lastBackupAt, firstTxCreatedAt, today }: NoticeInput): Notice | null {
-  const link = { id: 'backup', kind: 'backup', tone: 'warning', to: '/settings', linkText: 'สำรองตอนนี้' } as const
+  const link = { id: 'backup', kind: 'backup', tone: 'warning', to: '/settings', linkText: t('สำรองตอนนี้') } as const
   const sinceBackup = priceAgeDays(lastBackupAt, today)
   if (sinceBackup !== null) {
-    return sinceBackup > BACKUP_REMIND_DAYS ? { ...link, text: `ไม่ได้สำรองข้อมูลมา ${sinceBackup} วัน` } : null
+    return sinceBackup > BACKUP_REMIND_DAYS ? { ...link, text: t('ไม่ได้สำรองข้อมูลมา {0} วัน', sinceBackup) } : null
   }
   const sinceFirst = priceAgeDays(firstTxCreatedAt, today)
-  return sinceFirst !== null && sinceFirst > BACKUP_REMIND_DAYS ? { ...link, text: 'ยังไม่เคยสำรองข้อมูล' } : null
+  return sinceFirst !== null && sinceFirst > BACKUP_REMIND_DAYS ? { ...link, text: t('ยังไม่เคยสำรองข้อมูล') } : null
 }
 
 export function buildNotices(input: NoticeInput): Notice[] {
@@ -45,9 +46,9 @@ export function buildNotices(input: NoticeInput): Notice[] {
       id: 'issues',
       kind: 'issues',
       tone: 'warning',
-      text: `มี ${input.issuesCount} รายการที่คำนวณไม่ได้`,
+      text: t('มี {0} รายการที่คำนวณไม่ได้', input.issuesCount),
       to: '/transactions',
-      linkText: 'ไปตรวจสอบ',
+      linkText: t('ไปตรวจสอบ'),
     })
   }
   const short = input.negativeCashAccounts ?? []
@@ -57,9 +58,9 @@ export function buildNotices(input: NoticeInput): Notice[] {
       id: 'cash_gap',
       kind: 'cash_gap',
       tone: 'warning',
-      text: `เงินสดของ ${short.join(', ')} ติดลบ · มักเกิดจากการซื้อขายก่อนเริ่มบันทึกเงินสด`,
+      text: t('เงินสดของ {0} ติดลบ · มักเกิดจากการซื้อขายก่อนเริ่มบันทึกเงินสด', short.join(', ')),
       to: '/transactions/new?type=opening',
-      linkText: 'กรอกยอดยกมาเงินสด',
+      linkText: t('กรอกยอดยกมาเงินสด'),
     })
   }
   const backup = backupNotice(input)
@@ -69,9 +70,9 @@ export function buildNotices(input: NoticeInput): Notice[] {
       id: 'unpriced',
       kind: 'unpriced',
       tone: 'note',
-      text: `ยังไม่มีราคาล่าสุด ${input.unpricedCount} ตัว (นับที่ทุนไปก่อน)`,
+      text: t('ยังไม่มีราคาล่าสุด {0} ตัว (นับที่ทุนไปก่อน)', input.unpricedCount),
       to: '/portfolio',
-      linkText: 'กรอกราคา',
+      linkText: t('กรอกราคา'),
     })
   }
   if (input.staleCount > 0) {
@@ -79,9 +80,9 @@ export function buildNotices(input: NoticeInput): Notice[] {
       id: 'stale',
       kind: 'stale',
       tone: 'note',
-      text: `ราคา ${input.staleCount} ตัวไม่ได้อัปเดตเกิน 7 วัน`,
+      text: t('ราคา {0} ตัวไม่ได้อัปเดตเกิน 7 วัน', input.staleCount),
       to: '/portfolio',
-      linkText: 'อัปเดตราคา',
+      linkText: t('อัปเดตราคา'),
     })
   }
   if (input.missingRates.length > 0) {
@@ -89,7 +90,7 @@ export function buildNotices(input: NoticeInput): Notice[] {
       id: 'missing_rate',
       kind: 'missing_rate',
       tone: 'note',
-      text: `ยังไม่มีเรทวันนี้ของ ${input.missingRates.join(', ')} · สินทรัพย์สกุลนี้นับที่ทุน และยังไม่รวมเงินสดสกุลนี้`,
+      text: t('ยังไม่มีเรทวันนี้ของ {0} · สินทรัพย์สกุลนี้นับที่ทุน และยังไม่รวมเงินสดสกุลนี้', input.missingRates.join(', ')),
       to: '',
       linkText: '',
     })
@@ -99,9 +100,9 @@ export function buildNotices(input: NoticeInput): Notice[] {
       id: `review:${review.id}`,
       kind: 'review',
       tone: 'note',
-      text: `ถึงวันทบทวนเหตุผลที่ถือ ${review.symbol}`,
+      text: t('ถึงวันทบทวนเหตุผลที่ถือ {0}', review.symbol),
       to: assetPath(review.id),
-      linkText: 'เปิดดู',
+      linkText: t('เปิดดู'),
     })
   }
   return notices

@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import { checkPin, makePin, type PinRecord } from './crypto'
+import { t } from '../i18n'
 
 // The lock is a screen in front of the app, not encryption of the data: someone with the device's files can still read
 // the database. It keeps out the person who picks up an unlocked phone. It belongs to this device and is never backed up.
@@ -53,7 +54,7 @@ export function hasBiometrics(): boolean {
 }
 
 export async function setPin(pin: string): Promise<void> {
-  if (!/^\d{4,8}$/.test(pin)) throw new Error('PIN ต้องเป็นตัวเลข 4–8 หลัก')
+  if (!/^\d{4,8}$/.test(pin)) throw new Error(t('PIN ต้องเป็นตัวเลข 4–8 หลัก'))
   writeRecord({ ...(await makePin(pin)) })
   unlocked = true
   notify()
@@ -61,7 +62,7 @@ export async function setPin(pin: string): Promise<void> {
 
 export async function removeLock(pin: string): Promise<void> {
   const record = readRecord()
-  if (record && !(await checkPin(pin, record))) throw new Error('PIN ไม่ถูก')
+  if (record && !(await checkPin(pin, record))) throw new Error(t('PIN ไม่ถูก'))
   writeRecord(null)
 }
 
@@ -103,7 +104,7 @@ export async function biometricsAvailable(): Promise<boolean> {
 // device's authenticator is taken as it is; that fits a screen lock and nothing stronger.
 export async function enableBiometrics(): Promise<void> {
   const record = readRecord()
-  if (!record) throw new Error('ตั้ง PIN ก่อน')
+  if (!record) throw new Error(t('ตั้ง PIN ก่อน'))
   const credential = (await navigator.credentials.create({
     publicKey: {
       challenge: randomBuffer(32),
@@ -117,7 +118,7 @@ export async function enableBiometrics(): Promise<void> {
       timeout: 60_000,
     },
   })) as PublicKeyCredential | null
-  if (!credential) throw new Error('เปิดใช้ไม่สำเร็จ')
+  if (!credential) throw new Error(t('เปิดใช้ไม่สำเร็จ'))
   writeRecord({ ...record, credentialId: btoa(String.fromCharCode(...new Uint8Array(credential.rawId))) })
 }
 

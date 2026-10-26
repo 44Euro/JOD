@@ -5,6 +5,7 @@ import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { hasBiometrics, noteVisibility, unlockWithBiometrics, unlockWithPin, useLockState } from '../security/lock'
 import { ThemeSync } from './theme'
+import { t } from '../i18n'
 
 function LockScreen() {
   const [pin, setPin] = useState('')
@@ -18,7 +19,7 @@ function LockScreen() {
     const ok = await unlockWithPin(pin)
     setBusy(false)
     if (!ok) {
-      setError('PIN ไม่ถูก')
+      setError(t('PIN ไม่ถูก'))
       setPin('')
     }
   }
@@ -28,7 +29,7 @@ function LockScreen() {
       <ThemeSync />
       <main className="grid w-full max-w-xs justify-items-center gap-4 text-center">
         <Lock className="size-8 text-ink-2" aria-hidden />
-        <h1 className="font-display text-2xl font-semibold">JOD ล็อกอยู่</h1>
+        <h1 className="font-display text-2xl font-semibold">{t('JOD ล็อกอยู่')}</h1>
         <form onSubmit={(e) => void submit(e)} className="grid w-full gap-3">
           <Input
             aria-label="PIN"
@@ -46,13 +47,15 @@ function LockScreen() {
           />
           {error && <Alert tone="error">{error}</Alert>}
           <Button type="submit" disabled={busy || pin.length < 4}>
-            ปลดล็อก
+            
+            {t('ปลดล็อก')}
           </Button>
         </form>
         {biometrics && (
           <Button type="button" variant="outline" onClick={() => void unlockWithBiometrics()}>
             <Fingerprint aria-hidden />
-            ใช้สแกนนิ้วหรือใบหน้า
+            
+            {t('ใช้สแกนนิ้วหรือใบหน้า')}
           </Button>
         )}
       </main>

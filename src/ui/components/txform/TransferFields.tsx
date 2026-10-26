@@ -6,6 +6,7 @@ import { Input, NativeSelect } from '../../../components/ui/input'
 import { CURRENCY_OPTIONS } from '../../../domain/currencies'
 import type { Account } from '../../../domain/types'
 import type { Draft } from '../../transactionDraft'
+import { t } from '../../../i18n'
 
 export function TransferFields({
   draft,
@@ -21,11 +22,12 @@ export function TransferFields({
     <>
       {targets.length === 0 ? (
         <Alert role="note">
-          ต้องมีอย่างน้อย 2 บัญชีจึงจะโอนได้ · <Link to="/settings">เพิ่มบัญชีในหน้าตั้งค่า</Link>
+          
+          {t('ต้องมีอย่างน้อย 2 บัญชีจึงจะโอนได้ · ')}<Link to="/settings">{t('เพิ่มบัญชีในหน้าตั้งค่า')}</Link>
         </Alert>
       ) : (
         <div className="grid gap-3.5 sm:grid-cols-3">
-          <Field id="tx-to-account" label="บัญชีปลายทาง">
+          <Field id="tx-to-account" label={t('บัญชีปลายทาง')}>
             <NativeSelect id="tx-to-account" value={draft.toAccountId} onChange={(e) => update({ toAccountId: e.target.value })}>
               {targets.map((a) => (
                 <option key={a.id} value={a.id}>
@@ -36,12 +38,14 @@ export function TransferFields({
           </Field>
         </div>
       )}
-      <div className="flex flex-wrap gap-2" role="group" aria-label="โอนอะไร">
+      <div className="flex flex-wrap gap-2" role="group" aria-label={t('โอนอะไร')}>
         <Chip active={draft.transferKind === 'asset'} onClick={() => update({ transferKind: 'asset' })}>
-          สินทรัพย์
+          
+          {t('สินทรัพย์')}
         </Chip>
         <Chip active={draft.transferKind === 'cash'} onClick={() => update({ transferKind: 'cash' })}>
-          เงินสด
+          
+          {t('เงินสด')}
         </Chip>
       </div>
     </>
@@ -51,13 +55,13 @@ export function TransferFields({
 export function TransferAmountField({ draft, update }: { draft: Draft; update(patch: Partial<Draft>): void }) {
   if (draft.transferKind === 'cash') {
     return (
-      <Field id="tx-amount" label="จำนวนเงินที่โอน">
+      <Field id="tx-amount" label={t('จำนวนเงินที่โอน')}>
         <Input id="tx-amount" inputMode="decimal" value={draft.amount} onChange={(e) => update({ amount: e.target.value })} />
       </Field>
     )
   }
   return (
-    <Field id="tx-quantity" label="จำนวนหน่วยที่โอน">
+    <Field id="tx-quantity" label={t('จำนวนหน่วยที่โอน')}>
       <Input id="tx-quantity" inputMode="decimal" value={draft.quantity} onChange={(e) => update({ quantity: e.target.value })} />
     </Field>
   )
@@ -86,19 +90,19 @@ export function MoveCurrencyFields({
     <div className="grid gap-3.5 sm:grid-cols-2">
       <Field
         id="tx-move-currency"
-        label="สกุลที่ถือในบัญชีปลายทาง"
-        hint={target === heldCurrency ? `ถือเป็น ${heldCurrency} เหมือนเดิม` : `ต้นทุนเป็น${base === 'THB' ? 'บาท' : base}ย้ายไปเท่าเดิม แล้วนับเป็น ${target}`}
+        label={t('สกุลที่ถือในบัญชีปลายทาง')}
+        hint={target === heldCurrency ? t('ถือเป็น {0} เหมือนเดิม', heldCurrency) : t('ต้นทุนเป็น{0}ย้ายไปเท่าเดิม แล้วนับเป็น {1}', base === 'THB' ? t('บาท') : base, target)}
       >
         <NativeSelect id="tx-move-currency" value={target} onChange={(e) => pick(e.target.value)}>
           {options.map((c) => (
             <option key={c} value={c}>
-              {c === heldCurrency ? `${c} (เดิม)` : c}
+              {c === heldCurrency ? t('{0} (เดิม)', c) : c}
             </option>
           ))}
         </NativeSelect>
       </Field>
       {target !== heldCurrency && target !== base && (
-        <Field id="tx-move-rate" label={`เรท 1 ${target} = ? ${base}`}>
+        <Field id="tx-move-rate" label={t('เรท 1 {0} = ? {1}', target, base)}>
           <Input id="tx-move-rate" inputMode="decimal" value={draft.moveRate} onChange={(e) => update({ moveRate: e.target.value })} />
         </Field>
       )}

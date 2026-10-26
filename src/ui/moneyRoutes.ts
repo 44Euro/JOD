@@ -5,6 +5,7 @@ import type { Instrument } from '../domain/types'
 import type { Station } from './components/MoneyRoute'
 import { fmtHeadline, fmtNumber, fmtPrice, fmtRate, fmtSigned, fmtSignedPct } from './format'
 import { unitLabel } from './labels'
+import { t } from '../i18n'
 
 export function toneOf(value: Decimal | null): Station['tone'] {
   if (!value) return undefined
@@ -31,24 +32,24 @@ export function investorRoute({ invested, worth, gain }: InvestorSummary): Stati
     .toDecimalPlaces(0)
   const price = end.minus(start).minus(fx).minus(realized).minus(income).minus(rest)
   return [
-    { value: fmtNumber(start, 0), label: 'เงินลงทุน' },
-    { value: fmtSigned(price, 0), label: price.lessThan(0) ? 'หุ้นลง · ยังไม่ขาย' : 'หุ้นขึ้น · ยังไม่ขาย', tone: toneOf(price) },
-    { value: fmtSigned(fx, 0), label: 'ค่าเงิน · ยังไม่ขาย', tone: 'fx', fx: true },
-    { value: fmtSigned(realized, 0), label: 'ขายแล้ว', tone: toneOf(realized) },
-    { value: fmtSigned(income, 0), label: 'ปันผล ดอกเบี้ย', tone: toneOf(income), neutral: true },
-    { value: fmtSigned(rest, 0), label: 'ค่าธรรมเนียม · ค่าเงินเงินสด', tone: toneOf(rest), fx: true },
-    { value: fmtNumber(end, 0), label: 'วันนี้' },
+    { value: fmtNumber(start, 0), label: t('เงินลงทุน') },
+    { value: fmtSigned(price, 0), label: price.lessThan(0) ? t('หุ้นลง · ยังไม่ขาย') : t('หุ้นขึ้น · ยังไม่ขาย'), tone: toneOf(price) },
+    { value: fmtSigned(fx, 0), label: t('ค่าเงิน · ยังไม่ขาย'), tone: 'fx', fx: true },
+    { value: fmtSigned(realized, 0), label: t('ขายแล้ว'), tone: toneOf(realized) },
+    { value: fmtSigned(income, 0), label: t('ปันผล ดอกเบี้ย'), tone: toneOf(income), neutral: true },
+    { value: fmtSigned(rest, 0), label: t('ค่าธรรมเนียม · ค่าเงินเงินสด'), tone: toneOf(rest), fx: true },
+    { value: fmtNumber(end, 0), label: t('วันนี้') },
   ]
 }
 
 function home(base: string): string {
-  return base === 'THB' ? 'บาท' : base
+  return base === 'THB' ? t('บาท') : base
 }
 
 function rateDirection(average: Decimal | null, today: Decimal | null, base: string): string {
-  if (!average || !today) return 'ยังไม่มีเรท'
-  if (today.lessThan(average)) return `${home(base)}แข็งขึ้น`
-  return today.greaterThan(average) ? `${home(base)}อ่อนลง` : 'เรทเท่าเดิม'
+  if (!average || !today) return t('ยังไม่มีเรท')
+  if (today.lessThan(average)) return t('{0}แข็งขึ้น', home(base))
+  return today.greaterThan(average) ? t('{0}อ่อนลง', home(base)) : t('เรทเท่าเดิม')
 }
 
 // Spec S5: money in → average exchange rate → average cost → today's price → today's rate → value today.
@@ -62,8 +63,8 @@ export function assetRoute(
   instrument?: Instrument,
 ): Station[] {
   if (stats.quantity.isZero()) return []
-  const moneyIn: Station = { value: fmtHeadline(stats.costBase, base), label: `${home(base)}ที่ลงไป`, neutral: true }
-  const worthToday: Station = { value: fmtHeadline(stats.valueBase, base), label: 'มูลค่าวันนี้' }
+  const moneyIn: Station = { value: fmtHeadline(stats.costBase, base), label: t('{0}ที่ลงไป', home(base)), neutral: true }
+  const worthToday: Station = { value: fmtHeadline(stats.valueBase, base), label: t('มูลค่าวันนี้') }
   if (stats.currency === null) return [moneyIn, worthToday]
   const foreign = stats.currency !== base
   const avgCost = stats.costQuote.div(stats.quantity)
@@ -71,15 +72,15 @@ export function assetRoute(
   const change = lastPrice && !avgCost.isZero() ? lastPrice.minus(avgCost).div(avgCost).times(100) : null
   return [
     moneyIn,
-    ...(foreign ? [{ value: fmtRate(avgRate), label: `แลกเป็น ${stats.currency} · เรทเฉลี่ย`, tone: 'fx' as const, fx: true }] : []),
-    { value: fmtPrice(avgCost), label: `ซื้อ ${fmtNumber(stats.quantity, 8)} ${unitLabel(instrument)} · ทุนเฉลี่ย` },
+    ...(foreign ? [{ value: fmtRate(avgRate), label: t('แลกเป็น {0} · เรทเฉลี่ย', stats.currency), tone: 'fx' as const, fx: true }] : []),
+    { value: fmtPrice(avgCost), label: t('ซื้อ {0} {1} · ทุนเฉลี่ย', fmtNumber(stats.quantity, 8), unitLabel(instrument)) },
     {
       value: fmtPrice(lastPrice),
-      label: change ? `ราคาวันนี้ · ${fmtSignedPct(change)}` : 'ราคาวันนี้ · ยังไม่ได้กรอก',
+      label: change ? t('ราคาวันนี้ · {0}', fmtSignedPct(change)) : t('ราคาวันนี้ · ยังไม่ได้กรอก'),
       tone: toneOf(change),
     },
     ...(foreign
-      ? [{ value: fmtRate(todayRate), label: `เรทวันนี้ · ${rateDirection(avgRate, todayRate, base)}`, tone: 'fx' as const, fx: true }]
+      ? [{ value: fmtRate(todayRate), label: t('เรทวันนี้ · {0}', rateDirection(avgRate, todayRate, base)), tone: 'fx' as const, fx: true }]
       : []),
     worthToday,
   ]

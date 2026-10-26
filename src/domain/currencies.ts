@@ -1,4 +1,5 @@
 import type { Market } from './types'
+import { t } from '../i18n'
 
 // Currencies published by the ECB and served by api.frankfurter.dev.
 export const AUTO_FX_CURRENCIES = [
@@ -13,18 +14,18 @@ export const COMMON_CURRENCIES = ['THB', 'USD', 'HKD', 'JPY', 'SGD', 'CNY', 'EUR
 export const USD_PEGGED = ['USDT', 'USDC']
 
 export const CURRENCY_NAMES: Record<string, string> = {
-  THB: 'บาท',
-  USD: 'ดอลลาร์สหรัฐ',
-  HKD: 'ดอลลาร์ฮ่องกง',
-  JPY: 'เยน',
-  SGD: 'ดอลลาร์สิงคโปร์',
-  CNY: 'หยวน',
-  EUR: 'ยูโร',
-  GBP: 'ปอนด์',
-  USDT: 'เทเธอร์',
+  THB: t('บาท'),
+  USD: t('ดอลลาร์สหรัฐ'),
+  HKD: t('ดอลลาร์ฮ่องกง'),
+  JPY: t('เยน'),
+  SGD: t('ดอลลาร์สิงคโปร์'),
+  CNY: t('หยวน'),
+  EUR: t('ยูโร'),
+  GBP: t('ปอนด์'),
+  USDT: t('เทเธอร์'),
   USDC: 'USD Coin',
-  VND: 'ดอง',
-  TWD: 'ดอลลาร์ไต้หวัน',
+  VND: t('ดอง'),
+  TWD: t('ดอลลาร์ไต้หวัน'),
 }
 
 export const CURRENCY_OPTIONS: string[] = [...new Set<string>([...COMMON_CURRENCIES, ...AUTO_FX_CURRENCIES])]

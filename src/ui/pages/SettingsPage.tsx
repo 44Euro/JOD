@@ -22,6 +22,7 @@ import { DataSection } from '../components/DataSection'
 import { PageHeader } from '../components/PageHeader'
 import { feeTemplateParts } from '../feeTemplateText'
 import { useAppData } from '../hooks'
+import { chooseLanguage, language, t } from '../../i18n'
 
 function FeeTemplateLine({ template }: { template: FeeTemplate }) {
   const { body, minimum } = feeTemplateParts(template)
@@ -46,7 +47,7 @@ export function SettingsPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const refocusId = useRef<string | null>(null)
 
-  if (!data) return <p className="text-muted-foreground">กำลังโหลด…</p>
+  if (!data) return <p className="text-muted-foreground">{t('กำลังโหลด…')}</p>
   const hasTransactions = data.transactions.length > 0
 
   async function handleAddAccount(event: FormEvent) {
@@ -73,22 +74,23 @@ export function SettingsPage() {
 
   return (
     <>
-      <PageHeader title="ตั้งค่า" />
+      <PageHeader title={t('ตั้งค่า')} />
       <div className="grid items-start gap-3.5 md:gap-[22px] lg:grid-cols-2">
         <div className="grid content-start gap-3.5 md:gap-4">
           <Card className="grid gap-3">
-            <h2 className="text-lg font-semibold">สกุลเงินหลักของพอร์ต</h2>
+            <h2 className="text-lg font-semibold">{t('สกุลเงินหลักของพอร์ต')}</h2>
             <Field
               id="base-currency"
-              label="สกุลเงินหลัก"
+              label={t('สกุลเงินหลัก')}
               hint={
                 hasTransactions ? (
                   <span className="inline-flex items-center gap-1.5">
                     <Lock className="size-3.5 shrink-0" aria-hidden />
-                    เปลี่ยนไม่ได้หลังมีรายการแล้ว เพราะเรทที่บันทึกไว้ทุกรายการอิงกับสกุลเงินนี้
+                    
+                    {t('เปลี่ยนไม่ได้หลังมีรายการแล้ว เพราะเรทที่บันทึกไว้ทุกรายการอิงกับสกุลเงินนี้')}
                   </span>
                 ) : (
-                  'เลือกครั้งเดียวก่อนเริ่มบันทึก ตัวเลขทั้งแอปจะแสดงเป็นสกุลนี้'
+                  t('เลือกครั้งเดียวก่อนเริ่มบันทึก ตัวเลขทั้งแอปจะแสดงเป็นสกุลนี้')
                 )
               }
             >
@@ -107,10 +109,10 @@ export function SettingsPage() {
           </Card>
 
           <Card className="grid gap-3">
-            <h2 className="text-lg font-semibold">บัญชีและโบรกเกอร์</h2>
+            <h2 className="text-lg font-semibold">{t('บัญชีและโบรกเกอร์')}</h2>
             {message && <Alert tone="error">{message}</Alert>}
             {data.accounts.length === 0 ? (
-              <p className="text-sm text-muted-foreground">ยังไม่มีบัญชี เพิ่มบัญชีแรกด้านล่าง</p>
+              <p className="text-sm text-muted-foreground">{t('ยังไม่มีบัญชี เพิ่มบัญชีแรกด้านล่าง')}</p>
             ) : (
               <ul>
                 {data.accounts.map((account) => (
@@ -132,7 +134,7 @@ export function SettingsPage() {
                             type="button"
                             variant="ghost"
                             size="icon"
-                            aria-label={`แก้ไข ${account.name}`}
+                            aria-label={t('แก้ไข {0}', account.name)}
                             ref={(button) => {
                               if (button && refocusId.current === account.id) {
                                 refocusId.current = null
@@ -147,7 +149,7 @@ export function SettingsPage() {
                             type="button"
                             variant="ghost"
                             size="icon"
-                            aria-label={`ลบ ${account.name}`}
+                            aria-label={t('ลบ {0}', account.name)}
                             onClick={() => void handleDeleteAccount(account.id)}
                           >
                             <Trash2 aria-hidden />
@@ -160,14 +162,15 @@ export function SettingsPage() {
               </ul>
             )}
             <form onSubmit={handleAddAccount} className="grid gap-3 border-t pt-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-              <Field id="account-name" label="ชื่อบัญชี">
+              <Field id="account-name" label={t('ชื่อบัญชี')}>
                 <Input id="account-name" value={name} placeholder="Dime US" onChange={(e) => setName(e.target.value)} />
               </Field>
-              <Field id="account-broker" label="โบรกเกอร์">
+              <Field id="account-broker" label={t('โบรกเกอร์')}>
                 <Input id="account-broker" value={broker} placeholder="Dime" onChange={(e) => setBroker(e.target.value)} />
               </Field>
               <Button type="submit" className="h-[46px]">
-                เพิ่มบัญชี
+                
+                {t('เพิ่มบัญชี')}
               </Button>
             </form>
           </Card>
@@ -180,9 +183,22 @@ export function SettingsPage() {
           <PriceSourcesCard settings={data.settings} />
 
           <Card className="grid gap-3">
-            <h2 className="text-lg font-semibold">ธีม</h2>
+            <h2 className="text-lg font-semibold">{t('ภาษา · Language')}</h2>
             <Segmented
-              label="ธีม"
+              label={t('ภาษา · Language')}
+              options={[
+                { value: 'th' as const, label: t('ไทย') },
+                { value: 'en' as const, label: 'English' },
+              ]}
+              value={language()}
+              onChange={chooseLanguage}
+            />
+          </Card>
+
+          <Card className="grid gap-3">
+            <h2 className="text-lg font-semibold">{t('ธีม')}</h2>
+            <Segmented
+              label={t('ธีม')}
               options={THEME_CHOICES.map((value) => ({ value, label: THEME_LABELS[value] }))}
               value={data.settings.theme ?? 'system'}
               onChange={(theme) => void saveSettings(db, { ...data.settings, theme })}
@@ -194,14 +210,16 @@ export function SettingsPage() {
           <ErrorReportCard />
 
           <Card className="grid gap-3">
-            <h2 className="text-lg font-semibold">ความเป็นส่วนตัว</h2>
+            <h2 className="text-lg font-semibold">{t('ความเป็นส่วนตัว')}</h2>
             <div className="flex items-center justify-between gap-3">
               <span className="min-w-0">
                 <span id="hide-numbers-label" className="block">
-                  ซ่อนตัวเลขทุกครั้งที่เปิดแอป
+                  
+                  {t('ซ่อนตัวเลขทุกครั้งที่เปิดแอป')}
                 </span>
                 <span id="hide-numbers-hint" className="block text-[12.5px] text-muted-foreground">
-                  แสดงเป็น ••• จนกว่าจะแตะรูปตา
+                  
+                  {t('แสดงเป็น ••• จนกว่าจะแตะรูปตา')}
                 </span>
               </span>
               <Switch
@@ -212,7 +230,8 @@ export function SettingsPage() {
               />
             </div>
             <Link to="/privacy" className="inline-flex min-h-11 items-center text-sm font-semibold text-primary-ink underline underline-offset-[3px]">
-              อ่านนโยบายความเป็นส่วนตัว
+              
+              {t('อ่านนโยบายความเป็นส่วนตัว')}
             </Link>
           </Card>
         </div>

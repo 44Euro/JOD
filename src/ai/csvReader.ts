@@ -1,5 +1,6 @@
 import { isIsoDate } from '../domain/dates'
 import { D, parseDecimalInput } from '../domain/decimal'
+import { t } from '../i18n'
 import type { Extraction, ExtractedRow, RowField, RowKind } from './extraction'
 
 type Column = 'date' | 'symbol' | 'side' | 'quantity' | 'price' | 'amount' | 'fees' | 'tax' | 'currency' | 'lastPrice' | 'name'
@@ -112,7 +113,7 @@ export function findColumns(header: readonly string[]): Partial<Record<Column, n
   return columns
 }
 
-const SKIPPED = 'ข้ามบางแถวที่ไม่รู้ว่าเป็นซื้อ ขาย หรือปันผล'
+const SKIPPED = t('ข้ามบางแถวที่ไม่รู้ว่าเป็นซื้อ ขาย หรือปันผล')
 
 // Reads a broker export without any AI: columns are found by their header, so the numbers come out exactly as the
 // file has them. A file with dates is a list of orders; one without is a list of holdings.
@@ -121,7 +122,7 @@ export function readCsv(text: string): Extraction {
   const columns = findColumns(header)
   const problems: string[] = []
   if (columns.symbol === undefined && columns.side === undefined) {
-    return { source: 'other', rows: [], statedTotal: null, statedTotalCurrency: null, costIncludesFees: null, problems: ['ไม่พบคอลัมน์ชื่อหลักทรัพย์ในไฟล์ ลองให้ Claude อ่านแทน หรือกรอกเอง'] }
+    return { source: 'other', rows: [], statedTotal: null, statedTotalCurrency: null, costIncludesFees: null, problems: [t('ไม่พบคอลัมน์ชื่อหลักทรัพย์ในไฟล์ ลองให้ Claude อ่านแทน หรือกรอกเอง')] }
   }
   const holdings = columns.date === undefined
   const cell = (row: string[], column: Column) => (columns[column] === undefined ? '' : (row[columns[column]!] ?? ''))
@@ -165,6 +166,6 @@ export function readCsv(text: string): Extraction {
       note: '',
     })
   }
-  if (!holdings && columns.side === undefined && rows.length > 0) problems.push('ไฟล์ไม่บอกว่าซื้อหรือขาย แอปตั้งเป็นซื้อไว้ ตรวจทุกแถว')
+  if (!holdings && columns.side === undefined && rows.length > 0) problems.push(t('ไฟล์ไม่บอกว่าซื้อหรือขาย แอปตั้งเป็นซื้อไว้ ตรวจทุกแถว'))
   return { source: holdings ? 'portfolio' : 'orders', rows, statedTotal: null, statedTotalCurrency: null, costIncludesFees: null, problems }
 }

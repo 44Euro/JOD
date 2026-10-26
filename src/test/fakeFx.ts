@@ -1,4 +1,5 @@
 import { FxUnavailableError, type FxProvider } from '../fx/frankfurter'
+import { t } from '../i18n'
 
 // rates: { 'USD|THB': '35.1' }. Requests for 'latest' resolve to latestDate.
 export function fakeFxProvider(rates: Record<string, string>, latestDate = '2024-01-15') {
@@ -7,7 +8,7 @@ export function fakeFxProvider(rates: Record<string, string>, latestDate = '2024
     async getRate(from, to, date) {
       calls.push(`${from}|${to}|${date}`)
       const rate = rates[`${from}|${to}`]
-      if (!rate) throw new FxUnavailableError(`ไม่มีเรท ${from}/${to} กรุณากรอกเรทเอง`)
+      if (!rate) throw new FxUnavailableError(t('ไม่มีเรท {0}/{1} กรุณากรอกเรทเอง', from, to))
       return { rate, rateDate: date === 'latest' ? latestDate : date }
     },
   }

@@ -1,9 +1,10 @@
 import { Fragment } from 'react'
 import { cn } from '../../lib/cn'
+import { t } from '../../i18n'
 
 export function Stations({ steps, step }: { steps: readonly string[]; step: number }) {
   return (
-    <ol aria-label="ขั้นตอน" className="flex items-center">
+    <ol aria-label={t('ขั้นตอน')} className="flex items-center">
       {steps.map((label, index) => (
         <Fragment key={label}>
           {index > 0 && (

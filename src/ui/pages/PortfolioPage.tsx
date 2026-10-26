@@ -20,18 +20,19 @@ import { useAppData, useInvestor } from '../hooks'
 import { marketOf } from '../labels'
 import { EyeButton } from '../privacy'
 import { useIsDesktop } from '../useIsDesktop'
+import { t } from '../../i18n'
 
 type View = 'asset' | 'account' | 'market' | 'currency'
 
 const VIEWS = [
-  { value: 'asset', label: 'ตามสินทรัพย์' },
-  { value: 'account', label: 'ตามบัญชี' },
-  { value: 'market', label: 'ตามตลาด' },
-  { value: 'currency', label: 'ตามสกุลเงิน' },
+  { value: 'asset', label: t('ตามสินทรัพย์') },
+  { value: 'account', label: t('ตามบัญชี') },
+  { value: 'market', label: t('ตามตลาด') },
+  { value: 'currency', label: t('ตามสกุลเงิน') },
 ] as const satisfies readonly { value: View; label: string }[]
 
 function UnpricedNote({ className }: { className?: string }) {
-  return <p className={cn('text-[12.5px] text-muted-foreground', className)}>ตัวที่ยังไม่มีราคานับตามต้นทุน</p>
+  return <p className={cn('text-[12.5px] text-muted-foreground', className)}>{t('ตัวที่ยังไม่มีราคานับตามต้นทุน')}</p>
 }
 
 export function PortfolioPage() {
@@ -39,7 +40,7 @@ export function PortfolioPage() {
   const { ledger, valuations, summary, rates, investor } = useInvestor(data)
   const isDesktop = useIsDesktop()
   const [view, setView] = useState<View>('asset')
-  if (!data || !ledger || !investor) return <p className="text-muted-foreground">กำลังโหลด…</p>
+  if (!data || !ledger || !investor) return <p className="text-muted-foreground">{t('กำลังโหลด…')}</p>
 
   const base = data.settings.baseCurrency
   const today = todayLocal()
@@ -59,32 +60,32 @@ export function PortfolioPage() {
 
   return (
     <>
-      <PageHeader title="พอร์ต">
+      <PageHeader title={t('พอร์ต')}>
         <EyeButton />
         <PriceUpdateButton data={data} ledger={ledger} />
       </PageHeader>
 
-      <SummaryPanel label="มูลค่าสินทรัพย์ · ไม่รวมเงินสด" value={fmtHeadline(summary.marketValueBase, base)}>
-        <Stat label="ยังไม่ขาย" value={fmtSigned(summary.unrealizedBase, 0)} tone={plClass(summary.unrealizedBase)} />
-        <Stat label="จากหุ้น" value={fmtSigned(summary.priceEffectBase, 0)} tone={plClass(summary.priceEffectBase)} />
-        <Stat label="จากค่าเงิน" value={fmtSigned(summary.fxEffectBase, 0)} tone="text-fx" />
+      <SummaryPanel label={t('มูลค่าสินทรัพย์ · ไม่รวมเงินสด')} value={fmtHeadline(summary.marketValueBase, base)}>
+        <Stat label={t('ยังไม่ขาย')} value={fmtSigned(summary.unrealizedBase, 0)} tone={plClass(summary.unrealizedBase)} />
+        <Stat label={t('จากหุ้น')} value={fmtSigned(summary.priceEffectBase, 0)} tone={plClass(summary.priceEffectBase)} />
+        <Stat label={t('จากค่าเงิน')} value={fmtSigned(summary.fxEffectBase, 0)} tone="text-fx" />
       </SummaryPanel>
 
       {unpriced > 0 && (
-        <Alert role="note">ยังไม่มีราคาล่าสุด {unpriced} ตัว กรอกในช่องราคาด้านล่าง แล้วตัวเลขด้านบนจะรวมให้</Alert>
+        <Alert role="note">{t('ยังไม่มีราคาล่าสุด ')}{unpriced} {t(' ตัว กรอกในช่องราคาด้านล่าง แล้วตัวเลขด้านบนจะรวมให้')}</Alert>
       )}
       <MissingRatesNote currencies={investor.worth.missingRates} />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Segmented label="มุมมอง" options={VIEWS} value={view} onChange={setView} />
+        <Segmented label={t('มุมมอง')} options={VIEWS} value={view} onChange={setView} />
         {hasPriceInput && (
-          <span className="text-[13px] text-muted-foreground max-md:hidden">ราคาที่เก่ากว่า 7 วันมีป้ายเตือน · แตะราคาเพื่อแก้</span>
+          <span className="text-[13px] text-muted-foreground max-md:hidden">{t('ราคาที่เก่ากว่า 7 วันมีป้ายเตือน · แตะราคาเพื่อแก้')}</span>
         )}
       </div>
 
       {nothingToShow ? (
         <Card>
-          <p className="text-muted-foreground">ยังไม่มีสินทรัพย์ที่ถืออยู่</p>
+          <p className="text-muted-foreground">{t('ยังไม่มีสินทรัพย์ที่ถืออยู่')}</p>
         </Card>
       ) : view === 'asset' ? (
         <Card>
@@ -109,7 +110,8 @@ export function PortfolioPage() {
                   <div className="mb-3.5 flex flex-wrap items-baseline justify-between gap-3">
                     <h2 className="text-lg font-semibold">{account.name}</h2>
                     <span className="text-[13px] text-muted-foreground">
-                      มูลค่า {fmtHeadline(sumBy(mine, positionValueBase), base)} · {mine.length} ตัว
+                      
+                      {t('มูลค่า ')}{fmtHeadline(sumBy(mine, positionValueBase), base)} · {mine.length} {t(' ตัว')}
                     </span>
                   </div>
                   <HoldingsTable valuations={mine} instruments={instruments} base={base} rates={rates} stats={statsByKey} editablePrice />
@@ -131,13 +133,13 @@ export function PortfolioPage() {
 
       <Card>
         <div className="mb-3.5 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold">เงินสดคงเหลือ</h2>
-          {cash.length > 0 && <span className="text-[13px] text-muted-foreground">รวม ≈ {fmtHeadline(investor.worth.cashBase, base)}</span>}
+          <h2 className="text-lg font-semibold">{t('เงินสดคงเหลือ')}</h2>
+          {cash.length > 0 && <span className="text-[13px] text-muted-foreground">{t('รวม ≈ ')}{fmtHeadline(investor.worth.cashBase, base)}</span>}
         </div>
         {cash.length === 0 ? (
-          <p className="text-sm text-muted-foreground">ยังไม่มีเงินสดที่บันทึกไว้</p>
+          <p className="text-sm text-muted-foreground">{t('ยังไม่มีเงินสดที่บันทึกไว้')}</p>
         ) : !isDesktop ? (
-          <ul aria-label="เงินสดคงเหลือ">
+          <ul aria-label={t('เงินสดคงเหลือ')}>
             {cash.map((row) => (
               <li
                 key={`${row.accountId}|${row.currency}`}
@@ -157,8 +159,8 @@ export function PortfolioPage() {
           <Table>
             <thead>
               <tr>
-                <Th>บัญชี</Th>
-                <Th className="text-right">ยอดคงเหลือ</Th>
+                <Th>{t('บัญชี')}</Th>
+                <Th className="text-right">{t('ยอดคงเหลือ')}</Th>
                 <Th className="text-right">≈ {base}</Th>
               </tr>
             </thead>
@@ -176,11 +178,12 @@ export function PortfolioPage() {
           </Table>
         )}
         {unrated.length > 0 && (
-          <p className="mt-3 text-[12.5px] text-muted-foreground">ยังไม่มีเรทวันนี้ของ {unrated.join(', ')} จึงยังไม่รวมในยอดรวม</p>
+          <p className="mt-3 text-[12.5px] text-muted-foreground">{t('ยังไม่มีเรทวันนี้ของ ')}{unrated.join(', ')} {t(' จึงยังไม่รวมในยอดรวม')}</p>
         )}
         {tradeOnly && (
           <p className="mt-3 text-[12.5px] text-muted-foreground">
-            บัญชีที่จดแค่ซื้อขาย ไม่นับเงินสด (ไม่มีรายการฝาก ถอน หรือแลกเงิน)
+            
+            {t('บัญชีที่จดแค่ซื้อขาย ไม่นับเงินสด (ไม่มีรายการฝาก ถอน หรือแลกเงิน)')}
           </p>
         )}
       </Card>

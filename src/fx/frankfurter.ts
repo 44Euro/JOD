@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 export interface FxRateResult {
   rate: string
   rateDate: string
@@ -45,12 +46,12 @@ export function createFrankfurterProvider(
         try {
           response = await fetchFn(url, { signal: limit.signal })
         } catch {
-          throw new FxUnavailableError('เชื่อมต่อแหล่งเรทไม่ได้ (ออฟไลน์อยู่หรือเปล่า?) กรุณากรอกเรทเอง')
+          throw new FxUnavailableError(t('เชื่อมต่อแหล่งเรทไม่ได้ (ออฟไลน์อยู่หรือเปล่า?) กรุณากรอกเรทเอง'))
         }
-        if (!response.ok) throw new FxUnavailableError(`ไม่มีเรท ${from}/${to} ของวันที่ ${date} กรุณากรอกเรทเอง`)
+        if (!response.ok) throw new FxUnavailableError(t('ไม่มีเรท {0}/{1} ของวันที่ {2} กรุณากรอกเรทเอง', from, to, date))
         const body = (await response.json().catch(() => null)) as { date: string; rates?: Record<string, number> } | null
         const value = body?.rates?.[to]
-        if (!body || value === undefined) throw new FxUnavailableError(`ไม่มีเรท ${from}/${to} กรุณากรอกเรทเอง`)
+        if (!body || value === undefined) throw new FxUnavailableError(t('ไม่มีเรท {0}/{1} กรุณากรอกเรทเอง', from, to))
         return { rate: String(value), rateDate: body.date }
       } finally {
         limit.done()

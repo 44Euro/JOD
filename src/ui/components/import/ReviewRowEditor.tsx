@@ -7,6 +7,7 @@ import { MARKETS } from '../../../domain/types'
 import { cn } from '../../../lib/cn'
 import { needsSymbol, usesUnits, type ReviewRow } from '../../importReview'
 import { MARKET_LABELS, TX_TYPE_LABELS } from '../../labels'
+import { t } from '../../../i18n'
 
 const CHECK = 'border-warning-fg bg-warning-bg'
 
@@ -58,12 +59,12 @@ export function ReviewRowEditor({
         <input
           type="checkbox"
           className="size-5 shrink-0 accent-primary"
-          aria-label={`บันทึก ${title}`}
+          aria-label={t('บันทึก {0}', title)}
           checked={row.include}
           onChange={(e) => onChange({ include: e.target.checked })}
         />
         <NativeSelect
-          aria-label={`ประเภทของ ${title}`}
+          aria-label={t('ประเภทของ {0}', title)}
           className="h-10 w-auto"
           value={row.kind}
           onChange={(e) => onChange({ kind: e.target.value as RowKind })}
@@ -77,7 +78,7 @@ export function ReviewRowEditor({
         {needsSymbol(row.kind) && (
           <>
             <NativeSelect
-              aria-label={`ตลาดของ ${title}`}
+              aria-label={t('ตลาดของ {0}', title)}
               className={cn('h-10 w-auto max-w-40', doubtful('market'))}
               value={row.market}
               onChange={(e) => onChange({ market: e.target.value as ReviewRow['market'] })}
@@ -89,7 +90,7 @@ export function ReviewRowEditor({
               ))}
             </NativeSelect>
             <Input
-              aria-label="สัญลักษณ์"
+              aria-label={t('สัญลักษณ์')}
               className={cn('h-10 w-24 min-w-0 flex-1 font-semibold uppercase sm:flex-none', doubtful('symbol'))}
               value={row.symbol}
               onChange={(e) => onChange({ symbol: e.target.value.toUpperCase() })}
@@ -99,7 +100,7 @@ export function ReviewRowEditor({
       </div>
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-6">
         {row.kind !== 'opening' && (
-          <Field id={`${row.key}-date`} label="วันที่">
+          <Field id={`${row.key}-date`} label={t('วันที่')}>
             <Input
               id={`${row.key}-date`}
               type="date"
@@ -111,23 +112,23 @@ export function ReviewRowEditor({
         )}
         {usesUnits(row.kind) ? (
           <>
-            <NumberField row={row} field="quantity" label="จำนวน" value={row.quantity} onChange={(quantity) => onChange({ quantity })} />
+            <NumberField row={row} field="quantity" label={t('จำนวน')} value={row.quantity} onChange={(quantity) => onChange({ quantity })} />
             <NumberField
               row={row}
               field="price"
-              label={row.kind === 'opening' ? 'ทุนเฉลี่ย' : 'ราคา'}
+              label={row.kind === 'opening' ? t('ทุนเฉลี่ย') : t('ราคา')}
               value={row.price}
               onChange={(price) => onChange({ price })}
             />
           </>
         ) : (
-          <NumberField row={row} field="amount" label="จำนวนเงิน" value={row.amount} onChange={(amount) => onChange({ amount })} />
+          <NumberField row={row} field="amount" label={t('จำนวนเงิน')} value={row.amount} onChange={(amount) => onChange({ amount })} />
         )}
-        <NumberField row={row} field="fees" label="ค่าธรรมเนียม" value={row.fees} onChange={(fees) => onChange({ fees })} />
+        <NumberField row={row} field="fees" label={t('ค่าธรรมเนียม')} value={row.fees} onChange={(fees) => onChange({ fees })} />
         {row.kind !== 'opening' && (
-          <NumberField row={row} field="tax" label="ภาษี" value={row.tax} onChange={(tax) => onChange({ tax })} />
+          <NumberField row={row} field="tax" label={t('ภาษี')} value={row.tax} onChange={(tax) => onChange({ tax })} />
         )}
-        <Field id={`${row.key}-currency`} label="สกุล">
+        <Field id={`${row.key}-currency`} label={t('สกุล')}>
           <NativeSelect
             id={`${row.key}-currency`}
             className={cn('h-10', doubtful('currency'))}
@@ -143,7 +144,7 @@ export function ReviewRowEditor({
           <NumberField
             row={row}
             field="fxRate"
-            label={`เรท 1 ${row.currency} = ? ${baseCurrency}`}
+            label={t('เรท 1 {0} = ? {1}', row.currency, baseCurrency)}
             value={row.fxRate}
             onChange={(fxRate) => onChange({ fxRate, fxSource: 'manual' })}
           />
@@ -151,7 +152,7 @@ export function ReviewRowEditor({
       </div>
       {(row.note || row.duplicate || (row.include && problems.length > 0)) && (
         <p className="text-[12.5px] text-warning-fg">
-          {[row.note, row.duplicate && `${row.duplicate}${row.include ? '' : ' · ไม่ได้เลือกไว้'}`, row.include && problems.join(' · ')]
+          {[row.note, row.duplicate && `${row.duplicate}${row.include ? '' : t(' · ไม่ได้เลือกไว้')}`, row.include && problems.join(' · ')]
             .filter(Boolean)
             .join(' · ')}
         </p>

@@ -9,6 +9,7 @@ import { cn } from '../../../lib/cn'
 import { EMOTION_LABELS, MISTAKE_LABELS } from '../../labels'
 import { journalFromDraft, type Draft, type JournalDraft } from '../../transactionDraft'
 import { FieldGroup } from './FieldGroup'
+import { t } from '../../../i18n'
 
 const SCALE = ['1', '2', '3', '4', '5'].map((value) => ({ value, label: value }))
 
@@ -44,7 +45,8 @@ function Scale({ id, label, value, onChange }: { id: string; label: string; valu
           className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg px-2 text-[13px] font-semibold text-primary focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/35 md:col-start-2 md:row-start-2 md:min-h-0 md:min-w-0 md:justify-self-start"
           onClick={() => onChange('')}
         >
-          ล้าง
+          
+          {t('ล้าง')}
         </button>
       )}
       <Segmented
@@ -90,11 +92,12 @@ export function TradeJournalFields({
         className="flex min-h-11 w-full items-center justify-between gap-3 rounded-2xl px-4 py-2.5 text-left text-sm transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/35 aria-expanded:rounded-b-none"
       >
         <span className="min-w-0">
-          <span className="font-semibold text-ink-2">บันทึกการเทรด (ไม่บังคับ)</span>
+          <span className="font-semibold text-ink-2">{t('บันทึกการเทรด (ไม่บังคับ)')}</span>
           {!open && (
             <span aria-hidden className="text-muted-foreground">
               {' '}
-              ·&nbsp;กลยุทธ์ เหตุผล อารมณ์ Stop&nbsp;loss
+              
+              {t('· กลยุทธ์ เหตุผล อารมณ์ Stop loss')}
             </span>
           )}
         </span>
@@ -104,7 +107,7 @@ export function TradeJournalFields({
         <div className="grid gap-3.5 border-t p-3 min-[360px]:p-4">
           {draft.type === 'buy' && checklist.length > 0 && (
             <fieldset className="grid gap-1">
-              <legend className={cn(labelClass, 'mb-1')}>เช็คลิสต์ก่อนเข้าเทรด</legend>
+              <legend className={cn(labelClass, 'mb-1')}>{t('เช็คลิสต์ก่อนเข้าเทรด')}</legend>
               {checklist.map((item) => (
                 <label key={item} className="flex min-h-11 items-center gap-2.5 text-sm">
                   <input
@@ -119,12 +122,13 @@ export function TradeJournalFields({
                 </label>
               ))}
               <span className="text-[12.5px] text-muted-foreground">
-                ติ๊กแล้ว {journal.checked.filter((c) => checklist.includes(c)).length} จาก {checklist.length} ข้อ
+                
+                {t('ติ๊กแล้ว ')}{journal.checked.filter((c) => checklist.includes(c)).length} {t(' จาก ')}{checklist.length} {t(' ข้อ')}
               </span>
             </fieldset>
           )}
           <div className="grid gap-3.5 sm:grid-cols-2">
-            <Field id="tx-journal-strategy" label="กลยุทธ์">
+            <Field id="tx-journal-strategy" label={t('กลยุทธ์')}>
               <Input
                 id="tx-journal-strategy"
                 list="trade-strategies"
@@ -138,21 +142,21 @@ export function TradeJournalFields({
                 ))}
               </datalist>
             </Field>
-            <Field id="tx-journal-tags" label="แท็ก" hint="คั่นด้วยจุลภาค เช่น earnings, gap">
+            <Field id="tx-journal-tags" label={t('แท็ก')} hint={t('คั่นด้วยจุลภาค เช่น earnings, gap')}>
               <Input id="tx-journal-tags" value={journal.tags} onChange={(e) => patch({ tags: e.target.value })} />
             </Field>
           </div>
-          <Field id="tx-journal-reason" label="เหตุผลที่เข้า">
+          <Field id="tx-journal-reason" label={t('เหตุผลที่เข้า')}>
             <Textarea id="tx-journal-reason" value={journal.reason} onChange={(e) => patch({ reason: e.target.value })} />
           </Field>
-          <Choices label="อารมณ์ตอนเข้า">
+          <Choices label={t('อารมณ์ตอนเข้า')}>
             {EMOTIONS.map((emotion) => (
               <Chip key={emotion} active={journal.emotion === emotion} onClick={() => toggleEmotion(emotion)}>
                 {EMOTION_LABELS[emotion]}
               </Chip>
             ))}
           </Choices>
-          <Scale id="tx-journal-confidence" label="ความมั่นใจ" value={journal.confidence} onChange={(confidence) => patch({ confidence })} />
+          <Scale id="tx-journal-confidence" label={t('ความมั่นใจ')} value={journal.confidence} onChange={(confidence) => patch({ confidence })} />
           <div className="grid grid-cols-1 gap-3.5 min-[360px]:grid-cols-2">
             <Field id="tx-journal-stop-loss" label="Stop loss">
               <Input id="tx-journal-stop-loss" inputMode="decimal" value={journal.stopLoss} onChange={(e) => patch({ stopLoss: e.target.value })} />
@@ -162,18 +166,18 @@ export function TradeJournalFields({
             </Field>
           </div>
           {draft.type === 'sell' && (
-            <FieldGroup legend="หลังปิดเทรด" divided>
-              <Field id="tx-journal-review" label="รีวิวหลังปิด">
+            <FieldGroup legend={t('หลังปิดเทรด')} divided>
+              <Field id="tx-journal-review" label={t('รีวิวหลังปิด')}>
                 <Textarea id="tx-journal-review" value={journal.review} onChange={(e) => patch({ review: e.target.value })} />
               </Field>
-              <Choices label="ข้อผิดพลาดที่ทำ">
+              <Choices label={t('ข้อผิดพลาดที่ทำ')}>
                 {MISTAKES.map((mistake) => (
                   <Chip key={mistake} active={journal.mistakes.includes(mistake)} onClick={() => toggleMistake(mistake)}>
                     {MISTAKE_LABELS[mistake]}
                   </Chip>
                 ))}
               </Choices>
-              <Scale id="tx-journal-score" label="คะแนนการลงมือ" value={journal.score} onChange={(score) => patch({ score })} />
+              <Scale id="tx-journal-score" label={t('คะแนนการลงมือ')} value={journal.score} onChange={(score) => patch({ score })} />
             </FieldGroup>
           )}
         </div>

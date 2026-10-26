@@ -6,6 +6,7 @@ import { fmtPct, fmtSigned, fmtValue, plClass } from '../format'
 import { MARKET_LABELS } from '../labels'
 import { useIsDesktop } from '../useIsDesktop'
 import { CashPill, MarketPill } from './MarketPill'
+import { t } from '../../i18n'
 
 function ShareBar({ row }: { row: AllocationRow }) {
   return (
@@ -25,7 +26,7 @@ function MarketName({ row }: { row: HoldingGroup }) {
       <MarketPill market={market} />
       <span className="flex min-w-0 items-center gap-2.5 md:max-lg:flex-col md:max-lg:items-start md:max-lg:gap-0">
         <span className="truncate">{MARKET_LABELS[market]}</span>
-        <span className="shrink-0 text-[12.5px] text-muted-foreground">{row.count} ตัว</span>
+        <span className="shrink-0 text-[12.5px] text-muted-foreground">{row.count} {t(' ตัว')}</span>
       </span>
     </span>
   )
@@ -45,11 +46,11 @@ export function MarketView({ groups, base }: { groups: readonly HoldingGroup[]; 
         <Table className={tight}>
           <thead>
             <tr>
-              <Th>ตลาด</Th>
-              <Th className="text-right">มูลค่า ({base})</Th>
-              <Th className="text-right">สัดส่วน</Th>
-              <Th className="text-right">ยังไม่ขาย</Th>
-              <Th className="text-right">ผลตอบแทนรวม</Th>
+              <Th>{t('ตลาด')}</Th>
+              <Th className="text-right">{t('มูลค่า (')}{base})</Th>
+              <Th className="text-right">{t('สัดส่วน')}</Th>
+              <Th className="text-right">{t('ยังไม่ขาย')}</Th>
+              <Th className="text-right">{t('ผลตอบแทนรวม')}</Th>
             </tr>
           </thead>
           <tbody>
@@ -69,19 +70,19 @@ export function MarketView({ groups, base }: { groups: readonly HoldingGroup[]; 
           </tbody>
         </Table>
       ) : (
-        <ul aria-label="สัดส่วนตามตลาด">
+        <ul aria-label={t('สัดส่วนตามตลาด')}>
           {groups.map((row) => (
             <li key={row.key} className={phoneRow}>
               <MarketName row={row} />
               <span className="font-display font-semibold">{fmtPct(row.pct, 1, 1)}</span>
               <span className="col-span-2 text-[12.5px] text-muted-foreground">
-                {fmtValue(row.totalBase)} · ยังไม่ขาย <span className={plClass(row.unrealizedBase)}>{fmtSigned(row.unrealizedBase, 0)}</span>
+                {fmtValue(row.totalBase)} {t(' · ยังไม่ขาย ')}<span className={plClass(row.unrealizedBase)}>{fmtSigned(row.unrealizedBase, 0)}</span>
               </span>
             </li>
           ))}
         </ul>
       )}
-      <p className="mt-3 text-[12.5px] text-muted-foreground">สัดส่วนจากมูลค่าสินทรัพย์ ไม่รวมเงินสด</p>
+      <p className="mt-3 text-[12.5px] text-muted-foreground">{t('สัดส่วนจากมูลค่าสินทรัพย์ ไม่รวมเงินสด')}</p>
     </>
   )
 }
@@ -94,11 +95,11 @@ export function CurrencyView({ rows, base }: { rows: readonly AllocationRow[]; b
         <Table className={tight}>
           <thead>
             <tr>
-              <Th>สกุลเงิน</Th>
-              <Th className="text-right">สินทรัพย์</Th>
-              <Th className="text-right">เงินสด</Th>
-              <Th className="text-right">รวม ({base})</Th>
-              <Th className="text-right">สัดส่วน</Th>
+              <Th>{t('สกุลเงิน')}</Th>
+              <Th className="text-right">{t('สินทรัพย์')}</Th>
+              <Th className="text-right">{t('เงินสด')}</Th>
+              <Th className="text-right">{t('รวม (')}{base})</Th>
+              <Th className="text-right">{t('สัดส่วน')}</Th>
             </tr>
           </thead>
           <tbody>
@@ -118,7 +119,7 @@ export function CurrencyView({ rows, base }: { rows: readonly AllocationRow[]; b
           </tbody>
         </Table>
       ) : (
-        <ul aria-label="สัดส่วนตามสกุลเงิน">
+        <ul aria-label={t('สัดส่วนตามสกุลเงิน')}>
           {rows.map((row) => (
             <li key={row.key} className={phoneRow}>
               <span className="flex">
@@ -126,13 +127,14 @@ export function CurrencyView({ rows, base }: { rows: readonly AllocationRow[]; b
               </span>
               <span className="font-display font-semibold">{fmtPct(row.pct, 1, 1)}</span>
               <span className="col-span-2 text-[12.5px] text-muted-foreground">
-                สินทรัพย์ {fmtValue(row.assetsBase)} · เงินสด {fmtValue(row.cashBase)}
+                
+                {t('สินทรัพย์ ')}{fmtValue(row.assetsBase)} {t(' · เงินสด ')}{fmtValue(row.cashBase)}
               </span>
             </li>
           ))}
         </ul>
       )}
-      <p className="mt-3 text-[12.5px] text-muted-foreground">สินทรัพย์นับตามสกุลที่ซื้อขาย รวมเงินสดตามสกุล</p>
+      <p className="mt-3 text-[12.5px] text-muted-foreground">{t('สินทรัพย์นับตามสกุลที่ซื้อขาย รวมเงินสดตามสกุล')}</p>
     </>
   )
 }

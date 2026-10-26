@@ -1,10 +1,11 @@
 import { D, type Decimal } from '../domain/decimal'
+import { t } from '../i18n'
 
 type Value = Decimal | string | null | undefined
 
 const MINUS = '−'
-const WEEKDAYS = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์']
-const MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
+const WEEKDAYS = [t('อาทิตย์'), t('จันทร์'), t('อังคาร'), t('พุธ'), t('พฤหัสบดี'), t('ศุกร์'), t('เสาร์')]
+const MONTHS = [t('ม.ค.'), t('ก.พ.'), t('มี.ค.'), t('เม.ย.'), t('พ.ค.'), t('มิ.ย.'), t('ก.ค.'), t('ส.ค.'), t('ก.ย.'), t('ต.ค.'), t('พ.ย.'), t('ธ.ค.')]
 
 export const HIDDEN_NUMBER = '•••'
 
@@ -71,7 +72,7 @@ export function fmtAmount(value: Value): string {
 }
 
 export function currencyMark(base: string): string {
-  return base === 'THB' ? '฿' : base
+  return base === 'THB' ? t('฿') : base
 }
 
 export function fmtMoney(value: Value, currency?: string): string {
@@ -137,7 +138,7 @@ export function plClass(value: Value): string {
 export function fmtHeadline(value: Value, currency: string): string {
   if (isEmpty(value)) return '—'
   const [sign, digits] = numbersHidden ? ['', HIDDEN_NUMBER] : parts(D(value), 0, 0)
-  return currency === 'THB' ? `${sign}฿${digits}` : `${sign}${digits} ${currency}`
+  return currency === 'THB' ? t('{0}฿{1}', sign, digits) : `${sign}${digits} ${currency}`
 }
 
 // Broker statements use the Gregorian year, so the app does too; only tax years add the Buddhist year.

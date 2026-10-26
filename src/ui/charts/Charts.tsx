@@ -1,5 +1,6 @@
 import { Area, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Scatter, Tooltip, XAxis, YAxis } from 'recharts'
 import { fmtDate, fmtHeadline, fmtPrice } from '../format'
+import { t } from '../../i18n'
 
 // Recharts is loaded only with a page that draws a chart. Every number on an axis or in a tooltip goes through the
 // app's own formatters, so hidden numbers stay hidden in charts too.
@@ -45,8 +46,8 @@ export function ValueChart({ data, base }: { data: ValueDatum[]; base: string })
               <TooltipBox
                 title={fmtDate(d.date)}
                 lines={[
-                  { label: 'มูลค่า', value: fmtHeadline(String(d.value), base), color: 'var(--primary)' },
-                  { label: 'เงินลงทุน', value: fmtHeadline(String(d.invested), base), color: 'var(--muted-foreground)' },
+                  { label: t('มูลค่า'), value: fmtHeadline(String(d.value), base), color: 'var(--primary)' },
+                  { label: t('เงินลงทุน'), value: fmtHeadline(String(d.invested), base), color: 'var(--muted-foreground)' },
                 ]}
               />
             ) : null
@@ -76,7 +77,7 @@ export function RealizedChart({ data, base }: { data: TotalDatum[]; base: string
         <Tooltip
           content={({ active, payload }) => {
             const d = active && payload?.[0]?.payload as TotalDatum | undefined
-            return d ? <TooltipBox title={fmtDate(d.date)} lines={[{ label: 'กำไรสะสม', value: fmtHeadline(String(d.total), base), color }]} /> : null
+            return d ? <TooltipBox title={fmtDate(d.date)} lines={[{ label: t('กำไรสะสม'), value: fmtHeadline(String(d.total), base), color }]} /> : null
           }}
         />
         <Line type="stepAfter" dataKey="total" stroke={color} strokeWidth={2} dot={false} isAnimationActive={false} />
@@ -92,7 +93,7 @@ export interface PriceDatum {
 }
 
 const MARK_COLORS = { buy: 'var(--gain)', sell: 'var(--loss)', opening: 'var(--primary)', last: 'var(--muted-foreground)' }
-const MARK_LABELS = { buy: 'ซื้อ', sell: 'ขาย', opening: 'ยอดยกมา', last: 'ราคาล่าสุด' }
+const MARK_LABELS = { buy: t('ซื้อ'), sell: t('ขาย'), opening: t('ยอดยกมา'), last: t('ราคาล่าสุด') }
 
 export function PriceChart({ data, currency }: { data: PriceDatum[]; currency: string }) {
   return (

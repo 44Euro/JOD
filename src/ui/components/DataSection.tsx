@@ -16,13 +16,14 @@ import { fmtDate } from '../format'
 import type { AppData } from '../hooks'
 import { asEncrypted, decryptText, DecryptError, encryptText, type EncryptedFile } from '../../security/crypto'
 import { ensurePersistentStorage, type StorageStatus } from '../storage'
+import { t } from '../../i18n'
 
 const REMIND_AFTER_DAYS = 7
 
 const STORAGE_LABELS: Record<StorageStatus, string> = {
-  persisted: 'เบราว์เซอร์จะไม่ลบข้อมูลนี้เอง',
-  'not-persisted': 'เบราว์เซอร์อาจลบข้อมูลเมื่อพื้นที่เต็ม · ควรสำรองข้อมูลเป็นประจำ',
-  unsupported: 'เบราว์เซอร์นี้ไม่รองรับการป้องกันการลบข้อมูล · ควรสำรองข้อมูลเป็นประจำ',
+  persisted: t('เบราว์เซอร์จะไม่ลบข้อมูลนี้เอง'),
+  'not-persisted': t('เบราว์เซอร์อาจลบข้อมูลเมื่อพื้นที่เต็ม · ควรสำรองข้อมูลเป็นประจำ'),
+  unsupported: t('เบราว์เซอร์นี้ไม่รองรับการป้องกันการลบข้อมูล · ควรสำรองข้อมูลเป็นประจำ'),
 }
 
 export function DataSection({ data }: { data: AppData }) {
@@ -49,7 +50,7 @@ export function DataSection({ data }: { data: AppData }) {
 
   async function handleExport() {
     if (seal && passphrase.length < 8) {
-      setMessage({ tone: 'error', text: 'รหัสผ่านไฟล์สำรองต้องยาวอย่างน้อย 8 ตัวอักษร' })
+      setMessage({ tone: 'error', text: t('รหัสผ่านไฟล์สำรองต้องยาวอย่างน้อย 8 ตัวอักษร') })
       return
     }
     const backup = await exportBackup(db)
@@ -57,13 +58,13 @@ export function DataSection({ data }: { data: AppData }) {
     if (seal) downloadText(`jod-backup-${todayLocal()}-locked.json`, JSON.stringify(await encryptText(text, passphrase)), 'application/json')
     else downloadText(`jod-backup-${todayLocal()}.json`, text, 'application/json')
     await saveSettings(db, { ...data.settings, lastBackupAt: backup.exportedAt })
-    setMessage({ tone: 'ok', text: 'สำรองข้อมูลแล้ว' })
+    setMessage({ tone: 'ok', text: t('สำรองข้อมูลแล้ว') })
   }
 
   async function handleRemoveSample() {
-    if (!window.confirm('ลบข้อมูลตัวอย่างทั้งหมด? ข้อมูลที่คุณบันทึกเองจะอยู่ครบ')) return
+    if (!window.confirm(t('ลบข้อมูลตัวอย่างทั้งหมด? ข้อมูลที่คุณบันทึกเองจะอยู่ครบ'))) return
     await removeSampleData(db)
-    setMessage({ tone: 'ok', text: 'ลบข้อมูลตัวอย่างแล้ว' })
+    setMessage({ tone: 'ok', text: t('ลบข้อมูลตัวอย่างแล้ว') })
   }
 
   function handleCsv() {
@@ -98,7 +99,7 @@ export function DataSection({ data }: { data: AppData }) {
       setOpenWith('')
       await restore(text)
     } catch (error) {
-      setMessage({ tone: 'error', text: error instanceof DecryptError ? error.message : 'เปิดไฟล์ไม่สำเร็จ' })
+      setMessage({ tone: 'error', text: error instanceof DecryptError ? error.message : t('เปิดไฟล์ไม่สำเร็จ') })
     }
   }
 
@@ -106,13 +107,13 @@ export function DataSection({ data }: { data: AppData }) {
     try {
       const backup = parseBackup(text)
       const count = backup.data.transactions.length
-      if (!window.confirm(`กู้คืนจากไฟล์นี้จะแทนที่ข้อมูลทั้งหมดในเครื่อง (ในไฟล์มี ${count} รายการ) ต่อไหม?`)) return
+      if (!window.confirm(t('กู้คืนจากไฟล์นี้จะแทนที่ข้อมูลทั้งหมดในเครื่อง (ในไฟล์มี {0} รายการ) ต่อไหม?', count))) return
       await restoreBackup(db, backup)
-      setMessage({ tone: 'ok', text: `กู้คืนแล้ว ${count} รายการ` })
+      setMessage({ tone: 'ok', text: t('กู้คืนแล้ว {0} รายการ', count) })
     } catch (error) {
       setMessage({
         tone: 'error',
-        text: error instanceof BackupError ? error.message : 'กู้คืนไม่สำเร็จ ข้อมูลเดิมยังอยู่ครบ',
+        text: error instanceof BackupError ? error.message : t('กู้คืนไม่สำเร็จ ข้อมูลเดิมยังอยู่ครบ'),
       })
     }
   }
@@ -120,13 +121,13 @@ export function DataSection({ data }: { data: AppData }) {
   return (
     <Card className="grid gap-3">
       <div>
-        <h2 className="text-lg font-semibold">ข้อมูลของคุณ</h2>
-        <p className="text-[12.5px] text-muted-foreground">ข้อมูลทั้งหมดอยู่ในเครื่องนี้เท่านั้น ควรสำรองเป็นไฟล์อย่างสม่ำเสมอ</p>
+        <h2 className="text-lg font-semibold">{t('ข้อมูลของคุณ')}</h2>
+        <p className="text-[12.5px] text-muted-foreground">{t('ข้อมูลทั้งหมดอยู่ในเครื่องนี้เท่านั้น ควรสำรองเป็นไฟล์อย่างสม่ำเสมอ')}</p>
       </div>
       {needsBackup ? (
-        <Alert role="note">{lastBackup ? `สำรองล่าสุด ${fmtDate(lastBackup)} · ${age} วันก่อน` : 'ยังไม่เคยสำรองข้อมูล'}</Alert>
+        <Alert role="note">{lastBackup ? t('สำรองล่าสุด {0} · {1} วันก่อน', fmtDate(lastBackup), age) : t('ยังไม่เคยสำรองข้อมูล')}</Alert>
       ) : (
-        lastBackup && <p className="text-sm text-muted-foreground">สำรองล่าสุด {fmtDate(lastBackup)}</p>
+        lastBackup && <p className="text-sm text-muted-foreground">{t('สำรองล่าสุด ')}{fmtDate(lastBackup)}</p>
       )}
       {message &&
         (message.tone === 'error' ? (
@@ -144,40 +145,46 @@ export function DataSection({ data }: { data: AppData }) {
             void openSealed()
           }}
         >
-          <Field id="open-passphrase" label="ไฟล์นี้เข้ารหัสไว้ · ใส่รหัสผ่าน">
+          <Field id="open-passphrase" label={t('ไฟล์นี้เข้ารหัสไว้ · ใส่รหัสผ่าน')}>
             <Input id="open-passphrase" type="password" autoComplete="off" value={openWith} onChange={(e) => setOpenWith(e.target.value)} />
           </Field>
           <Button type="submit" className="h-[46px]" disabled={!openWith}>
-            เปิดไฟล์
+            
+            {t('เปิดไฟล์')}
           </Button>
         </form>
       )}
       <label className="flex min-h-11 items-center gap-2.5 text-sm">
         <input type="checkbox" className="size-5 accent-primary" checked={seal} onChange={(e) => setSeal(e.target.checked)} />
-        เข้ารหัสไฟล์สำรองด้วยรหัสผ่าน
+        
+        {t('เข้ารหัสไฟล์สำรองด้วยรหัสผ่าน')}
       </label>
       {seal && (
-        <Field id="seal-passphrase" label="รหัสผ่านไฟล์สำรอง" hint="อย่างน้อย 8 ตัวอักษร · ลืมรหัสผ่านแล้วเปิดไฟล์ไม่ได้อีก แอปกู้ให้ไม่ได้">
+        <Field id="seal-passphrase" label={t('รหัสผ่านไฟล์สำรอง')} hint={t('อย่างน้อย 8 ตัวอักษร · ลืมรหัสผ่านแล้วเปิดไฟล์ไม่ได้อีก แอปกู้ให้ไม่ได้')}>
           <Input id="seal-passphrase" type="password" autoComplete="new-password" value={passphrase} onChange={(e) => setPassphrase(e.target.value)} />
         </Field>
       )}
       <div className="flex flex-wrap gap-2">
         <Button type="button" onClick={() => void handleExport()}>
           <Download aria-hidden />
-          สำรองข้อมูล
+          
+          {t('สำรองข้อมูล')}
         </Button>
         <Button type="button" variant="outline" onClick={() => fileRef.current?.click()}>
           <Upload aria-hidden />
-          กู้คืนจากไฟล์
+          
+          {t('กู้คืนจากไฟล์')}
         </Button>
         <Button type="button" variant="outline" onClick={handleCsv}>
           <FileSpreadsheet aria-hidden />
-          ส่งออก CSV สำหรับ Excel
+          
+          {t('ส่งออก CSV สำหรับ Excel')}
         </Button>
         {hasSampleData(data.accounts) && (
           <Button type="button" variant="outline" onClick={() => void handleRemoveSample()}>
             <Trash2 aria-hidden />
-            ลบข้อมูลตัวอย่าง
+            
+            {t('ลบข้อมูลตัวอย่าง')}
           </Button>
         )}
         <input
@@ -185,7 +192,7 @@ export function DataSection({ data }: { data: AppData }) {
           type="file"
           accept="application/json,.json"
           className="hidden"
-          aria-label="เลือกไฟล์สำรอง"
+          aria-label={t('เลือกไฟล์สำรอง')}
           onChange={(e) => void handleImport(e)}
         />
       </div>
@@ -193,7 +200,8 @@ export function DataSection({ data }: { data: AppData }) {
         <p className="flex flex-wrap items-center gap-2 text-[12.5px] text-muted-foreground">
           <Badge variant="ok">
             <ShieldCheck aria-hidden />
-            ป้องกันแล้ว
+            
+            {t('ป้องกันแล้ว')}
           </Badge>
           {STORAGE_LABELS.persisted}
         </p>

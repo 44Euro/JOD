@@ -25,12 +25,13 @@ import { useAppData } from '../hooks'
 import { toReviewRows, type ReviewRow } from '../importReview'
 import { READER_MODE_LABELS } from '../labels'
 import { NEW_TRANSACTION } from '../nav'
+import { t } from '../../i18n'
 
-const STEPS = ['เลือกบัญชี', 'ใส่รูป', 'อ่าน', 'ตรวจสอบ', 'บันทึก'] as const
+const STEPS = [t('เลือกบัญชี'), t('ใส่รูป'), t('อ่าน'), t('ตรวจสอบ'), t('บันทึก')] as const
 
 const PURPOSES = ['import', 'prices', 'compare'] as const
 type Purpose = (typeof PURPOSES)[number]
-const PURPOSE_LABELS: Record<Purpose, string> = { import: 'นำเข้ารายการ', prices: 'อัปเดตราคาจากรูป', compare: 'เทียบยอดกับโบรก' }
+const PURPOSE_LABELS: Record<Purpose, string> = { import: t('นำเข้ารายการ'), prices: t('อัปเดตราคาจากรูป'), compare: t('เทียบยอดกับโบรก') }
 
 type Phase =
   | { name: 'pick' }
@@ -52,14 +53,14 @@ function FileChip({ file, edited, onEdit, onRemove }: { file: PreparedFile; edit
       )}
       <span className="ml-1 min-w-0 flex-1">
         <span className="block truncate text-sm">{file.name}</span>
-        {edited && <span className="block text-[12px] text-muted-foreground">ครอปหรือปิดข้อมูลแล้ว</span>}
+        {edited && <span className="block text-[12px] text-muted-foreground">{t('ครอปหรือปิดข้อมูลแล้ว')}</span>}
       </span>
       {onEdit && (
-        <Button type="button" variant="ghost" size="icon" aria-label={`ครอปหรือปิดข้อมูลใน ${file.name}`} onClick={onEdit}>
+        <Button type="button" variant="ghost" size="icon" aria-label={t('ครอปหรือปิดข้อมูลใน {0}', file.name)} onClick={onEdit}>
           <Crop aria-hidden />
         </Button>
       )}
-      <Button type="button" variant="ghost" size="icon" aria-label={`เอา ${file.name} ออก`} onClick={onRemove}>
+      <Button type="button" variant="ghost" size="icon" aria-label={t('เอา {0} ออก', file.name)} onClick={onRemove}>
         <X aria-hidden />
       </Button>
     </li>
@@ -118,7 +119,7 @@ export function ImportPage() {
       try {
         added.push(await prepareFile(file))
       } catch (error) {
-        errors.push(error instanceof FileError ? error.message : `เปิด ${file.name} ไม่ได้`)
+        errors.push(error instanceof FileError ? error.message : t('เปิด {0} ไม่ได้', file.name))
       }
     }
     setFiles((current) => [...current, ...added])
@@ -178,9 +179,10 @@ export function ImportPage() {
   if (data.accounts.length === 0) {
     return (
       <>
-        <PageHeader title="นำเข้าข้อมูล" />
+        <PageHeader title={t('นำเข้าข้อมูล')} />
         <Alert>
-          เพิ่มบัญชีก่อน แล้วค่อยนำเข้ารายการของบัญชีนั้น · <Link to="/settings">ไปที่ตั้งค่า</Link>
+          
+          {t('เพิ่มบัญชีก่อน แล้วค่อยนำเข้ารายการของบัญชีนั้น · ')}<Link to="/settings">{t('ไปที่ตั้งค่า')}</Link>
         </Alert>
       </>
     )
@@ -192,13 +194,13 @@ export function ImportPage() {
 
   return (
     <>
-      <PageHeader title="นำเข้าข้อมูล" />
+      <PageHeader title={t('นำเข้าข้อมูล')} />
       <Stations steps={STEPS} step={step} />
 
       {(phase.name === 'pick' || phase.name === 'reading') && (
         <Card className="grid gap-4">
           <div className="grid gap-3">
-            <Field id="import-account" label="บัญชี" className="sm:max-w-sm">
+            <Field id="import-account" label={t('บัญชี')} className="sm:max-w-sm">
               <NativeSelect
                 id="import-account"
                 value={account.id}
@@ -213,9 +215,9 @@ export function ImportPage() {
               </NativeSelect>
             </Field>
             <div className="grid content-start gap-1.5">
-              <span className="text-[13.5px] font-semibold text-ink-2">ทำอะไร</span>
+              <span className="text-[13.5px] font-semibold text-ink-2">{t('ทำอะไร')}</span>
               <Segmented
-                label="ทำอะไร"
+                label={t('ทำอะไร')}
                 options={PURPOSES.map((value) => ({ value, label: PURPOSE_LABELS[value] }))}
                 value={purpose}
                 onChange={setPurpose}
@@ -230,7 +232,7 @@ export function ImportPage() {
               multiple
               accept="image/*,application/pdf,.pdf,.csv,.tsv,.txt,text/csv"
               className="sr-only"
-              aria-label="เลือกรูปหรือไฟล์"
+              aria-label={t('เลือกรูปหรือไฟล์')}
               onChange={(e) => {
                 void addFiles(e.target.files)
                 e.target.value = ''
@@ -248,11 +250,11 @@ export function ImportPage() {
               className="grid min-h-28 place-items-center gap-1.5 rounded-2xl border-2 border-dashed bg-background px-4 py-5 text-center hover:bg-muted disabled:opacity-50"
             >
               <ImagePlus className="size-6 text-ink-2" aria-hidden />
-              <span className="font-semibold">ใส่รูปแคป, PDF หรือ CSV</span>
-              <span className="text-[12.5px] text-muted-foreground">ใส่ได้หลายไฟล์ · ใส่รูปแล้วครอปหรือปิดเลขบัญชีได้ · Excel ให้บันทึกเป็น CSV ก่อน</span>
+              <span className="font-semibold">{t('ใส่รูปแคป, PDF หรือ CSV')}</span>
+              <span className="text-[12.5px] text-muted-foreground">{t('ใส่ได้หลายไฟล์ · ใส่รูปแล้วครอปหรือปิดเลขบัญชีได้ · Excel ให้บันทึกเป็น CSV ก่อน')}</span>
             </button>
             {files.length > 0 && (
-              <ul className="grid gap-2 sm:grid-cols-2" aria-label="ไฟล์ที่จะอ่าน">
+              <ul className="grid gap-2 sm:grid-cols-2" aria-label={t('ไฟล์ที่จะอ่าน')}>
                 {files.map((file, index) => (
                   <FileChip
                     key={`${file.name}-${index}`}
@@ -283,39 +285,44 @@ export function ImportPage() {
           </div>
 
           <p className="text-[13px] text-muted-foreground">
-            อ่านด้วย: <b className="text-ink-2">{READER_MODE_LABELS[mode]}</b>
+            
+            {t('อ่านด้วย: ')}<b className="text-ink-2">{READER_MODE_LABELS[mode]}</b>
             {' · '}
             {mode === 'local'
-              ? 'ไม่มีค่าใช้จ่าย ไฟล์ไม่ออกจากเครื่อง'
-              : `ไฟล์จะถูกส่งไปให้ AI ของ Anthropic อ่าน${cost ? ` · ${files.length} ไฟล์ ≈ ${cost} ${base === 'THB' ? 'บาท' : base}` : ''}`}
+              ? t('ไม่มีค่าใช้จ่าย ไฟล์ไม่ออกจากเครื่อง')
+              : t('ไฟล์จะถูกส่งไปให้ AI ของ Anthropic อ่าน{0}', cost ? t(' · {0} ไฟล์ ≈ {1} {2}', files.length, cost, base === 'THB' ? 'บาท' : base) : '')}
             {' · '}
             <Link to="/settings" className="font-semibold text-primary-ink underline underline-offset-[3px]">
-              เปลี่ยน
+              
+              {t('เปลี่ยน')}
             </Link>
           </p>
           {needsKey && (
             <Alert>
-              ใส่ API key ของ Anthropic ในหน้าตั้งค่าก่อน หรือเปลี่ยนเป็นอ่านในเครื่อง · <Link to="/settings">ไปที่ตั้งค่า</Link>
+              
+              {t('ใส่ API key ของ Anthropic ในหน้าตั้งค่าก่อน หรือเปลี่ยนเป็นอ่านในเครื่อง · ')}<Link to="/settings">{t('ไปที่ตั้งค่า')}</Link>
             </Alert>
           )}
           {readError && (
             <Alert tone="error">
-              {readError} · <Link to={NEW_TRANSACTION}>กรอกรายการเอง</Link>
+              {readError} · <Link to={NEW_TRANSACTION}>{t('กรอกรายการเอง')}</Link>
             </Alert>
           )}
           <div className="flex flex-wrap items-center gap-2">
             {phase.name === 'reading' ? (
               <>
                 <Button type="button" disabled>
-                  กำลังอ่าน {files.length} ไฟล์…
+                  
+                  {t('กำลังอ่าน ')}{files.length} {t(' ไฟล์…')}
                 </Button>
                 <Button type="button" variant="ghost" onClick={() => abort.current?.abort()}>
-                  หยุดอ่าน
+                  
+                  {t('หยุดอ่าน')}
                 </Button>
               </>
             ) : (
               <Button type="button" disabled={files.length === 0 || needsKey} onClick={() => void read()}>
-                {mode === 'claude' ? 'ให้ AI อ่าน' : 'อ่านไฟล์'}
+                {mode === 'claude' ? t('ให้ AI อ่าน') : t('อ่านไฟล์')}
               </Button>
             )}
           </div>
@@ -325,12 +332,12 @@ export function ImportPage() {
       {phase.name === 'review' && (
         <div className="grid items-start gap-3.5 md:gap-[22px] xl:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
           <Card className="order-last grid content-start gap-3 xl:order-first">
-            <h2 className="text-base font-semibold">ไฟล์จาก {account.name}</h2>
+            <h2 className="text-base font-semibold">{t('ไฟล์จาก ')}{account.name}</h2>
             <ul className="grid gap-3">
               {files.map((file, index) => (
                 <li key={`${file.name}-${index}`} className="grid gap-1.5">
                   {file.kind === 'image' ? (
-                    <img src={file.previewUrl} alt={`รูปที่ ${index + 1}`} className="max-h-[70vh] w-full rounded-xl border object-contain object-top" />
+                    <img src={file.previewUrl} alt={t('รูปที่ {0}', index + 1)} className="max-h-[70vh] w-full rounded-xl border object-contain object-top" />
                   ) : (
                     <span className="flex items-center gap-2 text-sm">
                       <FileText className="size-5 text-ink-2" aria-hidden />
@@ -340,7 +347,7 @@ export function ImportPage() {
                 </li>
               ))}
             </ul>
-            <p className="text-[12.5px] text-muted-foreground">ช่องสีเหลืองคือจุดที่ต้องตรวจกับไฟล์</p>
+            <p className="text-[12.5px] text-muted-foreground">{t('ช่องสีเหลืองคือจุดที่ต้องตรวจกับไฟล์')}</p>
           </Card>
           <Card>
             <h2 className="mb-3 text-lg font-semibold">{PURPOSE_LABELS[purpose]}</h2>
@@ -350,7 +357,7 @@ export function ImportPage() {
                 ctx={ctx}
                 fileCount={files.length}
                 initialRows={phase.rows}
-                onSaved={(count) => finish(`บันทึก ${count} รายการแล้ว · ยกเลิกทั้งชุดได้ที่ประวัติการนำเข้าด้านล่าง`)}
+                onSaved={(count) => finish(t('บันทึก {0} รายการแล้ว · ยกเลิกทั้งชุดได้ที่ประวัติการนำเข้าด้านล่าง', count))}
                 onCancel={() => setPhase({ name: 'pick' })}
               />
             )}
@@ -358,7 +365,7 @@ export function ImportPage() {
               <PriceReviewPanel
                 rows={phase.rows}
                 instruments={data.instruments}
-                onDone={(count) => finish(`อัปเดตราคา ${count} ตัวแล้ว`)}
+                onDone={(count) => finish(t('อัปเดตราคา {0} ตัวแล้ว', count))}
                 onCancel={() => setPhase({ name: 'pick' })}
               />
             )}
@@ -380,10 +387,12 @@ export function ImportPage() {
           <Alert tone="ok">{phase.message}</Alert>
           <div className="flex flex-wrap gap-2">
             <Button type="button" onClick={() => setPhase({ name: 'pick' })}>
-              นำเข้าเพิ่ม
+              
+              {t('นำเข้าเพิ่ม')}
             </Button>
             <Link to="/portfolio" className={cn(buttonVariants({ variant: 'outline' }))}>
-              ไปที่พอร์ต
+              
+              {t('ไปที่พอร์ต')}
             </Link>
           </div>
         </Card>

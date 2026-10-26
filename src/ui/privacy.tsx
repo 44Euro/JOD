@@ -7,6 +7,7 @@ import { getSettings } from '../db/repo'
 import { DEFAULT_SETTINGS } from '../domain/types'
 import { setNumbersHidden } from './format'
 import { usePrivacy } from './hooks'
+import { t } from '../i18n'
 
 // Nothing is rendered until the settings have been read once: a session that opens hidden must not paint a real figure first.
 export function PrivacyProvider({ children }: { children: ReactNode }) {
@@ -29,7 +30,7 @@ export function PrivacyProvider({ children }: { children: ReactNode }) {
 
 export function EyeButton() {
   const { hidden, toggle } = usePrivacy()
-  const label = hidden ? 'แสดงตัวเลข' : 'ซ่อนตัวเลข'
+  const label = hidden ? t('แสดงตัวเลข') : t('ซ่อนตัวเลข')
   const Icon = hidden ? EyeOff : Eye
   return (
     <Button

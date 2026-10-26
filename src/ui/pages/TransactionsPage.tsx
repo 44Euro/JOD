@@ -25,6 +25,7 @@ import { describeBody, describeMain, feeFreeTransfer, feeNote, feeNoteText, issu
 import { SEARCH_INPUT_ID } from '../shortcuts'
 import { deleteWithUndo, settleRestored, undoDelete, usePendingDeletes } from '../undoDelete'
 import { useIsDesktop } from '../useIsDesktop'
+import { t } from '../../i18n'
 
 // The phone row has no room for the account beside the symbol, so it puts the account on its second line instead, and
 // a symbol that is still too long is cut with an ellipsis.
@@ -86,7 +87,7 @@ function UndoButton({ label, className, onUndo }: { label: string; className?: s
   return (
     <button
       type="button"
-      aria-label={`ย้อนกลับการลบ ${label}`}
+      aria-label={t('ย้อนกลับการลบ {0}', label)}
       className={cn(
         'inline-flex min-h-11 items-center gap-1.5 rounded-xl px-2 text-[13.5px] font-semibold text-primary-ink underline-offset-[3px] hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/35 focus-visible:outline-none [&_svg]:size-4',
         className,
@@ -94,7 +95,8 @@ function UndoButton({ label, className, onUndo }: { label: string; className?: s
       onClick={onUndo}
     >
       <Undo2 aria-hidden />
-      ย้อนกลับ
+      
+      {t('ย้อนกลับ')}
     </button>
   )
 }
@@ -143,7 +145,7 @@ export function TransactionsPage() {
     return back.length === 0 ? rows : sortTransactions([...rows, ...back]).reverse()
   }, [rows, waiting, matches])
 
-  if (!data || !ledger) return <p className="text-muted-foreground">กำลังโหลด…</p>
+  if (!data || !ledger) return <p className="text-muted-foreground">{t('กำลังโหลด…')}</p>
   const base = data.settings.baseCurrency
   const accountNames = new Map(data.accounts.map((a) => [a.id, a.name]))
   const instruments = new Map(data.instruments.map((i) => [i.id, i]))
@@ -159,7 +161,7 @@ export function TransactionsPage() {
     try {
       await undoDelete(db, tx.id)
     } catch (error) {
-      setUndoError(error instanceof Error ? error.message : 'ย้อนกลับไม่สำเร็จ')
+      setUndoError(error instanceof Error ? error.message : t('ย้อนกลับไม่สำเร็จ'))
     }
   }
 
@@ -176,7 +178,7 @@ export function TransactionsPage() {
 
   return (
     <>
-      <PageHeader title="รายการทั้งหมด">
+      <PageHeader title={t('รายการทั้งหมด')}>
         <Button
           type="button"
           variant="outline"
@@ -187,11 +189,13 @@ export function TransactionsPage() {
           }
         >
           <Download aria-hidden />
-          ส่งออก CSV
+          
+          {t('ส่งออก CSV')}
         </Button>
         <Link to="/transactions/new" className={cn(buttonVariants({ size: 'sm' }), 'max-md:hidden')}>
           <Plus aria-hidden />
-          บันทึกรายการ
+          
+          {t('บันทึกรายการ')}
         </Link>
       </PageHeader>
 
@@ -202,31 +206,31 @@ export function TransactionsPage() {
             id={SEARCH_INPUT_ID}
             aria-keyshortcuts="/"
             autoFocus={focusSearch}
-            aria-label="ค้นหา"
-            placeholder="ค้นหาสัญลักษณ์ หรือหมายเหตุ"
+            aria-label={t('ค้นหา')}
+            placeholder={t('ค้นหาสัญลักษณ์ หรือหมายเหตุ')}
             className="h-11 pl-10 md:h-[42px]"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
         </div>
-        <NativeSelect aria-label="กรองตามบัญชี" className={chipSelectClass} value={accountId} onChange={(e) => setAccountId(e.target.value)}>
-          <option value="">ทุกบัญชี</option>
+        <NativeSelect aria-label={t('กรองตามบัญชี')} className={chipSelectClass} value={accountId} onChange={(e) => setAccountId(e.target.value)}>
+          <option value="">{t('ทุกบัญชี')}</option>
           {data.accounts.map((a) => (
             <option key={a.id} value={a.id}>
               {a.name}
             </option>
           ))}
         </NativeSelect>
-        <NativeSelect aria-label="กรองตามประเภท" className={chipSelectClass} value={type} onChange={(e) => setType(e.target.value)}>
-          <option value="">ทุกประเภท</option>
+        <NativeSelect aria-label={t('กรองตามประเภท')} className={chipSelectClass} value={type} onChange={(e) => setType(e.target.value)}>
+          <option value="">{t('ทุกประเภท')}</option>
           {TX_TYPES.map((t) => (
             <option key={t} value={t}>
               {TX_TYPE_LABELS[t]}
             </option>
           ))}
         </NativeSelect>
-        <NativeSelect aria-label="กรองตามตลาด" className={chipSelectClass} value={market} onChange={(e) => setMarket(e.target.value)}>
-          <option value="">ทุกตลาด</option>
+        <NativeSelect aria-label={t('กรองตามตลาด')} className={chipSelectClass} value={market} onChange={(e) => setMarket(e.target.value)}>
+          <option value="">{t('ทุกตลาด')}</option>
           {MARKETS.map((m) => (
             <option key={m} value={m}>
               {MARKET_LABELS[m]}
@@ -237,7 +241,8 @@ export function TransactionsPage() {
 
       {ledger.issues.length > 0 && (
         <Alert>
-          มี {ledger.issues.length} รายการที่คำนวณไม่ได้ (แถวสีเหลือง) มักเกิดจากขายเกินจำนวนที่ถือ หรือแก้/ลบรายการซื้อก่อนหน้า
+          
+          {t('มี ')}{ledger.issues.length} {t(' รายการที่คำนวณไม่ได้ (แถวสีเหลือง) มักเกิดจากขายเกินจำนวนที่ถือ หรือแก้/ลบรายการซื้อก่อนหน้า')}
         </Alert>
       )}
 
@@ -246,7 +251,7 @@ export function TransactionsPage() {
       {shown.length === 0 ? (
         <Card>
           <p className="text-muted-foreground">
-            {data.transactions.length === 0 ? 'ยังไม่มีรายการ เริ่มจากปุ่มบันทึกรายการ' : 'ไม่พบรายการที่ตรงกับตัวกรอง'}
+            {data.transactions.length === 0 ? t('ยังไม่มีรายการ เริ่มจากปุ่มบันทึกรายการ') : t('ไม่พบรายการที่ตรงกับตัวกรอง')}
           </p>
         </Card>
       ) : isDesktop ? (
@@ -254,15 +259,15 @@ export function TransactionsPage() {
           <Table>
             <thead>
               <tr>
-                <Th>เวลา</Th>
-                <Th>ประเภท</Th>
-                <Th>สินทรัพย์</Th>
-                <Th>จำนวน / ยอด</Th>
-                <Th>เรท</Th>
-                <Th className="text-right">สุทธิ ({base})</Th>
+                <Th>{t('เวลา')}</Th>
+                <Th>{t('ประเภท')}</Th>
+                <Th>{t('สินทรัพย์')}</Th>
+                <Th>{t('จำนวน / ยอด')}</Th>
+                <Th>{t('เรท')}</Th>
+                <Th className="text-right">{t('สุทธิ (')}{base})</Th>
                 {/* Wide enough for the undo link as well as the edit and delete icons, so a pending row doesn't shift the columns. */}
                 <Th className="w-28">
-                  <span className="sr-only">จัดการ</span>
+                  <span className="sr-only">{t('จัดการ')}</span>
                 </Th>
               </tr>
             </thead>
@@ -289,7 +294,7 @@ export function TransactionsPage() {
                         <Td className="max-w-72">
                           <span className="flex items-center gap-2">
                             {assetOf(tx, true, true)}
-                            <Badge variant="void">ยกเลิกแล้ว</Badge>
+                            <Badge variant="void">{t('ยกเลิกแล้ว')}</Badge>
                           </span>
                         </Td>
                         <Td className="text-muted-foreground">
@@ -298,7 +303,7 @@ export function TransactionsPage() {
                             {!namesCurrency(tx) && ` ${tx.currency}`}
                           </span>
                           {' · '}
-                          <span>ลบเมื่อสักครู่</span>
+                          <span>{t('ลบเมื่อสักครู่')}</span>
                         </Td>
                         <Td />
                         <Td />
@@ -321,7 +326,8 @@ export function TransactionsPage() {
                           {issue && (
                             <Badge variant="warning">
                               <TriangleAlert aria-hidden />
-                              ไม่นับในพอร์ต
+                              
+                              {t('ไม่นับในพอร์ต')}
                             </Badge>
                           )}
                         </span>
@@ -341,7 +347,7 @@ export function TransactionsPage() {
                         <span className="inline-flex items-center gap-1">
                           <Link
                             to={`/transactions/${tx.id}`}
-                            aria-label={`แก้ไขรายการ ${label(tx)}`}
+                            aria-label={t('แก้ไขรายการ {0}', label(tx))}
                             className={buttonVariants({ variant: 'ghost', size: 'icon' })}
                           >
                             <Pencil aria-hidden />
@@ -350,7 +356,7 @@ export function TransactionsPage() {
                             type="button"
                             variant="ghost"
                             size="icon"
-                            aria-label={`ลบรายการ ${label(tx)}`}
+                            aria-label={t('ลบรายการ {0}', label(tx))}
                             onClick={() => void handleDelete(tx)}
                           >
                             <Trash2 aria-hidden />
@@ -361,7 +367,7 @@ export function TransactionsPage() {
                     {issue && (
                       <tr className="bg-warning-bg">
                         <td colSpan={7} className="px-2 pb-3 text-[12.5px] text-warning-fg">
-                          <span>{issue}</span> · แก้รายการนี้ หรือรายการก่อนหน้าที่เกี่ยวข้อง แล้วตัวเลขพอร์ตจะกลับมาครบ
+                          <span>{issue}</span> {t(' · แก้รายการนี้ หรือรายการก่อนหน้าที่เกี่ยวข้อง แล้วตัวเลขพอร์ตจะกลับมาครบ')}
                         </td>
                       </tr>
                     )}
@@ -373,7 +379,7 @@ export function TransactionsPage() {
         </Card>
       ) : (
         <Card className="py-2">
-          <ul aria-label="รายการทั้งหมด">
+          <ul aria-label={t('รายการทั้งหมด')}>
             {shown.map((tx, index) => {
               const issue = issues.get(tx.id)
               const net = netOf(tx, issue !== undefined)
@@ -386,7 +392,7 @@ export function TransactionsPage() {
                     <li className="border-t border-muted py-1.5">
                       <div className="flex min-w-0 items-center gap-2 pt-1.5">
                         {assetOf(tx, false, true)}
-                        <Badge variant="void">ยกเลิกแล้ว</Badge>
+                        <Badge variant="void">{t('ยกเลิกแล้ว')}</Badge>
                       </div>
                       <div className="flex items-center justify-between gap-2 text-[12.5px] text-muted-foreground">
                         <span className="min-w-0">
@@ -395,7 +401,8 @@ export function TransactionsPage() {
                             {describeMain(tx, accountNames, instruments)}
                             {!namesCurrency(tx) && ` ${tx.currency}`}
                           </span>{' '}
-                          · ลบเมื่อสักครู่
+                          
+                          {t('· ลบเมื่อสักครู่')}
                         </span>
                         <UndoButton label={label(tx)} className="-mr-2" onUndo={() => void handleUndo(tx)} />
                       </div>
@@ -423,7 +430,7 @@ export function TransactionsPage() {
                         </span>
                         {showsRate(tx) && (
                           <span className="inline-flex items-center gap-x-1.5 whitespace-nowrap">
-                            <span>เรท</span>
+                            <span>{t('เรท')}</span>
                             <RateCell tx={tx} />
                           </span>
                         )}

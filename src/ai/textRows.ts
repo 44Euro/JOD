@@ -1,10 +1,11 @@
 import { parseLooseDate, parseLooseNumber } from './csvReader'
+import { t } from '../i18n'
 import type { Extraction, ExtractedRow, RowKind } from './extraction'
 
 const CURRENCIES = new Set(['THB', 'USD', 'USDT', 'USDC', 'HKD', 'JPY', 'SGD', 'CNY', 'EUR', 'GBP'])
 const NOT_SYMBOLS = new Set(['BUY', 'SELL', 'TOTAL', 'AVG', 'COST', 'QTY', 'PRICE', 'VALUE', 'MARKET', 'P/L', 'PL', 'DATE', 'FEE', 'VAT', 'TAX', 'NET'])
 
-export const OCR_NOTE = 'อ่านในเครื่อง ตัวเลขทุกช่องถูกทำเครื่องหมายไว้ ตรวจกับรูปก่อนบันทึก'
+export const OCR_NOTE = t('อ่านในเครื่อง ตัวเลขทุกช่องถูกทำเครื่องหมายไว้ ตรวจกับรูปก่อนบันทึก')
 
 function symbolIn(tokens: readonly string[]): string | null {
   for (const token of tokens) {
@@ -90,6 +91,6 @@ export function rowsFromLines(lines: readonly string[]): Extraction {
     statedTotal: null,
     statedTotalCurrency: null,
     costIncludesFees: null,
-    problems: rows.length > 0 ? [OCR_NOTE] : ['อ่านรายการจากไฟล์นี้ไม่ได้ ลองรูปที่ชัดขึ้น ให้ Claude อ่าน หรือกรอกเอง'],
+    problems: rows.length > 0 ? [OCR_NOTE] : [t('อ่านรายการจากไฟล์นี้ไม่ได้ ลองรูปที่ชัดขึ้น ให้ Claude อ่าน หรือกรอกเอง')],
   }
 }

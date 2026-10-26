@@ -6,6 +6,7 @@ import type { Ledger } from '../domain/ledger'
 import type { Instrument } from '../domain/types'
 import { createCoinGecko, createFinnhub, type PriceSource } from './providers'
 import { updatePrices, type PriceUpdateResult } from './update'
+import { t } from '../i18n'
 
 export const DEFAULT_BENCHMARK = 'SPY'
 
@@ -44,9 +45,9 @@ export function describeUpdate(result: PriceUpdateResult, held: readonly Instrum
   const us = new Set(held.filter((i) => i.market === 'US').map((i) => i.symbol))
   const needKey = result.manual.filter((s) => us.has(s))
   const manual = result.manual.filter((s) => !us.has(s))
-  const parts = [`อัปเดต ${result.updated.length} ตัว`]
-  if (result.failed.length > 0) parts.push(`ดึงไม่ได้: ${result.failed.join(', ')}`)
-  if (needKey.length > 0) parts.push(`ใส่ key Finnhub ในหน้าตั้งค่าเพื่อดึง: ${needKey.join(', ')}`)
-  if (manual.length > 0) parts.push(`ไม่มีแหล่งราคาอัตโนมัติ กรอกเอง: ${manual.join(', ')}`)
+  const parts = [t('อัปเดต {0} ตัว', result.updated.length)]
+  if (result.failed.length > 0) parts.push(t('ดึงไม่ได้: {0}', result.failed.join(', ')))
+  if (needKey.length > 0) parts.push(t('ใส่ key Finnhub ในหน้าตั้งค่าเพื่อดึง: {0}', needKey.join(', ')))
+  if (manual.length > 0) parts.push(t('ไม่มีแหล่งราคาอัตโนมัติ กรอกเอง: {0}', manual.join(', ')))
   return parts.join(' · ')
 }

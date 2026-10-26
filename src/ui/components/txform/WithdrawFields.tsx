@@ -1,6 +1,7 @@
 import { Field } from '../../../components/ui/field'
 import { NativeSelect } from '../../../components/ui/input'
 import type { Draft } from '../../transactionDraft'
+import { t } from '../../../i18n'
 
 function taxYearOptions(selected: string): number[] {
   const current = new Date().getFullYear()
@@ -20,13 +21,14 @@ export function WithdrawFields({ draft, update }: { draft: Draft; update(patch: 
           checked={draft.remitToThailand}
           onChange={(e) => update({ remitToThailand: e.target.checked })}
         />
-        โอนกลับเข้าไทย (ใช้คิดภาษีเงินได้จากต่างประเทศ)
+        
+        {t('โอนกลับเข้าไทย (ใช้คิดภาษีเงินได้จากต่างประเทศ)')}
       </label>
       {draft.remitToThailand && (
-        <Field id="tx-tax-year" label="ปีภาษี">
+        <Field id="tx-tax-year" label={t('ปีภาษี')}>
           <NativeSelect id="tx-tax-year" className="max-w-56" value={draft.taxYear} onChange={(e) => update({ taxYear: e.target.value })}>
             {taxYearOptions(draft.taxYear).map((year) => (
-              <option key={year} value={year}>{`พ.ศ. ${year + 543} (${year})`}</option>
+              <option key={year} value={year}>{t('พ.ศ. {0} ({1})', year + 543, year)}</option>
             ))}
           </NativeSelect>
         </Field>

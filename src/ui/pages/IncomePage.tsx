@@ -30,14 +30,15 @@ import { fmtDate, fmtHeadline, fmtMoney, fmtNumber, fmtPct, fmtPrice, fmtSigned,
 import { useAppData, useLedger } from '../hooks'
 import { INCOME_SERIES, RECEIVE_KIND_LABELS, TX_TYPE_LABELS, marketOf } from '../labels'
 import { useIsDesktop } from '../useIsDesktop'
+import { t } from '../../i18n'
 
 const PERIODS = [
-  { value: 'year', label: 'ปีนี้' },
-  { value: '12m', label: '12 เดือนล่าสุด' },
-  { value: 'all', label: 'ทั้งหมด' },
+  { value: 'year', label: t('ปีนี้') },
+  { value: '12m', label: t('12 เดือนล่าสุด') },
+  { value: 'all', label: t('ทั้งหมด') },
 ] as const satisfies readonly { value: IncomePeriod; label: string }[]
 
-const PERIOD_INCOME_LABEL: Record<IncomePeriod, string> = { year: 'รายได้ปีนี้', '12m': 'รายได้ 12 เดือนล่าสุด', all: 'รายได้ทั้งหมด' }
+const PERIOD_INCOME_LABEL: Record<IncomePeriod, string> = { year: t('รายได้ปีนี้'), '12m': t('รายได้ 12 เดือนล่าสุด'), all: t('รายได้ทั้งหมด') }
 
 // e.g. "SET 10% · US 15%": the share of gross income withheld, per market, in the order the assets are listed.
 function withholdingNote(rows: readonly AssetIncomeRow[]): string {
@@ -86,7 +87,7 @@ function AssetCell({
       <span className="flex min-w-0 items-center gap-2.5">
         <CashPill label={currencies.join('/')} />
         <b className="truncate font-display text-base font-semibold">{accountName}</b>
-        {!compact && <span className="truncate text-[12.5px] text-muted-foreground">ดอกเบี้ยเงินสด</span>}
+        {!compact && <span className="truncate text-[12.5px] text-muted-foreground">{t('ดอกเบี้ยเงินสด')}</span>}
       </span>
     )
   }
@@ -95,7 +96,7 @@ function AssetCell({
       <MarketPill market={instrument?.market ?? marketOf(row.instrumentId)} assetType={instrument?.assetType} />
       <b className="font-display text-base font-semibold">{instrument?.symbol ?? row.instrumentId.split(':')[1]}</b>
       {row.kinds.length === 1 && row.kinds[0] === 'interest' && (
-        <span className="truncate text-[12.5px] text-muted-foreground">ดอกเบี้ย/คูปอง</span>
+        <span className="truncate text-[12.5px] text-muted-foreground">{t('ดอกเบี้ย/คูปอง')}</span>
       )}
       {receiveTag && <span className="truncate text-[12.5px] text-muted-foreground">{receiveTag}</span>}
     </span>
@@ -111,12 +112,12 @@ export function IncomePage() {
   // Yield on cost only needs the cost of what is held, so no price or rate is fetched here.
   const valuations = useMemo(() => (ledger ? ledger.positions.map((p) => valuePosition(p)) : []), [ledger])
 
-  if (!data || !ledger) return <p className="text-muted-foreground">กำลังโหลด…</p>
+  if (!data || !ledger) return <p className="text-muted-foreground">{t('กำลังโหลด…')}</p>
   const base = data.settings.baseCurrency
   const events = ledger.income
   const header = (
-    <PageHeader title="รายได้">
-      <Segmented label="ช่วงเวลา" options={PERIODS} value={period} onChange={setPeriod} />
+    <PageHeader title={t('รายได้')}>
+      <Segmented label={t('ช่วงเวลา')} options={PERIODS} value={period} onChange={setPeriod} />
     </PageHeader>
   )
   if (events.length === 0) {
@@ -124,8 +125,8 @@ export function IncomePage() {
       <>
         {header}
         <Card>
-          <p className="font-semibold">ยังไม่มีรายได้</p>
-          <p className="text-muted-foreground">บันทึกปันผลหรือดอกเบี้ยแล้วจะสรุปให้ที่นี่</p>
+          <p className="font-semibold">{t('ยังไม่มีรายได้')}</p>
+          <p className="text-muted-foreground">{t('บันทึกปันผลหรือดอกเบี้ยแล้วจะสรุปให้ที่นี่')}</p>
         </Card>
       </>
     )
@@ -176,12 +177,12 @@ export function IncomePage() {
       {header}
 
       <SummaryPanel
-        label={`${PERIOD_INCOME_LABEL[period]} · หลังหักภาษี`}
+        label={t('{0} · หลังหักภาษี', PERIOD_INCOME_LABEL[period])}
         value={fmtHeadline(totals.netBase, base)}
         footer={
           <>
             <div className="mb-2.5 flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold">{period === 'all' ? 'รายปี' : 'รายเดือน'}</h2>
+              <h2 className="text-lg font-semibold">{period === 'all' ? t('รายปี') : t('รายเดือน')}</h2>
               <p className="flex flex-wrap gap-4 text-[12.5px] text-ink-2">
                 {INCOME_KINDS.map((kind) => (
                   <span key={kind} className="flex items-center gap-1.5">
@@ -196,30 +197,30 @@ export function IncomePage() {
         }
       >
         <Stat
-          label={period === 'all' ? 'ปีนี้เทียบปีก่อน' : 'เทียบปีก่อน'}
+          label={period === 'all' ? t('ปีนี้เทียบปีก่อน') : t('เทียบปีก่อน')}
           value={fmtSignedPct(change)}
           tone={plClass(change)}
           note={
             period === 'all'
-              ? `ปีนี้ ${fmtHeadline(compared, base)} · ช่วงเดียวกันปีก่อน ${fmtHeadline(previous, base)}`
-              : `${period === '12m' ? '12 เดือนก่อนหน้า' : 'ช่วงเดียวกันปีก่อน'} ${fmtHeadline(previous, base)}`
+              ? t('ปีนี้ {0} · ช่วงเดียวกันปีก่อน {1}', fmtHeadline(compared, base), fmtHeadline(previous, base))
+              : `${period === '12m' ? t('12 เดือนก่อนหน้า') : t('ช่วงเดียวกันปีก่อน')} ${fmtHeadline(previous, base)}`
           }
         />
-        <Stat label="เฉลี่ยต่อเดือน" value={fmtHeadline(monthlyAverage, base)} note={`12 เดือนล่าสุด ${fmtHeadline(twelve, base)}`} />
-        <Stat label="ภาษีที่ถูกหัก" value={fmtHeadline(totals.taxBase, base)} note={withholdingNote(rows) || undefined} />
+        <Stat label={t('เฉลี่ยต่อเดือน')} value={fmtHeadline(monthlyAverage, base)} note={t('12 เดือนล่าสุด {0}', fmtHeadline(twelve, base))} />
+        <Stat label={t('ภาษีที่ถูกหัก')} value={fmtHeadline(totals.taxBase, base)} note={withholdingNote(rows) || undefined} />
       </SummaryPanel>
 
       <div className="grid items-start gap-3.5 md:gap-[22px] xl:grid-cols-[minmax(0,1fr)_340px]">
         <Card>
-          <h2 className="mb-3 text-lg font-semibold">ตามสินทรัพย์</h2>
+          <h2 className="mb-3 text-lg font-semibold">{t('ตามสินทรัพย์')}</h2>
           {isDesktop ? (
             <Table>
               <thead>
                 <tr>
-                  <Th>สินทรัพย์</Th>
+                  <Th>{t('สินทรัพย์')}</Th>
                   <Th className="text-right">{PERIOD_INCOME_LABEL[period]} ({base})</Th>
-                  <Th className="text-right">ปันผล/ทุน</Th>
-                  <Th className="text-right">ภาษีที่ถูกหัก</Th>
+                  <Th className="text-right">{t('ปันผล/ทุน')}</Th>
+                  <Th className="text-right">{t('ภาษีที่ถูกหัก')}</Th>
                 </tr>
               </thead>
               <tbody>
@@ -234,7 +235,7 @@ export function IncomePage() {
               </tbody>
             </Table>
           ) : (
-            <ul aria-label="รายได้ตามสินทรัพย์">
+            <ul aria-label={t('รายได้ตามสินทรัพย์')}>
               {rows.map((row) => (
                 <li
                   key={row.key}
@@ -243,8 +244,8 @@ export function IncomePage() {
                   {assetCell(row, true)}
                   <span className="font-display font-semibold">{fmtValue(row.netBase)}</span>
                   <span className="col-span-2 text-[12.5px] text-muted-foreground">
-                    {row.instrumentId ? `ปันผล/ทุน ${fmtYield(yieldOf(row))}` : 'ดอกเบี้ยเงินสด'}
-                    {!row.taxBase.isZero() && ` · หัก ${fmtValue(row.taxBase)}`}
+                    {row.instrumentId ? t('ปันผล/ทุน {0}', fmtYield(yieldOf(row))) : t('ดอกเบี้ยเงินสด')}
+                    {!row.taxBase.isZero() && t(' · หัก {0}', fmtValue(row.taxBase))}
                   </span>
                 </li>
               ))}
@@ -253,18 +254,18 @@ export function IncomePage() {
         </Card>
 
         <Card>
-          <h2 className="mb-3 text-lg font-semibold">ล่าสุด</h2>
-          <ul aria-label="รายได้ล่าสุด">
+          <h2 className="mb-3 text-lg font-semibold">{t('ล่าสุด')}</h2>
+          <ul aria-label={t('รายได้ล่าสุด')}>
             {recentIncome(events, 5).map((e) => (
               <li key={e.txId} className="flex items-center justify-between gap-3 border-t border-muted py-3 first:border-t-0">
                 <span className="min-w-0">
                   <span className="block truncate">
-                    {e.instrumentId ? `${symbolOf(e.instrumentId)} ${TX_TYPE_LABELS[e.kind]}` : `${accountNames.get(e.accountId) ?? '—'} ดอกเบี้ย`}
+                    {e.instrumentId ? `${symbolOf(e.instrumentId)} ${TX_TYPE_LABELS[e.kind]}` : t('{0} ดอกเบี้ย', accountNames.get(e.accountId) ?? '—')}
                   </span>
                   <span className="block text-[12.5px] text-muted-foreground">
                     {fmtDate(e.date)}
                     {receivedLine(e)}
-                    {!e.taxQuote.isZero() && ` · หัก ${e.currency === base ? fmtNumber(e.taxQuote) : fmtMoney(e.taxQuote, e.currency)}`}
+                    {!e.taxQuote.isZero() && t(' · หัก {0}', e.currency === base ? fmtNumber(e.taxQuote) : fmtMoney(e.taxQuote, e.currency))}
                   </span>
                 </span>
                 <span className={cn('shrink-0 font-display font-semibold', plClass(e.netBase))}>{fmtSigned(e.netBase, 0)}</span>

@@ -2,6 +2,7 @@ import { Field } from '../../../components/ui/field'
 import { Input, NativeSelect } from '../../../components/ui/input'
 import { ASSET_TYPES, MARKETS, UNITS, findInstrument, type AssetType, type Instrument, type Market, type Unit } from '../../../domain/types'
 import { ASSET_TYPE_LABELS, MARKET_LABELS, UNIT_LABELS } from '../../labels'
+import { t } from '../../../i18n'
 
 const SYMBOL_PLACEHOLDERS: Partial<Record<Market, string>> = { FUND: 'SCBS&P500', BOND: 'CPALL26NA', GOLD: '96.5' }
 
@@ -44,7 +45,7 @@ export function InstrumentFields({
   const listId = `${idPrefix}-symbols`
   return (
     <div className="grid gap-3.5 sm:grid-cols-2">
-      <Field id={`${idPrefix}-market`} label="ตลาด">
+      <Field id={`${idPrefix}-market`} label={t('ตลาด')}>
         <NativeSelect id={`${idPrefix}-market`} value={market} onChange={(e) => onMarket(e.target.value as Market)}>
           {MARKETS.map((m) => (
             <option key={m} value={m}>
@@ -74,10 +75,10 @@ export function InstrumentFields({
       </Field>
       {allowNew && !known && (
         <>
-          <Field id={`${idPrefix}-name`} label="ชื่อ (ไม่บังคับ)" className="sm:col-span-2">
+          <Field id={`${idPrefix}-name`} label={t('ชื่อ (ไม่บังคับ)')} className="sm:col-span-2">
             <Input id={`${idPrefix}-name`} value={name} onChange={(e) => onName(e.target.value)} />
           </Field>
-          <Field id={`${idPrefix}-asset-type`} label="ประเภทสินทรัพย์">
+          <Field id={`${idPrefix}-asset-type`} label={t('ประเภทสินทรัพย์')}>
             <NativeSelect id={`${idPrefix}-asset-type`} value={assetType} onChange={(e) => onAssetType(e.target.value as AssetType)}>
               {ASSET_TYPES.map((t) => (
                 <option key={t} value={t}>
@@ -86,7 +87,7 @@ export function InstrumentFields({
               ))}
             </NativeSelect>
           </Field>
-          <Field id={`${idPrefix}-unit`} label="หน่วยนับ">
+          <Field id={`${idPrefix}-unit`} label={t('หน่วยนับ')}>
             <NativeSelect id={`${idPrefix}-unit`} value={unit} onChange={(e) => onUnit(e.target.value as Unit)}>
               {UNITS.map((u) => (
                 <option key={u} value={u}>

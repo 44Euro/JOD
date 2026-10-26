@@ -4,6 +4,7 @@ import { RECEIVE_KINDS, type Instrument, type ReceiveKind } from '../../../domai
 import { RECEIVE_KIND_LABELS } from '../../labels'
 import { changeAssetType, changeMarket, pickSymbol, type Draft, type HeldPosition } from '../../transactionDraft'
 import { InstrumentFields } from './InstrumentFields'
+import { t } from '../../../i18n'
 
 export function ReceiveFields({
   draft,
@@ -21,7 +22,7 @@ export function ReceiveFields({
   const update = (patch: Partial<Draft>) => setDraft((d) => ({ ...d, ...patch }))
   return (
     <>
-      <Field id="tx-receive-kind" label="ประเภท">
+      <Field id="tx-receive-kind" label={t('ประเภท')}>
         <NativeSelect id="tx-receive-kind" value={draft.receiveKind} onChange={(e) => update({ receiveKind: e.target.value as ReceiveKind })}>
           {RECEIVE_KINDS.map((kind) => (
             <option key={kind} value={kind}>
@@ -32,7 +33,7 @@ export function ReceiveFields({
       </Field>
       <InstrumentFields
         idPrefix="tx"
-        symbolLabel="สัญลักษณ์"
+        symbolLabel={t('สัญลักษณ์')}
         market={draft.market}
         symbol={draft.symbol}
         name={draft.instrumentName}
@@ -47,10 +48,10 @@ export function ReceiveFields({
         onUnit={(unit) => update({ unit })}
       />
       <div className="grid gap-3.5 sm:grid-cols-2">
-        <Field id="tx-quantity" label="จำนวนที่ได้รับ">
+        <Field id="tx-quantity" label={t('จำนวนที่ได้รับ')}>
           <Input id="tx-quantity" inputMode="decimal" value={draft.quantity} onChange={(e) => update({ quantity: e.target.value })} />
         </Field>
-        <Field id="tx-price" label="มูลค่าต่อหน่วย ณ วันที่ได้รับ">
+        <Field id="tx-price" label={t('มูลค่าต่อหน่วย ณ วันที่ได้รับ')}>
           <Input id="tx-price" inputMode="decimal" value={draft.price} onChange={(e) => update({ price: e.target.value })} />
         </Field>
       </div>
@@ -61,7 +62,7 @@ export function ReceiveFields({
 // Shown in the row of the currency it is paid in, so the page places it.
 export function ReceiveTaxField({ draft, update }: { draft: Draft; update(patch: Partial<Draft>): void }) {
   return (
-    <Field id="tx-tax" label="ภาษีหัก ณ ที่จ่าย">
+    <Field id="tx-tax" label={t('ภาษีหัก ณ ที่จ่าย')}>
       <Input id="tx-tax" inputMode="decimal" placeholder="0" value={draft.tax} onChange={(e) => update({ tax: e.target.value })} />
     </Field>
   )

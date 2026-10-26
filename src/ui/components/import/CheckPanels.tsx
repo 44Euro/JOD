@@ -11,6 +11,7 @@ import type { Instrument, Transaction } from '../../../domain/types'
 import { cn } from '../../../lib/cn'
 import { fmtNumber, fmtPrice } from '../../format'
 import { compareHoldings, priceUpdates, type CompareState, type ReviewRow } from '../../importReview'
+import { t } from '../../../i18n'
 
 export function PriceReviewPanel({
   rows,
@@ -32,7 +33,7 @@ export function PriceReviewPanel({
   async function save() {
     const parsed = chosen.map((u) => ({ id: u.instrument.id, price: parseDecimalInput(prices[u.key] ?? '') }))
     if (parsed.some((p) => p.price === null || Number(p.price) <= 0)) {
-      setError('ราคาต้องเป็นตัวเลขมากกว่า 0')
+      setError(t('ราคาต้องเป็นตัวเลขมากกว่า 0'))
       return
     }
     const now = new Date()
@@ -43,15 +44,15 @@ export function PriceReviewPanel({
   return (
     <div className="grid gap-4">
       {updates.length === 0 ? (
-        <p className="text-muted-foreground">ไม่พบราคาของสินทรัพย์ที่มีในพอร์ต</p>
+        <p className="text-muted-foreground">{t('ไม่พบราคาของสินทรัพย์ที่มีในพอร์ต')}</p>
       ) : (
-        <ul aria-label="ราคาที่อ่านได้">
+        <ul aria-label={t('ราคาที่อ่านได้')}>
           {updates.map((u) => (
             <li key={u.key} className="flex flex-wrap items-center gap-3 border-t border-muted py-3 first:border-t-0">
               <input
                 type="checkbox"
                 className="size-5 accent-primary"
-                aria-label={`อัปเดต ${u.instrument.symbol}`}
+                aria-label={t('อัปเดต {0}', u.instrument.symbol)}
                 checked={picked.has(u.key)}
                 onChange={(e) =>
                   setPicked((current) => {
@@ -63,9 +64,9 @@ export function PriceReviewPanel({
                 }
               />
               <b className="min-w-16 font-display">{u.instrument.symbol}</b>
-              <span className="text-[13px] text-muted-foreground">เดิม {fmtPrice(u.instrument.lastPrice)}</span>
+              <span className="text-[13px] text-muted-foreground">{t('เดิม ')}{fmtPrice(u.instrument.lastPrice)}</span>
               <Input
-                aria-label={`ราคาใหม่ของ ${u.instrument.symbol}`}
+                aria-label={t('ราคาใหม่ของ {0}', u.instrument.symbol)}
                 inputMode="decimal"
                 className="h-10 w-32 border-warning-fg bg-warning-bg tabular-nums"
                 value={prices[u.key] ?? ''}
@@ -76,14 +77,16 @@ export function PriceReviewPanel({
           ))}
         </ul>
       )}
-      {unknown.length > 0 && <p className="text-[12.5px] text-muted-foreground">ไม่มีในพอร์ต จึงข้ามไป: {unknown.join(', ')}</p>}
+      {unknown.length > 0 && <p className="text-[12.5px] text-muted-foreground">{t('ไม่มีในพอร์ต จึงข้ามไป: ')}{unknown.join(', ')}</p>}
       {error && <Alert tone="error">{error}</Alert>}
       <div className="flex flex-wrap gap-2">
         <Button type="button" disabled={chosen.length === 0} onClick={() => void save()}>
-          อัปเดตราคา {chosen.length} ตัว
+          
+          {t('อัปเดตราคา ')}{chosen.length} {t(' ตัว')}
         </Button>
         <Button type="button" variant="ghost" onClick={onCancel}>
-          ยกเลิก
+          
+          {t('ยกเลิก')}
         </Button>
       </div>
     </div>
@@ -91,10 +94,10 @@ export function PriceReviewPanel({
 }
 
 const STATE_TEXT: Record<CompareState, { label: string; variant: 'ok' | 'warning' | 'default' }> = {
-  match: { label: 'ตรงกัน', variant: 'ok' },
-  differ: { label: 'จำนวนไม่ตรง', variant: 'warning' },
-  not_in_app: { label: 'ไม่มีในแอป', variant: 'warning' },
-  not_on_screen: { label: 'ไม่มีในรูป', variant: 'default' },
+  match: { label: t('ตรงกัน'), variant: 'ok' },
+  differ: { label: t('จำนวนไม่ตรง'), variant: 'warning' },
+  not_in_app: { label: t('ไม่มีในแอป'), variant: 'warning' },
+  not_on_screen: { label: t('ไม่มีในรูป'), variant: 'default' },
 }
 
 export function ComparePanel({
@@ -118,9 +121,10 @@ export function ComparePanel({
   return (
     <div className="grid gap-4">
       <p className="font-semibold">
-        ตรงกัน {matched} จาก {lines.length} ตัว
+        
+        {t('ตรงกัน ')}{matched} {t(' จาก ')}{lines.length} {t(' ตัว')}
       </p>
-      <ul aria-label="ผลการเทียบยอด">
+      <ul aria-label={t('ผลการเทียบยอด')}>
         {lines.map((line) => (
           <li
             key={`${line.symbol}-${line.state}`}
@@ -131,18 +135,20 @@ export function ComparePanel({
               {STATE_TEXT[line.state].label}
             </Badge>
             <span className="col-span-2 text-[13px] text-muted-foreground tabular-nums">
-              ในโบรก {line.broker ? fmtNumber(line.broker, 8) : '—'} · ในแอป {line.app ? fmtNumber(line.app, 8) : '—'}
-              {line.state === 'differ' && line.broker && line.app && ` · ต่าง ${fmtNumber(line.broker.minus(line.app), 8)}`}
+              
+              {t('ในโบรก ')}{line.broker ? fmtNumber(line.broker, 8) : '—'} {t(' · ในแอป ')}{line.app ? fmtNumber(line.app, 8) : '—'}
+              {line.state === 'differ' && line.broker && line.app && t(' · ต่าง {0}', fmtNumber(line.broker.minus(line.app), 8))}
             </span>
           </li>
         ))}
       </ul>
       {lines.some((l) => l.state === 'differ' || l.state === 'not_in_app') && (
-        <p className="text-[12.5px] text-muted-foreground">ตัวที่ไม่ตรงมักมาจากรายการที่ลืมจด หรือปันผลเป็นหุ้น ลองดูในหน้ารายการของบัญชีนี้</p>
+        <p className="text-[12.5px] text-muted-foreground">{t('ตัวที่ไม่ตรงมักมาจากรายการที่ลืมจด หรือปันผลเป็นหุ้น ลองดูในหน้ารายการของบัญชีนี้')}</p>
       )}
       <div>
         <Button type="button" variant="outline" onClick={onDone}>
-          เสร็จ
+          
+          {t('เสร็จ')}
         </Button>
       </div>
     </div>

@@ -9,6 +9,7 @@ import { db } from '../../db/db'
 import { saveSettings } from '../../db/repo'
 import type { Settings } from '../../domain/types'
 import { DEFAULT_BENCHMARK } from '../../prices/run'
+import { t } from '../../i18n'
 
 function KeyField({ id, label, storageKey, hint }: { id: string; label: string; storageKey: string; hint: string }) {
   const stored = useLocal(storageKey)
@@ -21,7 +22,8 @@ function KeyField({ id, label, storageKey, hint }: { id: string; label: string; 
           <span className="font-mono text-sm">{maskApiKey(stored)}</span>
         </span>
         <Button type="button" variant="ghost" onClick={() => writeLocal(storageKey, '')}>
-          ลบ key
+          
+          {t('ลบ key')}
         </Button>
       </div>
     )
@@ -39,7 +41,8 @@ function KeyField({ id, label, storageKey, hint }: { id: string; label: string; 
         <Input id={id} type="password" autoComplete="off" spellCheck={false} value={draft} onChange={(e) => setDraft(e.target.value)} />
       </Field>
       <Button type="submit" variant="outline" className="h-[46px]" disabled={!draft.trim()}>
-        บันทึก
+        
+        {t('บันทึก')}
       </Button>
     </form>
   )
@@ -51,21 +54,23 @@ export function PriceSourcesCard({ settings }: { settings: Settings }) {
   return (
     <Card className="grid gap-3">
       <div>
-        <h2 className="text-lg font-semibold">ราคาอัตโนมัติ</h2>
+        <h2 className="text-lg font-semibold">{t('ราคาอัตโนมัติ')}</h2>
         <p className="text-[12.5px] text-muted-foreground">
-          คริปโตดึงจาก CoinGecko ได้ฟรีไม่ต้องมี key · หุ้นและ ETF สหรัฐใช้ key ฟรีของ Finnhub (finnhub.io) · หุ้นไทยและกองทุนยังต้องกรอกเองหรืออัปเดตจากรูป · key
-          เก็บในเครื่องนี้เท่านั้น
+          
+          {t('คริปโตดึงจาก CoinGecko ได้ฟรีไม่ต้องมี key · หุ้นและ ETF สหรัฐใช้ key ฟรีของ Finnhub (finnhub.io) · หุ้นไทยและกองทุนยังต้องกรอกเองหรืออัปเดตจากรูป · key เก็บในเครื่องนี้เท่านั้น')}
         </p>
       </div>
-      <KeyField id="finnhub-key" label="Finnhub API key" storageKey={FINNHUB_KEY_STORAGE_KEY} hint="สำหรับหุ้นสหรัฐและดัชนีที่ใช้เทียบ" />
-      <KeyField id="coingecko-key" label="CoinGecko demo key (ไม่บังคับ)" storageKey={COINGECKO_KEY_STORAGE_KEY} hint="ใส่เมื่อดึงราคาคริปโตแล้วโดนจำกัดจำนวนครั้ง" />
+      <KeyField id="finnhub-key" label="Finnhub API key" storageKey={FINNHUB_KEY_STORAGE_KEY} hint={t('สำหรับหุ้นสหรัฐและดัชนีที่ใช้เทียบ')} />
+      <KeyField id="coingecko-key" label={t('CoinGecko demo key (ไม่บังคับ)')} storageKey={COINGECKO_KEY_STORAGE_KEY} hint={t('ใส่เมื่อดึงราคาคริปโตแล้วโดนจำกัดจำนวนครั้ง')} />
       <div className="flex items-center justify-between gap-3">
         <span className="min-w-0">
           <span id="auto-prices-label" className="block">
-            ดึงราคาวันละครั้งเมื่อเปิดแอป
+            
+            {t('ดึงราคาวันละครั้งเมื่อเปิดแอป')}
           </span>
           <span id="auto-prices-hint" className="block text-[12.5px] text-muted-foreground">
-            แอปจะส่งชื่อสินทรัพย์ที่ถือไปถามราคา ไม่ส่งจำนวนหรือมูลค่า
+            
+            {t('แอปจะส่งชื่อสินทรัพย์ที่ถือไปถามราคา ไม่ส่งจำนวนหรือมูลค่า')}
           </span>
         </span>
         <Switch
@@ -75,7 +80,7 @@ export function PriceSourcesCard({ settings }: { settings: Settings }) {
           onCheckedChange={(on) => writeLocal(AUTO_PRICES_STORAGE_KEY, on ? 'on' : '')}
         />
       </div>
-      <Field id="benchmark-symbol" label="ดัชนีที่ใช้เทียบผลตอบแทน" hint="สัญลักษณ์หุ้นหรือ ETF สหรัฐ เช่น SPY (S&P 500) หรือ QQQ · ต้องมี key Finnhub">
+      <Field id="benchmark-symbol" label={t('ดัชนีที่ใช้เทียบผลตอบแทน')} hint={t('สัญลักษณ์หุ้นหรือ ETF สหรัฐ เช่น SPY (S&P 500) หรือ QQQ · ต้องมี key Finnhub')}>
         <Input
           id="benchmark-symbol"
           className="max-w-[160px] uppercase"

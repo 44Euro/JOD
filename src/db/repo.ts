@@ -21,6 +21,7 @@ import {
 import { validateFeeTemplate, validateSymbol, validateThesis, validateTransaction } from '../domain/validation'
 import type { DailyValueRecord, JodDB } from './db'
 import { SAMPLE_INSTRUMENT_IDS, SAMPLE_PREFIX } from './sampleData'
+import { t } from '../i18n'
 
 export function newId(): string {
   return crypto.randomUUID()
@@ -53,11 +54,11 @@ export async function updateAccount(
   patch: Pick<Account, 'name' | 'broker' | 'note' | 'feeTemplate'>,
 ): Promise<void> {
   const name = patch.name.trim()
-  if (!name) throw new Error('กรุณาตั้งชื่อบัญชี')
+  if (!name) throw new Error(t('กรุณาตั้งชื่อบัญชี'))
   const errors = patch.feeTemplate ? validateFeeTemplate(patch.feeTemplate) : []
   if (errors.length > 0) throw new Error(errors[0])
   const updated = await db.accounts.update(id, { name, broker: patch.broker.trim(), note: patch.note, feeTemplate: patch.feeTemplate })
-  if (updated === 0) throw new Error('ไม่พบบัญชีนี้')
+  if (updated === 0) throw new Error(t('ไม่พบบัญชีนี้'))
 }
 
 export async function deleteAccount(db: JodDB, id: string): Promise<void> {
@@ -66,7 +67,7 @@ export async function deleteAccount(db: JodDB, id: string): Promise<void> {
     db.transactions.filter((tx) => tx.toAccountId === id).count(),
   ])
   const used = sent + received
-  if (used > 0) throw new Error(`ลบไม่ได้ บัญชีนี้ยังมี ${used} รายการ`)
+  if (used > 0) throw new Error(t('ลบไม่ได้ บัญชีนี้ยังมี {0} รายการ', used))
   await db.accounts.delete(id)
 }
 
@@ -92,7 +93,7 @@ export async function saveInstrumentThesis(db: JodDB, id: string, thesis: Thesis
     targetPrice: thesis.targetPrice || undefined,
     reviewDate: thesis.reviewDate || undefined,
   })
-  if (updated === 0) throw new Error('ไม่พบสินทรัพย์นี้')
+  if (updated === 0) throw new Error(t('ไม่พบสินทรัพย์นี้'))
 }
 
 // The id is MARKET:SYMBOL, so a new symbol is a new id: the instrument is re-keyed and every transaction that points at
@@ -105,7 +106,7 @@ export async function renameInstrument(
   const symbol = change.symbol.trim().toUpperCase()
   return db.transaction('rw', db.instruments, db.transactions, async () => {
     const existing = await db.instruments.get(id)
-    if (!existing) throw new Error('ไม่พบสินทรัพย์นี้')
+    if (!existing) throw new Error(t('ไม่พบสินทรัพย์นี้'))
     // An instrument saved before the rules existed can still have its name or unit edited.
     if (symbol !== existing.symbol) {
       const errors = validateSymbol(symbol)
@@ -120,7 +121,7 @@ export async function renameInstrument(
       await db.instruments.put({ ...existing, name, ...(unit && { unit }) })
       return id
     }
-    if (await db.instruments.get(newId)) throw new Error(`มี ${symbol} อยู่แล้ว · รวมสินทรัพย์สองตัวยังทำไม่ได้`)
+    if (await db.instruments.get(newId)) throw new Error(t('มี {0} อยู่แล้ว · รวมสินทรัพย์สองตัวยังทำไม่ได้', symbol))
     await db.instruments.add({
       ...existing,
       id: newId,
@@ -165,8 +166,8 @@ export async function saveTradeReview(
 ): Promise<void> {
   await db.transaction('rw', db.transactions, async () => {
     const tx = await db.transactions.get(txId)
-    if (!tx) throw new Error('ไม่พบรายการนี้')
-    if (tx.type !== 'sell') throw new Error('รีวิวได้เฉพาะรายการขาย')
+    if (!tx) throw new Error(t('ไม่พบรายการนี้'))
+    if (tx.type !== 'sell') throw new Error(t('รีวิวได้เฉพาะรายการขาย'))
     const journal: TradeJournal = { ...tx.journal }
     const text = review.review.trim()
     if (text) journal.review = text
@@ -190,7 +191,7 @@ export async function deleteTransaction(db: JodDB, id: string): Promise<void> {
 // validated again: it was valid when it was saved, and an undo must not be refused for rules that have moved on.
 export async function restoreTransaction(db: JodDB, tx: Transaction): Promise<void> {
   await db.transaction('rw', db.transactions, async () => {
-    if (await db.transactions.get(tx.id)) throw new Error('รายการนี้มีอยู่แล้ว')
+    if (await db.transactions.get(tx.id)) throw new Error(t('รายการนี้มีอยู่แล้ว'))
     await db.transactions.add(tx)
   })
 }
@@ -266,18 +267,18 @@ export async function undoImport(db: JodDB, batchId: string): Promise<number> {
 // An empty value removes the target.
 export async function setTargetPct(db: JodDB, id: string, pct: string): Promise<void> {
   const value = pct.trim()
-  if (value && (!isDecimalString(value) || D(value).isNegative() || D(value).gt(100))) throw new Error('เป้าหมายต้องเป็น 0–100%')
+  if (value && (!isDecimalString(value) || D(value).isNegative() || D(value).gt(100))) throw new Error(t('เป้าหมายต้องเป็น 0–100%'))
   await db.instruments.update(id, { targetPct: value ? D(value).toString() : undefined })
 }
 
 export function validatePlan(plan: DcaPlan): string[] {
   const errors: string[] = []
-  if (!plan.accountId) errors.push('เลือกบัญชี')
-  if (!plan.instrumentId) errors.push('เลือกสินทรัพย์')
-  if (!isDecimalString(plan.amount) || !D(plan.amount).gt(0)) errors.push('จำนวนเงินต่องวดต้องมากกว่า 0')
-  if (!/^[A-Z]{3,5}$/.test(plan.currency)) errors.push('สกุลเงินไม่ถูกต้อง')
-  if (!PLAN_FREQUENCIES.includes(plan.frequency)) errors.push('ความถี่ไม่ถูกต้อง')
-  if (!isIsoDate(plan.startDate)) errors.push('วันเริ่มไม่ถูกต้อง')
+  if (!plan.accountId) errors.push(t('เลือกบัญชี'))
+  if (!plan.instrumentId) errors.push(t('เลือกสินทรัพย์'))
+  if (!isDecimalString(plan.amount) || !D(plan.amount).gt(0)) errors.push(t('จำนวนเงินต่องวดต้องมากกว่า 0'))
+  if (!/^[A-Z]{3,5}$/.test(plan.currency)) errors.push(t('สกุลเงินไม่ถูกต้อง'))
+  if (!PLAN_FREQUENCIES.includes(plan.frequency)) errors.push(t('ความถี่ไม่ถูกต้อง'))
+  if (!isIsoDate(plan.startDate)) errors.push(t('วันเริ่มไม่ถูกต้อง'))
   return errors
 }
 
@@ -303,7 +304,7 @@ export async function recordBenchmark(db: JodDB, date: string, symbol: string, p
 
 export async function saveWatchItem(db: JodDB, item: WatchItem): Promise<void> {
   const errors = validateSymbol(item.symbol)
-  if (item.buyBelow && (!isDecimalString(item.buyBelow) || D(item.buyBelow).isNegative())) errors.push('ราคาที่อยากซื้อต้องเป็นตัวเลข')
+  if (item.buyBelow && (!isDecimalString(item.buyBelow) || D(item.buyBelow).isNegative())) errors.push(t('ราคาที่อยากซื้อต้องเป็นตัวเลข'))
   if (errors.length > 0) throw new Error(errors.join(', '))
   await db.watchlist.put({ ...item, symbol: item.symbol.trim().toUpperCase() })
 }

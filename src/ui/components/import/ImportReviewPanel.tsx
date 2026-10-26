@@ -22,6 +22,7 @@ import {
   type ReviewRow,
 } from '../../importReview'
 import { ReviewRowEditor } from './ReviewRowEditor'
+import { t } from '../../../i18n'
 
 function rateKey(row: ReviewRow): string {
   return `${row.currency}|${row.date}`
@@ -122,7 +123,7 @@ export function ImportReviewPanel({
       if (updatePrices && hasPrices) for (const { id, price } of built.prices) await setInstrumentPrice(db, id, price, now)
       onSaved(built.transactions.length)
     } catch (error) {
-      setErrors([error instanceof Error ? error.message : 'บันทึกไม่สำเร็จ'])
+      setErrors([error instanceof Error ? error.message : t('บันทึกไม่สำเร็จ')])
     } finally {
       setSaving(false)
     }
@@ -134,19 +135,22 @@ export function ImportReviewPanel({
         {total.state === 'match' && (
           <Badge variant="ok">
             <Check aria-hidden />
-            ยอดรวมตรงกับรูป {fmtNumber(total.stated)} {total.currency}
+            
+            {t('ยอดรวมตรงกับรูป ')}{fmtNumber(total.stated)} {total.currency}
           </Badge>
         )}
         {total.state === 'mismatch' && (
           <Badge variant="warning">
             <TriangleAlert aria-hidden />
-            ยอดรวมไม่ตรง: ในรูป {fmtNumber(total.stated)} · แอปบวกได้ {fmtNumber(total.counted)} {total.currency}
+            
+            {t('ยอดรวมไม่ตรง: ในรูป ')}{fmtNumber(total.stated)} {t(' · แอปบวกได้ ')}{fmtNumber(total.counted)} {total.currency}
           </Badge>
         )}
         {toCheck > 0 && (
           <Badge variant="warning">
             <TriangleAlert aria-hidden />
-            ต้องตรวจ {toCheck} จุด
+            
+            {t('ต้องตรวจ ')}{toCheck} {t(' จุด')}
           </Badge>
         )}
       </div>
@@ -158,9 +162,9 @@ export function ImportReviewPanel({
         </Alert>
       )}
       {rows.length === 0 ? (
-        <p className="text-muted-foreground">ไม่พบรายการในไฟล์นี้</p>
+        <p className="text-muted-foreground">{t('ไม่พบรายการในไฟล์นี้')}</p>
       ) : (
-        <ul aria-label="รายการที่อ่านได้">
+        <ul aria-label={t('รายการที่อ่านได้')}>
           {rows.map((row) => (
             <ReviewRowEditor
               key={row.key}
@@ -174,7 +178,7 @@ export function ImportReviewPanel({
       )}
       {chosen.some((r) => r.kind === 'opening') && (
         <div className="grid gap-3 border-t pt-4 sm:grid-cols-2">
-          <Field id="opening-date" label="บันทึกเป็นยอดยกมา ณ วันที่">
+          <Field id="opening-date" label={t('บันทึกเป็นยอดยกมา ณ วันที่')}>
             <Input id="opening-date" type="date" value={openingDate} max={today} onChange={(e) => setOpeningDate(e.target.value)} />
           </Field>
           {openingCurrencies.map((currency) => {
@@ -184,19 +188,21 @@ export function ImportReviewPanel({
               <Field
                 key={currency}
                 id={`opening-rate-${currency}`}
-                label={`เรทเฉลี่ยตอนซื้อ (1 ${currency} = ? ${base})`}
+                label={t('เรทเฉลี่ยตอนซื้อ (1 {0} = ? {1})', currency, base)}
                 hint={
                   reference && (
                     <>
-                      ไม่รู้?{' '}
+                      
+                      {t('ไม่รู้?')}{' '}
                       <button
                         type="button"
                         className="font-semibold text-primary-ink underline underline-offset-[3px]"
                         onClick={() => setOpeningRates((c) => ({ ...c, [currency]: { rate: reference, source: 'estimated' } }))}
                       >
-                        ใช้เรทกลาง {fmtRate(reference)} เป็นค่าประมาณ
+                        
+                        {t('ใช้เรทกลาง ')}{fmtRate(reference)} {t(' เป็นค่าประมาณ')}
                       </button>
-                      {value?.source === 'estimated' && <Badge variant="estimated" className="ml-1.5">ประมาณ</Badge>}
+                      {value?.source === 'estimated' && <Badge variant="estimated" className="ml-1.5">{t('ประมาณ')}</Badge>}
                     </>
                   )
                 }
@@ -212,15 +218,16 @@ export function ImportReviewPanel({
           })}
           <p className="text-[12.5px] text-muted-foreground sm:col-span-2">
             {extraction.costIncludesFees === false
-              ? 'รูปบอกว่าทุนเฉลี่ยยังไม่รวมค่าคอม ใส่ค่าคอมที่จ่ายไปในช่องค่าธรรมเนียมของแต่ละแถวได้'
-              : 'ทุนเฉลี่ยในแอปโบรกบางเจ้ารวมค่าคอมแล้ว บางเจ้ายังไม่รวม ถ้ายังไม่รวม ใส่ค่าคอมในช่องค่าธรรมเนียมของแต่ละแถว'}
+              ? t('รูปบอกว่าทุนเฉลี่ยยังไม่รวมค่าคอม ใส่ค่าคอมที่จ่ายไปในช่องค่าธรรมเนียมของแต่ละแถวได้')
+              : t('ทุนเฉลี่ยในแอปโบรกบางเจ้ารวมค่าคอมแล้ว บางเจ้ายังไม่รวม ถ้ายังไม่รวม ใส่ค่าคอมในช่องค่าธรรมเนียมของแต่ละแถว')}
           </p>
         </div>
       )}
       {hasPrices && (
         <label className="flex min-h-11 items-center gap-2.5 text-sm">
           <input type="checkbox" className="size-5 accent-primary" checked={updatePrices} onChange={(e) => setUpdatePrices(e.target.checked)} />
-          อัปเดตราคาล่าสุดจากรูปด้วย
+          
+          {t('อัปเดตราคาล่าสุดจากรูปด้วย')}
         </label>
       )}
       {errors.length > 0 && (
@@ -233,10 +240,12 @@ export function ImportReviewPanel({
       <div className="flex flex-wrap gap-2">
         <Button type="button" disabled={saving || chosen.length === 0} onClick={() => void confirm()}>
           <Check aria-hidden />
-          ยืนยันบันทึก {chosen.length} รายการ
+          
+          {t('ยืนยันบันทึก ')}{chosen.length} {t(' รายการ')}
         </Button>
         <Button type="button" variant="ghost" onClick={onCancel}>
-          ยกเลิก
+          
+          {t('ยกเลิก')}
         </Button>
       </div>
     </div>

@@ -3,6 +3,7 @@ import { INCOME_KINDS, type IncomeBucket } from '../../domain/income'
 import { cn } from '../../lib/cn'
 import { fmtHeadline, fmtMonth } from '../format'
 import { INCOME_SERIES } from '../labels'
+import { t } from '../../i18n'
 
 // Bucket keys are YYYY-MM for months and YYYY for whole years.
 function bucketLabel(key: string, withYear = false): string {
@@ -17,7 +18,7 @@ export function IncomeBars({ buckets, base }: { buckets: readonly IncomeBucket[]
   const max = buckets.reduce((top, b) => (b.netBase.greaterThan(top) ? b.netBase : top), D(0))
   return (
     <div>
-      <ol aria-label="รายได้แต่ละช่วง" className="flex h-[130px] items-end gap-1 border-b pt-2.5 md:h-[170px] md:gap-2.5">
+      <ol aria-label={t('รายได้แต่ละช่วง')} className="flex h-[130px] items-end gap-1 border-b pt-2.5 md:h-[170px] md:gap-2.5">
         {buckets.map((bucket) => (
           <li key={bucket.key} className="flex h-full min-w-0 flex-1 items-end">
             <span

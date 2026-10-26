@@ -2,18 +2,19 @@ import Anthropic from '@anthropic-ai/sdk'
 import { EXTRACTION_SCHEMA, ExtractionError, extractionPrompt, parseExtraction } from './extraction'
 import type { PreparedFile } from './files'
 import { AI_MODEL, AiError, type AiReader } from './reader'
+import { t } from '../i18n'
 
 function messageFor(error: unknown): string {
-  if (error instanceof Anthropic.AuthenticationError) return 'API key ไม่ถูกต้อง ตรวจอีกครั้งในหน้าตั้งค่า'
-  if (error instanceof Anthropic.PermissionDeniedError) return 'API key นี้ไม่มีสิทธิ์ใช้โมเดลที่แอปเรียก'
-  if (error instanceof Anthropic.RateLimitError) return 'เรียกใช้ถี่เกินไป รอสักครู่แล้วลองใหม่'
-  if (error instanceof Anthropic.APIConnectionError) return 'ต่ออินเทอร์เน็ตไม่ได้ ตรวจการเชื่อมต่อแล้วลองใหม่'
+  if (error instanceof Anthropic.AuthenticationError) return t('API key ไม่ถูกต้อง ตรวจอีกครั้งในหน้าตั้งค่า')
+  if (error instanceof Anthropic.PermissionDeniedError) return t('API key นี้ไม่มีสิทธิ์ใช้โมเดลที่แอปเรียก')
+  if (error instanceof Anthropic.RateLimitError) return t('เรียกใช้ถี่เกินไป รอสักครู่แล้วลองใหม่')
+  if (error instanceof Anthropic.APIConnectionError) return t('ต่ออินเทอร์เน็ตไม่ได้ ตรวจการเชื่อมต่อแล้วลองใหม่')
   if (error instanceof Anthropic.BadRequestError) {
     return /credit balance/i.test(error.message)
-      ? 'เครดิต API หมด เติมได้ที่ console.anthropic.com'
-      : 'AI รับไฟล์นี้ไม่ได้ ไฟล์อาจใหญ่เกินไปหรือเสีย ลองแบ่งเป็นหลายครั้ง'
+      ? t('เครดิต API หมด เติมได้ที่ console.anthropic.com')
+      : t('AI รับไฟล์นี้ไม่ได้ ไฟล์อาจใหญ่เกินไปหรือเสีย ลองแบ่งเป็นหลายครั้ง')
   }
-  return 'บริการ AI ไม่ว่างตอนนี้ ลองใหม่อีกครั้ง'
+  return t('บริการ AI ไม่ว่างตอนนี้ ลองใหม่อีกครั้ง')
 }
 
 // The SDK's errors become the app's own here, so the pages can explain them without loading the SDK.
@@ -58,14 +59,14 @@ export function createClaudeReader(apiKey: string, fetch?: typeof globalThis.fet
           )
           .finalMessage(),
       )
-      if (message.stop_reason === 'refusal') throw new AiError('AI ไม่อ่านไฟล์นี้ ลองใช้รูปอื่นหรือกรอกรายการเอง')
-      if (message.stop_reason === 'max_tokens') throw new AiError('ข้อมูลยาวเกินกว่าจะอ่านในครั้งเดียว แบ่งเป็นหลายครั้ง')
+      if (message.stop_reason === 'refusal') throw new AiError(t('AI ไม่อ่านไฟล์นี้ ลองใช้รูปอื่นหรือกรอกรายการเอง'))
+      if (message.stop_reason === 'max_tokens') throw new AiError(t('ข้อมูลยาวเกินกว่าจะอ่านในครั้งเดียว แบ่งเป็นหลายครั้ง'))
       const text = message.content.flatMap((block) => (block.type === 'text' ? [block.text] : [])).join('')
       let json: unknown
       try {
         json = JSON.parse(text)
       } catch {
-        throw new ExtractionError('AI ตอบกลับมาในรูปแบบที่อ่านไม่ได้ ลองใหม่อีกครั้ง')
+        throw new ExtractionError(t('AI ตอบกลับมาในรูปแบบที่อ่านไม่ได้ ลองใหม่อีกครั้ง'))
       }
       return parseExtraction(json)
     },

@@ -16,23 +16,25 @@ import {
 } from '../../transactionDraft'
 import { FieldGroup } from './FieldGroup'
 import { InstrumentFields } from './InstrumentFields'
+import { t } from '../../../i18n'
 
 function feeLabel(type: TxType): string {
-  if (type === 'fx_convert') return 'ค่าธรรมเนียม (หักจากยอดที่แลก)'
-  return type === 'transfer' ? 'ค่าธรรมเนียมการโอน' : 'ค่าธรรมเนียม'
+  if (type === 'fx_convert') return t('ค่าธรรมเนียม (หักจากยอดที่แลก)')
+  return type === 'transfer' ? t('ค่าธรรมเนียมการโอน') : t('ค่าธรรมเนียม')
 }
 
 function formulaHint(draft: Draft, account: Account | undefined, restoreFormula: () => void): ReactNode {
   const template = account?.feeTemplate
   if (!account || !template || (draft.type !== 'buy' && draft.type !== 'sell')) return undefined
-  if (template.currency !== draft.currency) return `สูตรของ ${account.name} ใช้กับรายการสกุล ${template.currency}`
+  if (template.currency !== draft.currency) return t('สูตรของ {0} ใช้กับรายการสกุล {1}', account.name, template.currency)
   const computed = templateFee(draft, account)
   if (computed === null) return undefined
   if (draft.feesSource === 'auto') {
     const { body, minimum } = feeTemplateParts(template)
     return (
       <>
-        คำนวณจากสูตรของ {account.name} · {body}
+        
+        {t('คำนวณจากสูตรของ ')}{account.name} · {body}
         {minimum && (
           <>
             {' '}
@@ -48,7 +50,8 @@ function formulaHint(draft: Draft, account: Account | undefined, restoreFormula:
       className="inline-flex min-h-11 items-center text-left text-[13px] font-semibold text-primary underline underline-offset-[3px] md:min-h-0"
       onClick={restoreFormula}
     >
-      ใช้สูตรของบัญชี ({fmtMoney(computed)})
+      
+      {t('ใช้สูตรของบัญชี (')}{fmtMoney(computed)})
     </button>
   )
 }
@@ -80,7 +83,7 @@ export function FeeTaxFields({
     <div className="grid gap-3.5">
       <div className={cn('grid grid-cols-2 gap-3.5', cells === 3 && 'sm:grid-cols-3')}>
         {showsSelect && (
-          <Field id="tx-fee-paid-in" label="จ่ายเป็น" className={cn(paidIn !== 'cash' && 'col-span-2 sm:col-span-1')}>
+          <Field id="tx-fee-paid-in" label={t('จ่ายเป็น')} className={cn(paidIn !== 'cash' && 'col-span-2 sm:col-span-1')}>
             <NativeSelect id="tx-fee-paid-in" value={paidIn} onChange={(e) => update({ feePaidIn: e.target.value as FeePaidIn })}>
               {feePaidInOptions(draft).map((option) => (
                 <option key={option} value={option}>
@@ -104,8 +107,8 @@ export function FeeTaxFields({
         {paidIn === 'received' && (
           <Field
             id="tx-fee-quantity"
-            label={receivedSymbol ? `จำนวนที่ถูกหัก (${receivedSymbol})` : 'จำนวนที่ถูกหัก'}
-            hint={arrives && `ได้รับจริง ${fmtNumber(arrives, 8)} ${receivedSymbol}`.trim()}
+            label={receivedSymbol ? t('จำนวนที่ถูกหัก ({0})', receivedSymbol) : t('จำนวนที่ถูกหัก')}
+            hint={arrives && t('ได้รับจริง {0} {1}', fmtNumber(arrives, 8), receivedSymbol).trim()}
             className="col-span-2 sm:col-span-1"
           >
             <Input
@@ -118,7 +121,7 @@ export function FeeTaxFields({
           </Field>
         )}
         {showsTax && (
-          <Field id="tx-tax" label={draft.type === 'dividend' || draft.type === 'interest' ? 'ภาษีหัก ณ ที่จ่าย' : 'ภาษี / VAT'}>
+          <Field id="tx-tax" label={draft.type === 'dividend' || draft.type === 'interest' ? t('ภาษีหัก ณ ที่จ่าย') : t('ภาษี / VAT')}>
             <Input id="tx-tax" inputMode="decimal" placeholder="0" value={draft.tax} onChange={(e) => update({ tax: e.target.value })} />
           </Field>
         )}
@@ -136,11 +139,11 @@ export function FeeTaxFields({
         )}
       </div>
       {paidIn === 'asset' && (
-        <FieldGroup legend="ค่าธรรมเนียมที่จ่ายเป็นสินทรัพย์" divided>
+        <FieldGroup legend={t('ค่าธรรมเนียมที่จ่ายเป็นสินทรัพย์')} divided>
           <InstrumentFields
             {...heldOnly}
             idPrefix="tx-fee"
-            symbolLabel="สินทรัพย์ที่ใช้จ่าย"
+            symbolLabel={t('สินทรัพย์ที่ใช้จ่าย')}
             market={draft.feeMarket}
             symbol={draft.feeSymbol}
             instruments={instruments}
@@ -150,10 +153,10 @@ export function FeeTaxFields({
             onSymbol={(feeSymbol) => update({ feeSymbol })}
           />
           <div className="grid gap-3.5 sm:grid-cols-2">
-            <Field id="tx-fee-quantity" label="จำนวน">
+            <Field id="tx-fee-quantity" label={t('จำนวน')}>
               <Input id="tx-fee-quantity" inputMode="decimal" value={draft.feeQuantity} onChange={(e) => update({ feeQuantity: e.target.value })} />
             </Field>
-            <Field id="tx-fees" label={`มูลค่าค่าธรรมเนียม (${draft.currency})`}>
+            <Field id="tx-fees" label={t('มูลค่าค่าธรรมเนียม ({0})', draft.currency)}>
               <Input
                 id="tx-fees"
                 inputMode="decimal"

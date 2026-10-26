@@ -2,6 +2,7 @@ import { createContext, useContext } from 'react'
 import { ExtractionError, type Extraction } from './extraction'
 import type { PreparedFile } from './files'
 import { createLocalReader } from './localReader'
+import { t } from '../i18n'
 
 export const AI_MODEL = 'claude-opus-5-5'
 
@@ -25,7 +26,7 @@ export function isAbort(error: unknown): boolean {
 
 export function describeAiError(error: unknown): string {
   if (error instanceof AiError || error instanceof ExtractionError) return error.message
-  return 'อ่านไม่สำเร็จ ลองใหม่อีกครั้ง หรือกรอกรายการเอง'
+  return t('อ่านไม่สำเร็จ ลองใหม่อีกครั้ง หรือกรอกรายการเอง')
 }
 
 // The SDK is about a third of the app's size, so it loads only when someone reads with Claude.

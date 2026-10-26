@@ -3,6 +3,7 @@ import { CURRENCY_NAMES } from '../../domain/currencies'
 import { cn } from '../../lib/cn'
 import { currencyMark, fmtNumber, fmtRate, fmtSigned, fmtSignedPct } from '../format'
 import type { RateBoardRow } from '../rateBoard'
+import { t } from '../../i18n'
 
 // Both layouts switch from stacked rows to columns on the board's own width (container query), which a tablet beside the
 // sidebar, or the left column of the two-column overview, does not always have. The five columns need about 680px of it and
@@ -48,7 +49,7 @@ interface RateBoardProps {
   caption?: ReactNode
 }
 
-export function RateBoard({ rows, base, full = false, caption = 'เรทเฉลี่ยที่แลกมา เทียบเรทวันนี้' }: RateBoardProps) {
+export function RateBoard({ rows, base, full = false, caption = t('เรทเฉลี่ยที่แลกมา เทียบเรทวันนี้') }: RateBoardProps) {
   const layout = LAYOUTS[full ? 'full' : 'compact']
   const mark = currencyMark(base)
   return (
@@ -58,19 +59,20 @@ export function RateBoard({ rows, base, full = false, caption = 'เรทเฉ
     >
       <div className="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <h2 id="rate-board-title" className="text-lg font-semibold text-white">
-          กระดานเรทของคุณ
+          
+          {t('กระดานเรทของคุณ')}
         </h2>
         <p className="text-[12.5px] text-board-muted">{caption}</p>
       </div>
       {rows.length > 0 && (
         <>
           <div aria-hidden className={cn('hidden gap-2 pt-1.5 pb-2 text-xs text-board-muted', layout.head)}>
-            <span>สกุลที่ถือ</span>
-            {full && <span>ถืออยู่</span>}
-            <span>เรทเฉลี่ยของคุณ</span>
-            <span>เรทวันนี้</span>
-            <span>ส่วนต่าง</span>
-            <span>ผลต่อพอร์ต</span>
+            <span>{t('สกุลที่ถือ')}</span>
+            {full && <span>{t('ถืออยู่')}</span>}
+            <span>{t('เรทเฉลี่ยของคุณ')}</span>
+            <span>{t('เรทวันนี้')}</span>
+            <span>{t('ส่วนต่าง')}</span>
+            <span>{t('ผลต่อพอร์ต')}</span>
           </div>
           <ul>
             {rows.map((row) => {

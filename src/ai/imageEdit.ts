@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 // Rectangles are fractions of the picture (0 to 1), so they survive the picture being shown at any size.
 export interface Rect {
   x: number
@@ -60,6 +61,6 @@ export async function renderEdit(previewUrl: string, name: string, crop: Rect | 
   g.drawImage(image, plan.source.x, plan.source.y, plan.source.w, plan.source.h, 0, 0, plan.source.w, plan.source.h)
   g.fillStyle = '#000'
   for (const box of plan.boxes) g.fillRect(box.x, box.y, box.w, box.h)
-  const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('แก้รูปไม่สำเร็จ'))), 'image/png'))
+  const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error(t('แก้รูปไม่สำเร็จ')))), 'image/png'))
   return new File([blob], name.replace(/\.\w+$/, '') + '.png', { type: 'image/png' })
 }

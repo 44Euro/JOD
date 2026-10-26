@@ -25,6 +25,7 @@ import { hasSampleData } from '../../db/sampleData'
 import { assetPath } from '../nav'
 import { EyeButton } from '../privacy'
 import { buildRateBoard } from '../rateBoard'
+import { t } from '../../i18n'
 
 function byValue(a: PositionValuation, b: PositionValuation): number {
   return positionValueBase(b).comparedTo(positionValueBase(a))
@@ -60,7 +61,7 @@ function NoticeAlert({ notice }: { notice: Notice }) {
 export function DashboardPage() {
   const data = useAppData()
   const { ledger, valuations, rates, investor } = useInvestor(data)
-  if (!data || !ledger || !investor) return <p className="text-muted-foreground">กำลังโหลด…</p>
+  if (!data || !ledger || !investor) return <p className="text-muted-foreground">{t('กำลังโหลด…')}</p>
 
   if (data.accounts.length === 0) return <Navigate to="/welcome" replace />
 
@@ -108,19 +109,21 @@ export function DashboardPage() {
 
   return (
     <>
-      <PageHeader title="ภาพรวม" note={rateNote ? `เรทวันนี้ ${rateNote}` : undefined}>
+      <PageHeader title={t('ภาพรวม')} note={rateNote ? t('เรทวันนี้ {0}', rateNote) : undefined}>
         {hasSampleData(data.accounts) && (
           <Link
             to="/settings"
             className="inline-flex h-8 items-center rounded-full border bg-card px-3 text-[12.5px] font-semibold text-ink-2 hover:bg-muted max-md:h-11"
           >
-            ข้อมูลตัวอย่าง
+            
+            {t('ข้อมูลตัวอย่าง')}
           </Link>
         )}
         <EyeButton />
         <Link to="/transactions/new" className={cn(buttonVariants({ size: 'sm' }), 'max-md:hidden')}>
           <Plus aria-hidden />
-          บันทึกรายการ
+          
+          {t('บันทึกรายการ')}
         </Link>
       </PageHeader>
 
@@ -129,43 +132,43 @@ export function DashboardPage() {
       ))}
 
       <SummaryPanel
-        label="มูลค่าวันนี้ · สินทรัพย์ + เงินสด"
+        label={t('มูลค่าวันนี้ · สินทรัพย์ + เงินสด')}
         value={fmtHeadline(worth.totalBase, base)}
         footer={
           investor.flows.length > 0 && (
             <>
-              <h2 className="mb-4 text-lg font-semibold">จากเงินลงทุนถึงวันนี้</h2>
-              <MoneyRoute label="จากเงินลงทุนถึงวันนี้" stations={investorRoute(investor)} />
+              <h2 className="mb-4 text-lg font-semibold">{t('จากเงินลงทุนถึงวันนี้')}</h2>
+              <MoneyRoute label={t('จากเงินลงทุนถึงวันนี้')} stations={investorRoute(investor)} />
             </>
           )
         }
       >
         <Stat
-          label="เงินลงทุนสุทธิ"
+          label={t('เงินลงทุนสุทธิ')}
           value={fmtHeadline(invested.totalBase, base)}
-          note={`ฝาก ${fmtNumber(invested.inBase, 0)} · ถอน ${fmtNumber(invested.outBase, 0)}`}
+          note={t('ฝาก {0} · ถอน {1}', fmtNumber(invested.inBase, 0), fmtNumber(invested.outBase, 0))}
         />
         <Stat
-          label="กำไรรวม"
+          label={t('กำไรรวม')}
           value={fmtSigned(gain.totalBase, 0)}
           tone={plClass(gain.totalBase)}
-          note={ret.annualized && gainPct !== null ? `${fmtSignedPct(gainPct)} ตั้งแต่เริ่ม` : ret.startDate ? `ตั้งแต่ ${fmtDate(ret.startDate)}` : undefined}
+          note={ret.annualized && gainPct !== null ? t('{0} ตั้งแต่เริ่ม', fmtSignedPct(gainPct)) : ret.startDate ? t('ตั้งแต่ {0}', fmtDate(ret.startDate)) : undefined}
         />
         {ret.annualized ? (
           <Stat
-            label="ผลตอบแทนต่อปี"
+            label={t('ผลตอบแทนต่อปี')}
             value={fmtSignedPct(ret.annualPct)}
             tone={plClass(ret.annualPct)}
-            note="คิดตามจังหวะเงินเข้า-ออก"
-            flag={stale.length > 0 ? 'ราคาเก่า' : undefined}
+            note={t('คิดตามจังหวะเงินเข้า-ออก')}
+            flag={stale.length > 0 ? t('ราคาเก่า') : undefined}
           />
         ) : (
           <Stat
-            label="ผลตอบแทนตั้งแต่เริ่ม"
+            label={t('ผลตอบแทนตั้งแต่เริ่ม')}
             value={fmtSignedPct(ret.sinceStartPct)}
             tone={plClass(ret.sinceStartPct)}
-            note="ข้อมูลยังไม่ถึง 1 ปี"
-            flag={stale.length > 0 ? 'ราคาเก่า' : undefined}
+            note={t('ข้อมูลยังไม่ถึง 1 ปี')}
+            flag={stale.length > 0 ? t('ราคาเก่า') : undefined}
           />
         )}
       </SummaryPanel>
@@ -181,13 +184,13 @@ export function DashboardPage() {
           <div className="grid min-w-0 content-start gap-4">
             {showRoute && (
               <Link to={assetPath(largestId)} className="block rounded-[18px] border bg-card p-4 hover:bg-muted md:rounded-[20px] md:px-[26px] md:py-[22px]">
-                <h2 className="mb-4 text-lg font-semibold">เส้นทางเงิน · {largestSymbol}</h2>
+                <h2 className="mb-4 text-lg font-semibold">{t('เส้นทางเงิน · ')}{largestSymbol}</h2>
                 <MiniRoute
-                  from={base === 'THB' ? 'บาท' : base}
+                  from={base === 'THB' ? t('บาท') : base}
                   via={
                     largest.currency === base
-                      ? 'ไม่ต้องแลกเงิน'
-                      : `แลกที่ ${fmtRate(largest.costQuote.isZero() ? null : largest.costBase.div(largest.costQuote))}`
+                      ? t('ไม่ต้องแลกเงิน')
+                      : t('แลกที่ {0}', fmtRate(largest.costQuote.isZero() ? null : largest.costBase.div(largest.costQuote)))
                   }
                   to={`${largestSymbol} @${fmtPrice(largest.costQuote.div(largest.quantity))}`}
                 />
@@ -205,12 +208,13 @@ export function DashboardPage() {
       {top.length > 0 && (
         <Card>
           <div className="mb-3.5 flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold">สินทรัพย์ที่ถืออยู่</h2>
+            <h2 className="text-lg font-semibold">{t('สินทรัพย์ที่ถืออยู่')}</h2>
             <Link
               to="/portfolio"
               className="-my-3 inline-flex min-h-11 items-center text-sm font-semibold text-primary md:my-0 md:min-h-0"
             >
-              ดูพอร์ตทั้งหมด
+              
+              {t('ดูพอร์ตทั้งหมด')}
             </Link>
           </div>
           <HoldingsTable valuations={top} instruments={instruments} base={base} rates={rates} />

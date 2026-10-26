@@ -25,6 +25,7 @@ import { EMOTION_LABELS, FEE_PAID_ROW_LABEL, TX_TYPE_LABELS, marketOf, unitLabel
 import { assetRoute } from '../moneyRoutes'
 import { describeAmount, describeFeePaid, feeFreeTransfer, feePaidNet, issueText, netOf } from '../transactionText'
 import { useIsDesktop } from '../useIsDesktop'
+import { t } from '../../i18n'
 
 function badgeOf(value: Decimal | null): 'ok' | 'loss' | 'default' {
   if (!value) return 'default'
@@ -57,7 +58,7 @@ export function AssetPage() {
   const [renamingId, setRenamingId] = useState<string>()
   // Coming back to an asset after visiting another must not find its form still open.
   if (renamingId !== undefined && renamingId !== id) setRenamingId(undefined)
-  if (!data || !ledger || !ready) return <p className="text-muted-foreground">กำลังโหลด…</p>
+  if (!data || !ledger || !ready) return <p className="text-muted-foreground">{t('กำลังโหลด…')}</p>
 
   const base = data.settings.baseCurrency
   const today = todayLocal()
@@ -66,14 +67,15 @@ export function AssetPage() {
   const back = (
     <Link to="/portfolio" className="-my-3 inline-flex min-h-11 w-fit items-center gap-1 text-sm font-semibold text-primary md:my-0 md:min-h-0">
       <ChevronLeft className="size-4" aria-hidden />
-      พอร์ต
+      
+      {t('พอร์ต')}
     </Link>
   )
   if (!instrument && !stats) {
     return (
       <>
         {back}
-        <Card>ไม่พบสินทรัพย์นี้</Card>
+        <Card>{t('ไม่พบสินทรัพย์นี้')}</Card>
       </>
     )
   }
@@ -119,7 +121,7 @@ export function AssetPage() {
                 className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'max-[360px]:w-11 max-[360px]:px-0')}
               >
                 <Copy aria-hidden />
-                <span className="max-[360px]:sr-only">ทำซ้ำรายการซื้อ</span>
+                <span className="max-[360px]:sr-only">{t('ทำซ้ำรายการซื้อ')}</span>
               </Link>
             )}
             {instrument && (
@@ -132,13 +134,13 @@ export function AssetPage() {
                 onClick={() => setRenamingId(renamingId === id ? undefined : id)}
               >
                 <Pencil aria-hidden />
-                <span className="max-md:sr-only">เปลี่ยนชื่อ/สัญลักษณ์</span>
+                <span className="max-md:sr-only">{t('เปลี่ยนชื่อ/สัญลักษณ์')}</span>
               </Button>
             )}
           </div>
         </div>
         {instrument?.previousSymbols && instrument.previousSymbols.length > 0 && (
-          <p className="mt-1 text-[12.5px] text-muted-foreground">เดิม: {instrument.previousSymbols.join(', ')}</p>
+          <p className="mt-1 text-[12.5px] text-muted-foreground">{t('เดิม: ')}{instrument.previousSymbols.join(', ')}</p>
         )}
       </div>
 
@@ -148,39 +150,39 @@ export function AssetPage() {
         <SummaryPanel
           label={
             stats.quantity.isZero()
-              ? 'ขายหมดแล้ว'
-              : `มูลค่าวันนี้ · ${fmtNumber(stats.quantity, 8)} ${unitLabel(instrument)} × ${fmtPrice(lastPrice)} ${priceCurrency}`
+              ? t('ขายหมดแล้ว')
+              : t('มูลค่าวันนี้ · {0} {1} × {2} {3}', fmtNumber(stats.quantity, 8), unitLabel(instrument), fmtPrice(lastPrice), priceCurrency)
           }
           value={fmtHeadline(stats.valueBase, base)}
           footer={
             route.length > 0 && (
               <>
-                <h2 className="mb-4 text-lg font-semibold">เส้นทางเงินของ {symbol}</h2>
-                <MoneyRoute label={`เส้นทางเงินของ ${symbol}`} stations={route} />
+                <h2 className="mb-4 text-lg font-semibold">{t('เส้นทางเงินของ ')}{symbol}</h2>
+                <MoneyRoute label={t('เส้นทางเงินของ {0}', symbol)} stations={route} />
                 <p className="mt-[18px] flex flex-wrap gap-2">
-                  <Badge variant={badgeOf(stats.priceEffectBase)}>จากหุ้น {fmtSigned(stats.priceEffectBase, 0)}</Badge>
-                  {stats.currency !== base && <Badge variant="auto">จากค่าเงิน {fmtSigned(stats.fxEffectBase, 0)}</Badge>}
-                  <Badge>ปันผล {fmtSigned(stats.incomeBase, 0)}</Badge>
+                  <Badge variant={badgeOf(stats.priceEffectBase)}>{t('จากหุ้น ')}{fmtSigned(stats.priceEffectBase, 0)}</Badge>
+                  {stats.currency !== base && <Badge variant="auto">{t('จากค่าเงิน ')}{fmtSigned(stats.fxEffectBase, 0)}</Badge>}
+                  <Badge>{t('ปันผล ')}{fmtSigned(stats.incomeBase, 0)}</Badge>
                 </p>
               </>
             )
           }
         >
           <Stat
-            label="ผลตอบแทนรวม"
+            label={t('ผลตอบแทนรวม')}
             value={fmtSigned(stats.totalReturnBase, 0)}
             tone={plClass(stats.totalReturnBase)}
-            note={stats.totalReturnPct ? `${fmtSignedPct(stats.totalReturnPct)} รวมปันผล` : undefined}
+            note={stats.totalReturnPct ? t('{0} รวมปันผล', fmtSignedPct(stats.totalReturnPct)) : undefined}
           />
           <Stat
-            label="ปันผลรับแล้ว"
+            label={t('ปันผลรับแล้ว')}
             value={fmtHeadline(stats.incomeBase, base)}
-            note={`ปันผล/ทุน ${fmtYield(stats.yieldOnCostPct)}`}
+            note={t('ปันผล/ทุน {0}', fmtYield(stats.yieldOnCostPct))}
           />
           <Stat
-            label="ทุนเฉลี่ย"
+            label={t('ทุนเฉลี่ย')}
             value={stats.quantity.isZero() || stats.currency === null ? '—' : fmtPrice(stats.costQuote.div(stats.quantity))}
-            note={stats.currency === null ? 'ถือหลายสกุลเงิน' : `${stats.currency} ต่อหน่วย`}
+            note={stats.currency === null ? t('ถือหลายสกุลเงิน') : t('{0} ต่อหน่วย', stats.currency)}
           />
         </SummaryPanel>
       )}
@@ -188,18 +190,18 @@ export function AssetPage() {
       <div className="grid items-start gap-3.5 md:gap-[22px] xl:grid-cols-[minmax(0,1fr)_340px]">
         <Card>
           <div className="mb-3.5 flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold">ทุกรายการของ {symbol}</h2>
-            <Badge>ทั้งหมด {transactions.length} รายการ</Badge>
+            <h2 className="text-lg font-semibold">{t('ทุกรายการของ ')}{symbol}</h2>
+            <Badge>{t('ทั้งหมด ')}{transactions.length} {t(' รายการ')}</Badge>
           </div>
           {isDesktop ? (
             <Table>
               <thead>
                 <tr>
-                  <Th>วันที่</Th>
-                  <Th>ประเภท</Th>
-                  <Th>รายละเอียด</Th>
-                  <Th>เรท</Th>
-                  <Th className="text-right">สุทธิ ({base})</Th>
+                  <Th>{t('วันที่')}</Th>
+                  <Th>{t('ประเภท')}</Th>
+                  <Th>{t('รายละเอียด')}</Th>
+                  <Th>{t('เรท')}</Th>
+                  <Th className="text-right">{t('สุทธิ (')}{base})</Th>
                 </tr>
               </thead>
               <tbody>
@@ -228,7 +230,7 @@ export function AssetPage() {
               </tbody>
             </Table>
           ) : (
-            <ul aria-label={`ทุกรายการของ ${symbol}`}>
+            <ul aria-label={t('ทุกรายการของ {0}', symbol)}>
               {transactions.map((tx) => {
                 const feeRow = feeOnly(tx)
                 const net = feeRow ? feePaidNet(tx, issues.has(tx.id)) : netOf(tx, issues.has(tx.id))
@@ -239,7 +241,7 @@ export function AssetPage() {
                       <span className={cn('font-display font-semibold', net.className)}>{net.text}</span>
                       <span className="col-span-2 text-[12.5px] text-muted-foreground">
                         {feeRow ? `${FEE_PAID_ROW_LABEL} ${describeFeePaid(tx)}` : `${TX_TYPE_LABELS[tx.type]} ${describeAmount(tx, accountNames, instruments)}`}
-                        {tx.fxSource !== 'same' && !feeFreeTransfer(tx) && ` · ${tx.fxSource === 'estimated' ? 'เรทประมาณ' : 'เรท'} ${fmtPrice(tx.fxRate)}`}
+                        {tx.fxSource !== 'same' && !feeFreeTransfer(tx) && ` · ${tx.fxSource === 'estimated' ? t('เรทประมาณ') : t('เรท')} ${fmtPrice(tx.fxRate)}`}
                       </span>
                       {!feeRow && <JournalLine journal={tx.journal} className="col-span-2" />}
                     </Link>
@@ -258,18 +260,18 @@ export function AssetPage() {
           {instrument && <ThesisCard key={instrument.id} instrument={instrument} today={today} />}
           {stats && (
             <Card>
-              <h2 className="mb-2 text-base font-semibold">สรุป</h2>
+              <h2 className="mb-2 text-base font-semibold">{t('สรุป')}</h2>
               <dl className="grid text-sm">
                 <div className="flex justify-between gap-3 py-2.5">
-                  <dt className="text-muted-foreground">กำไรที่ขายแล้ว</dt>
+                  <dt className="text-muted-foreground">{t('กำไรที่ขายแล้ว')}</dt>
                   <dd className={plClass(stats.realizedBase)}>{fmtSigned(stats.realizedBase, 0)}</dd>
                 </div>
                 <div className="flex justify-between gap-3 border-t border-muted py-2.5">
-                  <dt className="text-muted-foreground">ปันผลรวม (หลังภาษี)</dt>
+                  <dt className="text-muted-foreground">{t('ปันผลรวม (หลังภาษี)')}</dt>
                   <dd className={plClass(stats.incomeBase)}>{fmtSigned(stats.incomeBase, 0)}</dd>
                 </div>
                 <div className="flex justify-between gap-3 border-t border-muted py-2.5">
-                  <dt className="text-muted-foreground">ค่าธรรมเนียมรวม</dt>
+                  <dt className="text-muted-foreground">{t('ค่าธรรมเนียมรวม')}</dt>
                   <dd>{fmtValue(fees)}</dd>
                 </div>
               </dl>

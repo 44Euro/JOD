@@ -1,6 +1,7 @@
 import { D, Decimal } from './decimal'
 import { symbolOf, type Transaction } from './types'
 import { FEE_ASSET_SAME_ERROR } from './validation'
+import { t } from '../i18n'
 
 export interface Position {
   key: string
@@ -78,11 +79,12 @@ export interface LedgerIssue {
 
 type IssueDetail = Omit<LedgerIssue, 'txId'>
 
-function shortfall(verb: string, needed: Decimal, held: Decimal | undefined, unit = 'หน่วย'): IssueDetail {
+function shortfall(verb: string, needed: Decimal, held: Decimal | undefined, unit = t('หน่วย')): IssueDetail {
   const have = held ?? D(0)
   return {
-    message: `${verb} ${needed} ${unit} แต่ถืออยู่ ${have} ${unit}`,
-    pattern: `${verb} {0} ${unit} แต่ถืออยู่ {1} ${unit}`,
+    message: t('{0} {1} {2} แต่ถืออยู่ {3} {4}', verb, needed, unit, have, unit),
+    // The same sentence with {0} and {1} left where the figures go, so a screen can mask them.
+    pattern: t('{0} {1} {2} แต่ถืออยู่ {3} {4}', verb, '{0}', unit, '{1}', unit),
     figures: [needed, have],
   }
 }
@@ -335,11 +337,11 @@ export function computeLedger(transactions: readonly Transaction[]): Ledger {
     const feeHeld = positions.get(positionKey(tx.accountId, tx.feeInstrumentId ?? ''))
     const symbol = symbolOf(tx.feeInstrumentId)
     if (feeHeld && feeHeld.currency !== tx.currency) {
-      return { message: `${symbol} ถืออยู่เป็น ${feeHeld.currency} · รายการนี้ใช้ ${tx.currency}` }
+      return { message: t('{0} ถืออยู่เป็น {1} · รายการนี้ใช้ {2}', symbol, feeHeld.currency, tx.currency) }
     }
     const feeQuantity = D(tx.feeQuantity)
     if (!feeHeld || feeHeld.quantity.lessThan(feeQuantity)) {
-      return shortfall('ค่าธรรมเนียม', feeQuantity, feeHeld?.quantity, symbol)
+      return shortfall(t('ค่าธรรมเนียม'), feeQuantity, feeHeld?.quantity, symbol)
     }
     return null
   }
@@ -363,7 +365,7 @@ export function computeLedger(transactions: readonly Transaction[]): Ledger {
     const acquires = tx.type === 'buy' || tx.type === 'receive_asset' || (tx.type === 'opening' && Boolean(tx.instrumentId))
 
     if ((acquires || tx.type === 'sell') && held && held.currency !== tx.currency) {
-      issues.push({ txId: tx.id, message: `สกุลเงิน ${tx.currency} ไม่ตรงกับที่ถืออยู่ (${held.currency})` })
+      issues.push({ txId: tx.id, message: t('สกุลเงิน {0} ไม่ตรงกับที่ถืออยู่ ({1})', tx.currency, held.currency) })
       continue
     }
 
@@ -397,7 +399,7 @@ export function computeLedger(transactions: readonly Transaction[]): Ledger {
     if (tx.type === 'sell') {
       const quantity = D(tx.quantity)
       if (!held || held.quantity.lessThan(quantity)) {
-        issues.push({ txId: tx.id, ...shortfall('ขาย', quantity, held?.quantity) })
+        issues.push({ txId: tx.id, ...shortfall(t('ขาย'), quantity, held?.quantity) })
         continue
       }
       const feeProblem = feeAssetProblem(tx)
@@ -415,7 +417,7 @@ export function computeLedger(transactions: readonly Transaction[]): Ledger {
       const toAccountId = tx.toAccountId ?? ''
       const quantity = D(tx.quantity)
       if (!held || held.quantity.lessThan(quantity)) {
-        issues.push({ txId: tx.id, ...shortfall('โอน', quantity, held?.quantity) })
+        issues.push({ txId: tx.id, ...shortfall(t('โอน'), quantity, held?.quantity) })
         continue
       }
       const toKey = positionKey(toAccountId, instrumentId)
@@ -424,7 +426,7 @@ export function computeLedger(transactions: readonly Transaction[]): Ledger {
       if (target && target.currency !== toCurrency) {
         issues.push({
           txId: tx.id,
-          message: `สกุลเงิน ${toCurrency} ไม่ตรงกับที่ถืออยู่ในบัญชีปลายทาง (${target.currency})`,
+          message: t('สกุลเงิน {0} ไม่ตรงกับที่ถืออยู่ในบัญชีปลายทาง ({1})', toCurrency, target.currency),
         })
         continue
       }
@@ -462,12 +464,12 @@ export function computeLedger(transactions: readonly Transaction[]): Ledger {
         // Either coin of a swap can be the one in the wrong currency, so the message names it.
         issues.push({
           txId: tx.id,
-          message: `${symbolOf(wrongCurrency.instrumentId)} ถืออยู่เป็น ${wrongCurrency.currency} · รายการนี้ใช้ ${tx.currency}`,
+          message: t('{0} ถืออยู่เป็น {1} · รายการนี้ใช้ {2}', symbolOf(wrongCurrency.instrumentId), wrongCurrency.currency, tx.currency),
         })
         continue
       }
       if (!held || held.quantity.lessThan(quantity)) {
-        issues.push({ txId: tx.id, ...shortfall('แลก', quantity, held?.quantity) })
+        issues.push({ txId: tx.id, ...shortfall(t('แลก'), quantity, held?.quantity) })
         continue
       }
       const feeProblem = feeAssetProblem(tx)
@@ -501,7 +503,7 @@ export function computeLedger(transactions: readonly Transaction[]): Ledger {
 
     if (tx.type === 'split') {
       if (!held) {
-        issues.push({ txId: tx.id, message: 'ไม่มีสินทรัพย์นี้ในพอร์ต ณ วันที่แตกพาร์' })
+        issues.push({ txId: tx.id, message: t('ไม่มีสินทรัพย์นี้ในพอร์ต ณ วันที่แตกพาร์') })
         continue
       }
       const before = held.quantity

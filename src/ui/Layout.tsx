@@ -21,14 +21,15 @@ import {
 import { PrivacyProvider } from './privacy'
 import { useShortcuts } from './shortcuts'
 import { ThemeSync } from './theme'
+import { t } from '../i18n'
 
 const LEGEND = [
-  { label: 'หุ้นสหรัฐ', className: 'bg-market-us' },
-  { label: 'หุ้นไทย', className: 'bg-market-set' },
-  { label: 'ตลาดต่างประเทศอื่น', className: 'bg-market-intl' },
-  { label: 'คริปโต', className: 'bg-market-crypto' },
-  { label: 'กองทุน', className: 'bg-market-fund' },
-  { label: 'ผลจากค่าเงิน', className: 'bg-fx' },
+  { label: t('หุ้นสหรัฐ'), className: 'bg-market-us' },
+  { label: t('หุ้นไทย'), className: 'bg-market-set' },
+  { label: t('ตลาดต่างประเทศอื่น'), className: 'bg-market-intl' },
+  { label: t('คริปโต'), className: 'bg-market-crypto' },
+  { label: t('กองทุน'), className: 'bg-market-fund' },
+  { label: t('ผลจากค่าเงิน'), className: 'bg-fx' },
 ]
 
 const SIDE_CLASS = 'flex items-center gap-3 rounded-[10px] px-3 py-[9px] text-[15.5px] text-ink-2 hover:bg-muted'
@@ -95,18 +96,19 @@ function Shell() {
       <aside className="sticky top-0 hidden h-dvh print:hidden flex-col gap-0.5 overflow-y-auto border-r bg-card px-4 py-[26px] md:flex">
         <p className="shrink-0 px-2 font-display text-[30px] font-semibold leading-none">
           JOD
-          <span className="mt-1 block font-sans text-xs font-normal text-muted-foreground">จดทุกเทรด รู้ทุกบาท</span>
+          <span className="mt-1 block font-sans text-xs font-normal text-muted-foreground">{t('จดทุกเทรด รู้ทุกบาท')}</span>
         </p>
         <NavLink
           to={NEW_TRANSACTION}
           aria-keyshortcuts="N"
-          title="บันทึกรายการ (N)"
+          title={t('บันทึกรายการ (N)')}
           className={cn(buttonVariants(), 'mt-[22px] mb-4 h-12 shrink-0 text-base md:h-12')}
         >
           <Plus aria-hidden />
-          บันทึกรายการ
+          
+          {t('บันทึกรายการ')}
         </NavLink>
-        <nav aria-label="เมนูหลัก" className="grid shrink-0 gap-0.5">
+        <nav aria-label={t('เมนูหลัก')} className="grid shrink-0 gap-0.5">
           {SIDEBAR_PAGES.map((item) => (
             <SideLink
               key={item.to}
@@ -116,7 +118,7 @@ function Shell() {
           ))}
         </nav>
         <div className="mt-auto grid shrink-0 gap-[7px] border-t px-2.5 pt-3.5 text-[12.5px] text-muted-foreground [@media(max-height:779px)]:hidden">
-          <p className="font-semibold text-ink-2">สีประจำตลาด</p>
+          <p className="font-semibold text-ink-2">{t('สีประจำตลาด')}</p>
           {LEGEND.map((item) => (
             <p key={item.label} className="flex items-center gap-2.5">
               <span aria-hidden className={cn('h-1.5 w-6 rounded-full', item.className)} />
@@ -131,7 +133,7 @@ function Shell() {
         </div>
       </main>
       <nav
-        aria-label="เมนูด้านล่าง"
+        aria-label={t('เมนูด้านล่าง')}
         className="fixed inset-x-0 bottom-0 z-10 grid grid-cols-5 items-end border-t bg-card print:hidden pt-1.5 pb-[max(env(safe-area-inset-bottom),22px)] md:hidden"
       >
         <TabLink {...HOME} />
@@ -140,7 +142,8 @@ function Shell() {
           <span className="-mt-5 grid size-[54px] place-items-center rounded-[17px] bg-primary text-primary-foreground shadow-[0_8px_18px_rgba(29,78,216,.3)]">
             <Plus className="size-6" aria-hidden />
           </span>
-          บันทึก
+          
+          {t('บันทึก')}
         </NavLink>
         <TabLink {...TRADES} />
         <TabLink {...MORE} active={inMore} />

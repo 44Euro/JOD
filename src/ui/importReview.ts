@@ -7,6 +7,7 @@ import { validateSymbol } from '../domain/validation'
 import { fmtDate } from './format'
 import { TX_TYPE_LABELS } from './labels'
 import { issueText } from './transactionText'
+import { t } from '../i18n'
 
 // Every value is the text in its input, so the review can hold half-typed numbers.
 export interface ReviewRow {
@@ -86,7 +87,7 @@ export function findDuplicate(row: ReviewRow, ctx: ReviewContext): string {
             (row.kind === 'interest' ? tx.currency === row.currency : tx.instrumentId === instrumentId) &&
             (usesUnits(row.kind) ? sameNumber(tx.quantity, row.quantity) : sameNumber(tx.amount, row.amount)),
         )
-  return match ? `อาจซ้ำกับรายการ${TX_TYPE_LABELS[match.type]} ${fmtDate(match.date)} ที่มีอยู่แล้ว` : ''
+  return match ? t('อาจซ้ำกับรายการ{0} {1} ที่มีอยู่แล้ว', TX_TYPE_LABELS[match.type], fmtDate(match.date)) : ''
 }
 
 export function toReviewRows(extraction: Extraction, ctx: ReviewContext): ReviewRow[] {
@@ -138,14 +139,14 @@ const notNegative = (value: string) => {
 export function rowProblems(row: ReviewRow, baseCurrency: string): string[] {
   const problems: string[] = []
   if (needsSymbol(row.kind)) problems.push(...validateSymbol(row.symbol))
-  if (row.kind !== 'opening' && !row.date) problems.push('ใส่วันที่')
+  if (row.kind !== 'opening' && !row.date) problems.push(t('ใส่วันที่'))
   if (usesUnits(row.kind)) {
-    if (!positive(row.quantity)) problems.push('จำนวนต้องมากกว่า 0')
-    if (!positive(row.price)) problems.push(row.kind === 'opening' ? 'ใส่ทุนเฉลี่ย' : 'ใส่ราคา')
-  } else if (!positive(row.amount)) problems.push('ใส่จำนวนเงิน')
-  if (!notNegative(row.fees) || !notNegative(row.tax)) problems.push('ค่าธรรมเนียมและภาษีต้องไม่ติดลบ')
-  if (!/^[A-Z]{3,5}$/.test(row.currency)) problems.push('ใส่สกุลเงิน')
-  if (row.kind !== 'opening' && row.currency !== baseCurrency && !positive(row.fxRate)) problems.push('ใส่เรท')
+    if (!positive(row.quantity)) problems.push(t('จำนวนต้องมากกว่า 0'))
+    if (!positive(row.price)) problems.push(row.kind === 'opening' ? t('ใส่ทุนเฉลี่ย') : t('ใส่ราคา'))
+  } else if (!positive(row.amount)) problems.push(t('ใส่จำนวนเงิน'))
+  if (!notNegative(row.fees) || !notNegative(row.tax)) problems.push(t('ค่าธรรมเนียมและภาษีต้องไม่ติดลบ'))
+  if (!/^[A-Z]{3,5}$/.test(row.currency)) problems.push(t('ใส่สกุลเงิน'))
+  if (row.kind !== 'opening' && row.currency !== baseCurrency && !positive(row.fxRate)) problems.push(t('ใส่เรท'))
   return problems
 }
 
@@ -204,9 +205,9 @@ export function buildImport(rows: readonly ReviewRow[], ctx: BuildContext): Buil
   }
   const openingCurrencies = new Set(chosen.filter((r) => r.kind === 'opening' && r.currency !== ctx.baseCurrency).map((r) => r.currency))
   for (const currency of openingCurrencies) {
-    if (!positive(ctx.openingRates[currency]?.rate ?? '')) errors.push(`ใส่เรทเฉลี่ยตอนซื้อของ ${currency}`)
+    if (!positive(ctx.openingRates[currency]?.rate ?? '')) errors.push(t('ใส่เรทเฉลี่ยตอนซื้อของ {0}', currency))
   }
-  if (chosen.some((r) => r.kind === 'opening') && !ctx.openingDate) errors.push('ใส่วันที่ของยอดยกมา')
+  if (chosen.some((r) => r.kind === 'opening') && !ctx.openingDate) errors.push(t('ใส่วันที่ของยอดยกมา'))
   if (errors.length > 0) return { transactions: [], instruments: [], prices: [], errors: [...new Set(errors)] }
 
   const instruments = new Map<string, Instrument>()

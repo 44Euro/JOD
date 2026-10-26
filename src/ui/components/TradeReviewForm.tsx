@@ -8,6 +8,7 @@ import { db } from '../../db/db'
 import { saveTradeReview } from '../../db/repo'
 import { MISTAKES, type Mistake, type TradeJournal } from '../../domain/types'
 import { MISTAKE_LABELS } from '../labels'
+import { t } from '../../i18n'
 
 const SCORES = ['1', '2', '3', '4', '5'].map((value) => ({ value, label: value }))
 
@@ -60,17 +61,18 @@ export function TradeReviewForm({
 
   return (
     <form
-      aria-label={`รีวิวเทรด ${name}`}
+      aria-label={t('รีวิวเทรด {0}', name)}
       className="grid gap-3.5 rounded-2xl border p-3 min-[360px]:p-4"
       onSubmit={(e) => void save(e)}
       noValidate
     >
-      <Field id={`${id}-review`} label="รีวิวหลังปิด">
+      <Field id={`${id}-review`} label={t('รีวิวหลังปิด')}>
         <Textarea id={`${id}-review`} value={review} onChange={(e) => setReview(e.target.value)} />
       </Field>
       <div className="grid gap-1.5">
         <span id={`${id}-mistakes`} className={labelClass}>
-          ข้อผิดพลาดที่ทำ
+          
+          {t('ข้อผิดพลาดที่ทำ')}
         </span>
         <div role="group" aria-labelledby={`${id}-mistakes`} className="flex flex-wrap gap-2">
           {MISTAKES.map((mistake) => (
@@ -82,11 +84,12 @@ export function TradeReviewForm({
       </div>
       <div className="grid gap-1.5">
         <span aria-hidden className={labelClass}>
-          คะแนนการลงมือ
+          
+          {t('คะแนนการลงมือ')}
         </span>
         {/* A segment cannot be pressed off, so pressing the chosen number again takes the score back. */}
         <Segmented
-          label="คะแนนการลงมือ"
+          label={t('คะแนนการลงมือ')}
           options={SCORES}
           value={score}
           onChange={(value) => setScore((current) => (current === value ? '' : value))}
@@ -101,10 +104,12 @@ export function TradeReviewForm({
       )}
       <div className="flex gap-2">
         <Button type="submit" disabled={saving}>
-          บันทึก
+          
+          {t('บันทึก')}
         </Button>
         <Button type="button" variant="outline" onClick={onClose}>
-          ยกเลิก
+          
+          {t('ยกเลิก')}
         </Button>
       </div>
     </form>

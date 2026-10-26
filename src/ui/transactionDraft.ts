@@ -23,6 +23,7 @@ import {
   type Unit,
 } from '../domain/types'
 import { validateSymbol, validateTransaction } from '../domain/validation'
+import { t } from '../i18n'
 
 export type OpeningKind = 'asset' | 'cash'
 export type ToAmountSource = 'auto' | 'manual'
@@ -677,7 +678,7 @@ export function draftToTransaction(draft: Draft, ctx: DraftContext): { tx: Trans
   // form does not show. It checks the rest as if an instrument were there, and the missing symbol is reported once.
   if (sendsUnits && !tx.instrumentId) {
     const checked = { ...tx, instrumentId: instrumentKey(draft.market, 'X') }
-    return { tx, errors: ['กรุณาระบุหุ้น/สินทรัพย์', ...validateTransaction(checked, ctx.today)] }
+    return { tx, errors: [t('กรุณาระบุหุ้น/สินทรัพย์'), ...validateTransaction(checked, ctx.today)] }
   }
   return { tx, errors: [...new Set([...symbolErrors, ...validateTransaction(tx, ctx.today)])] }
 }

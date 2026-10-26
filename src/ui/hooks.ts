@@ -10,6 +10,7 @@ import { latestRecordedRate, priceInCurrency, summarizePortfolio, valuePosition 
 import { useFxProvider } from '../fx/context'
 import { getFxQuote, peekCachedQuote, type FxQuote } from '../fx/fxService'
 import { fmtDate, getNumbersHidden, setNumbersHidden, subscribeNumbersHidden } from './format'
+import { t } from '../i18n'
 
 // Subscribing is what makes a page render again, in place, when the numbers are hidden or shown.
 function useNumbersHidden(): boolean {
@@ -127,7 +128,7 @@ export function useLatestRates(
       } catch {
         // A pegged currency's recorded rate waits behind the dollar's, so it is chosen where both lookups are known.
         const recorded = USD_PEGGED.includes(currency) ? undefined : latestRecordedRate(transactions, currency)
-        const fallback = cached ? ecbRate(cached) : recorded ? { rate: recorded, note: 'เรทล่าสุดที่บันทึกไว้' } : null
+        const fallback = cached ? ecbRate(cached) : recorded ? { rate: recorded, note: t('เรทล่าสุดที่บันทึกไว้') } : null
         settle(currency, fallback, true)
       }
     }
@@ -150,10 +151,10 @@ export function useLatestRates(
       // is only a recorded one is no live rate to borrow, and keeps its own caveat if nothing better is left.
       if (!info && USD_PEGGED.includes(currency) && settledOf(currency)) {
         const dollar = rateOf('USD')
-        if (dollar && (baseCurrency === 'USD' || dollar.note.startsWith('ECB'))) info = { rate: dollar.rate, note: 'ใช้เรท USD' }
+        if (dollar && (baseCurrency === 'USD' || dollar.note.startsWith('ECB'))) info = { rate: dollar.rate, note: t('ใช้เรท USD') }
         else if (settledOf('USD')) {
           const recorded = latestRecordedRate(transactions, currency)
-          if (recorded) info = { rate: recorded, note: 'เรทล่าสุดที่บันทึกไว้' }
+          if (recorded) info = { rate: recorded, note: t('เรทล่าสุดที่บันทึกไว้') }
           else info = dollar
         }
       }

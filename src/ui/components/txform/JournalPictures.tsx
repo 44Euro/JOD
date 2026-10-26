@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { Button } from '../../../components/ui/button'
 import { db } from '../../../db/db'
 import { deletePicture } from '../../../db/repo'
+import { t } from '../../../i18n'
 
 function Thumb({ blob, label, onRemove }: { blob: Blob; label: string; onRemove: () => void }) {
   const url = useMemo(() => URL.createObjectURL(blob), [blob])
@@ -13,7 +14,7 @@ function Thumb({ blob, label, onRemove }: { blob: Blob; label: string; onRemove:
       <a href={url} target="_blank" rel="noreferrer">
         <img src={url} alt={label} className="size-20 rounded-lg border object-cover" />
       </a>
-      <Button type="button" variant="ghost" size="icon" aria-label={`ลบรูป ${label}`} className="absolute -top-2 -right-2 size-8 rounded-full bg-card shadow" onClick={onRemove}>
+      <Button type="button" variant="ghost" size="icon" aria-label={t('ลบรูป {0}', label)} className="absolute -top-2 -right-2 size-8 rounded-full bg-card shadow" onClick={onRemove}>
         <X aria-hidden />
       </Button>
     </li>
@@ -26,8 +27,8 @@ export function JournalPictures({ txId, pending, setPending }: { txId?: string; 
   const input = useRef<HTMLInputElement>(null)
   return (
     <div className="grid gap-2">
-      <span className="text-[13.5px] font-semibold text-ink-2">รูปประกอบ (ไม่บังคับ)</span>
-      <ul className="flex flex-wrap gap-3" aria-label="รูปประกอบเทรด">
+      <span className="text-[13.5px] font-semibold text-ink-2">{t('รูปประกอบ (ไม่บังคับ)')}</span>
+      <ul className="flex flex-wrap gap-3" aria-label={t('รูปประกอบเทรด')}>
         {(saved ?? []).map((p) => (
           <Thumb key={p.id} blob={p.blob} label={p.name} onRemove={() => void deletePicture(db, p.id)} />
         ))}
@@ -39,7 +40,7 @@ export function JournalPictures({ txId, pending, setPending }: { txId?: string; 
             type="button"
             onClick={() => input.current?.click()}
             className="grid size-20 place-items-center rounded-lg border-2 border-dashed text-muted-foreground hover:bg-muted"
-            aria-label="แนบรูป"
+            aria-label={t('แนบรูป')}
           >
             <ImagePlus className="size-6" aria-hidden />
           </button>
@@ -51,13 +52,13 @@ export function JournalPictures({ txId, pending, setPending }: { txId?: string; 
         accept="image/*"
         multiple
         className="sr-only"
-        aria-label="เลือกรูปประกอบ"
+        aria-label={t('เลือกรูปประกอบ')}
         onChange={(e) => {
           setPending([...pending, ...Array.from(e.target.files ?? [])])
           e.target.value = ''
         }}
       />
-      <span className="text-[12px] text-muted-foreground">เช่น กราฟตอนเข้า · รูปเก็บในเครื่องนี้ ไม่รวมในไฟล์สำรอง</span>
+      <span className="text-[12px] text-muted-foreground">{t('เช่น กราฟตอนเข้า · รูปเก็บในเครื่องนี้ ไม่รวมในไฟล์สำรอง')}</span>
     </div>
   )
 }

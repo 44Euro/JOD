@@ -8,6 +8,7 @@ import { Segmented } from '../../components/ui/segmented'
 import { maskApiKey, useApiKey, useReaderMode, writeApiKey, writeReaderMode } from '../../ai/apiKey'
 import { describeAiError, useReaderFactory } from '../../ai/reader'
 import { READER_MODE_LABELS } from '../labels'
+import { t } from '../../i18n'
 
 type Status = { tone: 'ok' | 'error'; text: string } | null
 
@@ -33,7 +34,7 @@ export function AiKeyCard() {
     setStatus(null)
     try {
       await readerFor('claude', key).test()
-      setStatus({ tone: 'ok', text: 'เชื่อมต่อได้ พร้อมให้ AI อ่านรูป' })
+      setStatus({ tone: 'ok', text: t('เชื่อมต่อได้ พร้อมให้ AI อ่านรูป') })
     } catch (error) {
       setStatus({ tone: 'error', text: describeAiError(error) })
     } finally {
@@ -43,9 +44,9 @@ export function AiKeyCard() {
 
   return (
     <Card className="grid gap-3">
-      <h2 className="text-lg font-semibold">วิธีอ่านรูปและไฟล์</h2>
+      <h2 className="text-lg font-semibold">{t('วิธีอ่านรูปและไฟล์')}</h2>
       <Segmented
-        label="วิธีอ่านรูปและไฟล์"
+        label={t('วิธีอ่านรูปและไฟล์')}
         options={(['local', 'claude'] as const).map((value) => ({ value, label: READER_MODE_LABELS[value] }))}
         value={mode}
         onChange={(next) => {
@@ -55,24 +56,24 @@ export function AiKeyCard() {
       />
       {mode === 'local' ? (
         <p className="text-[12.5px] text-muted-foreground">
-          ไม่มีค่าใช้จ่าย ไฟล์ไม่ออกจากเครื่อง · CSV อ่านได้ตรงตามไฟล์ ส่วนรูปและ PDF อ่านด้วย OCR ต้องตรวจทุกช่องก่อนบันทึก ·
-          ครั้งแรกที่อ่านรูปจะโหลดชุดอ่านภาษาไทยและอังกฤษหนึ่งครั้ง
+          
+          {t('ไม่มีค่าใช้จ่าย ไฟล์ไม่ออกจากเครื่อง · CSV อ่านได้ตรงตามไฟล์ ส่วนรูปและ PDF อ่านด้วย OCR ต้องตรวจทุกช่องก่อนบันทึก · ครั้งแรกที่อ่านรูปจะโหลดชุดอ่านภาษาไทยและอังกฤษหนึ่งครั้ง')}
         </p>
       ) : (
         <>
           <p className="text-[12.5px] text-muted-foreground">
-            แม่นกว่ากับรูปแคปและ statement · ใช้ API key ของ Anthropic ของคุณเอง คิดเงินกับบัญชีของคุณ ประมาณ 1–3 บาทต่อรูป · key
-            เก็บไว้ในเครื่องนี้เท่านั้น ไม่อยู่ในไฟล์สำรอง · ขอ key ได้ที่ console.anthropic.com
+            
+            {t('แม่นกว่ากับรูปแคปและ statement · ใช้ API key ของ Anthropic ของคุณเอง คิดเงินกับบัญชีของคุณ ประมาณ 1–3 บาทต่อรูป · key เก็บไว้ในเครื่องนี้เท่านั้น ไม่อยู่ในไฟล์สำรอง · ขอ key ได้ที่ console.anthropic.com')}
           </p>
           {key ? (
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="min-w-0">
-                <span className="block text-[13px] text-muted-foreground">key ที่ใช้อยู่</span>
+                <span className="block text-[13px] text-muted-foreground">{t('key ที่ใช้อยู่')}</span>
                 <span className="font-mono text-sm">{maskApiKey(key)}</span>
               </span>
               <span className="flex flex-wrap gap-2">
                 <Button type="button" variant="outline" disabled={testing} onClick={() => void test()}>
-                  {testing ? 'กำลังทดสอบ…' : 'ทดสอบการเชื่อมต่อ'}
+                  {testing ? t('กำลังทดสอบ…') : t('ทดสอบการเชื่อมต่อ')}
                 </Button>
                 <Button
                   type="button"
@@ -82,7 +83,8 @@ export function AiKeyCard() {
                     setStatus(null)
                   }}
                 >
-                  ลบ key
+                  
+                  {t('ลบ key')}
                 </Button>
               </span>
             </div>
@@ -100,7 +102,8 @@ export function AiKeyCard() {
                 />
               </Field>
               <Button type="submit" className="h-[46px]" disabled={!draft.trim()}>
-                บันทึก key
+                
+                {t('บันทึก key')}
               </Button>
             </form>
           )}

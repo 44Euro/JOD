@@ -6,6 +6,7 @@ import type { Decimal } from '../../../domain/decimal'
 import { fmtPct } from '../../format'
 import { FX_SOURCE_LABELS } from '../../labels'
 import { isOpeningAsset, type Draft } from '../../transactionDraft'
+import { t } from '../../../i18n'
 
 export function FxRateBox({
   draft,
@@ -22,13 +23,13 @@ export function FxRateBox({
 }) {
   const openingAsset = isOpeningAsset(draft)
   const estimates = openingAsset || USD_PEGGED.includes(draft.currency)
-  const baseWord = base === 'THB' ? 'บาท' : ` ${base} `
+  const baseWord = base === 'THB' ? t('บาท') : ` ${base} `
   return (
     <div className="grid gap-2 rounded-2xl bg-fx-soft px-[18px] py-4">
       <Field
         id="tx-fx"
-        label={`${openingAsset ? 'เรทเฉลี่ยตอนซื้อ' : 'เรทแลกเปลี่ยน'} (1 ${draft.currency} = ? ${base})`}
-        hint={draft.type === 'transfer' ? `ใช้คิดค่าธรรมเนียมการโอนเป็น${baseWord}เท่านั้น` : undefined}
+        label={`${openingAsset ? t('เรทเฉลี่ยตอนซื้อ') : t('เรทแลกเปลี่ยน')} (1 ${draft.currency} = ? ${base})`}
+        hint={draft.type === 'transfer' ? t('ใช้คิดค่าธรรมเนียมการโอนเป็น{0}เท่านั้น', baseWord) : undefined}
       >
         <Input
           id="tx-fx"
@@ -43,7 +44,7 @@ export function FxRateBox({
         <p>
           {[
             fxMessage,
-            rateSpread && !rateSpread.isZero() ? `${rateSpread.greaterThan(0) ? 'สูงกว่า' : 'ต่ำกว่า'}เรทกลาง ${fmtPct(rateSpread.abs())}` : '',
+            rateSpread && !rateSpread.isZero() ? t('{0}เรทกลาง {1}', rateSpread.greaterThan(0) ? t('สูงกว่า') : t('ต่ำกว่า'), fmtPct(rateSpread.abs())) : '',
           ]
             .filter(Boolean)
             .join(' · ')}
@@ -55,7 +56,7 @@ export function FxRateBox({
           className="-my-3 inline-flex min-h-11 items-center justify-self-start text-[13px] leading-5 font-semibold text-fx underline underline-offset-[3px] md:my-0 md:min-h-0"
           onClick={() => update({ fxRate: draft.referenceFxRate, fxSource: estimates ? 'estimated' : 'auto' })}
         >
-          {openingAsset ? `ใช้เรทกลาง ${draft.referenceFxRate} เป็นค่าประมาณ` : `กลับไปใช้เรทกลาง ${draft.referenceFxRate}`}
+          {openingAsset ? t('ใช้เรทกลาง {0} เป็นค่าประมาณ', draft.referenceFxRate) : t('กลับไปใช้เรทกลาง {0}', draft.referenceFxRate)}
         </button>
       )}
     </div>

@@ -1,8 +1,9 @@
 import { useEffect } from 'react'
 import type { ThemeChoice } from '../domain/types'
 import { useAppData } from './hooks'
+import { t } from '../i18n'
 
-export const THEME_LABELS: Record<ThemeChoice, string> = { light: 'สว่าง', dark: 'มืด', system: 'ตามระบบ' }
+export const THEME_LABELS: Record<ThemeChoice, string> = { light: t('สว่าง'), dark: t('มืด'), system: t('ตามระบบ') }
 
 // Read by the script in index.html before the first paint, so a dark-theme user never sees a light flash.
 export const THEME_STORAGE_KEY = 'jod-theme'

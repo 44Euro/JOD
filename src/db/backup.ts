@@ -19,6 +19,7 @@ import {
 import { validateFeeTemplate, validateTransaction } from '../domain/validation'
 import type { DailyValueRecord, JodDB, SettingsRecord } from './db'
 import { validatePlan } from './repo'
+import { t } from '../i18n'
 
 // Version 2 adds dailyValues. Version 1 files (from before the daily value table) still restore. imports came later
 // without a new version: an older app restoring the file only loses the import history, never a record.
@@ -75,31 +76,31 @@ export function parseBackup(text: string): BackupFile {
   try {
     parsed = JSON.parse(text)
   } catch {
-    throw new BackupError('ไฟล์นี้ไม่ใช่ JSON')
+    throw new BackupError(t('ไฟล์นี้ไม่ใช่ JSON'))
   }
   const file = parsed as Partial<BackupFile> | null
   if (file?.app !== 'jod' || (file.version !== 1 && file.version !== 2) || !file.data) {
-    throw new BackupError('ไม่ใช่ไฟล์สำรองของ JOD หรือเป็นเวอร์ชันที่ไม่รองรับ')
+    throw new BackupError(t('ไม่ใช่ไฟล์สำรองของ JOD หรือเป็นเวอร์ชันที่ไม่รองรับ'))
   }
   const { accounts, instruments, transactions, settings } = file.data
   if (![accounts, instruments, transactions, settings].every(Array.isArray)) {
-    throw new BackupError('ข้อมูลในไฟล์สำรองไม่ครบ')
+    throw new BackupError(t('ข้อมูลในไฟล์สำรองไม่ครบ'))
   }
   for (const account of accounts) {
     if (account.feeTemplate !== undefined && !isValidFeeTemplate(account.feeTemplate)) {
-      throw new BackupError(`บัญชี ${account.name} มีสูตรค่าธรรมเนียมที่ไม่ถูกต้อง`)
+      throw new BackupError(t('บัญชี {0} มีสูตรค่าธรรมเนียมที่ไม่ถูกต้อง', account.name))
     }
   }
   for (const instrument of instruments) {
-    if (!isValidInstrument(instrument)) throw new BackupError('พบสินทรัพย์ที่เสียหายในไฟล์')
+    if (!isValidInstrument(instrument)) throw new BackupError(t('พบสินทรัพย์ที่เสียหายในไฟล์'))
   }
   const accountIds = new Set(accounts.map((a) => a.id))
   for (const tx of transactions) {
-    if (typeof tx !== 'object' || tx === null) throw new BackupError('พบรายการที่เสียหายในไฟล์')
+    if (typeof tx !== 'object' || tx === null) throw new BackupError(t('พบรายการที่เสียหายในไฟล์'))
     const errors = validateTransaction(tx)
-    if (errors.length > 0) throw new BackupError(`รายการ ${tx.id} ไม่ถูกต้อง: ${errors[0]}`)
+    if (errors.length > 0) throw new BackupError(t('รายการ {0} ไม่ถูกต้อง: {1}', tx.id, errors[0]))
     if (!accountIds.has(tx.accountId) || (tx.toAccountId !== undefined && !accountIds.has(tx.toAccountId))) {
-      throw new BackupError(`รายการ ${tx.id} อ้างถึงบัญชีที่ไม่มีในไฟล์`)
+      throw new BackupError(t('รายการ {0} อ้างถึงบัญชีที่ไม่มีในไฟล์', tx.id))
     }
   }
   for (const row of settings) {
@@ -109,11 +110,11 @@ export function parseBackup(text: string): BackupFile {
       (row?.checklist !== undefined && !(Array.isArray(row.checklist) && row.checklist.every((item) => typeof item === 'string'))) ||
       (row?.benchmarkSymbol !== undefined && (typeof row.benchmarkSymbol !== 'string' || !/^[A-Z0-9.^-]{1,12}$/.test(row.benchmarkSymbol)))
     ) {
-      throw new BackupError('การตั้งค่าในไฟล์สำรองไม่ถูกต้อง')
+      throw new BackupError(t('การตั้งค่าในไฟล์สำรองไม่ถูกต้อง'))
     }
   }
   const { dailyValues = [] } = file.data
-  if (!Array.isArray(dailyValues)) throw new BackupError('ข้อมูลในไฟล์สำรองไม่ครบ')
+  if (!Array.isArray(dailyValues)) throw new BackupError(t('ข้อมูลในไฟล์สำรองไม่ครบ'))
   for (const row of dailyValues) {
     const valid =
       typeof row === 'object' &&
@@ -126,15 +127,15 @@ export function parseBackup(text: string): BackupFile {
       isDecimalString(row.netInvestedBase) &&
       (row.benchmarkPrice === undefined || (typeof row.benchmarkPrice === 'string' && isDecimalString(row.benchmarkPrice))) &&
       (row.benchmarkSymbol === undefined || typeof row.benchmarkSymbol === 'string')
-    if (!valid) throw new BackupError('พบมูลค่ารายวันที่เสียหายในไฟล์')
+    if (!valid) throw new BackupError(t('พบมูลค่ารายวันที่เสียหายในไฟล์'))
   }
   const { imports = [] } = file.data
   if (!Array.isArray(imports) || !imports.every((batch) => isValidImport(batch, accountIds))) {
-    throw new BackupError('ประวัติการนำเข้าในไฟล์เสียหาย')
+    throw new BackupError(t('ประวัติการนำเข้าในไฟล์เสียหาย'))
   }
   const { plans = [] } = file.data
   if (!Array.isArray(plans) || !plans.every((p) => typeof p === 'object' && p !== null && typeof p.id === 'string' && accountIds.has(p.accountId) && validatePlan(p).length === 0)) {
-    throw new BackupError('แผนทยอยซื้อในไฟล์เสียหาย')
+    throw new BackupError(t('แผนทยอยซื้อในไฟล์เสียหาย'))
   }
   const { watchlist = [] } = file.data
   const validWatch = (w: Partial<WatchItem>) =>
@@ -144,7 +145,7 @@ export function parseBackup(text: string): BackupFile {
     typeof w.note === 'string' &&
     (w.buyBelow === undefined || (typeof w.buyBelow === 'string' && isDecimalString(w.buyBelow)))
   if (!Array.isArray(watchlist) || !watchlist.every((w) => typeof w === 'object' && w !== null && validWatch(w))) {
-    throw new BackupError('รายการที่ติดตามในไฟล์เสียหาย')
+    throw new BackupError(t('รายการที่ติดตามในไฟล์เสียหาย'))
   }
   return file as BackupFile
 }

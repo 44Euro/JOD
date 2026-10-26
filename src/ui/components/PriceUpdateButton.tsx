@@ -7,6 +7,7 @@ import { todayLocal } from '../../domain/dates'
 import type { Ledger } from '../../domain/ledger'
 import { DEFAULT_BENCHMARK, describeUpdate, heldInstruments, runPriceUpdate, usePriceSources } from '../../prices/run'
 import type { AppData } from '../hooks'
+import { t } from '../../i18n'
 
 export function PriceUpdateButton({ data, ledger }: { data: AppData; ledger: Ledger }) {
   const sources = usePriceSources()
@@ -29,7 +30,7 @@ export function PriceUpdateButton({ data, ledger }: { data: AppData; ledger: Led
     <>
       <Button type="button" variant="outline" disabled={busy} onClick={() => void run()}>
         <RefreshCw aria-hidden className={busy ? 'animate-spin' : undefined} />
-        {busy ? 'กำลังดึงราคา…' : 'ดึงราคาล่าสุด'}
+        {busy ? t('กำลังดึงราคา…') : t('ดึงราคาล่าสุด')}
       </Button>
       {message && (
         <Alert role="status" tone="ok" className="basis-full">

@@ -10,6 +10,7 @@ import { renameInstrument } from '../../db/repo'
 import { UNITS, unitOf, type Instrument, type Unit } from '../../domain/types'
 import { UNIT_LABELS } from '../labels'
 import { assetPath } from '../nav'
+import { t } from '../../i18n'
 
 export function RenameInstrument({ instrument, onClose }: { instrument: Instrument; onClose(): void }) {
   const navigate = useNavigate()
@@ -42,11 +43,11 @@ export function RenameInstrument({ instrument, onClose }: { instrument: Instrume
     <Card>
       <form onSubmit={(e) => void handleSubmit(e)} noValidate className="grid gap-3.5">
         <div>
-          <h2 className="text-base font-semibold">เปลี่ยนชื่อ/สัญลักษณ์</h2>
-          <p className="mt-1 text-[13px] text-muted-foreground">ประวัติรายการทั้งหมดจะตามไปที่ชื่อใหม่</p>
+          <h2 className="text-base font-semibold">{t('เปลี่ยนชื่อ/สัญลักษณ์')}</h2>
+          <p className="mt-1 text-[13px] text-muted-foreground">{t('ประวัติรายการทั้งหมดจะตามไปที่ชื่อใหม่')}</p>
         </div>
         <div className="grid gap-3.5 sm:grid-cols-3">
-          <Field id="asset-symbol" label="สัญลักษณ์">
+          <Field id="asset-symbol" label={t('สัญลักษณ์')}>
             <Input
               id="asset-symbol"
               ref={symbolInput}
@@ -55,10 +56,10 @@ export function RenameInstrument({ instrument, onClose }: { instrument: Instrume
               onChange={(e) => setSymbol(e.target.value)}
             />
           </Field>
-          <Field id="asset-name" label="ชื่อ">
+          <Field id="asset-name" label={t('ชื่อ')}>
             <Input id="asset-name" value={name} onChange={(e) => setName(e.target.value)} />
           </Field>
-          <Field id="asset-unit" label="หน่วยนับ">
+          <Field id="asset-unit" label={t('หน่วยนับ')}>
             <NativeSelect id="asset-unit" value={unit} onChange={(e) => setUnit(e.target.value as Unit)}>
               {UNITS.map((u) => (
                 <option key={u} value={u}>
@@ -71,10 +72,12 @@ export function RenameInstrument({ instrument, onClose }: { instrument: Instrume
         {error && <Alert tone="error">{error}</Alert>}
         <div className="flex flex-wrap items-center gap-2">
           <Button type="submit" disabled={saving}>
-            บันทึก
+            
+            {t('บันทึก')}
           </Button>
           <Button type="button" variant="outline" onClick={onClose}>
-            ยกเลิก
+            
+            {t('ยกเลิก')}
           </Button>
         </div>
       </form>

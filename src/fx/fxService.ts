@@ -2,6 +2,7 @@ import type { JodDB } from '../db/db'
 import { supportsAutoFx, USD_PEGGED } from '../domain/currencies'
 import { todayLocal } from '../domain/dates'
 import { FxUnavailableError, type FxProvider } from './frankfurter'
+import { t } from '../i18n'
 
 export interface FxQuote {
   rate: string
@@ -29,7 +30,7 @@ export async function getFxQuote(
   const today = todayLocal(now)
   if (from === to) return { rate: '1', rateDate: date === 'latest' ? today : date, source: 'same' }
   if (!supportsAutoFx(from) || !supportsAutoFx(to)) {
-    throw new FxUnavailableError(`ไม่มีเรทอัตโนมัติสำหรับ ${from}/${to} กรุณากรอกเรทเอง`)
+    throw new FxUnavailableError(t('ไม่มีเรทอัตโนมัติสำหรับ {0}/{1} กรุณากรอกเรทเอง', from, to))
   }
 
   // The ECB publishes once per working day, so only past dates are final and safe to cache forever.

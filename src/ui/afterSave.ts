@@ -2,6 +2,7 @@ import { D, type Decimal } from '../domain/decimal'
 import { accountTracksCash, computeLedger, positionKey, receivedUnitCost, type Ledger, type Position } from '../domain/ledger'
 import { symbolOf, type Transaction } from '../domain/types'
 import { fmtMoney, fmtNumber, fmtPlain } from './format'
+import { t } from '../i18n'
 
 export interface AfterSaveRow {
   label: string
@@ -57,11 +58,11 @@ export function previewAfterSave(
     const avgCost = (p?: Position) => (p ? fmtPlain(p.costQuote.div(p.quantity), 4) : '—')
     const avgRate = (p?: Position) => (p && !p.costQuote.isZero() ? fmtPlain(p.costBase.div(p.costQuote), 4) : '—')
     const holding: AfterSaveRow[] = [
-      { label: `${name} ที่ถือ`, before: quantity(was), after: quantity(now) },
-      { label: swap ? `ทุนเฉลี่ย ${name} (${tx.currency})` : `ทุนเฉลี่ย (${tx.currency})`, before: avgCost(was), after: avgCost(now) },
+      { label: t('{0} ที่ถือ', name), before: quantity(was), after: quantity(now) },
+      { label: swap ? t('ทุนเฉลี่ย {0} ({1})', name, tx.currency) : t('ทุนเฉลี่ย ({0})', tx.currency), before: avgCost(was), after: avgCost(now) },
     ]
     if (tx.currency !== baseCurrency) {
-      holding.push({ label: swap ? `เรทเฉลี่ยตอนซื้อ ${name}` : 'เรทเฉลี่ยตอนซื้อ', before: avgRate(was), after: avgRate(now), fx: true })
+      holding.push({ label: swap ? t('เรทเฉลี่ยตอนซื้อ {0}', name) : t('เรทเฉลี่ยตอนซื้อ'), before: avgRate(was), after: avgRate(now), fx: true })
     }
     return holding
   }
@@ -80,14 +81,14 @@ export function previewAfterSave(
   if (swap && tx.toInstrumentId) rows.push(...holdingRows(tx.toInstrumentId, symbolOf(tx.toInstrumentId)))
   if (tx.feePaidIn === 'asset' && tx.feeInstrumentId) {
     rows.push({
-      label: `${symbolOf(tx.feeInstrumentId)} ที่ถือ`,
+      label: t('{0} ที่ถือ', symbolOf(tx.feeInstrumentId)),
       before: quantity(positionOf(before, tx.accountId, tx.feeInstrumentId)),
       after: quantity(positionOf(after, tx.accountId, tx.feeInstrumentId)),
     })
   }
 
   const cashRow = (accountId: string, currency: string): AfterSaveRow => ({
-    label: transfer ? `เงินสด ${currency} · ${nameOf(accountId)}` : `เงินสด ${currency}`,
+    label: transfer ? t('เงินสด {0} · {1}', currency, nameOf(accountId)) : t('เงินสด {0}', currency),
     before: fmtMoney(cashOf(before, accountId, currency)),
     after: fmtMoney(cashOf(after, accountId, currency)),
   })
@@ -104,7 +105,7 @@ export function previewAfterSave(
       if (was.equals(now) && !cashTransfer) continue
       rows.push(cashRow(tx.accountId, currency))
       if (tracksCash && now.lessThan(0) && !was.lessThan(0)) {
-        warning = `เงินสด ${currency} จะติดลบ · ลืมบันทึกการแลกเงินหรือฝากเงินหรือเปล่า?`
+        warning = t('เงินสด {0} จะติดลบ · ลืมบันทึกการแลกเงินหรือฝากเงินหรือเปล่า?', currency)
       }
     }
   }

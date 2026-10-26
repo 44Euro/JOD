@@ -23,6 +23,7 @@ import type { RealizedEvent } from '../../domain/ledger'
 import type { Instrument, Transaction } from '../../domain/types'
 import { cn } from '../../lib/cn'
 import { fmtDate, fmtHeadline, fmtMonth, fmtSigned, fmtSignedPct, plClass } from '../format'
+import { t } from '../../i18n'
 
 const ValueChart = lazy(() => import('../charts/Charts').then((m) => ({ default: m.ValueChart })))
 const RealizedChart = lazy(() => import('../charts/Charts').then((m) => ({ default: m.RealizedChart })))
@@ -35,9 +36,9 @@ function ChartSlot({ height, children }: { height: number; children: React.React
 const RANGES = ['3m', '1y', 'all'] as const
 type Range = (typeof RANGES)[number]
 const RANGE_LABELS: Record<Range, string> = {
-  '3m': '3 เดือน',
-  '1y': '1 ปี',
-  all: 'ทั้งหมด',
+  '3m': t('3 เดือน'),
+  '1y': t('1 ปี'),
+  all: t('ทั้งหมด'),
 }
 
 const pct = (fraction: Decimal | null | undefined) => (fraction ? fmtSignedPct(fraction.times(100)) : '—')
@@ -58,9 +59,9 @@ export function PortfolioHistoryCard({ base, today }: { base: string; today: str
   return (
     <Card className="grid gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-lg font-semibold">มูลค่าพอร์ตตามเวลา</h2>
+        <h2 className="text-lg font-semibold">{t('มูลค่าพอร์ตตามเวลา')}</h2>
         <Segmented
-          label="ช่วงเวลา"
+          label={t('ช่วงเวลา')}
           singleRow
           options={RANGES.map((value) => ({
             value,
@@ -71,7 +72,7 @@ export function PortfolioHistoryCard({ base, today }: { base: string; today: str
         />
       </div>
       {points.length < 2 ? (
-        <p className="text-sm text-muted-foreground">แอปบันทึกมูลค่าพอร์ตวันละครั้งตอนเปิดแอป กราฟจะขึ้นเมื่อมีข้อมูลอย่างน้อย 2 วัน</p>
+        <p className="text-sm text-muted-foreground">{t('แอปบันทึกมูลค่าพอร์ตวันละครั้งตอนเปิดแอป กราฟจะขึ้นเมื่อมีข้อมูลอย่างน้อย 2 วัน')}</p>
       ) : (
         <>
           <ChartSlot height={220}>
@@ -86,13 +87,13 @@ export function PortfolioHistoryCard({ base, today }: { base: string; today: str
           </ChartSlot>
           <dl className="grid grid-cols-2 gap-3 text-sm sm:flex sm:gap-8">
             <div>
-              <dt className="text-[12.5px] text-muted-foreground">ผลตอบแทนช่วงนี้ (ตัดผลเงินเข้าออก)</dt>
+              <dt className="text-[12.5px] text-muted-foreground">{t('ผลตอบแทนช่วงนี้ (ตัดผลเงินเข้าออก)')}</dt>
               <dd className={cn('font-display text-lg font-semibold', plClass(growth))}>{pct(growth)}</dd>
             </div>
             <div>
-              <dt className="text-[12.5px] text-muted-foreground">ลดลงหนักสุดจากจุดสูงสุด</dt>
+              <dt className="text-[12.5px] text-muted-foreground">{t('ลดลงหนักสุดจากจุดสูงสุด')}</dt>
               <dd className="font-display text-lg font-semibold">
-                <span className={plClass(drawdown?.pct)}>{drawdown ? pct(drawdown.pct) : 'ไม่มี'}</span>
+                <span className={plClass(drawdown?.pct)}>{drawdown ? pct(drawdown.pct) : t('ไม่มี')}</span>
                 {drawdown && (
                   <span className="block text-[12px] font-normal text-muted-foreground">
                     {fmtDate(drawdown.peakDate)} → {fmtDate(drawdown.troughDate)}
@@ -102,20 +103,20 @@ export function PortfolioHistoryCard({ base, today }: { base: string; today: str
             </div>
             {benchmark && (
               <div>
-                <dt className="text-[12.5px] text-muted-foreground">{benchmark.symbol} ช่วงเดียวกัน</dt>
+                <dt className="text-[12.5px] text-muted-foreground">{benchmark.symbol} {t(' ช่วงเดียวกัน')}</dt>
                 <dd className={cn('font-display text-lg font-semibold', plClass(benchmark.change))}>{pct(benchmark.change)}</dd>
-                <dd className="text-[12px] text-muted-foreground">ตั้งแต่ {fmtDate(benchmark.from)}</dd>
+                <dd className="text-[12px] text-muted-foreground">{t('ตั้งแต่ ')}{fmtDate(benchmark.from)}</dd>
               </div>
             )}
           </dl>
-          <p className="text-[12px] text-muted-foreground">เส้นทึบคือมูลค่า เส้นประคือเงินลงทุนสุทธิ</p>
+          <p className="text-[12px] text-muted-foreground">{t('เส้นทึบคือมูลค่า เส้นประคือเงินลงทุนสุทธิ')}</p>
         </>
       )}
     </Card>
   )
 }
 
-const WEEKDAYS = ['จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส', 'อา']
+const WEEKDAYS = [t('จ'), t('อ'), t('พ'), t('พฤ'), t('ศ'), t('ส'), t('อา')]
 
 export function PlCalendar({ events, base, today }: { events: readonly RealizedEvent[]; base: string; today: string }) {
   const byDay = useMemo(() => realizedByDay(events), [events])
@@ -130,18 +131,18 @@ export function PlCalendar({ events, base, today }: { events: readonly RealizedE
   return (
     <div className="grid w-full max-w-xl gap-2">
       <div className="flex items-center justify-between gap-2">
-        <Button type="button" variant="ghost" size="icon" aria-label="เดือนก่อน" onClick={() => step(-1)}>
+        <Button type="button" variant="ghost" size="icon" aria-label={t('เดือนก่อน')} onClick={() => step(-1)}>
           <ChevronLeft aria-hidden />
         </Button>
         <p className="text-center">
           <b>{fmtMonth(month, true)}</b>
           <span className={cn('ml-2 tabular-nums', plClass(total))}>{fmtSigned(total, 0)}</span>
         </p>
-        <Button type="button" variant="ghost" size="icon" aria-label="เดือนถัดไป" onClick={() => step(1)}>
+        <Button type="button" variant="ghost" size="icon" aria-label={t('เดือนถัดไป')} onClick={() => step(1)}>
           <ChevronRight aria-hidden />
         </Button>
       </div>
-      <div role="grid" aria-label={`กำไรขาดทุนรายวัน ${fmtMonth(month, true)}`} className="grid grid-cols-7 gap-1 text-center">
+      <div role="grid" aria-label={t('กำไรขาดทุนรายวัน {0}', fmtMonth(month, true))} className="grid grid-cols-7 gap-1 text-center">
         {WEEKDAYS.map((d) => (
           <span key={d} role="columnheader" className="text-[11.5px] text-muted-foreground">
             {d}
@@ -177,7 +178,7 @@ export function RealizedHistoryCard({ events, base, today }: { events: readonly 
   if (series.length === 0) return null
   return (
     <Card className="grid gap-4">
-      <h2 className="text-lg font-semibold">กำไรที่ขายแล้วสะสม</h2>
+      <h2 className="text-lg font-semibold">{t('กำไรที่ขายแล้วสะสม')}</h2>
       {series.length > 1 && (
         <ChartSlot height={200}>
           <RealizedChart
@@ -212,7 +213,7 @@ export function PriceHistoryCard({ transactions, instrument }: { transactions: r
   if (points.length < 2) return null
   return (
     <Card className="grid gap-3">
-      <h2 className="text-lg font-semibold">ราคาที่ซื้อขาย</h2>
+      <h2 className="text-lg font-semibold">{t('ราคาที่ซื้อขาย')}</h2>
       <ChartSlot height={200}>
         <PriceChart
           currency={instrument.currency}
@@ -226,17 +227,20 @@ export function PriceHistoryCard({ transactions, instrument }: { transactions: r
       <p className="flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-muted-foreground">
         <span>
           <span className="mr-1 inline-block size-2 rounded-full bg-gain" aria-hidden />
-          ซื้อ
+          
+          {t('ซื้อ')}
         </span>
         <span>
           <span className="mr-1 inline-block size-2 rounded-full bg-loss" aria-hidden />
-          ขาย
+          
+          {t('ขาย')}
         </span>
         <span>
           <span className="mr-1 inline-block size-2 rounded-full bg-primary" aria-hidden />
-          ยอดยกมา
+          
+          {t('ยอดยกมา')}
         </span>
-        <span>แอปไม่เก็บราคาย้อนหลัง เส้นนี้ลากจากราคาที่คุณซื้อขายจริงและราคาล่าสุด</span>
+        <span>{t('แอปไม่เก็บราคาย้อนหลัง เส้นนี้ลากจากราคาที่คุณซื้อขายจริงและราคาล่าสุด')}</span>
       </p>
     </Card>
   )

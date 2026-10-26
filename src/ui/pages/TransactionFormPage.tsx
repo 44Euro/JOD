@@ -65,24 +65,27 @@ import {
 } from '../transactionDraft'
 import { deleteWithUndo } from '../undoDelete'
 import { useIsDesktop } from '../useIsDesktop'
+import { t } from '../../i18n'
 
 export function TransactionFormPage() {
   const { id } = useParams()
   const [searchParams] = useSearchParams()
   const data = useAppData()
-  if (!data) return <p className="text-muted-foreground">กำลังโหลด…</p>
+  if (!data) return <p className="text-muted-foreground">{t('กำลังโหลด…')}</p>
   if (data.accounts.length === 0) {
     return (
       <Card>
-        ยังไม่มีบัญชี{' '}
+        
+        {t('ยังไม่มีบัญชี')}{' '}
         <Link to="/settings" className="font-semibold text-primary underline underline-offset-[3px]">
-          เพิ่มบัญชีก่อน
+          
+          {t('เพิ่มบัญชีก่อน')}
         </Link>
       </Card>
     )
   }
   const existing = id ? data.transactions.find((t) => t.id === id) : undefined
-  if (id && !existing) return <Card>ไม่พบรายการนี้</Card>
+  if (id && !existing) return <Card>{t('ไม่พบรายการนี้')}</Card>
   const from = id ? null : searchParams.get('from')
   const copyOf = from ? data.transactions.find((t) => t.id === from) : undefined
   const asked = searchParams.get('type')
@@ -96,25 +99,25 @@ function positiveDecimal(value: string | undefined): boolean {
 
 // Units moved between accounts have no currency of their own here, so the field only says what the fee is paid in.
 function currencyLabel(draft: Draft): string {
-  if (draft.type === 'fx_convert') return 'สกุลเงินต้นทาง'
-  if (draft.type === 'swap') return 'สกุลเงินที่ใช้วัดมูลค่า'
-  return draft.type === 'transfer' && draft.transferKind === 'asset' ? 'สกุลเงินของค่าธรรมเนียม' : 'สกุลเงิน'
+  if (draft.type === 'fx_convert') return t('สกุลเงินต้นทาง')
+  if (draft.type === 'swap') return t('สกุลเงินที่ใช้วัดมูลค่า')
+  return draft.type === 'transfer' && draft.transferKind === 'asset' ? t('สกุลเงินของค่าธรรมเนียม') : t('สกุลเงิน')
 }
 
 function amountLabel(draft: Draft): string {
   switch (draft.type) {
     case 'dividend':
-      return 'ปันผลก่อนหักภาษี'
+      return t('ปันผลก่อนหักภาษี')
     case 'interest':
-      return 'ดอกเบี้ย/คูปองก่อนหักภาษี'
+      return t('ดอกเบี้ย/คูปองก่อนหักภาษี')
     case 'fx_convert':
-      return 'จำนวนเงินต้นทาง'
+      return t('จำนวนเงินต้นทาง')
     case 'opening':
-      return 'เงินสดยกมา'
+      return t('เงินสดยกมา')
     case 'swap':
-      return 'มูลค่ารวม ณ ตอนแลก'
+      return t('มูลค่ารวม ณ ตอนแลก')
     default:
-      return 'จำนวนเงิน'
+      return t('จำนวนเงิน')
   }
 }
 
@@ -213,7 +216,7 @@ function TransactionForm({
       .then(({ quote, borrowed }) => {
         if (cancelled) return
         const day = `ECB ${fmtDate(quote.rateDate)}`
-        setFxMessage(borrowed ? `ใช้เรท USD${quote.rateDate === draft.date ? '' : ` · ${day}`}` : `เรทกลาง ${day}`)
+        setFxMessage(borrowed ? t('ใช้เรท USD{0}', quote.rateDate === draft.date ? '' : ` · ${day}`) : t('เรทกลาง {0}', day))
         setDraft((d) => applyReferenceRate(d, quote, borrowed))
       })
       .catch((error: Error) => {
@@ -312,7 +315,7 @@ function TransactionForm({
     if (!entered) return undefined
     const held = heldLedger.positions.find((p) => p.key === positionKey(draft.accountId, instrumentKey(market, entered)))
     const instrument = findInstrument(data.instruments, market, entered)
-    const hint = [instrument?.name, held && `ถืออยู่ ${fmtNumber(held.quantity, 8)} ${unitLabel(instrument)}`].filter(Boolean).join(' · ')
+    const hint = [instrument?.name, held && t('ถืออยู่ {0} {1}', fmtNumber(held.quantity, 8), unitLabel(instrument))].filter(Boolean).join(' · ')
     return hint || undefined
   }
 
@@ -350,7 +353,7 @@ function TransactionForm({
     setCopiedFrom(undefined)
     setErrors([])
     const subject = tx.toInstrumentId ? `${symbol} → ${symbolOf(tx.toInstrumentId)}` : symbol
-    setSavedNote(prepared.written.length > 1 ? `บันทึกแล้ว · ปันผล + ซื้อ ${symbol}` : `บันทึกแล้ว · ${TX_TYPE_LABELS[tx.type]} ${subject}`.trim())
+    setSavedNote(prepared.written.length > 1 ? t('บันทึกแล้ว · ปันผล + ซื้อ {0}', symbol) : t('บันทึกแล้ว · {0} {1}', TX_TYPE_LABELS[tx.type], subject).trim())
   }
 
   function handleSubmit(event: FormEvent) {
@@ -368,19 +371,20 @@ function TransactionForm({
 
   return (
     <form onSubmit={handleSubmit} noValidate className="grid gap-3.5 md:gap-[22px]">
-      <PageHeader title={existing ? 'แก้ไขรายการ' : 'บันทึกรายการ'} />
+      <PageHeader title={existing ? t('แก้ไขรายการ') : t('บันทึกรายการ')} />
       <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-3.5 md:gap-[22px] xl:grid-cols-[minmax(0,1fr)_340px]">
         <Card className="grid gap-[18px]">
           {copiedFrom && (
             <p className="flex items-center gap-2 text-[13px] text-muted-foreground">
               <Copy className="size-4 shrink-0" aria-hidden />
-              ทำซ้ำจากรายการวันที่ {fmtDate(copiedFrom.date)}
+              
+              {t('ทำซ้ำจากรายการวันที่ ')}{fmtDate(copiedFrom.date)}
             </p>
           )}
           <TypePicker type={draft.type} onChange={(type) => setDraft((d) => withTransferTarget(changeType(d, type, base), data.accounts))} />
 
           <div className="grid gap-3.5 sm:grid-cols-3 md:max-[880px]:grid-cols-2">
-            <Field id="tx-account" label="บัญชี">
+            <Field id="tx-account" label={t('บัญชี')}>
               <NativeSelect
                 id="tx-account"
                 value={draft.accountId}
@@ -396,7 +400,7 @@ function TransactionForm({
                 ))}
               </NativeSelect>
             </Field>
-            <Field id="tx-date" label="วันที่">
+            <Field id="tx-date" label={t('วันที่')}>
               <Input
                 id="tx-date"
                 type="date"
@@ -409,18 +413,20 @@ function TransactionForm({
                 }}
               />
             </Field>
-            <Field id="tx-time" label="เวลา (ไม่บังคับ)">
+            <Field id="tx-time" label={t('เวลา (ไม่บังคับ)')}>
               <Input id="tx-time" type="time" value={draft.time} onChange={(e) => update({ time: e.target.value })} />
             </Field>
           </div>
 
           {draft.type === 'opening' && (
-            <div className="flex flex-wrap gap-2" role="group" aria-label="ยอดยกมาของ">
+            <div className="flex flex-wrap gap-2" role="group" aria-label={t('ยอดยกมาของ')}>
               <Chip active={draft.openingKind === 'asset'} onClick={() => setDraft((d) => changeOpeningKind(d, 'asset'))}>
-                สินทรัพย์ที่ถืออยู่
+                
+                {t('สินทรัพย์ที่ถืออยู่')}
               </Chip>
               <Chip active={draft.openingKind === 'cash'} onClick={() => setDraft((d) => changeOpeningKind(d, 'cash'))}>
-                เงินสดคงเหลือ
+                
+                {t('เงินสดคงเหลือ')}
               </Chip>
             </div>
           )}
@@ -430,7 +436,7 @@ function TransactionForm({
           {showsInstrument(draft) && draft.type !== 'swap' && draft.type !== 'receive_asset' && (
             <InstrumentFields
               idPrefix="tx"
-              symbolLabel={draft.type === 'interest' ? 'สัญลักษณ์ (ถ้าเป็นคูปองหุ้นกู้)' : 'สัญลักษณ์'}
+              symbolLabel={draft.type === 'interest' ? t('สัญลักษณ์ (ถ้าเป็นคูปองหุ้นกู้)') : t('สัญลักษณ์')}
               market={draft.market}
               symbol={draft.symbol}
               name={draft.instrumentName}
@@ -479,30 +485,31 @@ function TransactionForm({
             )}
             {(isTrade || openingAsset) && (
               <>
-                <Field id="tx-quantity" label="จำนวนหน่วย">
+                <Field id="tx-quantity" label={t('จำนวนหน่วย')}>
                   <Input id="tx-quantity" inputMode="decimal" value={draft.quantity} onChange={(e) => update({ quantity: e.target.value })} />
                 </Field>
-                <Field id="tx-price" label={openingAsset ? 'ต้นทุนเฉลี่ยต่อหน่วย' : 'ราคาต่อหน่วย'} className="col-span-2 sm:col-span-1">
+                <Field id="tx-price" label={openingAsset ? t('ต้นทุนเฉลี่ยต่อหน่วย') : t('ราคาต่อหน่วย')} className="col-span-2 sm:col-span-1">
                   <Input id="tx-price" inputMode="decimal" value={draft.price} onChange={(e) => update({ price: e.target.value })} />
                 </Field>
               </>
             )}
             {draft.type === 'split' && (
-              <Field id="tx-split" label="อัตราแตกพาร์ (หุ้นใหม่ต่อหุ้นเดิม)" hint="4 = 1 หุ้นเป็น 4 หุ้น, 0.1 = 10 หุ้นเป็น 1 หุ้น">
+              <Field id="tx-split" label={t('อัตราแตกพาร์ (หุ้นใหม่ต่อหุ้นเดิม)')} hint={t('4 = 1 หุ้นเป็น 4 หุ้น, 0.1 = 10 หุ้นเป็น 1 หุ้น')}>
                 <Input id="tx-split" inputMode="decimal" value={draft.splitRatio} onChange={(e) => update({ splitRatio: e.target.value })} />
               </Field>
             )}
             {draft.type === 'transfer' && <TransferAmountField draft={draft} update={update} />}
             {draft.type === 'receive_asset' && <ReceiveTaxField draft={draft} update={update} />}
             {draft.type === 'swap' && draft.exercise && (
-              <Field id="tx-paid" label="เงินที่จ่ายค่าใช้สิทธิ" hint="ราคาใช้สิทธิ × จำนวนหุ้นที่ได้ · ต้นทุนวอร์แรนต์จะยกไปรวมกับหุ้นให้เอง">
+              <Field id="tx-paid" label={t('เงินที่จ่ายค่าใช้สิทธิ')} hint={t('ราคาใช้สิทธิ × จำนวนหุ้นที่ได้ · ต้นทุนวอร์แรนต์จะยกไปรวมกับหุ้นให้เอง')}>
                 <Input id="tx-paid" inputMode="decimal" value={draft.paid} onChange={(e) => update({ paid: e.target.value })} />
               </Field>
             )}
             {draft.type === 'buy' && (
               <label className="flex min-h-11 items-center gap-2.5 text-sm sm:col-span-2">
                 <input type="checkbox" className="size-5 accent-primary" checked={draft.rightsOffer} onChange={(e) => update({ rightsOffer: e.target.checked })} />
-                ซื้อหุ้นเพิ่มทุนตามสิทธิ (XR) ที่ราคาจองซื้อ
+                
+                {t('ซื้อหุ้นเพิ่มทุนตามสิทธิ (XR) ที่ราคาจองซื้อ')}
               </label>
             )}
             {usesAmountField && (
@@ -540,7 +547,7 @@ function TransactionForm({
 
           {offersReinvest && <ReinvestFields draft={draft} plan={reinvestPlan} update={update} />}
 
-          <Field id="tx-note" label="หมายเหตุ">
+          <Field id="tx-note" label={t('หมายเหตุ')}>
             <Textarea id="tx-note" value={draft.note} onChange={(e) => update({ note: e.target.value })} />
           </Field>
 
@@ -556,7 +563,7 @@ function TransactionForm({
               </ul>
             </Alert>
           )}
-          {saveFailed && <Alert tone="error">บันทึกไม่สำเร็จ ข้อมูลยังไม่ถูกบันทึก ลองอีกครั้ง</Alert>}
+          {saveFailed && <Alert tone="error">{t('บันทึกไม่สำเร็จ ข้อมูลยังไม่ถูกบันทึก ลองอีกครั้ง')}</Alert>}
           {savedNote && (
             <p role="status" className="text-sm font-semibold text-gain">
               {savedNote}
@@ -566,25 +573,30 @@ function TransactionForm({
           <div className="flex flex-wrap items-center gap-2">
             <Button type="submit" disabled={saving}>
               <Check aria-hidden />
-              บันทึก
+              
+              {t('บันทึก')}
             </Button>
             {!existing && (
               <Button type="button" variant="outline" disabled={saving} onClick={() => void save(true)}>
-                บันทึกแล้วเพิ่มอีก
+                
+                {t('บันทึกแล้วเพิ่มอีก')}
               </Button>
             )}
             <Link to="/transactions" className={buttonVariants({ variant: 'ghost' })}>
-              ยกเลิก
+              
+              {t('ยกเลิก')}
             </Link>
             {existing && (
               <div className="ml-auto flex flex-wrap items-center gap-2">
                 <Link to={`/transactions/new?from=${existing.id}`} className={buttonVariants({ variant: 'outline' })}>
                   <Copy aria-hidden />
-                  ทำซ้ำ
+                  
+                  {t('ทำซ้ำ')}
                 </Link>
                 <Button type="button" variant="ghost" className="text-destructive" onClick={() => void handleDelete()}>
                   <Trash2 aria-hidden />
-                  ลบรายการนี้
+                  
+                  {t('ลบรายการนี้')}
                 </Button>
               </div>
             )}
@@ -596,10 +608,10 @@ function TransactionForm({
             {totalPanel}
             {rate && total && preview.tx.instrumentId && (draft.type === 'buy' || openingAsset) && (
               <Card>
-                <h2 className="mb-4 text-base font-semibold">เส้นทางเงินของรายการนี้</h2>
+                <h2 className="mb-4 text-base font-semibold">{t('เส้นทางเงินของรายการนี้')}</h2>
                 <MiniRoute
                   from={fmtMoney(total.times(D(rate)), base)}
-                  via={`แลกที่ ${fmtPrice(rate)}`}
+                  via={t('แลกที่ {0}', fmtPrice(rate))}
                   to={`${symbol} ${fmtNumber(preview.tx.quantity, 8)} ${UNIT_LABELS[known ? unitOf(known) : draft.unit]}`}
                 />
               </Card>

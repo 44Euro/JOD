@@ -14,6 +14,7 @@ import { yearSummary, yearsWithData } from '../../domain/yearSummary'
 import { PageHeader } from '../components/PageHeader'
 import { fmtDate, fmtHeadline, fmtPct, fmtSigned, plClass } from '../format'
 import { useAppData, useLedger } from '../hooks'
+import { t } from '../../i18n'
 
 function Row({ label, value, tone, note }: { label: string; value: string; tone?: string; note?: string }) {
   return (
@@ -33,7 +34,7 @@ export function SummaryPage() {
   const days = useLiveQuery(() => db.dailyValues.toArray(), [])
   const today = todayLocal()
   const [chosen, setChosen] = useState<number | null>(null)
-  if (!data || !ledger || !days) return <p className="text-muted-foreground">กำลังโหลด…</p>
+  if (!data || !ledger || !days) return <p className="text-muted-foreground">{t('กำลังโหลด…')}</p>
 
   const years = yearsWithData(data.transactions, today)
   const year = chosen ?? years[0]
@@ -47,61 +48,64 @@ export function SummaryPage() {
 
   return (
     <>
-      <PageHeader title={`สรุปปี ${year}`}>
-        <NativeSelect aria-label="ปี" className="h-10 w-auto print:hidden" value={year} onChange={(e) => setChosen(Number(e.target.value))}>
+      <PageHeader title={t('สรุปปี {0}', year)}>
+        <NativeSelect aria-label={t('ปี')} className="h-10 w-auto print:hidden" value={year} onChange={(e) => setChosen(Number(e.target.value))}>
           {years.map((y) => (
             <option key={y} value={y}>
-              {y} (พ.ศ. {y + 543})
+              {y} {t(' (พ.ศ. ')}{y + 543})
             </option>
           ))}
         </NativeSelect>
         <Button type="button" variant="outline" className="print:hidden" onClick={() => window.print()}>
           <Printer aria-hidden />
-          พิมพ์ / บันทึกเป็น PDF
+          
+          {t('พิมพ์ / บันทึกเป็น PDF')}
         </Button>
       </PageHeader>
       <p className="text-[13px] text-muted-foreground">
-        ปี ค.ศ. {year} · พ.ศ. {year + 543} · คิดเป็น {base} ที่เรทของแต่ละรายการ · ทำเมื่อ {fmtDate(today)}
+        
+        {t('ปี ค.ศ. ')}{year} {t(' · พ.ศ. ')}{year + 543} {t(' · คิดเป็น ')}{base} {t(' ที่เรทของแต่ละรายการ · ทำเมื่อ ')}{fmtDate(today)}
       </p>
 
       <div className="grid items-start gap-3.5 md:gap-[22px] lg:grid-cols-2 print:grid-cols-2">
         <Card>
-          <h2 className="mb-2 text-lg font-semibold">มูลค่าพอร์ต</h2>
+          <h2 className="mb-2 text-lg font-semibold">{t('มูลค่าพอร์ต')}</h2>
           <dl className="text-sm">
-            <Row label="ต้นปี" note={s.startValue ? fmtDate(s.startValue.date) : 'ไม่มีบันทึก'} value={s.startValue ? money(s.startValue.valueBase) : '—'} />
-            <Row label="ปลายปี / ล่าสุด" note={s.endValue ? fmtDate(s.endValue.date) : 'ไม่มีบันทึก'} value={s.endValue ? money(s.endValue.valueBase) : '—'} />
-            <Row label="เงินที่ใส่เพิ่ม" value={money(s.putInBase)} />
-            <Row label="เงินที่ถอนออก" value={money(s.takenOutBase)} />
+            <Row label={t('ต้นปี')} note={s.startValue ? fmtDate(s.startValue.date) : t('ไม่มีบันทึก')} value={s.startValue ? money(s.startValue.valueBase) : '—'} />
+            <Row label={t('ปลายปี / ล่าสุด')} note={s.endValue ? fmtDate(s.endValue.date) : t('ไม่มีบันทึก')} value={s.endValue ? money(s.endValue.valueBase) : '—'} />
+            <Row label={t('เงินที่ใส่เพิ่ม')} value={money(s.putInBase)} />
+            <Row label={t('เงินที่ถอนออก')} value={money(s.takenOutBase)} />
           </dl>
         </Card>
         <Card>
-          <h2 className="mb-2 text-lg font-semibold">กำไรและรายได้</h2>
+          <h2 className="mb-2 text-lg font-semibold">{t('กำไรและรายได้')}</h2>
           <dl className="text-sm">
-            <Row label="กำไรที่ขายแล้ว" note={`${s.sells} รายการขาย`} value={fmtSigned(s.realizedBase, 0)} tone={plClass(s.realizedBase)} />
-            <Row label="ปันผล (ก่อนภาษี)" value={money(s.income.dividend.grossBase)} />
-            <Row label="ดอกเบี้ย / คูปอง" value={money(s.income.interest.grossBase)} />
-            <Row label="รับเป็นสินทรัพย์" value={money(s.income.receive_asset.grossBase)} />
-            <Row label="ภาษีที่ถูกหัก ณ ที่จ่าย" value={money(taxTotal)} />
-            <Row label="รายได้สุทธิหลังภาษี" value={money(incomeTotal.minus(taxTotal))} />
-            <Row label="ค่าธรรมเนียมรวม" value={money(s.feesBase)} />
+            <Row label={t('กำไรที่ขายแล้ว')} note={t('{0} รายการขาย', s.sells)} value={fmtSigned(s.realizedBase, 0)} tone={plClass(s.realizedBase)} />
+            <Row label={t('ปันผล (ก่อนภาษี)')} value={money(s.income.dividend.grossBase)} />
+            <Row label={t('ดอกเบี้ย / คูปอง')} value={money(s.income.interest.grossBase)} />
+            <Row label={t('รับเป็นสินทรัพย์')} value={money(s.income.receive_asset.grossBase)} />
+            <Row label={t('ภาษีที่ถูกหัก ณ ที่จ่าย')} value={money(taxTotal)} />
+            <Row label={t('รายได้สุทธิหลังภาษี')} value={money(incomeTotal.minus(taxTotal))} />
+            <Row label={t('ค่าธรรมเนียมรวม')} value={money(s.feesBase)} />
           </dl>
         </Card>
         <Card>
-          <h2 className="mb-2 text-lg font-semibold">การเทรด</h2>
+          <h2 className="mb-2 text-lg font-semibold">{t('การเทรด')}</h2>
           <dl className="text-sm">
-            <Row label="เทรดที่ปิดในปีนี้" value={String(stats.closed)} />
+            <Row label={t('เทรดที่ปิดในปีนี้')} value={String(stats.closed)} />
             <Row label="Win rate" value={fmtPct(stats.winRatePct, 0)} />
-            <Row label="รวม" value={fmtSigned(stats.totalBase, 0)} tone={plClass(stats.totalBase)} />
+            <Row label={t('รวม')} value={fmtSigned(stats.totalBase, 0)} tone={plClass(stats.totalBase)} />
           </dl>
         </Card>
         <Card>
-          <h2 className="mb-2 text-lg font-semibold">ภาษี</h2>
+          <h2 className="mb-2 text-lg font-semibold">{t('ภาษี')}</h2>
           <dl className="text-sm">
-            <Row label={`เงินได้จากต่างประเทศที่นำเข้าไทย ปีภาษี ${year + 543}`} value={money(s.remittedBase)} note="จากรายการถอนที่ติ๊ก โอนกลับเข้าไทย" />
+            <Row label={t('เงินได้จากต่างประเทศที่นำเข้าไทย ปีภาษี {0}', year + 543)} value={money(s.remittedBase)} note={t('จากรายการถอนที่ติ๊ก โอนกลับเข้าไทย')} />
           </dl>
-          <p className="mt-2 text-[12px] text-muted-foreground">ตัวเลขช่วยเตรียมยื่นภาษี ไม่ใช่คำแนะนำทางภาษี ตรวจกับเอกสารจากโบรกและผู้เชี่ยวชาญก่อนยื่น</p>
+          <p className="mt-2 text-[12px] text-muted-foreground">{t('ตัวเลขช่วยเตรียมยื่นภาษี ไม่ใช่คำแนะนำทางภาษี ตรวจกับเอกสารจากโบรกและผู้เชี่ยวชาญก่อนยื่น')}</p>
           <Link to="/tax" className="mt-1 inline-flex min-h-11 items-center text-sm font-semibold text-primary-ink underline underline-offset-[3px] print:hidden">
-            ดูรายงานช่วยเตรียมภาษีแบบละเอียด
+            
+            {t('ดูรายงานช่วยเตรียมภาษีแบบละเอียด')}
           </Link>
         </Card>
       </div>

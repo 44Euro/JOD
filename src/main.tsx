@@ -6,9 +6,11 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'
 import { installErrorCapture } from './errors/log'
+import { language } from './i18n'
 import { ensurePersistentStorage } from './ui/storage'
 
 installErrorCapture()
+document.documentElement.lang = language()
 void ensurePersistentStorage()
 
 createRoot(document.getElementById('root')!).render(

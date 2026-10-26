@@ -21,10 +21,11 @@ import { ChecklistCard, WatchlistCard } from '../components/WatchCards'
 import { fmtDate, fmtHeadline, fmtMonth, fmtPct, fmtPrice, fmtValue } from '../format'
 import { useAppData, usePortfolio, type AppData } from '../hooks'
 import { marketOf } from '../labels'
+import { t } from '../../i18n'
 
 const FREQUENCY_LABELS: Record<PlanFrequency, string> = {
-  weekly: 'ทุกสัปดาห์',
-  monthly: 'ทุกเดือน',
+  weekly: t('ทุกสัปดาห์'),
+  monthly: t('ทุกเดือน'),
 }
 
 function AssetName({ id, instrument }: { id: string; instrument?: Instrument }) {
@@ -41,9 +42,10 @@ function TargetInput({ instrument }: { instrument: Instrument }) {
   const [error, setError] = useState(false)
   return (
     <span className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
-      เป้า
+      
+      {t('เป้า')}
       <Input
-        aria-label={`เป้าหมายของ ${instrument.symbol} (%)`}
+        aria-label={t('เป้าหมายของ {0} (%)', instrument.symbol)}
         inputMode="decimal"
         placeholder="—"
         value={value}
@@ -77,23 +79,23 @@ function TargetsCard({ data }: { data: AppData }) {
   const byId = new Map(data.instruments.map((i) => [i.id, i]))
   const rows = [...plan.rows].sort((a, b) => b.valueBase.comparedTo(a.valueBase))
   const action = (amount: ReturnType<typeof D> | null) =>
-    !amount || amount.abs().lt(1) ? '—' : amount.gt(0) ? `ซื้อ ${fmtHeadline(amount, base)}` : `ขาย ${fmtHeadline(amount.abs(), base)}`
+    !amount || amount.abs().lt(1) ? '—' : amount.gt(0) ? t('ซื้อ {0}', fmtHeadline(amount, base)) : t('ขาย {0}', fmtHeadline(amount.abs(), base))
 
   return (
     <Card className="grid gap-3">
-      <h2 className="text-lg font-semibold">สัดส่วนเป้าหมาย</h2>
+      <h2 className="text-lg font-semibold">{t('สัดส่วนเป้าหมาย')}</h2>
       <Field
         id="rebalance-cash"
-        label={`เงินที่จะเติมเข้าพอร์ต (${base})`}
-        hint="ไม่บังคับ · ใส่แล้วแอปบอกว่าควรซื้ออะไรเท่าไหร่โดยไม่ต้องขาย"
+        label={t('เงินที่จะเติมเข้าพอร์ต ({0})', base)}
+        hint={t('ไม่บังคับ · ใส่แล้วแอปบอกว่าควรซื้ออะไรเท่าไหร่โดยไม่ต้องขาย')}
         className="sm:max-w-xs"
       >
         <Input id="rebalance-cash" inputMode="decimal" value={cash} onChange={(e) => setCash(e.target.value)} />
       </Field>
       {rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">ยังไม่มีสินทรัพย์ที่ถืออยู่</p>
+        <p className="text-sm text-muted-foreground">{t('ยังไม่มีสินทรัพย์ที่ถืออยู่')}</p>
       ) : (
-        <ul aria-label="สัดส่วนแต่ละตัว">
+        <ul aria-label={t('สัดส่วนแต่ละตัว')}>
           {rows.map((row) => {
             const instrument = byId.get(row.instrumentId)
             return (
@@ -103,7 +105,8 @@ function TargetsCard({ data }: { data: AppData }) {
               >
                 <AssetName id={row.instrumentId} instrument={instrument} />
                 <span className="text-right text-[13px] text-muted-foreground tabular-nums sm:order-none">
-                  ตอนนี้ {fmtPct(row.currentPct, 1)}
+                  
+                  {t('ตอนนี้ ')}{fmtPct(row.currentPct, 1)}
                 </span>
                 {instrument ? <TargetInput key={instrument.targetPct ?? ''} instrument={instrument} /> : <span />}
                 <span className="text-right text-sm tabular-nums">
@@ -111,7 +114,7 @@ function TargetsCard({ data }: { data: AppData }) {
                     {action(row.diffBase)}
                   </span>
                   {newCash.gt(0) && row.buyOnlyBase && row.buyOnlyBase.gte(1) && (
-                    <span className="block text-[12px] text-muted-foreground">ไม่ขาย: ซื้อ {fmtHeadline(row.buyOnlyBase, base)}</span>
+                    <span className="block text-[12px] text-muted-foreground">{t('ไม่ขาย: ซื้อ ')}{fmtHeadline(row.buyOnlyBase, base)}</span>
                   )}
                 </span>
               </li>
@@ -120,10 +123,11 @@ function TargetsCard({ data }: { data: AppData }) {
         </ul>
       )}
       {plan.targetSum.gt(0) && !plan.targetSum.eq(100) && (
-        <Alert>เป้าหมายรวมกันได้ {fmtPct(plan.targetSum, 1)} ส่วนที่เหลือเป็นของตัวที่ไม่ได้ตั้งเป้า</Alert>
+        <Alert>{t('เป้าหมายรวมกันได้ ')}{fmtPct(plan.targetSum, 1)} {t(' ส่วนที่เหลือเป็นของตัวที่ไม่ได้ตั้งเป้า')}</Alert>
       )}
       <p className="text-[12px] text-muted-foreground">
-        ใส่ % ที่ต้องการในช่องของแต่ละตัว · มูลค่าคิดจากราคาล่าสุดที่บันทึกไว้ อัปเดตราคาก่อนเพื่อให้ตัวเลขตรง
+        
+        {t('ใส่ % ที่ต้องการในช่องของแต่ละตัว · มูลค่าคิดจากราคาล่าสุดที่บันทึกไว้ อัปเดตราคาก่อนเพื่อให้ตัวเลขตรง')}
       </p>
     </Card>
   )
@@ -136,10 +140,10 @@ const STATE_CLASS = {
   current: 'border-2 border-primary bg-card',
 }
 const STATE_LABEL = {
-  done: 'ครบ',
-  partial: 'ยังไม่ครบ',
-  missed: 'ไม่ได้ซื้อ',
-  current: 'งวดนี้',
+  done: t('ครบ'),
+  partial: t('ยังไม่ครบ'),
+  missed: t('ไม่ได้ซื้อ'),
+  current: t('งวดนี้'),
 }
 
 function PlanRow({ plan, data, today }: { plan: DcaPlan; data: AppData; today: string }) {
@@ -155,7 +159,7 @@ function PlanRow({ plan, data, today }: { plan: DcaPlan; data: AppData; today: s
         <span className="grid gap-0.5">
           <AssetName id={plan.instrumentId} instrument={instrument} />
           <span className="text-[13px] text-muted-foreground">
-            {fmtPrice(plan.amount)} {plan.currency} {FREQUENCY_LABELS[plan.frequency]} · {account?.name ?? 'บัญชีที่ลบไปแล้ว'} · เริ่ม{' '}
+            {fmtPrice(plan.amount)} {plan.currency} {FREQUENCY_LABELS[plan.frequency]} · {account?.name ?? t('บัญชีที่ลบไปแล้ว')} {t(' · เริ่ม')}{' '}
             {fmtDate(plan.startDate)}
           </span>
         </span>
@@ -163,13 +167,13 @@ function PlanRow({ plan, data, today }: { plan: DcaPlan; data: AppData; today: s
           type="button"
           variant="ghost"
           size="icon"
-          aria-label={`ลบแผน ${instrument?.symbol ?? symbolOf(plan.instrumentId)}`}
+          aria-label={t('ลบแผน {0}', instrument?.symbol ?? symbolOf(plan.instrumentId))}
           onClick={() => void deletePlan(db, plan.id)}
         >
           <Trash2 aria-hidden />
         </Button>
       </div>
-      <ol aria-label="งวดล่าสุด" className="flex flex-wrap gap-1.5">
+      <ol aria-label={t('งวดล่าสุด')} className="flex flex-wrap gap-1.5">
         {periods.slice(-12).map((p) => (
           <li
             key={p.start}
@@ -181,8 +185,9 @@ function PlanRow({ plan, data, today }: { plan: DcaPlan; data: AppData; today: s
         ))}
       </ol>
       <p className="text-[13px]">
-        ครบ {done} จาก {past} งวดที่ผ่านมา
-        {current && ` · งวดนี้ซื้อแล้ว ${fmtValue(current.spent)} จาก ${fmtPrice(plan.amount)} ${plan.currency}`}
+        
+        {t('ครบ ')}{done} {t(' จาก ')}{past} {t(' งวดที่ผ่านมา')}
+        {current && t(' · งวดนี้ซื้อแล้ว {0} จาก {1} {2}', fmtValue(current.spent), fmtPrice(plan.amount), plan.currency)}
       </p>
     </li>
   )
@@ -216,22 +221,22 @@ function PlansCard({ data }: { data: AppData }) {
       setAmount('')
       setError('')
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'บันทึกไม่สำเร็จ')
+      setError(e instanceof Error ? e.message : t('บันทึกไม่สำเร็จ'))
     }
   }
 
   return (
     <Card className="grid gap-3">
-      <h2 className="text-lg font-semibold">แผนทยอยซื้อ</h2>
+      <h2 className="text-lg font-semibold">{t('แผนทยอยซื้อ')}</h2>
       {plans && plans.length > 0 && (
-        <ul aria-label="แผนที่มี">
+        <ul aria-label={t('แผนที่มี')}>
           {plans.map((plan) => (
             <PlanRow key={plan.id} plan={plan} data={data} today={today} />
           ))}
         </ul>
       )}
       <form onSubmit={(e) => void add(e)} className="grid gap-3 border-t pt-4 sm:grid-cols-2">
-        <Field id="plan-account" label="บัญชี">
+        <Field id="plan-account" label={t('บัญชี')}>
           <NativeSelect id="plan-account" value={accountId} onChange={(e) => setAccountId(e.target.value)}>
             {data.accounts.map((a) => (
               <option key={a.id} value={a.id}>
@@ -240,9 +245,9 @@ function PlansCard({ data }: { data: AppData }) {
             ))}
           </NativeSelect>
         </Field>
-        <Field id="plan-asset" label="สินทรัพย์">
+        <Field id="plan-asset" label={t('สินทรัพย์')}>
           <NativeSelect id="plan-asset" value={instrumentId} onChange={(e) => setInstrumentId(e.target.value)}>
-            <option value="">เลือก</option>
+            <option value="">{t('เลือก')}</option>
             {instruments.map((i) => (
               <option key={i.id} value={i.id}>
                 {i.symbol} · {i.currency}
@@ -250,16 +255,16 @@ function PlansCard({ data }: { data: AppData }) {
             ))}
           </NativeSelect>
         </Field>
-        <Field id="plan-amount" label={`ซื้องวดละ${chosen ? ` (${chosen.currency})` : ''}`}>
+        <Field id="plan-amount" label={t('ซื้องวดละ{0}', chosen ? ` (${chosen.currency})` : '')}>
           <Input id="plan-amount" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
         </Field>
-        <Field id="plan-start" label="เริ่ม">
+        <Field id="plan-start" label={t('เริ่ม')}>
           <Input id="plan-start" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
         </Field>
         <div className="grid content-start gap-1.5 sm:col-span-2">
-          <span className="text-[13.5px] font-semibold text-ink-2">ความถี่</span>
+          <span className="text-[13.5px] font-semibold text-ink-2">{t('ความถี่')}</span>
           <Segmented
-            label="ความถี่"
+            label={t('ความถี่')}
             options={PLAN_FREQUENCIES.map((value) => ({
               value,
               label: FREQUENCY_LABELS[value],
@@ -274,11 +279,12 @@ function PlansCard({ data }: { data: AppData }) {
           </Alert>
         )}
         <div className="sm:col-span-2">
-          <Button type="submit">เพิ่มแผน</Button>
+          <Button type="submit">{t('เพิ่มแผน')}</Button>
         </div>
       </form>
       <p className="text-[12px] text-muted-foreground">
-        แอปนับจากรายการซื้อที่บันทึกในบัญชีและสกุลเดียวกับแผน รวมค่าธรรมเนียม · ซื้อถึง 99% ของยอดนับว่าครบงวด
+        
+        {t('แอปนับจากรายการซื้อที่บันทึกในบัญชีและสกุลเดียวกับแผน รวมค่าธรรมเนียม · ซื้อถึง 99% ของยอดนับว่าครบงวด')}
       </p>
     </Card>
   )
@@ -286,10 +292,10 @@ function PlansCard({ data }: { data: AppData }) {
 
 export function PlansPage() {
   const data = useAppData()
-  if (!data) return <p className="text-muted-foreground">กำลังโหลด…</p>
+  if (!data) return <p className="text-muted-foreground">{t('กำลังโหลด…')}</p>
   return (
     <>
-      <PageHeader title="แผน" />
+      <PageHeader title={t('แผน')} />
       <div className="grid items-start gap-3.5 md:gap-[22px] xl:grid-cols-2">
         <TargetsCard data={data} />
         <PlansCard data={data} />

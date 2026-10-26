@@ -1,6 +1,7 @@
 import type { AssetType, Market } from '../../domain/types'
 import { cn } from '../../lib/cn'
 import { MARKET_LABELS } from '../labels'
+import { t } from '../../i18n'
 
 const PILLS: Record<Market, { label: string; className: string }> = {
   US: { label: 'US', className: 'bg-market-us' },
@@ -15,7 +16,7 @@ const PILLS: Record<Market, { label: string; className: string }> = {
   EU: { label: 'EU', className: 'bg-market-intl' },
   UK: { label: 'UK', className: 'bg-market-intl' },
   CRYPTO: { label: 'CR', className: 'bg-market-crypto' },
-  OTHER: { label: 'อื่น', className: 'bg-market-intl' },
+  OTHER: { label: t('อื่น'), className: 'bg-market-intl' },
 }
 
 const pillBase =
