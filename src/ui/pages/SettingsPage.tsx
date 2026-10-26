@@ -14,6 +14,7 @@ import { Segmented } from '../../components/ui/segmented'
 import { THEME_LABELS } from '../theme'
 import { AccountEditor } from '../components/AccountEditor'
 import { AiKeyCard } from '../components/AiKeyCard'
+import { LockCard } from '../components/LockCard'
 import { PriceSourcesCard } from '../components/PriceSourcesCard'
 import { DataSection } from '../components/DataSection'
 import { PageHeader } from '../components/PageHeader'
@@ -185,6 +186,8 @@ export function SettingsPage() {
               onChange={(theme) => void saveSettings(db, { ...data.settings, theme })}
             />
           </Card>
+
+          <LockCard />
 
           <Card className="grid gap-3">
             <h2 className="text-lg font-semibold">ความเป็นส่วนตัว</h2>

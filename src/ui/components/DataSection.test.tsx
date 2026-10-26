@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '../../db/db'
 import { makeTx } from '../../test/fixtures'
+import { encryptText } from '../../security/crypto'
 import { renderRoute, resetDb } from '../../test/render'
 
 const account = { id: 'acc-1', name: 'Dime US', broker: 'Dime', note: '', createdAt: '2024-01-01T00:00:00.000Z' }
@@ -71,5 +72,38 @@ describe('DataSection sample data', () => {
     renderRoute('/settings')
     expect(await screen.findByRole('button', { name: 'สำรองข้อมูล' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'ลบข้อมูลตัวอย่าง' })).not.toBeInTheDocument()
+  })
+
+  it('asks for the passphrase of a sealed backup and restores it only with the right one', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const backup = {
+      app: 'jod',
+      version: 1,
+      exportedAt: '2024-06-01T00:00:00.000Z',
+      data: { accounts: [account], instruments: [], settings: [], transactions: [makeTx({ id: 'sealed-tx' })] },
+    }
+    const sealed = await encryptText(JSON.stringify(backup), 'long passphrase', 1000)
+    const user = userEvent.setup()
+    renderRoute('/settings')
+    await user.upload(await screen.findByLabelText('เลือกไฟล์สำรอง'), jsonFile(sealed))
+    const field = await screen.findByLabelText('ไฟล์นี้เข้ารหัสไว้ · ใส่รหัสผ่าน')
+    await user.type(field, 'wrong one')
+    await user.click(screen.getByRole('button', { name: 'เปิดไฟล์' }))
+    expect(await screen.findByText('รหัสผ่านไม่ถูก หรือไฟล์เสียหาย')).toBeInTheDocument()
+    expect(await db.transactions.get('keep-me')).toBeDefined()
+    await user.clear(field)
+    await user.type(field, 'long passphrase')
+    await user.click(screen.getByRole('button', { name: 'เปิดไฟล์' }))
+    expect(await screen.findByText('กู้คืนแล้ว 1 รายการ')).toBeInTheDocument()
+    expect(await db.transactions.get('sealed-tx')).toBeDefined()
+  })
+
+  it('refuses a short passphrase for a sealed backup', async () => {
+    const user = userEvent.setup()
+    renderRoute('/settings')
+    await user.click(await screen.findByLabelText('เข้ารหัสไฟล์สำรองด้วยรหัสผ่าน'))
+    await user.type(screen.getByLabelText('รหัสผ่านไฟล์สำรอง'), 'short')
+    await user.click(screen.getByRole('button', { name: 'สำรองข้อมูล' }))
+    expect(await screen.findByText('รหัสผ่านไฟล์สำรองต้องยาวอย่างน้อย 8 ตัวอักษร')).toBeInTheDocument()
   })
 })

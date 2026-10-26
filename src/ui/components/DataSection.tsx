@@ -4,6 +4,8 @@ import { Alert } from '../../components/ui/alert'
 import { Badge } from '../../components/ui/badge'
 import { Button } from '../../components/ui/button'
 import { Card } from '../../components/ui/card'
+import { Field } from '../../components/ui/field'
+import { Input } from '../../components/ui/input'
 import { BackupError, exportBackup, parseBackup, restoreBackup, transactionsToCsv } from '../../db/backup'
 import { db } from '../../db/db'
 import { removeSampleData, saveSettings } from '../../db/repo'
@@ -12,6 +14,7 @@ import { daysBetween, todayLocal } from '../../domain/dates'
 import { downloadText } from '../download'
 import { fmtDate } from '../format'
 import type { AppData } from '../hooks'
+import { asEncrypted, decryptText, DecryptError, encryptText, type EncryptedFile } from '../../security/crypto'
 import { ensurePersistentStorage, type StorageStatus } from '../storage'
 
 const REMIND_AFTER_DAYS = 7
@@ -26,6 +29,10 @@ export function DataSection({ data }: { data: AppData }) {
   const [message, setMessage] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const [storage, setStorage] = useState<StorageStatus | null>(null)
+  const [seal, setSeal] = useState(false)
+  const [passphrase, setPassphrase] = useState('')
+  const [sealed, setSealed] = useState<EncryptedFile | null>(null)
+  const [openWith, setOpenWith] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -41,8 +48,14 @@ export function DataSection({ data }: { data: AppData }) {
   const needsBackup = data.transactions.length > 0 && (age === null || age > REMIND_AFTER_DAYS)
 
   async function handleExport() {
+    if (seal && passphrase.length < 8) {
+      setMessage({ tone: 'error', text: 'รหัสผ่านไฟล์สำรองต้องยาวอย่างน้อย 8 ตัวอักษร' })
+      return
+    }
     const backup = await exportBackup(db)
-    downloadText(`jod-backup-${todayLocal()}.json`, JSON.stringify(backup, null, 2), 'application/json')
+    const text = JSON.stringify(backup, null, 2)
+    if (seal) downloadText(`jod-backup-${todayLocal()}-locked.json`, JSON.stringify(await encryptText(text, passphrase)), 'application/json')
+    else downloadText(`jod-backup-${todayLocal()}.json`, text, 'application/json')
     await saveSettings(db, { ...data.settings, lastBackupAt: backup.exportedAt })
     setMessage({ tone: 'ok', text: 'สำรองข้อมูลแล้ว' })
   }
@@ -62,8 +75,36 @@ export function DataSection({ data }: { data: AppData }) {
     const file = event.target.files?.[0]
     event.target.value = ''
     if (!file) return
+    const text = await file.text()
+    let locked: EncryptedFile | null = null
     try {
-      const backup = parseBackup(await file.text())
+      locked = asEncrypted(JSON.parse(text))
+    } catch {
+      // parseBackup says what is wrong with a file that is not JSON.
+    }
+    if (locked) {
+      setSealed(locked)
+      setMessage(null)
+      return
+    }
+    await restore(text)
+  }
+
+  async function openSealed() {
+    if (!sealed) return
+    try {
+      const text = await decryptText(sealed, openWith)
+      setSealed(null)
+      setOpenWith('')
+      await restore(text)
+    } catch (error) {
+      setMessage({ tone: 'error', text: error instanceof DecryptError ? error.message : 'เปิดไฟล์ไม่สำเร็จ' })
+    }
+  }
+
+  async function restore(text: string) {
+    try {
+      const backup = parseBackup(text)
       const count = backup.data.transactions.length
       if (!window.confirm(`กู้คืนจากไฟล์นี้จะแทนที่ข้อมูลทั้งหมดในเครื่อง (ในไฟล์มี ${count} รายการ) ต่อไหม?`)) return
       await restoreBackup(db, backup)
@@ -95,6 +136,31 @@ export function DataSection({ data }: { data: AppData }) {
             {message.text}
           </p>
         ))}
+      {sealed && (
+        <form
+          className="grid gap-2 rounded-xl border p-3 sm:grid-cols-[1fr_auto] sm:items-end"
+          onSubmit={(e) => {
+            e.preventDefault()
+            void openSealed()
+          }}
+        >
+          <Field id="open-passphrase" label="ไฟล์นี้เข้ารหัสไว้ · ใส่รหัสผ่าน">
+            <Input id="open-passphrase" type="password" autoComplete="off" value={openWith} onChange={(e) => setOpenWith(e.target.value)} />
+          </Field>
+          <Button type="submit" className="h-[46px]" disabled={!openWith}>
+            เปิดไฟล์
+          </Button>
+        </form>
+      )}
+      <label className="flex min-h-11 items-center gap-2.5 text-sm">
+        <input type="checkbox" className="size-5 accent-primary" checked={seal} onChange={(e) => setSeal(e.target.checked)} />
+        เข้ารหัสไฟล์สำรองด้วยรหัสผ่าน
+      </label>
+      {seal && (
+        <Field id="seal-passphrase" label="รหัสผ่านไฟล์สำรอง" hint="อย่างน้อย 8 ตัวอักษร · ลืมรหัสผ่านแล้วเปิดไฟล์ไม่ได้อีก แอปกู้ให้ไม่ได้">
+          <Input id="seal-passphrase" type="password" autoComplete="new-password" value={passphrase} onChange={(e) => setPassphrase(e.target.value)} />
+        </Field>
+      )}
       <div className="flex flex-wrap gap-2">
         <Button type="button" onClick={() => void handleExport()}>
           <Download aria-hidden />
