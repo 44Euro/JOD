@@ -1,6 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Printer } from 'lucide-react'
 import { useState } from 'react'
+import { Link } from 'react-router'
 import { Button } from '../../components/ui/button'
 import { Card } from '../../components/ui/card'
 import { NativeSelect } from '../../components/ui/input'
@@ -99,6 +100,9 @@ export function SummaryPage() {
             <Row label={`เงินได้จากต่างประเทศที่นำเข้าไทย ปีภาษี ${year + 543}`} value={money(s.remittedBase)} note="จากรายการถอนที่ติ๊ก โอนกลับเข้าไทย" />
           </dl>
           <p className="mt-2 text-[12px] text-muted-foreground">ตัวเลขช่วยเตรียมยื่นภาษี ไม่ใช่คำแนะนำทางภาษี ตรวจกับเอกสารจากโบรกและผู้เชี่ยวชาญก่อนยื่น</p>
+          <Link to="/tax" className="mt-1 inline-flex min-h-11 items-center text-sm font-semibold text-primary-ink underline underline-offset-[3px] print:hidden">
+            ดูรายงานช่วยเตรียมภาษีแบบละเอียด
+          </Link>
         </Card>
       </div>
     </>

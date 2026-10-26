@@ -16,6 +16,8 @@ export interface FifoSale {
   txId: string
   date: string
   quantity: Decimal
+  // The purchases the sold units came from, oldest first.
+  from: { txId: string; date: string; quantity: Decimal }[]
   proceedsBase: Decimal
   costBase: Decimal
   realizedBase: Decimal
@@ -63,9 +65,11 @@ export function fifoByAccount(transactions: readonly Transaction[], instrumentId
   }
   const dispose = (tx: Transaction, quantity: Decimal, proceedsBase: Decimal) => {
     const r = result(tx.accountId)
-    const costBase = sum(take(r.lots, quantity), (l) => l.costBase)
+    const taken = take(r.lots, quantity)
+    const costBase = sum(taken, (l) => l.costBase)
     const realizedBase = proceedsBase.minus(costBase)
-    r.sales.push({ txId: tx.id, date: tx.date, quantity, proceedsBase, costBase, realizedBase })
+    const from = taken.map((l) => ({ txId: l.txId, date: l.date, quantity: l.quantity }))
+    r.sales.push({ txId: tx.id, date: tx.date, quantity, from, proceedsBase, costBase, realizedBase })
     r.realizedBase = r.realizedBase.plus(realizedBase)
   }
 

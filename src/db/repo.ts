@@ -6,6 +6,7 @@ import {
   instrumentKey,
   type Account,
   type DcaPlan,
+  type TaxFund,
   type WatchItem,
   type TradePicture,
   type ImportBatch,
@@ -324,4 +325,8 @@ export async function addPictures(db: JodDB, txId: string, files: readonly File[
 
 export async function deletePicture(db: JodDB, id: string): Promise<void> {
   await db.pictures.delete(id)
+}
+
+export async function setTaxFund(db: JodDB, id: string, kind: TaxFund | null): Promise<void> {
+  await db.instruments.update(id, { taxFund: kind ?? undefined })
 }

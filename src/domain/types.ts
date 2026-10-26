@@ -90,7 +90,12 @@ export interface Instrument {
   reviewDate?: string
   // The share of the portfolio's value this asset should be, in percent.
   targetPct?: string
+  // A Thai tax-saving fund, which has to be held for a set time.
+  taxFund?: TaxFund
 }
+
+export const TAX_FUNDS = ['SSF', 'RMF', 'THAIESG'] as const
+export type TaxFund = (typeof TAX_FUNDS)[number]
 
 export function unitOf(instrument: Pick<Instrument, 'assetType' | 'unit'>): Unit {
   return instrument.unit ?? defaultUnit(instrument.assetType)

@@ -12,6 +12,7 @@ import { PrivacyPage } from './ui/pages/PrivacyPage'
 import { PortfolioPage } from './ui/pages/PortfolioPage'
 import { SettingsPage } from './ui/pages/SettingsPage'
 import { SummaryPage } from './ui/pages/SummaryPage'
+import { TaxPage } from './ui/pages/TaxPage'
 import { TradesPage } from './ui/pages/TradesPage'
 import { TransactionFormPage } from './ui/pages/TransactionFormPage'
 import { TransactionsPage } from './ui/pages/TransactionsPage'
@@ -30,6 +31,7 @@ export const routes: RouteObject[] = [
       { path: 'plans', element: <PlansPage /> },
       { path: 'income', element: <IncomePage /> },
       { path: 'summary', element: <SummaryPage /> },
+      { path: 'tax', element: <TaxPage /> },
       { path: 'trades', element: <TradesPage /> },
       { path: 'fx', element: <FxPage /> },
       { path: 'import', element: <ImportPage /> },

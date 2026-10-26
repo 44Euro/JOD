@@ -4,6 +4,7 @@ import { cashDeltaQuote, sortTransactions } from '../domain/ledger'
 import {
   IMPORT_SOURCES,
   MARKETS,
+  TAX_FUNDS,
   THEME_CHOICES,
   UNITS,
   type Account,
@@ -174,6 +175,7 @@ function isValidInstrument(value: unknown): boolean {
     MARKETS.includes(i.market as Market) &&
     (i.unit === undefined || UNITS.includes(i.unit)) &&
     (i.previousSymbols === undefined || (Array.isArray(i.previousSymbols) && i.previousSymbols.every((s) => typeof s === 'string'))) &&
+    (i.taxFund === undefined || TAX_FUNDS.includes(i.taxFund)) &&
     (i.targetPct === undefined || (typeof i.targetPct === 'string' && isDecimalString(i.targetPct) && D(i.targetPct).gte(0) && D(i.targetPct).lte(100)))
   )
 }
