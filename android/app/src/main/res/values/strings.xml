@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">JOD</string>
+    <string name="title_activity_main">JOD</string>
+    <string name="package_name">app.jod.journal</string>
+    <string name="custom_url_scheme">app.jod.journal</string>
+</resources>
