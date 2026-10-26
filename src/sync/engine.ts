@@ -48,11 +48,6 @@ const TABLE_OF = Object.fromEntries(TABLES.map((t) => [KINDS[t], t])) as Record<
 
 let applying = false
 
-// Changes written while pulled records are put in place are not the person's, so they must not be sent back.
-export function isApplyingRemote() {
-  return applying
-}
-
 function table(db: JodDB, name: TableName) {
   return db[name] as unknown as Dexie.Table<Record<string, unknown>, string>
 }

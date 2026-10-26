@@ -56,10 +56,6 @@ export function writeApiKey(key: string): void {
   write(API_KEY_STORAGE_KEY, key)
 }
 
-export function useApiKey(): string {
-  return useSyncExternalStore(subscribe, readApiKey)
-}
-
 // Reading on the device is the default: it costs nothing and nothing leaves the device.
 export function readReaderMode(): ReaderMode {
   const stored = read(READER_MODE_STORAGE_KEY)
