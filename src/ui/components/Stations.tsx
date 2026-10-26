@@ -7,7 +7,7 @@ export function Stations({ steps, step }: { steps: readonly string[]; step: numb
       {steps.map((label, index) => (
         <Fragment key={label}>
           {index > 0 && (
-            <li aria-hidden className={cn('mx-2.5 h-[5px] min-w-6 flex-1 rounded-full', index <= step ? 'bg-foreground' : 'bg-input')} />
+            <li aria-hidden className={cn('mx-1.5 h-[5px] min-w-3 flex-1 rounded-full sm:mx-2.5 sm:min-w-6', index <= step ? 'bg-foreground' : 'bg-input')} />
           )}
           <li
             aria-current={index === step ? 'step' : undefined}

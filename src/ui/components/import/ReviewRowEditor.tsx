@@ -31,7 +31,6 @@ function NumberField({
         id={id}
         inputMode="decimal"
         value={value}
-        aria-invalid={doubtful || undefined}
         className={cn('h-10 tabular-nums', doubtful && CHECK)}
         onChange={(e) => onChange(e.target.value)}
       />
@@ -79,7 +78,7 @@ export function ReviewRowEditor({
           <>
             <NativeSelect
               aria-label={`ตลาดของ ${title}`}
-              className={cn('h-10 w-auto', doubtful('market'))}
+              className={cn('h-10 w-auto max-w-40', doubtful('market'))}
               value={row.market}
               onChange={(e) => onChange({ market: e.target.value as ReviewRow['market'] })}
             >
@@ -91,7 +90,7 @@ export function ReviewRowEditor({
             </NativeSelect>
             <Input
               aria-label="สัญลักษณ์"
-              className={cn('h-10 w-28 font-semibold uppercase', doubtful('symbol'))}
+              className={cn('h-10 w-24 min-w-0 flex-1 font-semibold uppercase sm:flex-none', doubtful('symbol'))}
               value={row.symbol}
               onChange={(e) => onChange({ symbol: e.target.value.toUpperCase() })}
             />

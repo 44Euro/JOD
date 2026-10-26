@@ -174,8 +174,8 @@ export function ImportPage() {
 
       {(phase.name === 'pick' || phase.name === 'reading') && (
         <Card className="grid gap-4">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field id="import-account" label="บัญชี">
+          <div className="grid gap-3">
+            <Field id="import-account" label="บัญชี" className="sm:max-w-sm">
               <NativeSelect
                 id="import-account"
                 value={account.id}
@@ -285,14 +285,14 @@ export function ImportPage() {
       )}
 
       {phase.name === 'review' && (
-        <div className="grid items-start gap-3.5 md:gap-[22px] lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
-          <Card className="grid content-start gap-3">
+        <div className="grid items-start gap-3.5 md:gap-[22px] xl:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+          <Card className="order-last grid content-start gap-3 xl:order-first">
             <h2 className="text-base font-semibold">ไฟล์จาก {account.name}</h2>
             <ul className="grid gap-3">
               {files.map((file, index) => (
                 <li key={`${file.name}-${index}`} className="grid gap-1.5">
                   {file.kind === 'image' ? (
-                    <img src={file.previewUrl} alt={`รูปที่ ${index + 1}`} className="w-full rounded-xl border" />
+                    <img src={file.previewUrl} alt={`รูปที่ ${index + 1}`} className="max-h-[70vh] w-full rounded-xl border object-contain object-top" />
                   ) : (
                     <span className="flex items-center gap-2 text-sm">
                       <FileText className="size-5 text-ink-2" aria-hidden />
