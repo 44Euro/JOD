@@ -1,6 +1,6 @@
 import { Plus } from 'lucide-react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router'
-import { buttonVariants } from '../components/ui/button'
+import { buttonVariants } from '../components/ui/button-variants'
 import { cn } from '../lib/cn'
 import { AutoPriceUpdater } from './AutoPriceUpdater'
 import { AutoSync } from './AutoSync'

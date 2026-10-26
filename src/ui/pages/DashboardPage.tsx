@@ -1,7 +1,7 @@
 import { CalendarClock, DatabaseBackup, Plus, type LucideIcon } from 'lucide-react'
 import { Link, Navigate } from 'react-router'
 import { Alert } from '../../components/ui/alert'
-import { buttonVariants } from '../../components/ui/button'
+import { buttonVariants } from '../../components/ui/button-variants'
 import { Card } from '../../components/ui/card'
 import { todayLocal } from '../../domain/dates'
 import { D, type Decimal } from '../../domain/decimal'

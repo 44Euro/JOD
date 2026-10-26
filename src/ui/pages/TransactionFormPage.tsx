@@ -2,7 +2,8 @@ import { Check, Copy, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { Alert } from '../../components/ui/alert'
-import { Button, buttonVariants } from '../../components/ui/button'
+import { Button } from '../../components/ui/button'
+import { buttonVariants } from '../../components/ui/button-variants'
 import { Card } from '../../components/ui/card'
 import { Chip } from '../../components/ui/chip'
 import { Field } from '../../components/ui/field'
@@ -151,7 +152,7 @@ function clearEntry(draft: Draft): Draft {
   }
 }
 
-function marketRateKey(draft: Draft): string {
+function marketRateKey(draft: Pick<Draft, 'toCurrency' | 'currency' | 'date'>): string {
   return `${draft.toCurrency}|${draft.currency}|${draft.date}`
 }
 
@@ -191,6 +192,8 @@ function TransactionForm({
   const [errors, setErrors] = useState<string[]>([])
   const [fxMessage, setFxMessage] = useState('')
   const [noRateFor, setNoRateFor] = useState('')
+  // The preview only needs a clock for its placeholder timestamp and today's date; saving reads its own.
+  const [openedAt] = useState(() => new Date())
   const [savedNote, setSavedNote] = useState('')
   const [copiedFrom, setCopiedFrom] = useState(copyOf)
   const [saving, setSaving] = useState(false)
@@ -247,11 +250,11 @@ function TransactionForm({
     }
   }, [moveCurrencyToRate, moveDate, base, provider, setDraft])
 
+  const { type: convertType, toCurrency: convertTo, currency: convertFrom, date: convertDate } = draft
   useEffect(() => {
-    const { type, toCurrency, currency, date } = draft
-    if (type !== 'fx_convert' || !toCurrency || toCurrency === currency || !isIsoDate(date)) return
+    if (convertType !== 'fx_convert' || !convertTo || convertTo === convertFrom || !isIsoDate(convertDate)) return
     let cancelled = false
-    quoteWithPegFallback(db, provider, toCurrency, currency, date)
+    quoteWithPegFallback(db, provider, convertTo, convertFrom, convertDate)
       .then(({ quote }) => {
         if (cancelled) return
         setNoRateFor('')
@@ -259,20 +262,19 @@ function TransactionForm({
       })
       .catch(() => {
         if (cancelled) return
-        setNoRateFor(marketRateKey(draft))
+        setNoRateFor(marketRateKey({ toCurrency: convertTo, currency: convertFrom, date: convertDate }))
         setDraft((d) => ({ ...d, marketRate: '', marketRateDate: '' }))
       })
     return () => {
       cancelled = true
     }
-  }, [draft.type, draft.toCurrency, draft.currency, draft.date, provider, setDraft])
+  }, [convertType, convertTo, convertFrom, convertDate, provider, setDraft])
 
-  const now = new Date()
   const preview = draftToTransaction(draft, {
     id: existing?.id ?? 'preview',
-    createdAt: existing?.createdAt ?? now.toISOString(),
+    createdAt: existing?.createdAt ?? openedAt.toISOString(),
     baseCurrency: base,
-    today: todayLocal(now),
+    today: todayLocal(openedAt),
     instruments: data.instruments,
   })
   const symbol = draft.symbol.trim().toUpperCase()
@@ -280,7 +282,7 @@ function TransactionForm({
   const offersReinvest = !existing && draft.type === 'dividend' && symbol !== ''
   const reinvesting = offersReinvest && draft.reinvest
   const reinvested = reinvesting
-    ? reinvestTransaction(draft, preview.tx, { id: 'preview-buy', createdAt: preview.tx.createdAt, today: todayLocal(now) })
+    ? reinvestTransaction(draft, preview.tx, { id: 'preview-buy', createdAt: preview.tx.createdAt, today: todayLocal(openedAt) })
     : null
   const reinvestPlan =
     reinvested && preview.errors.length === 0 && reinvested.errors.length === 0
@@ -322,6 +324,7 @@ function TransactionForm({
   async function save(addAnother: boolean) {
     if (savingRef.current) return
     setSaveFailed(false)
+    // eslint-disable-next-line react/purity -- save runs on a click, not during render
     const at = new Date()
     const prepared = prepareSave(draft, { existing, others, instruments: data.instruments, baseCurrency: base, reinvesting, at })
     const { tx } = prepared

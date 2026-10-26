@@ -3,7 +3,7 @@ import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode, type Re
 import { Link } from 'react-router'
 import { Alert } from '../../components/ui/alert'
 import { Badge } from '../../components/ui/badge'
-import { buttonVariants } from '../../components/ui/button'
+import { buttonVariants } from '../../components/ui/button-variants'
 import { Card } from '../../components/ui/card'
 import { Segmented } from '../../components/ui/segmented'
 import { Table, Td, Th } from '../../components/ui/table'

@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { Link, useRouteError } from 'react-router'
-import { buttonVariants } from '../../components/ui/button'
+import { buttonVariants } from '../../components/ui/button-variants'
 import { Card } from '../../components/ui/card'
 import { logError } from '../../errors/log'
 import { cn } from '../../lib/cn'
