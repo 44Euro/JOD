@@ -1,8 +1,9 @@
 import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createApp } from '../../server/app.ts'
 import { createTestStore } from '../../server/testStore.ts'
+import { exportBackup, restoreBackup } from '../db/backup'
 import { createDb, type JodDB } from '../db/db'
 import { makeTx } from '../test/fixtures'
 import { createSyncClient, type SyncClient } from './client'
@@ -188,6 +189,34 @@ describe('sync', () => {
     writeSync({ ...signedIn, version: 7, syncedAt: '2026-10-01T00:00:00.000Z' })
     expect(await syncNow(one.db, client)).toEqual({ kind: 'pushed', count: 2 })
     expect((await client.pullRecords(signedIn.token, 0)).records).toHaveLength(2)
+  })
+
+  it('removes from the account what a restored backup no longer has', async () => {
+    const client = createSyncClient(base)
+    const signedIn = await account2(client)
+    const one = device(createDb(`test-${crypto.randomUUID()}`))
+    one.use()
+    writeSync(signedIn)
+    await one.db.transactions.bulkAdd([makeTx({ id: 'old' }), makeTx({ id: 'kept' })])
+    await syncNow(one.db, client)
+    const backup = await exportBackup(one.db)
+    backup.data.transactions = backup.data.transactions.filter((t) => t.id === 'kept')
+    await restoreBackup(one.db, backup)
+    await syncNow(one.db, client)
+    const live = (await client.pullRecords(signedIn.token, 0)).records.filter((r) => r.sealed !== null).map((r) => r.id)
+    expect(live).toEqual(['kept'])
+  })
+
+  it('writes the pending list a handful of times, not once per record, when many records change at once', async () => {
+    const one = device(createDb(`test-${crypto.randomUUID()}`))
+    one.use()
+    const setItem = vi.spyOn(Storage.prototype, 'setItem')
+    await one.db.transactions.bulkAdd(Array.from({ length: 2000 }, (_, i) => makeTx({ id: `bulk-${i}` })))
+    await Promise.resolve()
+    const writes = setItem.mock.calls.filter(([key]) => key === 'jod-sync-pending').length
+    setItem.mockRestore()
+    expect(Object.keys(pendingChanges())).toHaveLength(2000)
+    expect(writes).toBeLessThan(10)
   })
 
   it('refuses a wrong password', async () => {

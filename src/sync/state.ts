@@ -78,8 +78,10 @@ export function pendingChanges(): PendingChanges {
 }
 
 function savePending(next: PendingChanges) {
+  pending = next
+  pendingRaw = Object.keys(next).length > 0 ? JSON.stringify(next) : null
   try {
-    if (Object.keys(next).length > 0) localStorage.setItem(PENDING_STORAGE_KEY, JSON.stringify(next))
+    if (pendingRaw) localStorage.setItem(PENDING_STORAGE_KEY, pendingRaw)
     else localStorage.removeItem(PENDING_STORAGE_KEY)
   } catch {
     // A lost list only means those records wait for their next change to be sent.
@@ -91,8 +93,17 @@ export function pendingKey(kind: string, id: string) {
   return `${kind}:${id}`
 }
 
+let saveQueued = false
+
+// A bulk import changes thousands of records in one go; they are collected in memory and written once afterwards.
 export function markChanged(kind: string, id: string, now = new Date()) {
-  savePending({ ...pendingChanges(), [pendingKey(kind, id)]: now.toISOString() })
+  pendingChanges()[pendingKey(kind, id)] = now.toISOString()
+  if (saveQueued) return
+  saveQueued = true
+  queueMicrotask(() => {
+    saveQueued = false
+    savePending(pending)
+  })
 }
 
 // Drops what was sent, except records changed again while it was being sent: those still wait.
