@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Briefcase, ChartLine, Coins, Ellipsis, FileText, House, List, Settings, Target, Upload, type LucideIcon } from 'lucide-react'
+import { ArrowLeftRight, Briefcase, ChartLine, Coins, Ellipsis, FileText, House, List, Receipt, Settings, Target, Upload, type LucideIcon } from 'lucide-react'
 import { t } from '../i18n'
 
 export interface NavItem {
@@ -13,6 +13,7 @@ export const TRANSACTIONS: NavItem = { to: '/transactions', label: t('ราย�
 export const TRADES: NavItem = { to: '/trades', label: t('เทรด'), icon: ChartLine }
 export const PLANS: NavItem = { to: '/plans', label: t('แผน'), icon: Target }
 export const SUMMARY: NavItem = { to: '/summary', label: t('สรุปประจำปี'), icon: FileText }
+export const TAX: NavItem = { to: '/tax', label: t('ช่วยเตรียมภาษี'), icon: Receipt }
 export const INCOME: NavItem = { to: '/income', label: t('รายได้'), icon: Coins }
 export const FX: NavItem = { to: '/fx', label: t('ค่าเงิน'), icon: ArrowLeftRight }
 export const IMPORT: NavItem = { to: '/import', label: t('นำเข้าข้อมูล'), icon: Upload }
@@ -23,7 +24,7 @@ export const NEW_TRANSACTION = '/transactions/new'
 export const SIDEBAR_PAGES: readonly NavItem[] = [HOME, PORTFOLIO, TRANSACTIONS, TRADES, PLANS, INCOME, SUMMARY, FX, IMPORT, SETTINGS]
 
 // Pages that sit behind "เพิ่มเติม" in the phone tab bar.
-export const MORE_PAGES: readonly NavItem[] = [TRANSACTIONS, PLANS, INCOME, SUMMARY, FX, IMPORT, SETTINGS]
+export const MORE_PAGES: readonly NavItem[] = [TRANSACTIONS, PLANS, INCOME, SUMMARY, TAX, FX, IMPORT, SETTINGS]
 
 function isUnder(pathname: string, to: string): boolean {
   return pathname === to || pathname.startsWith(`${to}/`)

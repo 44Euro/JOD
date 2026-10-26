@@ -3,16 +3,10 @@ import { Layout } from './ui/Layout'
 import { AssetPage } from './ui/pages/AssetPage'
 import { DashboardPage } from './ui/pages/DashboardPage'
 import { ErrorPage } from './ui/pages/ErrorPage'
-import { FxPage } from './ui/pages/FxPage'
-import { ImportPage } from './ui/pages/ImportPage'
 import { IncomePage } from './ui/pages/IncomePage'
 import { MorePage } from './ui/pages/MorePage'
-import { PlansPage } from './ui/pages/PlansPage'
-import { PrivacyPage } from './ui/pages/PrivacyPage'
 import { PortfolioPage } from './ui/pages/PortfolioPage'
 import { SettingsPage } from './ui/pages/SettingsPage'
-import { SummaryPage } from './ui/pages/SummaryPage'
-import { TaxPage } from './ui/pages/TaxPage'
 import { TradesPage } from './ui/pages/TradesPage'
 import { TransactionFormPage } from './ui/pages/TransactionFormPage'
 import { TransactionsPage } from './ui/pages/TransactionsPage'
@@ -28,16 +22,16 @@ export const routes: RouteObject[] = [
       { index: true, element: <DashboardPage /> },
       { path: 'portfolio', element: <PortfolioPage /> },
       { path: 'assets/:id', element: <AssetPage /> },
-      { path: 'plans', element: <PlansPage /> },
+      { path: 'plans', lazy: async () => ({ Component: (await import('./ui/pages/PlansPage')).PlansPage }) },
       { path: 'income', element: <IncomePage /> },
-      { path: 'summary', element: <SummaryPage /> },
-      { path: 'tax', element: <TaxPage /> },
+      { path: 'summary', lazy: async () => ({ Component: (await import('./ui/pages/SummaryPage')).SummaryPage }) },
+      { path: 'tax', lazy: async () => ({ Component: (await import('./ui/pages/TaxPage')).TaxPage }) },
       { path: 'trades', element: <TradesPage /> },
-      { path: 'fx', element: <FxPage /> },
-      { path: 'import', element: <ImportPage /> },
+      { path: 'fx', lazy: async () => ({ Component: (await import('./ui/pages/FxPage')).FxPage }) },
+      { path: 'import', lazy: async () => ({ Component: (await import('./ui/pages/ImportPage')).ImportPage }) },
       { path: 'more', element: <MorePage /> },
       { path: 'settings', element: <SettingsPage /> },
-      { path: 'privacy', element: <PrivacyPage /> },
+      { path: 'privacy', lazy: async () => ({ Component: (await import('./ui/pages/PrivacyPage')).PrivacyPage }) },
       { path: 'transactions', element: <TransactionsPage /> },
       { path: 'transactions/new', element: <TransactionFormPage /> },
       { path: 'transactions/:id', element: <TransactionFormPage /> },
