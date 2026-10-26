@@ -2,20 +2,20 @@
 
 :root {
   color-scheme: light;
-  --background: #f3f5f8;
+  --background: #f5f2eb;
   --foreground: #0b1f3a;
   --ink-2: #33435c;
-  --card: #ffffff;
-  --muted: #edf1f6;
-  --muted-foreground: #5b6b82;
-  --placeholder: #66758c;
-  --border: #dde3ec;
-  --input: #c9d2df;
-  --ring: #1d4ed8;
-  --primary: #1d4ed8;
+  --card: #fffdf9;
+  --muted: #ece7dd;
+  --muted-foreground: #5c6170;
+  --placeholder: #6b6f7c;
+  --border: #e3ddd1;
+  --input: #bdb4a3;
+  --ring: #24448f;
+  --primary: #24448f;
   --primary-foreground: #ffffff;
-  --primary-ink: #1d3faf;
-  --primary-soft: #e6ecf7;
+  --primary-ink: #1d3878;
+  --primary-soft: #e4e7ef;
   --board: #0b1f3a;
   --board-line: #1c3456;
   --board-muted: #8fa3c2;
@@ -24,17 +24,17 @@
   --board-loss: #ff9b8f;
   --board-fx: #c9b8ff;
   --gain: #15803d;
-  --gain-soft: #e7f5ec;
+  --gain-soft: #e4f0e2;
   --gain-ink: #116532;
   --loss: #c2410c;
-  --loss-soft: #fcede6;
+  --loss-soft: #fbeee6;
   --fx: #6c3fa6;
-  --fx-soft: #f1ebfa;
+  --fx-soft: #eee7f3;
   --fx-line: #cdbdeb;
-  --warning-bg: #fff4d6;
+  --warning-bg: #faefcc;
   --warning-fg: #7a5300;
   --destructive: #b42318;
-  --destructive-bg: #fdecec;
+  --destructive-bg: #f8e4e0;
   --market-us: #1f4fa3;
   --market-set: #b9560f;
   --market-crypto: #0e7490;
@@ -44,7 +44,7 @@
   --route-neutral: #9aa3b5;
   --income-interest: #7aa2f7;
   --income-asset: #9aa3b5;
-  --selection: #c9d8fb;
+  --selection: #cdd6ea;
 }
 
 /* Same tokens, darker values. The rate board stays a navy panel, set a step below the cards so it still reads apart. */

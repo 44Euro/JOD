@@ -11,11 +11,14 @@ export const THEME_LABELS: Record<ThemeChoice, string> = { light: t('สว่�
 export const THEME_STORAGE_KEY = 'jod-theme'
 
 const DARK_QUERY = '(prefers-color-scheme: dark)'
-const THEME_COLORS = { light: '#f3f5f8', dark: '#0a1424' } as const
+const THEME_COLORS = { light: '#f5f2eb', dark: '#0a1424' } as const
 
 export function resolveTheme(choice: ThemeChoice, prefersDark: boolean): 'light' | 'dark' {
   return choice === 'system' ? (prefersDark ? 'dark' : 'light') : choice
 }
+
+// Board screens open before the settings load, so the theme applied afterwards must not turn their icons dark again.
+let boardScreens = 0
 
 export function applyTheme(resolved: 'light' | 'dark'): void {
   const root = document.documentElement
@@ -23,7 +26,7 @@ export function applyTheme(resolved: 'light' | 'dark'): void {
   root.style.colorScheme = resolved
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', THEME_COLORS[resolved])
   // In the phone apps the clock and battery icons follow the theme: dark text on the light page, light on the dark one.
-  if (Capacitor.isNativePlatform()) void StatusBar.setStyle({ style: resolved === 'dark' ? Style.Dark : Style.Light }).catch(() => {})
+  if (Capacitor.isNativePlatform()) void StatusBar.setStyle({ style: resolved === 'dark' || boardScreens > 0 ? Style.Dark : Style.Light }).catch(() => {})
 }
 
 function prefersDark(): boolean {
@@ -58,10 +61,12 @@ export function ThemeSync() {
 export function useBoardStatusBar(): void {
   useEffect(() => {
     const root = document.documentElement
+    boardScreens += 1
     root.style.setProperty('--status-strip', 'var(--board)')
     if (Capacitor.isNativePlatform()) void StatusBar.setStyle({ style: Style.Dark }).catch(() => {})
     return () => {
-      root.style.removeProperty('--status-strip')
+      boardScreens -= 1
+      if (boardScreens === 0) root.style.removeProperty('--status-strip')
       applyTheme(root.dataset.theme === 'dark' ? 'dark' : 'light')
     }
   }, [])
