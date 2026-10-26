@@ -99,6 +99,10 @@ export interface Ledger {
   moves: PositionMove[]
 }
 
+function emptyPosition(key: string, accountId: string, instrumentId: string, currency: string): Position {
+  return { key, accountId, instrumentId, currency, quantity: D(0), costQuote: D(0), costBase: D(0), receivedCostBase: D(0) }
+}
+
 export function positionKey(accountId: string, instrumentId: string): string {
   return `${accountId}|${instrumentId}`
 }
@@ -375,16 +379,7 @@ export function computeLedger(transactions: readonly Transaction[]): Ledger {
         issues.push({ txId: tx.id, ...feeProblem })
         continue
       }
-      const position = held ?? {
-        key,
-        accountId: tx.accountId,
-        instrumentId,
-        currency: tx.currency,
-        quantity: D(0),
-        costQuote: D(0),
-        costBase: D(0),
-        receivedCostBase: D(0),
-      }
+      const position = held ?? emptyPosition(key, tx.accountId, instrumentId, tx.currency)
       const cost = tx.type === 'receive_asset' ? receivedValueQuote(tx) : acquisitionCostQuote(tx)
       const before = position.quantity
       position.quantity = before.plus(D(tx.quantity)).minus(feeUnitsTaken(tx))
@@ -433,16 +428,7 @@ export function computeLedger(transactions: readonly Transaction[]): Ledger {
       const cost = takeCost(held, quantity)
       removeUnits(tx, key, held, quantity, cost, true)
       // Read after the sending side was updated, so a transfer to the same account cannot count twice.
-      const received = positions.get(toKey) ?? {
-        key: toKey,
-        accountId: toAccountId,
-        instrumentId,
-        currency: toCurrency,
-        quantity: D(0),
-        costQuote: D(0),
-        costBase: D(0),
-        receivedCostBase: D(0),
-      }
+      const received = positions.get(toKey) ?? emptyPosition(toKey, toAccountId, instrumentId, toCurrency)
       const before = received.quantity
       received.quantity = before.plus(quantity).minus(feeUnitsTaken(tx))
       recordMove(tx, received, before, received.quantity, true)
@@ -480,16 +466,7 @@ export function computeLedger(transactions: readonly Transaction[]): Ledger {
       const cost = takeCost(held, quantity)
       if (!tx.exercise) realized.push(realizedEvent(tx, instrumentId, quantity, D(tx.amount), cost))
       removeUnits(tx, key, held, quantity, cost)
-      const received = positions.get(toKey) ?? {
-        key: toKey,
-        accountId: tx.accountId,
-        instrumentId: toInstrumentId,
-        currency: tx.currency,
-        quantity: D(0),
-        costQuote: D(0),
-        costBase: D(0),
-        receivedCostBase: D(0),
-      }
+      const received = positions.get(toKey) ?? emptyPosition(toKey, tx.accountId, toInstrumentId, tx.currency)
       const receivedCost = receivedCostQuote(tx)
       const before = received.quantity
       received.quantity = before.plus(D(tx.toQuantity)).minus(feeUnitsTaken(tx))

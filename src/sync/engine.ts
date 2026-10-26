@@ -1,6 +1,6 @@
 import type Dexie from 'dexie'
 import type { JodDB } from '../db/db'
-import { asEncrypted, decryptText, encryptText, keyIterations } from '../security/crypto'
+import { asEncrypted, decryptText, encryptText, fromBase64, keyIterations, toBase64 } from '../security/crypto'
 import type { SyncClient, SyncRecord } from './client'
 import { clearPending, markChanged, pendingChanges, pendingKey, readSync, SYNC_PROTOCOL, writeSync, type SyncState } from './state'
 
@@ -61,17 +61,6 @@ function readBytes(blob: Blob): Promise<Uint8Array> {
   })
 }
 
-async function toBase64(blob: Blob): Promise<string> {
-  const bytes = await readBytes(blob)
-  let text = ''
-  for (let i = 0; i < bytes.length; i += 0x8000) text += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
-  return btoa(text)
-}
-
-function fromBase64(data: string, type: string): Blob {
-  return new Blob([Uint8Array.from(atob(data), (c) => c.charCodeAt(0))], { type })
-}
-
 // Checked by shape: a Blob read back from IndexedDB is not always an instance of this window's Blob.
 function isBlob(value: unknown): value is Blob {
   if (typeof value !== 'object' || value === null) return false
@@ -80,7 +69,7 @@ function isBlob(value: unknown): value is Blob {
 }
 
 export async function sealRecord(name: TableName, row: Record<string, unknown>, dataKey: string): Promise<string> {
-  const plain = name === 'pictures' && isBlob(row.blob) ? { ...row, blob: { type: row.blob.type, data: await toBase64(row.blob) } } : row
+  const plain = name === 'pictures' && isBlob(row.blob) ? { ...row, blob: { type: row.blob.type, data: toBase64(await readBytes(row.blob)) } } : row
   return JSON.stringify(await encryptText(JSON.stringify(plain), dataKey, SEAL_ITERATIONS))
 }
 
@@ -89,7 +78,7 @@ export async function openRecord(name: TableName, sealed: string, dataKey: strin
   if (!file) throw new Error('not sealed')
   const row = JSON.parse(await decryptText(file, dataKey)) as Record<string, unknown>
   const blob = row.blob as { type?: unknown; data?: unknown } | undefined
-  if (name === 'pictures' && typeof blob?.data === 'string') return { ...row, blob: fromBase64(blob.data, String(blob.type ?? '')) }
+  if (name === 'pictures' && typeof blob?.data === 'string') return { ...row, blob: new Blob([fromBase64(blob.data)], { type: String(blob.type ?? '') }) }
   return row
 }
 

@@ -1,3 +1,4 @@
+import { fromBase64 } from '../security/crypto'
 import type { PreparedFile } from './files'
 
 type ImageFile = Extract<PreparedFile, { kind: 'image' }>
@@ -24,7 +25,7 @@ export async function pdfLines(file: Extract<PreparedFile, { kind: 'pdf' }>): Pr
   const pdfjs = await import('pdfjs-dist')
   const { default: workerUrl } = await import('pdfjs-dist/build/pdf.worker.min.mjs?url')
   pdfjs.GlobalWorkerOptions.workerSrc = workerUrl
-  const bytes = Uint8Array.from(atob(file.data), (c) => c.charCodeAt(0))
+  const bytes = fromBase64(file.data)
   const doc = await pdfjs.getDocument({ data: bytes }).promise
   const lines: string[] = []
   for (let n = 1; n <= doc.numPages; n += 1) {

@@ -1,4 +1,5 @@
 import { t } from '../i18n'
+import { toBase64 } from '../security/crypto'
 export const MAX_IMAGE_EDGE = 2576
 
 const SENDABLE_IMAGES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const
@@ -24,12 +25,6 @@ export function fitWithin(width: number, height: number, max = MAX_IMAGE_EDGE): 
 export function countPdfPages(bytes: Uint8Array): number {
   const text = new TextDecoder('latin1').decode(bytes)
   return Math.max(1, (text.match(/\/Type\s*\/Page(?![s\w])/g) ?? []).length)
-}
-
-function toBase64(bytes: Uint8Array): string {
-  let binary = ''
-  for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
-  return btoa(binary)
 }
 
 function isSendableImage(type: string): type is ImageMediaType {

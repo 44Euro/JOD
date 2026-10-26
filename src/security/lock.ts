@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react'
-import { checkPin, makePin, type PinRecord } from './crypto'
+import { checkPin, fromBase64, makePin, toBase64, type PinRecord } from './crypto'
 import { t } from '../i18n'
 
 // The lock is a screen in front of the app, not encryption of the data: someone with the device's files can still read
@@ -133,7 +133,7 @@ export async function enableBiometrics(): Promise<void> {
     },
   })) as PublicKeyCredential | null
   if (!credential) throw new Error(t('เปิดใช้ไม่สำเร็จ'))
-  writeRecord({ ...record, credentialId: btoa(String.fromCharCode(...new Uint8Array(credential.rawId))) })
+  writeRecord({ ...record, credentialId: toBase64(new Uint8Array(credential.rawId)) })
 }
 
 export function disableBiometrics() {
@@ -148,7 +148,7 @@ export async function unlockWithBiometrics(): Promise<boolean> {
     const result = await navigator.credentials.get({
       publicKey: {
         challenge: randomBuffer(32),
-        allowCredentials: [{ type: 'public-key', id: Uint8Array.from(atob(id), (c) => c.charCodeAt(0)) }],
+        allowCredentials: [{ type: 'public-key', id: fromBase64(id) }],
         userVerification: 'required',
         timeout: 60_000,
       },
