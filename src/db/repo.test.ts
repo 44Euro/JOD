@@ -5,6 +5,7 @@ import {
   addAccount,
   deleteAccount,
   getSettings,
+  recordBenchmark,
   recordDailyValue,
   renameInstrument,
   restoreTransaction,
@@ -446,5 +447,15 @@ describe('targets and plans', () => {
     expect(await db.plans.get('p1')).toEqual(plan)
     await deletePlan(db, 'p1')
     expect(await db.plans.count()).toBe(0)
+  })
+})
+
+describe('benchmark prices', () => {
+  it('goes on a recorded day only and survives the day being recorded again', async () => {
+    expect(await recordBenchmark(db, '2026-10-26', 'SPY', '580.1')).toBe(false)
+    await recordDailyValue(db, { date: '2026-10-26', valueBase: '100', netInvestedBase: '90' })
+    expect(await recordBenchmark(db, '2026-10-26', 'SPY', '580.1')).toBe(true)
+    await recordDailyValue(db, { date: '2026-10-26', valueBase: '101', netInvestedBase: '90' })
+    expect(await db.dailyValues.get('2026-10-26')).toMatchObject({ valueBase: '101', benchmarkSymbol: 'SPY', benchmarkPrice: '580.1' })
   })
 })

@@ -6,6 +6,7 @@ export interface DailyPoint {
   date: string
   value: Decimal
   invested: Decimal
+  benchmark?: { symbol: string; price: Decimal }
 }
 
 export interface IndexedPoint extends DailyPoint {
@@ -13,10 +14,26 @@ export interface IndexedPoint extends DailyPoint {
   index: Decimal
 }
 
-export function toDailyPoints(rows: readonly { date: string; valueBase: string; netInvestedBase: string }[]): DailyPoint[] {
+export function toDailyPoints(
+  rows: readonly { date: string; valueBase: string; netInvestedBase: string; benchmarkSymbol?: string; benchmarkPrice?: string }[],
+): DailyPoint[] {
   return [...rows]
     .sort((a, b) => a.date.localeCompare(b.date))
-    .map((r) => ({ date: r.date, value: D(r.valueBase), invested: D(r.netInvestedBase) }))
+    .map((r) => ({
+      date: r.date,
+      value: D(r.valueBase),
+      invested: D(r.netInvestedBase),
+      benchmark: r.benchmarkSymbol && r.benchmarkPrice ? { symbol: r.benchmarkSymbol, price: D(r.benchmarkPrice) } : undefined,
+    }))
+}
+
+// The benchmark's change over the same days, using only days priced with the symbol in use now.
+export function benchmarkReturn(points: readonly DailyPoint[]): { symbol: string; change: Decimal; from: string } | null {
+  const symbol = [...points].reverse().find((p) => p.benchmark)?.benchmark?.symbol
+  const priced = points.filter((p) => p.benchmark?.symbol === symbol)
+  if (!symbol || priced.length < 2) return null
+  const first = priced[0]
+  return { symbol, change: priced[priced.length - 1].benchmark!.price.div(first.benchmark!.price).minus(1), from: first.date }
 }
 
 // Each day's change in net invested is taken as money that arrived during the day, so it is removed before the day's

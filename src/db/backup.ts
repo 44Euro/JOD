@@ -101,7 +101,8 @@ export function parseBackup(text: string): BackupFile {
   for (const row of settings) {
     if (
       (row?.hideNumbersOnLaunch !== undefined && typeof row.hideNumbersOnLaunch !== 'boolean') ||
-      (row?.theme !== undefined && !THEME_CHOICES.includes(row.theme))
+      (row?.theme !== undefined && !THEME_CHOICES.includes(row.theme)) ||
+      (row?.benchmarkSymbol !== undefined && (typeof row.benchmarkSymbol !== 'string' || !/^[A-Z0-9.^-]{1,12}$/.test(row.benchmarkSymbol)))
     ) {
       throw new BackupError('การตั้งค่าในไฟล์สำรองไม่ถูกต้อง')
     }
@@ -117,7 +118,9 @@ export function parseBackup(text: string): BackupFile {
       typeof row.valueBase === 'string' &&
       isDecimalString(row.valueBase) &&
       typeof row.netInvestedBase === 'string' &&
-      isDecimalString(row.netInvestedBase)
+      isDecimalString(row.netInvestedBase) &&
+      (row.benchmarkPrice === undefined || (typeof row.benchmarkPrice === 'string' && isDecimalString(row.benchmarkPrice))) &&
+      (row.benchmarkSymbol === undefined || typeof row.benchmarkSymbol === 'string')
     if (!valid) throw new BackupError('พบมูลค่ารายวันที่เสียหายในไฟล์')
   }
   const { imports = [] } = file.data

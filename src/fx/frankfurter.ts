@@ -16,7 +16,7 @@ const REQUEST_TIMEOUT_MS = 8000
 
 // AbortSignal.timeout and AbortSignal.any are missing from older Safari, so the timeout and the caller's signal
 // are combined by hand; a browser without them would otherwise never load a rate.
-function timeLimited(caller: AbortSignal | undefined, timeoutMs: number) {
+export function timeLimited(caller: AbortSignal | undefined, timeoutMs: number) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   const onCallerAbort = () => controller.abort(caller?.reason)

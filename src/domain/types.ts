@@ -209,6 +209,8 @@ export interface Settings {
   lastBackupAt?: string
   hideNumbersOnLaunch?: boolean
   theme?: ThemeChoice
+  // A US symbol (an index fund such as SPY) the portfolio's growth is compared with.
+  benchmarkSymbol?: string
 }
 
 export const DEFAULT_SETTINGS: Settings = { baseCurrency: 'THB' }

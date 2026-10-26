@@ -26,7 +26,7 @@ export function newId(): string {
 export async function getSettings(db: JodDB): Promise<Settings> {
   const row = await db.settings.get('app')
   return row
-    ? { baseCurrency: row.baseCurrency, lastBackupAt: row.lastBackupAt, hideNumbersOnLaunch: row.hideNumbersOnLaunch, theme: row.theme }
+    ? { baseCurrency: row.baseCurrency, lastBackupAt: row.lastBackupAt, hideNumbersOnLaunch: row.hideNumbersOnLaunch, theme: row.theme, benchmarkSymbol: row.benchmarkSymbol }
     : DEFAULT_SETTINGS
 }
 
@@ -202,7 +202,7 @@ export async function recordDailyValue(
   return db.transaction('rw', db.dailyValues, async () => {
     const existing = await db.dailyValues.get(snapshot.date)
     if (existing?.valueBase === snapshot.valueBase && existing.netInvestedBase === snapshot.netInvestedBase) return false
-    await db.dailyValues.put({ ...snapshot, recordedAt: now.toISOString() })
+    await db.dailyValues.put({ ...existing, ...snapshot, recordedAt: now.toISOString() })
     return true
   })
 }
@@ -286,4 +286,14 @@ export async function savePlan(db: JodDB, plan: DcaPlan): Promise<void> {
 
 export async function deletePlan(db: JodDB, id: string): Promise<void> {
   await db.plans.delete(id)
+}
+
+// Only a day whose value is already recorded takes a benchmark price; returns whether one was written.
+export async function recordBenchmark(db: JodDB, date: string, symbol: string, price: string): Promise<boolean> {
+  return db.transaction('rw', db.dailyValues, async () => {
+    const row = await db.dailyValues.get(date)
+    if (!row) return false
+    await db.dailyValues.update(date, { benchmarkSymbol: symbol, benchmarkPrice: price })
+    return true
+  })
 }

@@ -8,6 +8,7 @@ import { db } from '../../db/db'
 import { addDays } from '../../domain/dates'
 import type { Decimal } from '../../domain/decimal'
 import {
+  benchmarkReturn,
   cumulativeRealized,
   maxDrawdown,
   monthGrid,
@@ -53,6 +54,7 @@ export function PortfolioHistoryCard({ base, today }: { base: string; today: str
 
   const growth = periodReturn(points)
   const drawdown = maxDrawdown(points)
+  const benchmark = benchmarkReturn(points)
   return (
     <Card className="grid gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -98,6 +100,13 @@ export function PortfolioHistoryCard({ base, today }: { base: string; today: str
                 )}
               </dd>
             </div>
+            {benchmark && (
+              <div>
+                <dt className="text-[12.5px] text-muted-foreground">{benchmark.symbol} ช่วงเดียวกัน</dt>
+                <dd className={cn('font-display text-lg font-semibold', plClass(benchmark.change))}>{pct(benchmark.change)}</dd>
+                <dd className="text-[12px] text-muted-foreground">ตั้งแต่ {fmtDate(benchmark.from)}</dd>
+              </div>
+            )}
           </dl>
           <p className="text-[12px] text-muted-foreground">เส้นทึบคือมูลค่า เส้นประคือเงินลงทุนสุทธิ</p>
         </>

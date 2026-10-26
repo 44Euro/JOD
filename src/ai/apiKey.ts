@@ -30,6 +30,23 @@ function subscribe(listener: () => void): () => void {
   return () => listeners.delete(listener)
 }
 
+// Keys of the user's own price sources and on/off switches that belong to this device only.
+export const FINNHUB_KEY_STORAGE_KEY = 'jod-finnhub-key'
+export const COINGECKO_KEY_STORAGE_KEY = 'jod-coingecko-key'
+export const AUTO_PRICES_STORAGE_KEY = 'jod-auto-prices'
+
+export function readLocal(key: string): string {
+  return read(key)
+}
+
+export function writeLocal(key: string, value: string): void {
+  write(key, value)
+}
+
+export function useLocal(key: string): string {
+  return useSyncExternalStore(subscribe, () => read(key))
+}
+
 export function readApiKey(): string {
   return read(API_KEY_STORAGE_KEY)
 }

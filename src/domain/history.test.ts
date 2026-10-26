@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { makeTx } from '../test/fixtures'
 import { D } from './decimal'
 import {
+  benchmarkReturn,
   cumulativeRealized,
   maxDrawdown,
   monthGrid,
@@ -80,5 +81,19 @@ describe('tradePricePoints', () => {
       ['2024-02-01', 'sell', '120'],
       ['2024-03-01', 'last', '130'],
     ])
+  })
+})
+
+describe('benchmarkReturn', () => {
+  it('measures the index over the days it was priced with the current symbol', () => {
+    const points = toDailyPoints([
+      { ...day('2024-01-01', '1', '1'), benchmarkSymbol: 'QQQ', benchmarkPrice: '400' },
+      { ...day('2024-01-02', '1', '1'), benchmarkSymbol: 'SPY', benchmarkPrice: '500' },
+      day('2024-01-03', '1', '1'),
+      { ...day('2024-01-04', '1', '1'), benchmarkSymbol: 'SPY', benchmarkPrice: '525' },
+    ])
+    const r = benchmarkReturn(points)!
+    expect([r.symbol, r.change.toString(), r.from]).toEqual(['SPY', '0.05', '2024-01-02'])
+    expect(benchmarkReturn(points.slice(0, 2))).toBeNull()
   })
 })

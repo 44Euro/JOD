@@ -14,6 +14,7 @@ import { Segmented } from '../../components/ui/segmented'
 import { THEME_LABELS } from '../theme'
 import { AccountEditor } from '../components/AccountEditor'
 import { AiKeyCard } from '../components/AiKeyCard'
+import { PriceSourcesCard } from '../components/PriceSourcesCard'
 import { DataSection } from '../components/DataSection'
 import { PageHeader } from '../components/PageHeader'
 import { feeTemplateParts } from '../feeTemplateText'
@@ -172,6 +173,8 @@ export function SettingsPage() {
           <DataSection data={data} />
 
           <AiKeyCard />
+
+          <PriceSourcesCard settings={data.settings} />
 
           <Card className="grid gap-3">
             <h2 className="text-lg font-semibold">ธีม</h2>

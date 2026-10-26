@@ -18,6 +18,9 @@ export interface DailyValueRecord {
   valueBase: string
   netInvestedBase: string
   recordedAt: string
+  // The day's price of the index the portfolio is compared with, kept from the first price update of the day.
+  benchmarkSymbol?: string
+  benchmarkPrice?: string
 }
 
 export type JodDB = Dexie & {

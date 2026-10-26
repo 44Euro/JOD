@@ -13,6 +13,7 @@ import { cn } from '../../lib/cn'
 import { CurrencyView, MarketView } from '../components/AllocationViews'
 import { HoldingsTable, MissingRatesNote } from '../components/HoldingsTable'
 import { PageHeader } from '../components/PageHeader'
+import { PriceUpdateButton } from '../components/PriceUpdateButton'
 import { Stat, SummaryPanel } from '../components/Summary'
 import { fmtHeadline, fmtMoney, fmtSigned, fmtValue, plClass } from '../format'
 import { useAppData, useInvestor } from '../hooks'
@@ -60,6 +61,7 @@ export function PortfolioPage() {
     <>
       <PageHeader title="พอร์ต">
         <EyeButton />
+        <PriceUpdateButton data={data} ledger={ledger} />
       </PageHeader>
 
       <SummaryPanel label="มูลค่าสินทรัพย์ · ไม่รวมเงินสด" value={fmtHeadline(summary.marketValueBase, base)}>
