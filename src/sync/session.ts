@@ -1,7 +1,9 @@
 import { db } from '../db/db'
+import { t } from '../i18n'
 import { clearLock } from '../security/lock'
 import { createSyncClient, type SyncClient } from './client'
 import { deriveKeys, resolveConflict, syncNow, type SyncOutcome } from './engine'
+import { newDataKey, newRecoveryCode, normalizeRecoveryCode, openKey, sealKey } from './keys'
 import { readSync, setDirty, writeSync } from './state'
 
 // The address of the sync server is fixed when the app is built (VITE_SYNC_SERVER); people only see email and password.
@@ -30,10 +32,83 @@ export function authBypassed() {
 
 export async function signIn(mode: 'login' | 'signup', email: string, password: string): Promise<SyncOutcome> {
   const client = createSyncClient(server)
-  const keys = await deriveKeys(email, password)
+  const { loginKey, passwordKey } = await deriveKeys(email, password)
   const address = email.trim().toLowerCase()
-  const token = mode === 'signup' ? await client.signup(address, keys.loginKey) : await client.login(address, keys.loginKey)
-  writeSync({ server, email: address, token, dataKey: keys.dataKey, version: 0, syncedAt: null })
+  if (mode === 'signup') {
+    const dataKey = newDataKey()
+    const recoveryCode = newRecoveryCode()
+    const keys = { password: await sealKey(dataKey, passwordKey), recovery: await sealKey(dataKey, normalizeRecoveryCode(recoveryCode)) }
+    const token = await client.signup(address, loginKey, keys)
+    writeSync({ server, email: address, token, dataKey, version: 0, syncedAt: null, recoveryCode })
+    return syncNow(db, client)
+  }
+  const { token, keys } = await client.login(address, loginKey)
+  const dataKey = keys.password ? await openKey(keys.password, passwordKey) : passwordKey
+  let recoveryCode: string | undefined
+  // An account from before sealed keys gets them now, and with them its first recovery code.
+  if (!keys.password || !keys.recovery) {
+    recoveryCode = newRecoveryCode()
+    await client.putKeys(token, { password: await sealKey(dataKey, passwordKey), recovery: await sealKey(dataKey, normalizeRecoveryCode(recoveryCode)) })
+  }
+  writeSync({ server, email: address, token, dataKey, version: 0, syncedAt: null, recoveryCode })
+  return syncNow(db, client)
+}
+
+export function confirmRecoverySaved() {
+  const state = readSync()
+  if (state) writeSync({ ...state, recoveryCode: undefined })
+}
+
+// A signed-in device holds the data key, so it can issue a new recovery code at any time; the old one stops working.
+export async function renewRecoveryCode(): Promise<void> {
+  const state = readSync()
+  if (!state) return
+  const recoveryCode = newRecoveryCode()
+  await serverClient().putKeys(state.token, { recovery: await sealKey(state.dataKey, normalizeRecoveryCode(recoveryCode)) })
+  writeSync({ ...readSync()!, recoveryCode })
+}
+
+export function requestPasswordReset(email: string): Promise<void> {
+  return createSyncClient(readSync()?.server ?? server).requestReset(email.trim().toLowerCase())
+}
+
+export class RecoveryCodeError extends Error {
+  name = 'RecoveryCodeError'
+}
+
+// The emailed code proves the email; the data key has to come from somewhere the server cannot read: this device when
+// it is still signed in to the account, or the recovery code. Starting fresh is the way out with neither, and costs
+// whatever was stored on the server.
+export async function resetPassword(reset: { email: string; code: string; password: string; recoveryCode?: string; fresh?: boolean }): Promise<SyncOutcome> {
+  const address = reset.email.trim().toLowerCase()
+  const current = readSync()
+  const here = current?.email === address ? current : null
+  const client = createSyncClient(here?.server ?? server)
+  const sealedRecovery = await client.verifyReset(address, reset.code)
+  let dataKey: string
+  let recoveryCode: string | undefined
+  if (here && !reset.fresh) dataKey = here.dataKey
+  else if (reset.fresh) {
+    dataKey = newDataKey()
+    recoveryCode = newRecoveryCode()
+  } else {
+    if (!sealedRecovery || !reset.recoveryCode) throw new RecoveryCodeError(t('ใส่รหัสกู้คืนที่จดไว้ตอนสมัคร'))
+    dataKey = await openKey(sealedRecovery, normalizeRecoveryCode(reset.recoveryCode)).catch(() => {
+      throw new RecoveryCodeError(t('รหัสกู้คืนไม่ถูก ตรวจตัวอักษรอีกครั้ง'))
+    })
+  }
+  const { loginKey, passwordKey } = await deriveKeys(address, reset.password)
+  const keys = {
+    password: await sealKey(dataKey, passwordKey),
+    ...(recoveryCode ? { recovery: await sealKey(dataKey, normalizeRecoveryCode(recoveryCode)) } : {}),
+  }
+  const token = await client.completeReset({ email: address, code: reset.code, loginKey, keys, fresh: reset.fresh })
+  if (here && !reset.fresh) {
+    writeSync({ ...readSync()!, token })
+    return syncNow(db, client)
+  }
+  if (here) await clearDevice()
+  writeSync({ server: here?.server ?? server, email: address, token, dataKey, version: 0, syncedAt: null, recoveryCode })
   return syncNow(db, client)
 }
 

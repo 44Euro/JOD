@@ -11,19 +11,22 @@ import { FileStore } from '../../server/store.ts'
 import { db } from '../db/db'
 import { LOCK_STORAGE_KEY, resetLockForTests } from '../security/lock'
 import { installDirtyTracking } from '../sync/engine'
-import { setAuthBypassForTests, setSyncServerForTests } from '../sync/session'
+import { setAuthBypassForTests, setSyncServerForTests, signIn } from '../sync/session'
 import { readSync, writeSync } from '../sync/state'
 import { WELCOME_STORAGE_KEY } from './welcome'
 import { renderRoute, resetDb } from '../test/render'
 
 let server: Server
+let mails: string[] = []
 
 // As main.tsx does in the app, so local changes are known to need sending.
 installDirtyTracking(db)
 
 beforeEach(async () => {
   await resetDb()
-  server = createServer(createApp({ store: new FileStore(await mkdtemp(join(tmpdir(), 'jod-auth-'))) }))
+  mails = []
+  const sendMail = async (_to: string, _subject: string, text: string) => void mails.push(text)
+  server = createServer(createApp({ store: new FileStore(await mkdtemp(join(tmpdir(), 'jod-auth-'))), sendMail }))
   await new Promise<void>((resolve) => server.listen(0, resolve))
   setSyncServerForTests(`http://127.0.0.1:${(server.address() as AddressInfo).port}`)
   writeSync(null)
@@ -43,6 +46,15 @@ afterEach(async () => {
 async function typePin(user: ReturnType<typeof userEvent.setup>, label: string, pin: string) {
   const pad = await screen.findByRole('group', { name: label })
   for (const digit of pin) await user.click(within(pad).getByRole('button', { name: digit }))
+}
+
+// A new account shows its recovery code once; the person has to say it is written down before setting a PIN.
+async function saveRecoveryCode(user: ReturnType<typeof userEvent.setup>) {
+  expect(await screen.findByRole('heading', { name: 'จดรหัสกู้คืนเก็บไว้' }, { timeout: 15_000 })).toBeInTheDocument()
+  expect(screen.getByLabelText('รหัสกู้คืน').textContent).toMatch(/^([A-Z0-9]{4}){5}$/)
+  expect(screen.getByRole('button', { name: 'ไปต่อ' })).toBeDisabled()
+  await user.click(screen.getByRole('checkbox', { name: 'ฉันจดรหัสนี้เก็บไว้แล้ว' }))
+  await user.click(screen.getByRole('button', { name: 'ไปต่อ' }))
 }
 
 // Each sign-in derives keys the slow way, as it does for real, so these tests need longer than the default.
@@ -79,6 +91,7 @@ describe('AuthGate', { timeout: 30_000 }, () => {
     await user.type(screen.getByLabelText('รหัสผ่านอีกครั้ง'), 'long password')
     await user.click(screen.getByRole('checkbox', { name: /ฉันยอมรับ/ }))
     await user.click(screen.getByRole('button', { name: 'สมัครและเข้าใช้งาน' }))
+    await saveRecoveryCode(user)
     expect(await screen.findByRole('heading', { name: 'ตั้ง PIN 6 หลัก' }, { timeout: 15_000 })).toBeInTheDocument()
     expect(readSync()?.email).toBe('me@jod.test')
     await typePin(user, 'PIN ใหม่', '123456')
@@ -96,6 +109,7 @@ describe('AuthGate', { timeout: 30_000 }, () => {
     await user.type(screen.getByLabelText('รหัสผ่านอีกครั้ง'), 'long password')
     await user.click(screen.getByRole('checkbox', { name: /ฉันยอมรับ/ }))
     await user.click(screen.getByRole('button', { name: 'สมัครและเข้าใช้งาน' }))
+    await saveRecoveryCode(user)
     await typePin(user, 'PIN ใหม่', '123456')
     await typePin(user, 'PIN อีกครั้ง', '123456')
     await screen.findByRole('heading', { name: 'ตั้งค่า' }, { timeout: 15_000 })
@@ -124,6 +138,7 @@ describe('AuthGate', { timeout: 30_000 }, () => {
     await user.type(screen.getByLabelText('รหัสผ่านอีกครั้ง'), 'long password')
     await user.click(screen.getByRole('checkbox', { name: /ฉันยอมรับ/ }))
     await user.click(screen.getByRole('button', { name: 'สมัครและเข้าใช้งาน' }))
+    await saveRecoveryCode(user)
     await typePin(user, 'PIN ใหม่', '123456')
     await typePin(user, 'PIN อีกครั้ง', '123456')
     await screen.findByRole('heading', { name: 'ตั้งค่า' }, { timeout: 15_000 })
@@ -138,5 +153,26 @@ describe('AuthGate', { timeout: 30_000 }, () => {
     await user.click(screen.getByRole('button', { name: 'เข้าสู่ระบบ' }))
     await screen.findByRole('heading', { name: 'ตั้ง PIN 6 หลัก' }, { timeout: 15_000 })
     await waitFor(async () => expect(await db.accounts.get('acc-1')).toBeDefined())
+  })
+
+  it('sets a new password from the emailed code and the recovery code on a device that was never signed in', async () => {
+    const user = userEvent.setup()
+    await signIn('signup', 'me@jod.test', 'first password')
+    const recovery = readSync()!.recoveryCode!
+    writeSync(null)
+    renderRoute('/settings')
+    await user.click(await screen.findByRole('button', { name: 'ลืมรหัสผ่าน?' }))
+    expect(screen.getByRole('heading', { name: 'ตั้งรหัสผ่านใหม่' })).toBeInTheDocument()
+    await user.type(screen.getByLabelText('อีเมล'), 'me@jod.test')
+    await user.click(screen.getByRole('button', { name: 'ส่งรหัสไปที่อีเมล' }))
+    await screen.findByLabelText('รหัสจากอีเมล')
+    const code = /([A-Z0-9]{4}-[A-Z0-9]{4})/.exec(mails.at(-1)!)![1]
+    await user.type(screen.getByLabelText('รหัสจากอีเมล'), code)
+    await user.type(screen.getByLabelText('รหัสผ่านใหม่'), 'second password')
+    await user.type(screen.getByLabelText('รหัสผ่านใหม่อีกครั้ง'), 'second password')
+    await user.type(screen.getByLabelText('รหัสกู้คืน'), recovery)
+    await user.click(screen.getByRole('button', { name: 'ตั้งรหัสผ่านใหม่' }))
+    expect(await screen.findByRole('heading', { name: 'ตั้ง PIN 6 หลัก' }, { timeout: 15_000 })).toBeInTheDocument()
+    expect(readSync()?.email).toBe('me@jod.test')
   })
 })

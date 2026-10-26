@@ -7,6 +7,21 @@ export interface User {
   salt: string
   hash: string
   createdAt: string
+  // The data key sealed on the device, once with the password and once with the recovery code. The server keeps them
+  // for the person's other devices and cannot open either.
+  keys?: SealedKeys
+}
+
+export interface SealedKeys {
+  password?: string
+  recovery?: string
+}
+
+export interface Reset {
+  email: string
+  codeHash: string
+  expiresAt: string
+  attempts: number
 }
 
 export interface Session {
@@ -24,6 +39,7 @@ export interface Blob {
 interface Index {
   users: User[]
   sessions: Session[]
+  resets?: Reset[]
 }
 
 // Plain JSON files: one index of users and sessions, one file per user's sealed data. Enough for a self-hosted server
@@ -69,6 +85,10 @@ export class FileStore {
     return this.load().then((i) => i.users.find((u) => u.email === email))
   }
 
+  findUserById(id: string): Promise<User | undefined> {
+    return this.load().then((i) => i.users.find((u) => u.id === id))
+  }
+
   addUser(user: User): Promise<void> {
     return this.serial(async () => {
       const i = await this.load()
@@ -99,6 +119,51 @@ export class FileStore {
       i.sessions = i.sessions.filter((s) => s.tokenHash !== tokenHash)
       await this.saveIndex()
     })
+  }
+
+  updateUser(userId: string, patch: Partial<Pick<User, 'salt' | 'hash' | 'keys'>>): Promise<User | undefined> {
+    return this.serial(async () => {
+      const i = await this.load()
+      const user = i.users.find((u) => u.id === userId)
+      if (!user) return undefined
+      Object.assign(user, patch)
+      await this.saveIndex()
+      return user
+    })
+  }
+
+  removeSessionsOf(userId: string): Promise<void> {
+    return this.serial(async () => {
+      const i = await this.load()
+      i.sessions = i.sessions.filter((s) => s.userId !== userId)
+      await this.saveIndex()
+    })
+  }
+
+  // One open reset per email: asking again replaces the earlier code.
+  putReset(reset: Reset): Promise<void> {
+    return this.serial(async () => {
+      const i = await this.load()
+      i.resets = [...(i.resets ?? []).filter((r) => r.email !== reset.email), reset]
+      await this.saveIndex()
+    })
+  }
+
+  async getReset(email: string): Promise<Reset | undefined> {
+    const i = await this.load()
+    return i.resets?.find((r) => r.email === email && r.expiresAt > new Date().toISOString())
+  }
+
+  updateReset(email: string, change: (reset: Reset) => Reset | null): Promise<void> {
+    return this.serial(async () => {
+      const i = await this.load()
+      i.resets = (i.resets ?? []).flatMap((r) => (r.email === email ? (change(r) ?? []) : [r]))
+      await this.saveIndex()
+    })
+  }
+
+  removeBlob(userId: string): Promise<void> {
+    return this.serial(() => rm(this.blobFile(userId), { force: true }))
   }
 
   private blobFile(userId: string) {

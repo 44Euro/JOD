@@ -14,9 +14,19 @@ export interface Remote {
   data: string | null
 }
 
+export interface SealedKeys {
+  password?: string
+  recovery?: string
+}
+
 export interface SyncClient {
-  signup(email: string, loginKey: string): Promise<string>
-  login(email: string, loginKey: string): Promise<string>
+  signup(email: string, loginKey: string, keys?: SealedKeys): Promise<string>
+  login(email: string, loginKey: string): Promise<{ token: string; keys: SealedKeys }>
+  putKeys(token: string, keys: SealedKeys): Promise<void>
+  requestReset(email: string): Promise<void>
+  // Checks the emailed code and hands back the data key sealed with the recovery code, if the account has one.
+  verifyReset(email: string, code: string): Promise<string | null>
+  completeReset(reset: { email: string; code: string; loginKey: string; keys: SealedKeys; fresh?: boolean }): Promise<string>
   logout(token: string): Promise<void>
   pull(token: string): Promise<Remote>
   push(token: string, baseVersion: number, data: string): Promise<{ version: number } | { conflict: number }>
@@ -49,11 +59,28 @@ export function createSyncClient(server: string, fetchFn: typeof fetch = (i, o) 
     return { status: res.status, body: text ? (JSON.parse(text) as Record<string, unknown>) : {} }
   }
   return {
-    async signup(email, loginKey) {
-      return (await call('POST', '/api/signup', undefined, { email, loginKey })).body.token as string
+    async signup(email, loginKey, keys) {
+      return (await call('POST', '/api/signup', undefined, { email, loginKey, keys })).body.token as string
     },
     async login(email, loginKey) {
-      return (await call('POST', '/api/login', undefined, { email, loginKey })).body.token as string
+      const { body } = await call('POST', '/api/login', undefined, { email, loginKey })
+      return { token: body.token as string, keys: (body.keys as SealedKeys | undefined) ?? {} }
+    },
+    async putKeys(token, keys) {
+      await call('PUT', '/api/keys', token, { keys })
+    },
+    async requestReset(email) {
+      await call('POST', '/api/reset/request', undefined, { email })
+    },
+    async verifyReset(email, code) {
+      const { status, body } = await call('POST', '/api/reset/verify', undefined, { email, code }, [400])
+      if (status === 400) throw new SyncError(400, t('รหัสจากอีเมลไม่ถูกหรือหมดอายุ ขอรหัสใหม่ได้'))
+      return (body.recovery as string | null) ?? null
+    },
+    async completeReset(reset) {
+      const { status, body } = await call('POST', '/api/reset/complete', undefined, reset, [400])
+      if (status === 400) throw new SyncError(400, t('รหัสจากอีเมลไม่ถูกหรือหมดอายุ ขอรหัสใหม่ได้'))
+      return body.token as string
     },
     async logout(token) {
       await call('POST', '/api/logout', token).catch(() => {})

@@ -44,11 +44,11 @@ function device(db: JodDB) {
 }
 
 describe('sync', () => {
-  it('derives a login key and a separate data key from one password', async () => {
+  it('derives a login key and a separate password key from one password', async () => {
     const a = await deriveKeys('A@x.io', 'pw', 1000)
     const b = await deriveKeys('a@x.io', 'pw', 1000)
     expect(a).toEqual(b)
-    expect(a.loginKey).not.toBe(a.dataKey)
+    expect(a.loginKey).not.toBe(a.passwordKey)
     expect(a.loginKey).toMatch(/^[0-9a-f]{64}$/)
   })
 
@@ -62,7 +62,7 @@ describe('sync', () => {
     installDirtyTracking(two.db)
 
     one.use()
-    writeSync({ server: base, email: 'a@x.io', token, dataKey: keys.dataKey, version: 0, syncedAt: null })
+    writeSync({ server: base, email: 'a@x.io', token, dataKey: keys.passwordKey, version: 0, syncedAt: null })
     await one.db.accounts.add(account)
     await one.db.transactions.add(makeTx({ id: 'first' }))
     expect(await syncNow(one.db, client)).toEqual({ kind: 'pushed', version: 1 })
@@ -71,7 +71,7 @@ describe('sync', () => {
     one.keep()
 
     two.use()
-    writeSync({ server: base, email: 'a@x.io', token, dataKey: keys.dataKey, version: 0, syncedAt: null })
+    writeSync({ server: base, email: 'a@x.io', token, dataKey: keys.passwordKey, version: 0, syncedAt: null })
     expect(await syncNow(two.db, client)).toEqual({ kind: 'pulled', version: 1 })
     expect(await two.db.transactions.get('first')).toBeDefined()
     expect(isDirty()).toBe(false)
@@ -93,12 +93,12 @@ describe('sync', () => {
     installDirtyTracking(one.db)
     installDirtyTracking(two.db)
     one.use()
-    writeSync({ server: base, email: 'a@x.io', token, dataKey: keys.dataKey, version: 0, syncedAt: null })
+    writeSync({ server: base, email: 'a@x.io', token, dataKey: keys.passwordKey, version: 0, syncedAt: null })
     await one.db.accounts.add(account)
     await syncNow(one.db, client)
     one.keep()
     two.use()
-    writeSync({ server: base, email: 'a@x.io', token, dataKey: keys.dataKey, version: 0, syncedAt: null })
+    writeSync({ server: base, email: 'a@x.io', token, dataKey: keys.passwordKey, version: 0, syncedAt: null })
     await syncNow(two.db, client)
     await two.db.transactions.add(makeTx({ id: 'from-two' }))
     await syncNow(two.db, client)

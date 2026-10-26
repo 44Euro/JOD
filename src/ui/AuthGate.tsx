@@ -1,21 +1,91 @@
-import { Eye, EyeOff, Fingerprint, Lock, LockKeyhole, Mail, ShieldCheck, type LucideIcon } from 'lucide-react'
-import { useEffect, useState, type ComponentProps, type FormEvent, type ReactNode } from 'react'
-import { Link, Outlet, useLocation } from 'react-router'
+import { Check, Copy, Fingerprint, Lock, LockKeyhole, Mail, ShieldCheck } from 'lucide-react'
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
+import { Link, Navigate, Outlet, useLocation } from 'react-router'
 import { Alert } from '../components/ui/alert'
 import { Button } from '../components/ui/button'
 import { Field } from '../components/ui/field'
-import { Input } from '../components/ui/input'
+import { IconInput } from './components/IconInput'
+import { PasswordResetForm } from './components/PasswordResetForm'
 import { PinPad } from './components/PinPad'
 import { t } from '../i18n'
 import { hasBiometrics, noteVisibility, setPin, unlockWithBiometrics, unlockWithPin, useLockState, validPin } from '../security/lock'
 import { SyncError } from '../sync/client'
 import type { SyncOutcome } from '../sync/engine'
-import { authBypassed, keepSide, MIN_PASSWORD, signIn, signOut } from '../sync/session'
+import { authBypassed, confirmRecoverySaved, keepSide, MIN_PASSWORD, signIn, signOut } from '../sync/session'
 import { useSyncState } from '../sync/state'
 import { cn } from '../lib/cn'
 import { ThemeSync, useBoardStatusBar } from './theme'
 import { seenWelcome } from './welcome'
 import { WelcomeScreen } from './WelcomeScreen'
+
+function ResetScreen({ email, code, onBack }: { email: string; code: string; onBack: () => void }) {
+  return (
+    <BoardScreen>
+      <div className="grid gap-1">
+        <h1 className="text-[26px] leading-tight font-semibold">{t('ตั้งรหัสผ่านใหม่')}</h1>
+        <p className="text-sm text-muted-foreground">{t('เราจะส่งรหัสไปที่อีเมลของบัญชี ใช้รหัสนั้นตั้งรหัสผ่านใหม่')}</p>
+      </div>
+      <PasswordResetForm email={email} code={code} />
+      <p className="border-t pt-5 text-center text-sm">
+        <button type="button" className="font-semibold text-primary-ink underline underline-offset-[3px]" onClick={onBack}>
+          {t('กลับไปเข้าสู่ระบบ')}
+        </button>
+      </p>
+    </BoardScreen>
+  )
+}
+
+// Shown once, right after the code is made: the app keeps only a sealed copy it cannot read, so this is the moment to
+// write it down.
+function RecoveryCodeScreen({ code }: { code: string }) {
+  const [saved, setSaved] = useState(false)
+  const [copied, setCopied] = useState(false)
+  return (
+    <BoardScreen>
+      <div className="grid gap-1">
+        <h1 className="text-[26px] leading-tight font-semibold">{t('จดรหัสกู้คืนเก็บไว้')}</h1>
+        <p className="text-sm text-muted-foreground">
+          {t('ถ้าลืมรหัสผ่านและไม่มีเครื่องไหนเข้าแอปอยู่ รหัสนี้คือทางเดียวที่จะเปิดข้อมูลเดิมได้ แอปจะไม่แสดงรหัสนี้อีก')}
+        </p>
+      </div>
+      <div className="grid gap-3 rounded-2xl border bg-card p-5">
+        <p className="flex items-center gap-2 text-[12.5px] font-semibold text-muted-foreground">
+          <ShieldCheck className="size-4" strokeWidth={1.75} aria-hidden />
+          {t('รหัสกู้คืน')}
+        </p>
+        <p aria-label={t('รหัสกู้คืน')} className="grid grid-cols-5 gap-2 font-mono text-[17px] font-semibold tracking-[0.06em] text-foreground select-all">
+          {code.split('-').map((group) => (
+            <span key={group} className="rounded-lg bg-muted py-2 text-center">
+              {group}
+            </span>
+          ))}
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          className="justify-self-start"
+          onClick={() =>
+            void navigator.clipboard
+              ?.writeText(code)
+              .then(() => setCopied(true))
+              .catch(() => {})
+          }
+        >
+          {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
+          {copied ? t('คัดลอกแล้ว') : t('คัดลอก')}
+        </Button>
+      </div>
+      <p className="text-[12.5px] text-muted-foreground">{t('เขียนลงกระดาษหรือเก็บในตัวจัดการรหัสผ่าน อย่าเก็บไว้ในแอปนี้')}</p>
+      <label className="flex min-h-11 items-center gap-2.5 text-sm text-ink-2">
+        <input type="checkbox" className="size-5 accent-primary" checked={saved} onChange={(e) => setSaved(e.target.checked)} />
+        {t('ฉันจดรหัสนี้เก็บไว้แล้ว')}
+      </label>
+      <Button type="button" className="h-12 w-full text-base" disabled={!saved} onClick={confirmRecoverySaved}>
+        {t('ไปต่อ')}
+      </Button>
+    </BoardScreen>
+  )
+}
 
 // The PIN screens stay on the board from edge to edge, as in a banking app. The keypad sits at the bottom where the
 // thumb rests; what the screen asks for takes the open space above it.
@@ -115,34 +185,7 @@ function BoardScreen({ children }: { children: ReactNode }) {
   )
 }
 
-function IconInput({
-  id,
-  icon: Icon,
-  type,
-  reveal,
-  ...props
-}: { id: string; icon: LucideIcon; reveal?: boolean } & ComponentProps<'input'>) {
-  const [shown, setShown] = useState(false)
-  return (
-    <div className="relative">
-      <Icon className="pointer-events-none absolute top-1/2 left-3.5 size-[18px] -translate-y-1/2 text-muted-foreground" aria-hidden />
-      <Input id={id} type={reveal && shown ? 'text' : type} className="h-12 bg-card pr-12 pl-11" {...props} />
-      {reveal && (
-        <button
-          type="button"
-          aria-label={shown ? t('ซ่อนรหัสผ่าน') : t('แสดงรหัสผ่าน')}
-          aria-pressed={shown}
-          className="absolute top-1/2 right-2 grid size-10 -translate-y-1/2 place-items-center rounded-full text-muted-foreground hover:bg-muted"
-          onClick={() => setShown(!shown)}
-        >
-          {shown ? <Eye className="size-5" aria-hidden /> : <EyeOff className="size-5" aria-hidden />}
-        </button>
-      )}
-    </div>
-  )
-}
-
-function SignInScreen({ initialMode = 'login' }: { initialMode?: 'login' | 'signup' }) {
+function SignInScreen({ initialMode = 'login', onForgot }: { initialMode?: 'login' | 'signup'; onForgot: (email: string) => void }) {
   const [mode, setMode] = useState(initialMode)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -151,13 +194,11 @@ function SignInScreen({ initialMode = 'login' }: { initialMode?: 'login' | 'sign
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [conflict, setConflict] = useState(false)
-  const [forgot, setForgot] = useState(false)
   const signup = mode === 'signup'
 
   function switchTo(next: 'login' | 'signup') {
     setMode(next)
     setError('')
-    setForgot(false)
   }
 
   async function submit(event: FormEvent) {
@@ -214,7 +255,7 @@ function SignInScreen({ initialMode = 'login' }: { initialMode?: 'login' | 'sign
             onChange={(e) => setEmail(e.target.value)}
           />
         </Field>
-        <Field id="auth-password" label={t('รหัสผ่าน')} hint={signup ? t('อย่างน้อย 10 ตัวอักษร · ใช้เข้ารหัสข้อมูลของคุณ ลืมแล้วกู้ข้อมูลบนเซิร์ฟเวอร์ไม่ได้') : undefined}>
+        <Field id="auth-password" label={t('รหัสผ่าน')} hint={signup ? t('อย่างน้อย 10 ตัวอักษร · ใช้เข้ารหัสข้อมูลของคุณ ลืมแล้วตั้งใหม่ทางอีเมลได้') : undefined}>
           <IconInput
             id="auth-password"
             icon={LockKeyhole}
@@ -251,14 +292,9 @@ function SignInScreen({ initialMode = 'login' }: { initialMode?: 'login' | 'sign
             </span>
           </label>
         ) : (
-          <button type="button" className="min-h-11 justify-self-end text-sm font-semibold text-primary-ink" onClick={() => setForgot(!forgot)}>
+          <button type="button" className="min-h-11 justify-self-end text-sm font-semibold text-primary-ink" onClick={() => onForgot(email)}>
             {t('ลืมรหัสผ่าน?')}
           </button>
-        )}
-        {forgot && !signup && (
-          <Alert>
-            {t('รหัสผ่านใช้เข้ารหัสข้อมูลของคุณ จึงรีเซ็ตแล้วเปิดข้อมูลบนเซิร์ฟเวอร์ไม่ได้ · ถ้ายังเปิดแอปในเครื่องอื่นได้ ข้อมูลยังอยู่ที่เครื่องนั้น')}
-          </Alert>
         )}
         {error && <Alert tone="error">{error}</Alert>}
         <Button type="submit" className="h-12 w-full text-base" disabled={busy || !email || !password}>
@@ -411,15 +447,22 @@ function UnlockScreen() {
 export function AuthGate() {
   const session = useSyncState()
   const lock = useLockState()
-  const { pathname } = useLocation()
+  const { pathname, search } = useLocation()
   const [welcome, setWelcome] = useState(() => !seenWelcome())
   const [startMode, setStartMode] = useState<'login' | 'signup'>('login')
+  // The link in a reset email opens /reset with the email and code filled in.
+  const [reset, setReset] = useState<{ email: string; code: string } | null>(() => {
+    if (pathname !== '/reset') return null
+    const params = new URLSearchParams(search)
+    return { email: params.get('email') ?? '', code: params.get('code') ?? '' }
+  })
   useEffect(() => {
     const onChange = () => noteVisibility(document.visibilityState === 'visible')
     document.addEventListener('visibilitychange', onChange)
     return () => document.removeEventListener('visibilitychange', onChange)
   }, [])
   if (authBypassed() || pathname === '/privacy') return <Outlet />
+  if (!session && reset) return <ResetScreen email={reset.email} code={reset.code} onBack={() => setReset(null)} />
   if (!session && welcome)
     return (
       <WelcomeScreen
@@ -429,8 +472,10 @@ export function AuthGate() {
         }}
       />
     )
-  if (!session) return <SignInScreen initialMode={startMode} />
+  if (!session) return <SignInScreen initialMode={startMode} onForgot={(email) => setReset({ email, code: '' })} />
+  if (session.recoveryCode) return <RecoveryCodeScreen code={session.recoveryCode} />
   if (lock === 'off') return <SetPinScreen />
   if (lock === 'locked') return <UnlockScreen />
+  if (pathname === '/reset') return <Navigate to={`/settings${search}`} replace />
   return <Outlet />
 }

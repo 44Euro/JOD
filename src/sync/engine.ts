@@ -10,9 +10,10 @@ function hex(bytes: ArrayBuffer): string {
   return [...new Uint8Array(bytes)].map((b) => b.toString(16).padStart(2, '0')).join('')
 }
 
-// One password, two keys: the login key goes to the server, the data key never leaves the device, so the server
-// cannot open what it stores. The email salts both, so the same password gives different keys for different people.
-export async function deriveKeys(email: string, password: string, iterations = keyIterations()): Promise<{ loginKey: string; dataKey: string }> {
+// One password, two keys: the login key goes to the server, the password key never leaves the device and only unseals
+// the data key, so the server cannot open what it stores. The email salts both, so the same password gives different
+// keys for different people. Accounts made before the data key was sealed used the password key as the data key.
+export async function deriveKeys(email: string, password: string, iterations = keyIterations()): Promise<{ loginKey: string; passwordKey: string }> {
   const material = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits'])
   const derive = (purpose: string) =>
     crypto.subtle.deriveBits(
@@ -20,7 +21,7 @@ export async function deriveKeys(email: string, password: string, iterations = k
       material,
       256,
     )
-  return { loginKey: hex(await derive('login')), dataKey: hex(await derive('data')) }
+  return { loginKey: hex(await derive('login')), passwordKey: hex(await derive('data')) }
 }
 
 let applying = false
@@ -62,8 +63,10 @@ function oneAtATime<T>(work: () => Promise<T>): Promise<T> {
   return next
 }
 
+// Built on what is stored now rather than the copy read when the sync began: the person may have changed it meanwhile,
+// such as confirming the recovery code while the first sync was still running.
 function saved(state: SyncState, version: number, now: Date) {
-  writeSync({ ...state, version, syncedAt: now.toISOString() })
+  writeSync({ ...(readSync() ?? state), version, syncedAt: now.toISOString() })
   setDirty(false)
 }
 

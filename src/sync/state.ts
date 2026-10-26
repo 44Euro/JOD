@@ -11,6 +11,8 @@ export interface SyncState {
   dataKey: string
   version: number
   syncedAt: string | null
+  // A new recovery code waits here until the person says it is written down; the app never shows it again after.
+  recoveryCode?: string
 }
 
 const listeners = new Set<() => void>()

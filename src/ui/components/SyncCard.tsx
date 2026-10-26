@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router'
 import { Alert } from '../../components/ui/alert'
 import { Button } from '../../components/ui/button'
 import { Card } from '../../components/ui/card'
@@ -6,9 +7,10 @@ import { db } from '../../db/db'
 import { t } from '../../i18n'
 import { SyncError } from '../../sync/client'
 import { syncNow, type SyncOutcome } from '../../sync/engine'
-import { deleteAccount, keepSide, serverClient, signOut } from '../../sync/session'
+import { deleteAccount, keepSide, renewRecoveryCode, serverClient, signOut } from '../../sync/session'
 import { useDirty, useSyncState } from '../../sync/state'
 import { fmtDate } from '../format'
+import { PasswordResetForm } from './PasswordResetForm'
 
 function describe(outcome: SyncOutcome): string {
   if (outcome.kind === 'pushed') return t('ส่งข้อมูลจากเครื่องนี้ขึ้นแล้ว')
@@ -24,6 +26,10 @@ export function SyncCard() {
   const [message, setMessage] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
   const [conflict, setConflict] = useState(false)
   const [unsent, setUnsent] = useState(false)
+  // A reset link opened on a signed-in device lands here with its code.
+  const [params] = useSearchParams()
+  const linkCode = params.get('code') ?? ''
+  const [resetting, setResetting] = useState(Boolean(linkCode))
 
   async function run(work: () => Promise<void>) {
     setBusy(true)
@@ -100,6 +106,41 @@ export function SyncCard() {
       <p className="text-[12px] text-muted-foreground">
         {t('ออกจากระบบจะซิงก์ก่อนแล้วล้างข้อมูลในเครื่องนี้ เข้าใหม่แล้วข้อมูลจะกลับมา · รูปประกอบเทรดไม่ถูกซิงก์')}
       </p>
+      <div className="grid gap-3 border-t pt-4">
+        <div>
+          <h3 className="text-[15px] font-semibold">{t('รหัสผ่านและรหัสกู้คืน')}</h3>
+          <p className="text-[12.5px] text-muted-foreground">{t('ตั้งรหัสผ่านใหม่ด้วยรหัสที่ส่งไปที่อีเมล ข้อมูลในบัญชีอยู่ครบ')}</p>
+        </div>
+        {resetting ? (
+          <PasswordResetForm
+            email={state.email}
+            code={linkCode}
+            onDone={() => {
+              setResetting(false)
+              setMessage({ tone: 'ok', text: t('ตั้งรหัสผ่านใหม่แล้ว เครื่องอื่นต้องเข้าสู่ระบบด้วยรหัสใหม่') })
+            }}
+          />
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" disabled={busy} onClick={() => setResetting(true)}>
+              {t('ตั้งรหัสผ่านใหม่')}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={busy}
+              onClick={() =>
+                void run(async () => {
+                  if (!window.confirm(t('สร้างรหัสกู้คืนใหม่? รหัสเดิมจะใช้ไม่ได้อีก'))) return
+                  await renewRecoveryCode()
+                })
+              }
+            >
+              {t('สร้างรหัสกู้คืนใหม่')}
+            </Button>
+          </div>
+        )}
+      </div>
     </Card>
   )
 }
