@@ -17,6 +17,7 @@ import { RateCell } from '../components/RateCell'
 import { RenameInstrument } from '../components/RenameInstrument'
 import { Stat, SummaryPanel } from '../components/Summary'
 import { PriceHistoryCard } from '../components/HistoryCards'
+import { LotsCard } from '../components/RiskCards'
 import { ThesisCard } from '../components/ThesisCard'
 import { fmtDate, fmtHeadline, fmtNumber, fmtPrice, fmtSigned, fmtSignedPct, fmtValue, fmtYield, plClass } from '../format'
 import { useAppData, usePortfolio } from '../hooks'
@@ -251,6 +252,9 @@ export function AssetPage() {
 
         <div className="grid content-start gap-4">
           {instrument && <PriceHistoryCard transactions={data.transactions} instrument={instrument} />}
+          {instrument && (
+            <LotsCard transactions={data.transactions} instrument={instrument} accounts={data.accounts} averageRealized={stats?.realizedBase ?? null} />
+          )}
           {instrument && <ThesisCard key={instrument.id} instrument={instrument} today={today} />}
           {stats && (
             <Card>

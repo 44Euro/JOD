@@ -10,6 +10,7 @@ import { Table, Td, Th } from '../../components/ui/table'
 import { daysBetween, todayLocal } from '../../domain/dates'
 import type { Ledger } from '../../domain/ledger'
 import { RealizedHistoryCard } from '../components/HistoryCards'
+import { PositionSizeCard, RiskSummaryCard } from '../components/RiskCards'
 import { matchTrades, type Trade } from '../../domain/trades'
 import {
   closedInPeriod,
@@ -592,6 +593,10 @@ function TradesView({ data, ledger }: { data: AppData; ledger: Ledger }) {
         </Card>
       )}
       <RealizedHistoryCard events={ledger.realized} base={data.settings.baseCurrency} today={today} />
+      <div className="grid items-start gap-3.5 md:gap-[22px] xl:grid-cols-2">
+        <RiskSummaryCard closed={closed} transactions={transactions} />
+        <PositionSizeCard base={data.settings.baseCurrency} />
+      </div>
     </>
   )
 }
