@@ -6,9 +6,10 @@ import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
 import { Field } from '../components/ui/field'
 import { Input } from '../components/ui/input'
+import { PinPad } from './components/PinPad'
 import { Segmented } from '../components/ui/segmented'
 import { t } from '../i18n'
-import { hasBiometrics, noteVisibility, PIN_LENGTH, setPin, unlockWithBiometrics, unlockWithPin, useLockState, validPin } from '../security/lock'
+import { hasBiometrics, noteVisibility, setPin, unlockWithBiometrics, unlockWithPin, useLockState, validPin } from '../security/lock'
 import { SyncError } from '../sync/client'
 import type { SyncOutcome } from '../sync/engine'
 import { authBypassed, keepSide, MIN_PASSWORD, signIn, signOut } from '../sync/session'
@@ -27,32 +28,6 @@ function Screen({ children }: { children: ReactNode }) {
         {children}
       </main>
     </div>
-  )
-}
-
-// One field for the whole PIN, sent as soon as the last digit is typed.
-function PinField({ label, onComplete, disabled }: { label: string; onComplete: (pin: string) => void; disabled?: boolean }) {
-  const [pin, setPinValue] = useState('')
-  return (
-    <Input
-      aria-label={label}
-      type="password"
-      inputMode="numeric"
-      autoComplete="off"
-      autoFocus
-      maxLength={PIN_LENGTH}
-      disabled={disabled}
-      className="h-14 text-center text-2xl tracking-[0.6em]"
-      value={pin}
-      onChange={(e) => {
-        const digits = e.target.value.replace(/\D/g, '').slice(0, PIN_LENGTH)
-        setPinValue(digits)
-        if (digits.length === PIN_LENGTH) {
-          onComplete(digits)
-          setPinValue('')
-        }
-      }}
-    />
   )
 }
 
@@ -154,16 +129,18 @@ function SignInScreen() {
 function SetPinScreen() {
   const [first, setFirst] = useState<string | null>(null)
   const [error, setError] = useState('')
+  const [shake, setShake] = useState(0)
   return (
     <Screen>
-      <Card className="grid gap-4">
+      <div className="grid justify-items-center gap-6 text-center">
         <div>
           <h1 className="text-2xl font-semibold">{first ? t('ใส่ PIN อีกครั้ง') : t('ตั้ง PIN 6 หลัก')}</h1>
-          <p className="text-sm text-muted-foreground">{t('ใช้เข้าแอปครั้งต่อไปแทนรหัสผ่าน')}</p>
+          <p className="text-sm text-muted-foreground">{error || t('ใช้เข้าแอปครั้งต่อไปแทนรหัสผ่าน')}</p>
         </div>
-        <PinField
+        <PinPad
           key={first ?? 'first'}
           label={first ? t('PIN อีกครั้ง') : t('PIN ใหม่')}
+          shake={shake}
           onComplete={(pin) => {
             if (!first) {
               setFirst(pin)
@@ -173,13 +150,13 @@ function SetPinScreen() {
             if (pin !== first) {
               setFirst(null)
               setError(t('PIN สองครั้งไม่ตรงกัน ลองตั้งใหม่'))
+              setShake((n) => n + 1)
               return
             }
             if (validPin(pin)) void setPin(pin)
           }}
         />
-        {error && <Alert tone="error">{error}</Alert>}
-      </Card>
+      </div>
     </Screen>
   )
 }
@@ -188,6 +165,7 @@ function UnlockScreen() {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [forgot, setForgot] = useState(false)
+  const [shake, setShake] = useState(0)
   const biometrics = hasBiometrics()
 
   useEffect(() => {
@@ -196,27 +174,43 @@ function UnlockScreen() {
 
   return (
     <Screen>
-      <Card className="grid justify-items-center gap-4 text-center">
-        <Lock className="size-8 text-ink-2" aria-hidden />
-        <h1 className="text-2xl font-semibold">{t('ใส่ PIN เพื่อเข้าแอป')}</h1>
-        <PinField
+      <div className="grid justify-items-center gap-6 text-center">
+        <div className="grid justify-items-center gap-2">
+          <Lock className="size-7 text-ink-2" aria-hidden />
+          <h1 className="text-2xl font-semibold">{t('ใส่ PIN เพื่อเข้าแอป')}</h1>
+          {error && (
+            <p role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          )}
+        </div>
+        <PinPad
           label="PIN"
           disabled={busy}
+          shake={shake}
+          extraKey={
+            biometrics && (
+              <button
+                type="button"
+                aria-label={t('ใช้สแกนนิ้วหรือใบหน้า')}
+                className="grid size-[72px] place-items-center rounded-full text-primary hover:bg-muted"
+                onClick={() => void unlockWithBiometrics()}
+              >
+                <Fingerprint className="size-8" aria-hidden />
+              </button>
+            )
+          }
           onComplete={(pin) => {
             setBusy(true)
             void unlockWithPin(pin).then((ok) => {
               setBusy(false)
-              if (!ok) setError(t('PIN ไม่ถูก'))
+              if (!ok) {
+                setError(t('PIN ไม่ถูก'))
+                setShake((n) => n + 1)
+              }
             })
           }}
         />
-        {error && <Alert tone="error">{error}</Alert>}
-        {biometrics && (
-          <Button type="button" variant="outline" onClick={() => void unlockWithBiometrics()}>
-            <Fingerprint aria-hidden />
-            {t('ใช้สแกนนิ้วหรือใบหน้า')}
-          </Button>
-        )}
         {forgot ? (
           <Alert>
             {t('ออกจากระบบแล้วเข้าใหม่ด้วยอีเมลและรหัสผ่าน ข้อมูลที่ซิงก์แล้วจะกลับมา ส่วนที่ยังไม่ได้ซิงก์จะหาย')}
@@ -229,7 +223,7 @@ function UnlockScreen() {
             {t('ลืม PIN?')}
           </button>
         )}
-      </Card>
+      </div>
     </Screen>
   )
 }

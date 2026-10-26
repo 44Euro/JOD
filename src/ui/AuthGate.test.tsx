@@ -3,7 +3,7 @@ import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createApp } from '../../server/app.ts'
@@ -37,8 +37,10 @@ afterEach(async () => {
   await new Promise<void>((resolve) => server.close(() => resolve()))
 })
 
+// Taps the digits on the on-screen pad, as a person on a phone would.
 async function typePin(user: ReturnType<typeof userEvent.setup>, label: string, pin: string) {
-  await user.type(await screen.findByLabelText(label), pin)
+  const pad = await screen.findByRole('group', { name: label })
+  for (const digit of pin) await user.click(within(pad).getByRole('button', { name: digit }))
 }
 
 // Each sign-in derives keys the slow way, as it does for real, so these tests need longer than the default.
@@ -77,6 +79,13 @@ describe('AuthGate', { timeout: 30_000 }, () => {
     expect(await screen.findByRole('heading', { name: 'ใส่ PIN เพื่อเข้าแอป' })).toBeInTheDocument()
     await typePin(user, 'PIN', '000000')
     expect(await screen.findByText('PIN ไม่ถูก', {}, { timeout: 15_000 })).toBeInTheDocument()
+    await user.keyboard('12345')
+    expect(screen.getByRole('status', { name: 'PIN ใส่แล้ว 5 จาก 6 หลัก' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'ลบตัวเลข' }))
+    await user.click(screen.getByRole('button', { name: 'ลบตัวเลข' }))
+    await user.click(screen.getByRole('button', { name: 'ลบตัวเลข' }))
+    await user.click(screen.getByRole('button', { name: 'ลบตัวเลข' }))
+    await user.click(screen.getByRole('button', { name: 'ลบตัวเลข' }))
     await typePin(user, 'PIN', '123456')
     expect(await screen.findByRole('heading', { name: 'ตั้งค่า' }, { timeout: 15_000 })).toBeInTheDocument()
   })

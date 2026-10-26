@@ -132,6 +132,12 @@
   --font-display: "Anuphan", "Noto Sans Thai", ui-sans-serif, sans-serif;
 }
 
+@keyframes pin-shake {
+  0%, 100% { transform: translateX(0) }
+  25% { transform: translateX(-10px) }
+  75% { transform: translateX(10px) }
+}
+
 @layer base {
   * {
     @apply border-border;

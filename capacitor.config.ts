@@ -1,4 +1,3 @@
-/// <reference types="@capacitor/keyboard" />
 import type { CapacitorConfig } from '@capacitor/cli'
 import type { KeyboardResize } from '@capacitor/keyboard'
 

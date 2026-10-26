@@ -1182,4 +1182,6 @@ export const EN: Record<string, string> = {
   "JOD เก็บข้อมูลการลงทุนของคุณไว้ในเครื่องที่ใช้อยู่ และซิงก์ไปเซิร์ฟเวอร์แบบเข้ารหัสที่เซิร์ฟเวอร์อ่านไม่ได้ ไม่มีโฆษณา ไม่มีตัวติดตามการใช้งาน และไม่ขายข้อมูลให้ใคร": "JOD keeps your investment data on the device you use and syncs it encrypted, so the server cannot read it. No ads, no usage tracking, and your data is never sold",
   " — เซิร์ฟเวอร์เก็บอีเมลของคุณ และข้อมูลที่เข้ารหัสในเครื่องด้วยรหัสผ่านของคุณก่อนส่ง รหัสผ่านไม่ถูกส่งออกจากเครื่อง เซิร์ฟเวอร์จึงอ่านข้อมูลไม่ได้ · ลบบัญชีได้เองในหน้าตั้งค่า": " — the server keeps your email and data encrypted on your device with your password before it is sent; the password never leaves the device, so the server cannot read the data · you can delete the account yourself in Settings",
   "ข้อมูลเก็บในเครื่องนี้และซิงก์แบบเข้ารหัส ไม่มีตัวติดตาม ·": "Data stays on this device and syncs encrypted. No trackers ·",
+  "{0} ใส่แล้ว {1} จาก {2} หลัก": "{0}: {1} of {2} digits entered",
+  "ลบตัวเลข": "Delete digit",
 }
