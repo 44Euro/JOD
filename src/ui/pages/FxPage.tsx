@@ -6,7 +6,7 @@ import { buttonVariants } from '../../components/ui/button'
 import { Card } from '../../components/ui/card'
 import { Table, Td, Th } from '../../components/ui/table'
 import { D, sumBy, type Decimal } from '../../domain/decimal'
-import { cashFxRows, convertHistory, convertSummaries, remittancesByTaxYear, type CashFxRow, type ConvertRow } from '../../domain/fx'
+import { cashFxRows, convertHistory, convertSummaries, fxWallet, remittancesByTaxYear, type CashFxRow, type ConvertRow } from '../../domain/fx'
 import { SPREAD_WARNING_PCT } from '../../domain/fxConvert'
 import { cn } from '../../lib/cn'
 import { CashPill } from '../components/MarketPill'
@@ -258,6 +258,19 @@ export function FxPage() {
         <Section id="fx-cash-title" title="เงินสดต่างประเทศ">
           {board.length === 0 && caption && <p className="mb-3 text-[13px] text-muted-foreground">{caption}</p>}
           <p className="mb-3 text-[13px] text-muted-foreground">เฉพาะเงินสดที่ยังถืออยู่ · ไม่รวมส่วนที่ใช้ไปแล้ว</p>
+          <div role="group" aria-label="เงินแต่ละสกุล" className="mb-4 grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
+            {fxWallet(cashRows).map((w) => (
+              <div key={w.currency} className="grid gap-0.5 rounded-xl border bg-background px-4 py-3">
+                <span className="flex items-baseline justify-between gap-2">
+                  <b className="font-display text-lg">{`${fmtAmount(w.amount)} ${w.currency}`}</b>
+                  <span className="font-display font-semibold text-fx">{fmtSigned(w.effectBase, 0)}</span>
+                </span>
+                <span className="text-[13px] text-muted-foreground tabular-nums">
+                  เรทเฉลี่ยที่ได้มา {fmtRate(w.avgRate)} → วันนี้ {fmtRate(w.todayRate)}
+                </span>
+              </div>
+            ))}
+          </div>
           <CashRows rows={cashRows} accountNames={accountNames} mark={mark} isDesktop={isDesktop} />
         </Section>
       )}

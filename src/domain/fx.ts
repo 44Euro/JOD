@@ -135,3 +135,33 @@ export function remittancesByTaxYear(transactions: readonly Transaction[], ledge
   }
   return [...years.values()].sort((a, b) => b.taxYear - a.taxYear)
 }
+
+export interface WalletRow {
+  currency: string
+  amount: Decimal
+  costBase: Decimal
+  valueBase: Decimal | null
+  // What one unit of the currency cost on average, across every account holding it.
+  avgRate: Decimal
+  todayRate: Decimal | null
+  effectBase: Decimal | null
+}
+
+export function fxWallet(rows: readonly CashFxRow[]): WalletRow[] {
+  const byCurrency = new Map<string, CashFxRow[]>()
+  for (const row of rows) byCurrency.set(row.currency, [...(byCurrency.get(row.currency) ?? []), row])
+  return [...byCurrency].map(([currency, list]) => {
+    const amount = list.reduce((s, r) => s.plus(r.amount), D(0))
+    const costBase = list.reduce((s, r) => s.plus(r.costBase), D(0))
+    const valueBase = list.every((r) => r.valueBase) ? list.reduce((s, r) => s.plus(r.valueBase!), D(0)) : null
+    return {
+      currency,
+      amount,
+      costBase,
+      valueBase,
+      avgRate: costBase.div(amount),
+      todayRate: valueBase ? valueBase.div(amount) : null,
+      effectBase: valueBase ? valueBase.minus(costBase) : null,
+    }
+  })
+}

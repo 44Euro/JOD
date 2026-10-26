@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { makeTx } from '../test/fixtures'
 import { D } from './decimal'
-import { cashFxRows, convertHistory, convertSummaries, remittancesByTaxYear } from './fx'
+import { cashFxRows, convertHistory, convertSummaries, fxWallet, remittancesByTaxYear } from './fx'
 import { computeLedger, type Ledger } from './ledger'
 
 const thb = { currency: 'THB', fxRate: '1', fxSource: 'same' as const, instrumentId: undefined, quantity: undefined, price: undefined }
@@ -138,5 +138,17 @@ describe('remittancesByTaxYear', () => {
   it('leaves out a withdrawal the ledger skipped', () => {
     const txs = [remit('100000', 2026, '2026-03-01'), remit('20000', 2026, '2026-06-01')]
     expect(remittancesByTaxYear(txs, skipping(computeLedger(txs), txs[0].id)).map((r) => [r.totalBase.toString(), r.count])).toEqual([['20000', 1]])
+  })
+})
+
+describe('fxWallet', () => {
+  it('adds a currency up across accounts and gives its average and today’s rate', () => {
+    const row = (accountId: string, amount: string, cost: string, value: string | null) => ({
+      accountId, currency: 'USD', amount: D(amount), costBase: D(cost), valueBase: value ? D(value) : null, effectBase: null,
+    })
+    const [usd] = fxWallet([row('a', '1000', '35000', '33500'), row('b', '1000', '33000', '33500')])
+    expect([usd.amount.toString(), usd.avgRate.toString(), usd.todayRate?.toString(), usd.effectBase?.toString()]).toEqual(['2000', '34', '33.5', '-1000'])
+    const [unknown] = fxWallet([row('a', '10', '350', null)])
+    expect([unknown.todayRate, unknown.effectBase]).toEqual([null, null])
   })
 })
