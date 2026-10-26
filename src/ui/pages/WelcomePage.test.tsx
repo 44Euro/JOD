@@ -37,7 +37,7 @@ describe('WelcomePage', () => {
     const user = userEvent.setup()
     renderRoute('/welcome')
     await user.click(await screen.findByRole('button', { name: 'ถัดไป' }))
-    await user.click(await screen.findByRole('button', { name: 'พิมพ์เอง' }))
+    await user.click(await screen.findByRole('button', { name: 'อื่นๆ' }))
     await user.click(screen.getByRole('button', { name: 'ถัดไป' }))
     expect(await screen.findByText('ใส่ชื่อบัญชี')).toBeInTheDocument()
     expect(await db.accounts.count()).toBe(0)

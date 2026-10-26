@@ -26,7 +26,7 @@ export const BROKER_PRESETS: readonly BrokerPreset[] = [
   { key: 'streaming', label: 'Streaming', accountName: 'Streaming SET', template: fee('THB', '0.157', '50', '7'), note: t('อัตราทั่วไปของหุ้นไทย') },
   { key: 'bitkub', label: 'Bitkub', accountName: 'Bitkub', template: fee('THB', '0.25', '0', '0'), note: t('ค่าธรรมเนียมซื้อขายทั่วไป') },
   { key: 'binance', label: 'Binance', accountName: 'Binance', template: fee('USDT', '0.1', '0', '0'), note: t('ค่าธรรมเนียม Spot ทั่วไป') },
-  { key: 'custom', label: t('พิมพ์เอง'), accountName: '', template: fee('THB', '0', '0', '0'), note: '' },
+  { key: 'custom', label: t('อื่นๆ'), accountName: '', template: fee('THB', '0', '0', '0'), note: '' },
 ]
 
 export const CHECK_WITH_BROKER = t('ตรวจกับโบรกอีกครั้ง')
