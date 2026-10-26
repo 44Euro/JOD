@@ -39,3 +39,9 @@ export function lastTwelveMonths(today: string): string[] {
     return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`
   })
 }
+
+export function addDays(date: string, days: number): string {
+  const [y, m, d] = date.split('-').map(Number)
+  const next = new Date(Date.UTC(y, m - 1, d + days))
+  return next.toISOString().slice(0, 10)
+}

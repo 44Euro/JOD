@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { CURRENCY_OPTIONS, MARKET_CURRENCY, supportsAutoFx } from './currencies'
-import { daysBetween, isIsoDate, monthKey, todayLocal } from './dates'
+import { addDays, daysBetween, isIsoDate, monthKey, todayLocal } from './dates'
 import { D, parseDecimalInput, sumBy } from './decimal'
 import { ASSET_TYPES, defaultUnit, instrumentKey, MARKETS, UNITS } from './types'
 
@@ -48,6 +48,11 @@ describe('decimal helpers', () => {
 })
 
 describe('dates', () => {
+  it('moves a date across month and year ends', () => {
+    expect(addDays('2024-03-01', -1)).toBe('2024-02-29')
+    expect(addDays('2024-12-31', 1)).toBe('2025-01-01')
+  })
+
   it('formats today in local time', () => {
     expect(todayLocal(new Date(2024, 0, 5, 23, 59))).toBe('2024-01-05')
   })

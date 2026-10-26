@@ -528,7 +528,7 @@ describe('DashboardPage', () => {
     const THOUSANDS = /\d{1,3}(,\d{3})+/
     // What may still carry digits while the numbers are hidden: percentages, dates, prices and rates (two decimals or more)
     // and counts of days, years, times and trades. Any other digit run is an amount or a quantity that leaked.
-    const VISIBLE = /[+−]?\d+(\.\d+)?%|\d{1,2} [ก-๙.]+ \d{4}|\d+\.\d{2,}|\d+ ?(วัน|ปี|ครั้ง|เทรด)/g
+    const VISIBLE = /[+−]?\d+(\.\d+)?%|\d{1,2} [ก-๙.]+ \d{4}|\d+\.\d{2,}|\d+ ?(วัน|ปี|ครั้ง|เทรด|เดือน)/g
     const leftoverDigits = (text: string | null) => (text ?? '').replace(VISIBLE, ' ').match(/\d+/g) ?? []
     const sidebarLink = async (name: string) => within(await screen.findByRole('navigation', { name: 'เมนูหลัก' })).getByRole('link', { name })
 

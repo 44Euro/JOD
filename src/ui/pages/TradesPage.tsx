@@ -9,6 +9,7 @@ import { Segmented } from '../../components/ui/segmented'
 import { Table, Td, Th } from '../../components/ui/table'
 import { daysBetween, todayLocal } from '../../domain/dates'
 import type { Ledger } from '../../domain/ledger'
+import { RealizedHistoryCard } from '../components/HistoryCards'
 import { matchTrades, type Trade } from '../../domain/trades'
 import {
   closedInPeriod,
@@ -590,6 +591,7 @@ function TradesView({ data, ledger }: { data: AppData; ledger: Ledger }) {
           )}
         </Card>
       )}
+      <RealizedHistoryCard events={ledger.realized} base={data.settings.baseCurrency} today={today} />
     </>
   )
 }

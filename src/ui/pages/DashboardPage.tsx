@@ -11,6 +11,7 @@ import { positionValueBase } from '../../domain/investor'
 import { portfolioReturn, staleInstruments } from '../../domain/returns'
 import { unpricedInstrumentCount, type PositionValuation } from '../../domain/valuation'
 import { cn } from '../../lib/cn'
+import { PortfolioHistoryCard } from '../components/HistoryCards'
 import { HoldingsTable } from '../components/HoldingsTable'
 import { MiniRoute, MoneyRoute } from '../components/MoneyRoute'
 import { PageHeader } from '../components/PageHeader'
@@ -198,6 +199,8 @@ export function DashboardPage() {
           </div>
         )}
       </div>
+
+      <PortfolioHistoryCard base={base} today={today} />
 
       {top.length > 0 && (
         <Card>
