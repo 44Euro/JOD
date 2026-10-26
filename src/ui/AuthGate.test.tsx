@@ -59,6 +59,14 @@ describe('AuthGate', { timeout: 30_000 }, () => {
     expect(await screen.findByRole('heading', { name: 'เข้าสู่ระบบ' })).toBeInTheDocument()
   })
 
+  it('opens the login form from the welcome when the person already has an account', async () => {
+    const user = userEvent.setup()
+    localStorage.removeItem(WELCOME_STORAGE_KEY)
+    renderRoute('/')
+    await user.click(await screen.findByRole('button', { name: 'มีบัญชีแล้ว เข้าสู่ระบบ' }))
+    expect(screen.getByRole('heading', { name: 'เข้าสู่ระบบ' })).toBeInTheDocument()
+  })
+
   it('asks to sign in first, then for a 6-digit PIN, then opens the app', async () => {
     const user = userEvent.setup()
     renderRoute('/settings')
