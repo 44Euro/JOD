@@ -88,7 +88,7 @@ describe('ImportPage', () => {
     renderRoute('/import', fx(), local)
     await upload(holdings)
     expect(screen.getByRole('button', { name: 'ให้ AI อ่าน' })).toBeDisabled()
-    expect(screen.getByText(/ใส่ API key ของ Anthropic ในหน้าตั้งค่าก่อน/)).toBeInTheDocument()
+    expect(screen.getByText(/ตั้งค่า Claude \(Anthropic\) ในหน้าตั้งค่าก่อน/)).toBeInTheDocument()
   })
 
   it('explains a failed read and offers to type the records instead', async () => {

@@ -141,7 +141,13 @@ export const INCOME_SERIES: Record<IncomeKind, { label: string; className: strin
   receive_asset: { label: t('รับเป็นสินทรัพย์'), className: 'bg-income-asset' },
 }
 
-export const READER_MODE_LABELS: Record<ReaderMode, string> = { local: t('อ่านในเครื่อง (ฟรี)'), claude: 'Claude' }
+export const READER_MODE_LABELS: Record<ReaderMode, string> = {
+  local: t('อ่านในเครื่อง (ฟรี)'),
+  claude: 'Claude (Anthropic)',
+  openai: 'OpenAI',
+  gemini: 'Google Gemini',
+  compatible: t('บริการแบบ OpenAI (OpenRouter, Ollama ฯลฯ)'),
+}
 
 export const IMPORT_SOURCE_LABELS: Record<ImportSource, string> = {
   portfolio: t('รูปหน้าพอร์ต'),

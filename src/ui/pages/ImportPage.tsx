@@ -1,7 +1,7 @@
 import { Crop, FileText, ImagePlus, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
-import { useApiKey, useReaderMode } from '../../ai/apiKey'
+import { providerReady, useProviderSettings, useReaderMode } from '../../ai/apiKey'
 import type { Extraction } from '../../ai/extraction'
 import { estimateCost, FileError, prepareFile, type PreparedFile } from '../../ai/files'
 import { describeAiError, isAbort, useReaderFactory } from '../../ai/reader'
@@ -71,7 +71,7 @@ export function ImportPage() {
   const data = useAppData()
   const [params] = useSearchParams()
   const mode = useReaderMode()
-  const apiKey = useApiKey()
+  const settings = useProviderSettings(mode)
   const readerFor = useReaderFactory()
   const [purpose, setPurpose] = useState<Purpose>(() => {
     const asked = params.get('purpose')
@@ -109,7 +109,7 @@ export function ImportPage() {
 
   if (!data) return null
   const account = data.accounts.find((a) => a.id === accountId) ?? data.accounts[0]
-  const needsKey = mode === 'claude' && !apiKey
+  const needsKey = !providerReady(mode, settings)
 
   async function addFiles(list: FileList | null) {
     if (!list) return
@@ -154,7 +154,7 @@ export function ImportPage() {
     setReadError('')
     setPhase({ name: 'reading' })
     try {
-      const extraction = await readerFor(mode, apiKey).read(files, todayLocal(), controller.signal)
+      const extraction = await readerFor(mode, settings).read(files, todayLocal(), controller.signal)
       const rows = toReviewRows(extraction, {
         accountId: account.id,
         baseCurrency: base,
@@ -290,7 +290,7 @@ export function ImportPage() {
             {' · '}
             {mode === 'local'
               ? t('ไม่มีค่าใช้จ่าย ไฟล์ไม่ออกจากเครื่อง')
-              : t('ไฟล์จะถูกส่งไปให้ AI ของ Anthropic อ่าน{0}', cost ? t(' · {0} ไฟล์ ≈ {1} {2}', files.length, cost, base === 'THB' ? 'บาท' : base) : '')}
+              : t('ไฟล์จะถูกส่งไปให้ {0} อ่าน{1}', READER_MODE_LABELS[mode], cost ? t(' · {0} ไฟล์ ≈ {1} {2}', files.length, cost, base === 'THB' ? 'บาท' : base) : '')}
             {' · '}
             <Link to="/settings" className="font-semibold text-primary-ink underline underline-offset-[3px]">
               
@@ -300,7 +300,7 @@ export function ImportPage() {
           {needsKey && (
             <Alert>
               
-              {t('ใส่ API key ของ Anthropic ในหน้าตั้งค่าก่อน หรือเปลี่ยนเป็นอ่านในเครื่อง · ')}<Link to="/settings">{t('ไปที่ตั้งค่า')}</Link>
+              {t('ตั้งค่า {0} ในหน้าตั้งค่าก่อน หรือเปลี่ยนเป็นอ่านในเครื่อง · ', READER_MODE_LABELS[mode])}<Link to="/settings">{t('ไปที่ตั้งค่า')}</Link>
             </Alert>
           )}
           {readError && (
@@ -322,7 +322,7 @@ export function ImportPage() {
               </>
             ) : (
               <Button type="button" disabled={files.length === 0 || needsKey} onClick={() => void read()}>
-                {mode === 'claude' ? t('ให้ AI อ่าน') : t('อ่านไฟล์')}
+                {mode === 'local' ? t('อ่านไฟล์') : t('ให้ AI อ่าน')}
               </Button>
             )}
           </div>

@@ -2,6 +2,7 @@ import { createContext, useContext } from 'react'
 import { ExtractionError, type Extraction } from './extraction'
 import type { PreparedFile } from './files'
 import { createLocalReader } from './localReader'
+import { createGeminiReader, createOpenAiReader, type ProviderSettings } from './otherReaders'
 import { t } from '../i18n'
 
 export const AI_MODEL = 'claude-opus-5-5'
@@ -13,7 +14,7 @@ export interface AiReader {
   test(signal?: AbortSignal): Promise<void>
 }
 
-export const READER_MODES = ['local', 'claude'] as const
+export const READER_MODES = ['local', 'claude', 'openai', 'gemini', 'compatible'] as const
 export type ReaderMode = (typeof READER_MODES)[number]
 
 export class AiError extends Error {
@@ -38,12 +39,23 @@ function lazyClaudeReader(apiKey: string): AiReader {
   }
 }
 
-export function createReader(mode: ReaderMode, apiKey: string): AiReader {
-  return mode === 'claude' ? lazyClaudeReader(apiKey) : createLocalReader()
+export function createReader(mode: ReaderMode, settings: ProviderSettings): AiReader {
+  switch (mode) {
+    case 'claude':
+      return lazyClaudeReader(settings.apiKey)
+    case 'openai':
+      return createOpenAiReader({ ...settings, baseUrl: undefined })
+    case 'compatible':
+      return createOpenAiReader(settings, settings.baseUrl ? new URL(settings.baseUrl).host : t('บริการแบบ OpenAI'))
+    case 'gemini':
+      return createGeminiReader(settings)
+    default:
+      return createLocalReader()
+  }
 }
 
-export const AiReaderContext = createContext<(mode: ReaderMode, apiKey: string) => AiReader>(createReader)
+export const AiReaderContext = createContext<(mode: ReaderMode, settings: ProviderSettings) => AiReader>(createReader)
 
-export function useReaderFactory(): (mode: ReaderMode, apiKey: string) => AiReader {
+export function useReaderFactory(): (mode: ReaderMode, settings: ProviderSettings) => AiReader {
   return useContext(AiReaderContext)
 }

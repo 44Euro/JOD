@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react'
+import type { ProviderSettings } from './otherReaders'
 import { READER_MODES, type ReaderMode } from './reader'
 
 // Kept in localStorage rather than the database, so neither ends up in a backup file.
@@ -75,4 +76,45 @@ export function useReaderMode(): ReaderMode {
 
 export function maskApiKey(key: string): string {
   return key.length <= 12 ? '••••' : `${key.slice(0, 7)}…${key.slice(-4)}`
+}
+
+const PROVIDER_DEFAULTS: Record<Exclude<ReaderMode, 'local' | 'claude'>, { model: string; baseUrl: string }> = {
+  openai: { model: 'gpt-4.1', baseUrl: '' },
+  gemini: { model: 'gemini-2.5-flash', baseUrl: '' },
+  compatible: { model: '', baseUrl: '' },
+}
+
+const providerKey = (mode: ReaderMode) => `jod-ai-${mode}`
+
+// Key, model and address of a provider other than Claude, kept on this device like the Claude key.
+export function readProviderSettings(mode: ReaderMode): ProviderSettings {
+  if (mode === 'local') return { apiKey: '', model: '' }
+  if (mode === 'claude') return { apiKey: readApiKey(), model: 'claude-opus-5-5' }
+  const defaults = PROVIDER_DEFAULTS[mode]
+  try {
+    const stored = JSON.parse(read(providerKey(mode)) || '{}') as Partial<ProviderSettings>
+    return { apiKey: stored.apiKey ?? '', model: stored.model || defaults.model, baseUrl: stored.baseUrl ?? defaults.baseUrl }
+  } catch {
+    return { apiKey: '', model: defaults.model, baseUrl: defaults.baseUrl }
+  }
+}
+
+export function writeProviderSettings(mode: ReaderMode, settings: ProviderSettings): void {
+  if (mode === 'claude') return writeApiKey(settings.apiKey)
+  if (mode === 'local') return
+  write(providerKey(mode), JSON.stringify(settings))
+}
+
+export function useProviderSettings(mode: ReaderMode): ProviderSettings {
+  const raw = useSyncExternalStore(subscribe, () => (mode === 'claude' ? readApiKey() : read(providerKey(mode))))
+  // raw only drives the re-render; the parsed value is rebuilt from storage.
+  void raw
+  return readProviderSettings(mode)
+}
+
+// A provider is ready when it has what it needs to be called: a key, and for a compatible service an address and model.
+export function providerReady(mode: ReaderMode, settings: ProviderSettings): boolean {
+  if (mode === 'local') return true
+  if (mode === 'compatible') return Boolean(settings.baseUrl && settings.model)
+  return Boolean(settings.apiKey && settings.model)
 }

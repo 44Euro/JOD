@@ -220,19 +220,31 @@ describe('SettingsPage', () => {
     })
   })
 
-  it('reads files on the device for free unless Claude is chosen', async () => {
+  it('reads files on the device for free unless another provider is chosen', async () => {
     localStorage.removeItem(READER_MODE_STORAGE_KEY)
     const user = userEvent.setup()
     renderRoute('/settings')
-    const group = await screen.findByRole('group', { name: 'วิธีอ่านรูปและไฟล์' })
-    expect(within(group).getByRole('button', { name: 'อ่านในเครื่อง (ฟรี)' })).toHaveAttribute('aria-pressed', 'true')
+    const picker = await screen.findByLabelText('ใช้อ่านด้วย')
+    expect(picker).toHaveValue('local')
     expect(screen.getByText(/ไม่มีค่าใช้จ่าย ไฟล์ไม่ออกจากเครื่อง/)).toBeInTheDocument()
     expect(screen.queryByLabelText('API key')).not.toBeInTheDocument()
-    await user.click(within(group).getByRole('button', { name: 'Claude' }))
+    await user.selectOptions(picker, 'claude')
     expect(localStorage.getItem(READER_MODE_STORAGE_KEY)).toBe('claude')
     expect(screen.getByLabelText('API key')).toBeInTheDocument()
-    await user.click(within(group).getByRole('button', { name: 'อ่านในเครื่อง (ฟรี)' }))
+    await user.selectOptions(picker, 'local')
     expect(localStorage.getItem(READER_MODE_STORAGE_KEY)).toBeNull()
+  })
+
+  it('keeps the address, model and key of a compatible service on this device', async () => {
+    localStorage.setItem(READER_MODE_STORAGE_KEY, 'compatible')
+    localStorage.removeItem('jod-ai-compatible')
+    const user = userEvent.setup()
+    renderRoute('/settings')
+    await user.type(await screen.findByLabelText('ที่อยู่ API'), 'http://localhost:11434/v1')
+    await user.type(screen.getByLabelText('ชื่อรุ่น'), 'llava')
+    await user.click(screen.getByRole('button', { name: 'บันทึกการตั้งค่า AI' }))
+    expect(JSON.parse(localStorage.getItem('jod-ai-compatible')!)).toMatchObject({ baseUrl: 'http://localhost:11434/v1', model: 'llava' })
+    expect(JSON.stringify(await db.settings.toArray())).not.toContain('11434')
   })
 
   it('keeps the AI key on this device only, masks it and tests it', async () => {
@@ -249,14 +261,14 @@ describe('SettingsPage', () => {
     await user.type(await screen.findByLabelText('API key'), 'sk-ant-api03-abcdefghijkl1234')
     await user.click(screen.getByRole('button', { name: 'บันทึก key' }))
     expect(localStorage.getItem(API_KEY_STORAGE_KEY)).toBe('sk-ant-api03-abcdefghijkl1234')
-    expect(screen.getByText('sk-ant-…1234')).toBeInTheDocument()
+    expect(screen.getByText(/sk-ant-…1234/)).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'ทดสอบการเชื่อมต่อ' }))
     expect(await screen.findByText('เชื่อมต่อได้ พร้อมให้ AI อ่านรูป')).toBeInTheDocument()
     expect(tested).toEqual(['called'])
     expect(JSON.stringify(await db.settings.toArray())).not.toContain('sk-ant')
     await user.click(screen.getByRole('button', { name: 'ลบ key' }))
     expect(localStorage.getItem(API_KEY_STORAGE_KEY)).toBeNull()
-    expect(screen.getByLabelText('API key')).toBeInTheDocument()
+    expect(screen.queryByText(/sk-ant-…1234/)).not.toBeInTheDocument()
   })
 
   it('keeps price source keys on this device and saves the benchmark', async () => {
