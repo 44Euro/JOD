@@ -1235,4 +1235,6 @@ export const EN: Record<string, string> = {
   "ยืนยัน": "Confirm",
   "PIN นี้ใช้เฉพาะเครื่องนี้ ไม่ส่งขึ้นเซิร์ฟเวอร์": "This PIN stays on this device and is never sent to the server",
   "ลองใส่ PIN อีกครั้ง": "Try the PIN again",
+  "กระดานเรท": "Rate board",
+  "ราคาตัวอย่าง": "Sample prices",
 }

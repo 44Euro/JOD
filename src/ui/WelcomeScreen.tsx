@@ -18,6 +18,10 @@ function Ticker({ name, price, change, up }: { name: string; price: string; chan
 function RateBoard() {
   return (
     <div className="w-full max-w-[300px] rounded-2xl border border-board-line bg-[color-mix(in_oklab,var(--board-line)_45%,var(--board))] px-5 py-2 shadow-[0_24px_48px_-20px_rgb(0_0_0/0.6)]">
+      <p className="flex justify-between border-b border-board-line pt-2 pb-2.5 text-[12px] text-board-muted">
+        <span>{t('กระดานเรท')}</span>
+        <span>{t('ราคาตัวอย่าง')}</span>
+      </p>
       <Ticker name="PTT" price="34.25" change="+1.5%" up />
       <Ticker name="AAPL" price="228.40" change="+0.8%" up />
       <Ticker name="BTC" price="2.31M" change="−2.1%" up={false} />
