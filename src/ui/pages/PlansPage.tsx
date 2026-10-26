@@ -42,7 +42,6 @@ function TargetInput({ instrument }: { instrument: Instrument }) {
   const [error, setError] = useState(false)
   return (
     <span className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
-      
       {t('เป้า')}
       <Input
         aria-label={t('เป้าหมายของ {0} (%)', instrument.symbol)}
@@ -105,7 +104,6 @@ function TargetsCard({ data }: { data: AppData }) {
               >
                 <AssetName id={row.instrumentId} instrument={instrument} />
                 <span className="text-right text-[13px] text-muted-foreground tabular-nums sm:order-none">
-                  
                   {t('ตอนนี้ ')}{fmtPct(row.currentPct, 1)}
                 </span>
                 {instrument ? <TargetInput key={instrument.targetPct ?? ''} instrument={instrument} /> : <span />}
@@ -126,7 +124,6 @@ function TargetsCard({ data }: { data: AppData }) {
         <Alert>{t('เป้าหมายรวมกันได้ ')}{fmtPct(plan.targetSum, 1)} {t(' ส่วนที่เหลือเป็นของตัวที่ไม่ได้ตั้งเป้า')}</Alert>
       )}
       <p className="text-[12px] text-muted-foreground">
-        
         {t('ใส่ % ที่ต้องการในช่องของแต่ละตัว · มูลค่าคิดจากราคาล่าสุดที่บันทึกไว้ อัปเดตราคาก่อนเพื่อให้ตัวเลขตรง')}
       </p>
     </Card>
@@ -185,7 +182,6 @@ function PlanRow({ plan, data, today }: { plan: DcaPlan; data: AppData; today: s
         ))}
       </ol>
       <p className="text-[13px]">
-        
         {t('ครบ ')}{done} {t(' จาก ')}{past} {t(' งวดที่ผ่านมา')}
         {current && t(' · งวดนี้ซื้อแล้ว {0} จาก {1} {2}', fmtValue(current.spent), fmtPrice(plan.amount), plan.currency)}
       </p>
@@ -283,7 +279,6 @@ function PlansCard({ data }: { data: AppData }) {
         </div>
       </form>
       <p className="text-[12px] text-muted-foreground">
-        
         {t('แอปนับจากรายการซื้อที่บันทึกในบัญชีและสกุลเดียวกับแผน รวมค่าธรรมเนียม · ซื้อถึง 99% ของยอดนับว่าครบงวด')}
       </p>
     </Card>

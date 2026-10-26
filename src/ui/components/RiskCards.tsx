@@ -69,10 +69,8 @@ export function PositionSizeCard({ base }: { base: string }) {
       <p aria-live="polite" className="text-sm">
         {size ? (
           <>
-            
             {t('ซื้อได้ ')}<b className="font-display text-lg">{fmtNumber(size.units, 8)}</b> {t(' หน่วย · มูลค่า ')}{fmtPrice(size.value)} {t(' · ถ้าโดน Stop เสีย ')}{fmtPrice(size.units.times(entry).minus(size.units.times(stop)))}
             <span className="block text-[12px] text-muted-foreground">
-              
               {t('ยอมเสียได้ ')}{fmtPrice(size.riskAmount)} {t(' · ราคาเข้าและ Stop ใช้สกุลเดียวกับหุ้น ถ้าคนละสกุลกับพอร์ต แปลงเงินในพอร์ตก่อน')}
             </span>
           </>
@@ -120,7 +118,6 @@ export function LotsCard({
               </span>
               <span className="text-right tabular-nums">{fmtNumber(lot.quantity, 8)} {t(' หน่วย')}</span>
               <span className="text-[12.5px] text-muted-foreground tabular-nums">
-                
                 {t('ทุน ')}{fmtPrice(lot.costQuote.div(lot.quantity))} {instrument.currency}
                 {!lot.costQuote.isZero() && t(' · เรท {0}', fmtRate(lot.costBase.div(lot.costQuote)))}
               </span>
@@ -142,7 +139,6 @@ export function LotsCard({
         </dl>
       )}
       <p className="text-[12px] text-muted-foreground">
-        
         {t('แอปคิดกำไรด้วยต้นทุนเฉลี่ยเหมือนโบรกไทย ไม้แยกด้านบนนับแบบซื้อก่อนขายก่อน (FIFO) ไว้ดูเทียบ')}
       </p>
     </Card>

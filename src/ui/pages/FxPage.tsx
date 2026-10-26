@@ -230,7 +230,6 @@ export function FxPage() {
   const exchangeLink = (
     <Link to={NEW_EXCHANGE} className={buttonVariants({ size: 'sm' })}>
       <Plus aria-hidden />
-      
       {t('บันทึกการแลกเงิน')}
     </Link>
   )
@@ -268,7 +267,6 @@ export function FxPage() {
                   <span className="font-display font-semibold text-fx">{fmtSigned(w.effectBase, 0)}</span>
                 </span>
                 <span className="text-[13px] text-muted-foreground tabular-nums">
-                  
                   {t('เรทเฉลี่ยที่ได้มา ')}{fmtRate(w.avgRate)} {t(' → วันนี้ ')}{fmtRate(w.todayRate)}
                 </span>
               </div>
@@ -320,7 +318,6 @@ export function FxPage() {
                 ))}
               </dl>
               <p className="mt-2.5 text-[12.5px] text-muted-foreground">
-                
                 {t('ใช้เตรียมข้อมูลเงินได้จากต่างประเทศที่นำเข้าไทย ไม่ใช่คำแนะนำภาษี')}
               </p>
             </Section>

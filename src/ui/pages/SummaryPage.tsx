@@ -58,12 +58,10 @@ export function SummaryPage() {
         </NativeSelect>
         <Button type="button" variant="outline" className="print:hidden" onClick={() => window.print()}>
           <Printer aria-hidden />
-          
           {t('พิมพ์ / บันทึกเป็น PDF')}
         </Button>
       </PageHeader>
       <p className="text-[13px] text-muted-foreground">
-        
         {t('ปี ค.ศ. ')}{year} {t(' · พ.ศ. ')}{year + 543} {t(' · คิดเป็น ')}{base} {t(' ที่เรทของแต่ละรายการ · ทำเมื่อ ')}{fmtDate(today)}
       </p>
 
@@ -104,7 +102,6 @@ export function SummaryPage() {
           </dl>
           <p className="mt-2 text-[12px] text-muted-foreground">{t('ตัวเลขช่วยเตรียมยื่นภาษี ไม่ใช่คำแนะนำทางภาษี ตรวจกับเอกสารจากโบรกและผู้เชี่ยวชาญก่อนยื่น')}</p>
           <Link to="/tax" className="mt-1 inline-flex min-h-11 items-center text-sm font-semibold text-primary-ink underline underline-offset-[3px] print:hidden">
-            
             {t('ดูรายงานช่วยเตรียมภาษีแบบละเอียด')}
           </Link>
         </Card>

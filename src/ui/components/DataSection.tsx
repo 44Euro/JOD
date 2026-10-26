@@ -149,14 +149,12 @@ export function DataSection({ data }: { data: AppData }) {
             <Input id="open-passphrase" type="password" autoComplete="off" value={openWith} onChange={(e) => setOpenWith(e.target.value)} />
           </Field>
           <Button type="submit" className="h-[46px]" disabled={!openWith}>
-            
             {t('เปิดไฟล์')}
           </Button>
         </form>
       )}
       <label className="flex min-h-11 items-center gap-2.5 text-sm">
         <input type="checkbox" className="size-5 accent-primary" checked={seal} onChange={(e) => setSeal(e.target.checked)} />
-        
         {t('เข้ารหัสไฟล์สำรองด้วยรหัสผ่าน')}
       </label>
       {seal && (
@@ -167,23 +165,19 @@ export function DataSection({ data }: { data: AppData }) {
       <div className="flex flex-wrap gap-2">
         <Button type="button" onClick={() => void handleExport()}>
           <Download aria-hidden />
-          
           {t('สำรองข้อมูล')}
         </Button>
         <Button type="button" variant="outline" onClick={() => fileRef.current?.click()}>
           <Upload aria-hidden />
-          
           {t('กู้คืนจากไฟล์')}
         </Button>
         <Button type="button" variant="outline" onClick={handleCsv}>
           <FileSpreadsheet aria-hidden />
-          
           {t('ส่งออก CSV สำหรับ Excel')}
         </Button>
         {hasSampleData(data.accounts) && (
           <Button type="button" variant="outline" onClick={() => void handleRemoveSample()}>
             <Trash2 aria-hidden />
-            
             {t('ลบข้อมูลตัวอย่าง')}
           </Button>
         )}
@@ -200,7 +194,6 @@ export function DataSection({ data }: { data: AppData }) {
         <p className="flex flex-wrap items-center gap-2 text-[12.5px] text-muted-foreground">
           <Badge variant="ok">
             <ShieldCheck aria-hidden />
-            
             {t('ป้องกันแล้ว')}
           </Badge>
           {STORAGE_LABELS.persisted}

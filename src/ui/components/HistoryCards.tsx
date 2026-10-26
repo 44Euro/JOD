@@ -227,17 +227,14 @@ export function PriceHistoryCard({ transactions, instrument }: { transactions: r
       <p className="flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-muted-foreground">
         <span>
           <span className="mr-1 inline-block size-2 rounded-full bg-gain" aria-hidden />
-          
           {t('ซื้อ')}
         </span>
         <span>
           <span className="mr-1 inline-block size-2 rounded-full bg-loss" aria-hidden />
-          
           {t('ขาย')}
         </span>
         <span>
           <span className="mr-1 inline-block size-2 rounded-full bg-primary" aria-hidden />
-          
           {t('ยอดยกมา')}
         </span>
         <span>{t('แอปไม่เก็บราคาย้อนหลัง เส้นนี้ลากจากราคาที่คุณซื้อขายจริงและราคาล่าสุด')}</span>

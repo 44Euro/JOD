@@ -181,12 +181,10 @@ function ReviewButton({
       {reviewed ? (
         <Badge variant="ok" className={open ? 'bg-gain-ink text-gain-soft' : undefined}>
           <Check aria-hidden />
-          
           {t('รีวิวแล้ว')}
         </Badge>
       ) : (
         <Badge variant="warning" className={open ? pressedBadge : undefined}>
-          
           {t('รีวิว')}
         </Badge>
       )}
@@ -306,7 +304,6 @@ function TradesView({ data, ledger }: { data: AppData; ledger: Ledger }) {
             <p className="text-muted-foreground">{t('บันทึกการซื้อและขายแล้วสถิติจะขึ้นที่นี่')}</p>
           </div>
           <Link to="/transactions/new" className={buttonVariants({ size: 'sm' })}>
-            
             {t('บันทึกรายการ')}
           </Link>
         </Card>

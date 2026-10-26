@@ -37,7 +37,6 @@ export function SwapFields({
     <>
       <label className="flex min-h-11 items-center gap-2.5 text-sm">
         <input type="checkbox" className="size-5 accent-primary" checked={draft.exercise} onChange={(e) => update({ exercise: e.target.checked })} />
-        
         {t('ใช้สิทธิแปลงสภาพ (วอร์แรนต์ หรือใบแสดงสิทธิ) เป็นหุ้น')}
       </label>
       <FieldGroup legend={draft.exercise ? t('วอร์แรนต์ที่ใช้สิทธิ') : t('แลกออก')}>
@@ -93,7 +92,6 @@ export function SwapFields({
 export function SwapSummary({ draft, outcome }: { draft: Draft; outcome: SwapOutcome }) {
   return (
     <p className="rounded-2xl bg-muted px-[18px] py-3 text-[13px]">
-      
       {t('ต้นทุน ')}{draft.toSymbol.trim().toUpperCase()} {fmtPrice(outcome.unitCost)} {draft.currency} {t(' ต่อหน่วย · กำไรที่ขายแล้วของ')}{' '}
       {draft.symbol.trim().toUpperCase()}{' '}
       <span className={plClass(outcome.realizedQuote)}>

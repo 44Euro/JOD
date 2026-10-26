@@ -76,10 +76,8 @@ export function TransactionFormPage() {
   if (data.accounts.length === 0) {
     return (
       <Card>
-        
         {t('ยังไม่มีบัญชี')}{' '}
         <Link to="/settings" className="font-semibold text-primary underline underline-offset-[3px]">
-          
           {t('เพิ่มบัญชีก่อน')}
         </Link>
       </Card>
@@ -380,7 +378,6 @@ function TransactionForm({
           {copiedFrom && (
             <p className="flex items-center gap-2 text-[13px] text-muted-foreground">
               <Copy className="size-4 shrink-0" aria-hidden />
-              
               {t('ทำซ้ำจากรายการวันที่ ')}{fmtDate(copiedFrom.date)}
             </p>
           )}
@@ -424,11 +421,9 @@ function TransactionForm({
           {draft.type === 'opening' && (
             <div className="flex flex-wrap gap-2" role="group" aria-label={t('ยอดยกมาของ')}>
               <Chip active={draft.openingKind === 'asset'} onClick={() => setDraft((d) => changeOpeningKind(d, 'asset'))}>
-                
                 {t('สินทรัพย์ที่ถืออยู่')}
               </Chip>
               <Chip active={draft.openingKind === 'cash'} onClick={() => setDraft((d) => changeOpeningKind(d, 'cash'))}>
-                
                 {t('เงินสดคงเหลือ')}
               </Chip>
             </div>
@@ -511,7 +506,6 @@ function TransactionForm({
             {draft.type === 'buy' && (
               <label className="flex min-h-11 items-center gap-2.5 text-sm sm:col-span-2">
                 <input type="checkbox" className="size-5 accent-primary" checked={draft.rightsOffer} onChange={(e) => update({ rightsOffer: e.target.checked })} />
-                
                 {t('ซื้อหุ้นเพิ่มทุนตามสิทธิ (XR) ที่ราคาจองซื้อ')}
               </label>
             )}
@@ -576,29 +570,24 @@ function TransactionForm({
           <div className="flex flex-wrap items-center gap-2">
             <Button type="submit" disabled={saving}>
               <Check aria-hidden />
-              
               {t('บันทึก')}
             </Button>
             {!existing && (
               <Button type="button" variant="outline" disabled={saving} onClick={() => void save(true)}>
-                
                 {t('บันทึกแล้วเพิ่มอีก')}
               </Button>
             )}
             <Link to="/transactions" className={buttonVariants({ variant: 'ghost' })}>
-              
               {t('ยกเลิก')}
             </Link>
             {existing && (
               <div className="ml-auto flex flex-wrap items-center gap-2">
                 <Link to={`/transactions/new?from=${existing.id}`} className={buttonVariants({ variant: 'outline' })}>
                   <Copy aria-hidden />
-                  
                   {t('ทำซ้ำ')}
                 </Link>
                 <Button type="button" variant="ghost" className="text-destructive" onClick={() => void handleDelete()}>
                   <Trash2 aria-hidden />
-                  
                   {t('ลบรายการนี้')}
                 </Button>
               </div>

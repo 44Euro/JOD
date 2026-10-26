@@ -48,7 +48,6 @@ export function ImportHistory({ accounts }: { accounts: readonly Account[] }) {
               onClick={() => void undo(batch.id, batch.count)}
             >
               <Undo2 className="size-4" aria-hidden />
-              
               {t('ยกเลิกการนำเข้าครั้งนี้')}
             </button>
           </li>

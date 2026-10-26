@@ -21,7 +21,6 @@ export function WithdrawFields({ draft, update }: { draft: Draft; update(patch: 
           checked={draft.remitToThailand}
           onChange={(e) => update({ remitToThailand: e.target.checked })}
         />
-        
         {t('โอนกลับเข้าไทย (ใช้คิดภาษีเงินได้จากต่างประเทศ)')}
       </label>
       {draft.remitToThailand && (

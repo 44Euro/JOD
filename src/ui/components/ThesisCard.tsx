@@ -66,7 +66,6 @@ export function ThesisCard({ instrument, today }: { instrument: Instrument; toda
           <div className="flex gap-2">
             <Button type="submit">{t('บันทึก')}</Button>
             <Button type="button" variant="outline" onClick={() => setEditing(false)}>
-              
               {t('ยกเลิก')}
             </Button>
           </div>

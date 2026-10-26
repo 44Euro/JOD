@@ -106,7 +106,6 @@ function Shell() {
           className={cn(buttonVariants(), 'mt-[22px] mb-4 h-12 shrink-0 text-base md:h-12')}
         >
           <Plus aria-hidden />
-          
           {t('บันทึกรายการ')}
         </NavLink>
         <nav aria-label={t('เมนูหลัก')} className="grid shrink-0 gap-0.5">
@@ -143,7 +142,6 @@ function Shell() {
           <span className="-mt-5 grid size-[54px] place-items-center rounded-[17px] bg-primary text-primary-foreground shadow-[0_8px_18px_rgba(29,78,216,.3)]">
             <Plus className="size-6" aria-hidden />
           </span>
-          
           {t('บันทึก')}
         </NavLink>
         <TabLink {...TRADES} />

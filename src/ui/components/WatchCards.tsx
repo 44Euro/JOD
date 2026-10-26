@@ -93,7 +93,6 @@ export function WatchlistCard({ data }: { data: AppData }) {
         )}
         <div className="sm:col-span-3">
           <Button type="submit" disabled={!symbol.trim()}>
-            
             {t('เพิ่มเข้า watchlist')}
           </Button>
         </div>
@@ -141,7 +140,6 @@ export function ChecklistCard({ data }: { data: AppData }) {
           <Input id="checklist-item" placeholder={t('เช่น ตามแผนที่เขียนไว้, ตั้ง Stop loss แล้ว')} value={draft} onChange={(e) => setDraft(e.target.value)} />
         </Field>
         <Button type="submit" variant="outline" className="h-[46px]" disabled={!draft.trim()}>
-          
           {t('เพิ่ม')}
         </Button>
       </form>

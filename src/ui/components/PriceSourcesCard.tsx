@@ -22,7 +22,6 @@ function KeyField({ id, label, storageKey, hint }: { id: string; label: string; 
           <span className="font-mono text-sm">{maskApiKey(stored)}</span>
         </span>
         <Button type="button" variant="ghost" onClick={() => writeLocal(storageKey, '')}>
-          
           {t('ลบ key')}
         </Button>
       </div>
@@ -41,7 +40,6 @@ function KeyField({ id, label, storageKey, hint }: { id: string; label: string; 
         <Input id={id} type="password" autoComplete="off" spellCheck={false} value={draft} onChange={(e) => setDraft(e.target.value)} />
       </Field>
       <Button type="submit" variant="outline" className="h-[46px]" disabled={!draft.trim()}>
-        
         {t('บันทึก')}
       </Button>
     </form>
@@ -56,7 +54,6 @@ export function PriceSourcesCard({ settings }: { settings: Settings }) {
       <div>
         <h2 className="text-lg font-semibold">{t('ราคาอัตโนมัติ')}</h2>
         <p className="text-[12.5px] text-muted-foreground">
-          
           {t('คริปโตดึงจาก CoinGecko ได้ฟรีไม่ต้องมี key · หุ้นและ ETF สหรัฐใช้ key ฟรีของ Finnhub (finnhub.io) · หุ้นไทยและกองทุนยังต้องกรอกเองหรืออัปเดตจากรูป · key เก็บในเครื่องนี้เท่านั้น')}
         </p>
       </div>
@@ -65,11 +62,9 @@ export function PriceSourcesCard({ settings }: { settings: Settings }) {
       <div className="flex items-center justify-between gap-3">
         <span className="min-w-0">
           <span id="auto-prices-label" className="block">
-            
             {t('ดึงราคาวันละครั้งเมื่อเปิดแอป')}
           </span>
           <span id="auto-prices-hint" className="block text-[12.5px] text-muted-foreground">
-            
             {t('แอปจะส่งชื่อสินทรัพย์ที่ถือไปถามราคา ไม่ส่งจำนวนหรือมูลค่า')}
           </span>
         </span>

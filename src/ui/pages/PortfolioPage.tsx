@@ -110,7 +110,6 @@ export function PortfolioPage() {
                   <div className="mb-3.5 flex flex-wrap items-baseline justify-between gap-3">
                     <h2 className="text-lg font-semibold">{account.name}</h2>
                     <span className="text-[13px] text-muted-foreground">
-                      
                       {t('มูลค่า ')}{fmtHeadline(sumBy(mine, positionValueBase), base)} · {mine.length} {t(' ตัว')}
                     </span>
                   </div>
@@ -182,7 +181,6 @@ export function PortfolioPage() {
         )}
         {tradeOnly && (
           <p className="mt-3 text-[12.5px] text-muted-foreground">
-            
             {t('บัญชีที่จดแค่ซื้อขาย ไม่นับเงินสด (ไม่มีรายการฝาก ถอน หรือแลกเงิน)')}
           </p>
         )}

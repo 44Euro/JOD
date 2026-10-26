@@ -87,7 +87,6 @@ export function SettingsPage() {
                 hasTransactions ? (
                   <span className="inline-flex items-center gap-1.5">
                     <Lock className="size-3.5 shrink-0" aria-hidden />
-                    
                     {t('เปลี่ยนไม่ได้หลังมีรายการแล้ว เพราะเรทที่บันทึกไว้ทุกรายการอิงกับสกุลเงินนี้')}
                   </span>
                 ) : (
@@ -170,7 +169,6 @@ export function SettingsPage() {
                 <Input id="account-broker" value={broker} onChange={(e) => setBroker(e.target.value)} />
               </Field>
               <Button type="submit" className="h-[46px]">
-                
                 {t('เพิ่มบัญชี')}
               </Button>
             </form>
@@ -217,11 +215,9 @@ export function SettingsPage() {
             <div className="flex items-center justify-between gap-3">
               <span className="min-w-0">
                 <span id="hide-numbers-label" className="block">
-                  
                   {t('ซ่อนตัวเลขทุกครั้งที่เปิดแอป')}
                 </span>
                 <span id="hide-numbers-hint" className="block text-[12.5px] text-muted-foreground">
-                  
                   {t('แสดงเป็น ••• จนกว่าจะแตะรูปตา')}
                 </span>
               </span>
@@ -233,7 +229,6 @@ export function SettingsPage() {
               />
             </div>
             <Link to="/privacy" className="inline-flex min-h-11 items-center text-sm font-semibold text-primary-ink underline underline-offset-[3px]">
-              
               {t('อ่านนโยบายความเป็นส่วนตัว')}
             </Link>
           </Card>

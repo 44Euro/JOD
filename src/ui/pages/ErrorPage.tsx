@@ -27,12 +27,10 @@ export function ErrorPage() {
         </p>
         <div className="flex flex-wrap gap-2">
           <Link to="/" className={buttonVariants()}>
-            
             {t('กลับหน้าภาพรวม')}
           </Link>
           {!notFound && (
             <button type="button" className={cn(buttonVariants({ variant: 'outline' }))} onClick={() => location.reload()}>
-              
               {t('โหลดใหม่')}
             </button>
           )}

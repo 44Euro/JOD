@@ -127,7 +127,6 @@ export function CurrencyView({ rows, base }: { rows: readonly AllocationRow[]; b
               </span>
               <span className="font-display font-semibold">{fmtPct(row.pct, 1, 1)}</span>
               <span className="col-span-2 text-[12.5px] text-muted-foreground">
-                
                 {t('สินทรัพย์ ')}{fmtValue(row.assetsBase)} {t(' · เงินสด ')}{fmtValue(row.cashBase)}
               </span>
             </li>

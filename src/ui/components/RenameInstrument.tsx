@@ -72,11 +72,9 @@ export function RenameInstrument({ instrument, onClose }: { instrument: Instrume
         {error && <Alert tone="error">{error}</Alert>}
         <div className="flex flex-wrap items-center gap-2">
           <Button type="submit" disabled={saving}>
-            
             {t('บันทึก')}
           </Button>
           <Button type="button" variant="outline" onClick={onClose}>
-            
             {t('ยกเลิก')}
           </Button>
         </div>

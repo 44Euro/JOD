@@ -115,14 +115,12 @@ export function DashboardPage() {
             to="/settings"
             className="inline-flex h-8 items-center rounded-full border bg-card px-3 text-[12.5px] font-semibold text-ink-2 hover:bg-muted max-md:h-11"
           >
-            
             {t('ข้อมูลตัวอย่าง')}
           </Link>
         )}
         <EyeButton />
         <Link to="/transactions/new" className={cn(buttonVariants({ size: 'sm' }), 'max-md:hidden')}>
           <Plus aria-hidden />
-          
           {t('บันทึกรายการ')}
         </Link>
       </PageHeader>
@@ -213,7 +211,6 @@ export function DashboardPage() {
               to="/portfolio"
               className="-my-3 inline-flex min-h-11 items-center text-sm font-semibold text-primary md:my-0 md:min-h-0"
             >
-              
               {t('ดูพอร์ตทั้งหมด')}
             </Link>
           </div>

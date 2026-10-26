@@ -92,7 +92,6 @@ export function WelcomePage() {
       className="min-h-11 justify-self-start text-[13.5px] font-semibold text-primary-ink underline-offset-[3px] hover:underline disabled:opacity-50"
       onClick={() => void trySample()}
     >
-      
       {t('ลองดูด้วยข้อมูลตัวอย่างก่อน')}
     </button>
   )
@@ -107,10 +106,8 @@ export function WelcomePage() {
         </p>
         <Stations steps={STEPS} step={step} />
         <p className="text-[12.5px] text-muted-foreground">
-          
           {t('ข้อมูลเก็บในเครื่องนี้และซิงก์แบบเข้ารหัส ไม่มีตัวติดตาม ·')}{' '}
           <Link to="/privacy" className="font-semibold text-primary-ink underline underline-offset-[3px]">
-            
             {t('นโยบายความเป็นส่วนตัว')}
           </Link>
         </p>
@@ -133,7 +130,6 @@ export function WelcomePage() {
             <div className="flex flex-wrap items-center justify-between gap-2">
               {sampleLink}
               <Button type="button" onClick={() => setStep(1)}>
-                
                 {t('ถัดไป')}
               </Button>
             </div>
@@ -202,11 +198,9 @@ export function WelcomePage() {
             <div className="flex flex-wrap items-center justify-between gap-2">
               <Button type="button" variant="ghost" onClick={() => setStep(0)}>
                 <ChevronLeft aria-hidden />
-                
                 {t('ย้อนกลับ')}
               </Button>
               <Button type="button" disabled={busy} onClick={() => void saveAccount()}>
-                
                 {t('ถัดไป')}
               </Button>
             </div>
@@ -245,7 +239,6 @@ export function WelcomePage() {
               </li>
             </ul>
             <Link to="/" className={cn(buttonVariants({ variant: 'outline' }), 'mt-3')}>
-              
               {t('ไปที่ภาพรวม')}
             </Link>
           </Card>

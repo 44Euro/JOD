@@ -25,7 +25,6 @@ export function MissingRatesNote({ currencies }: { currencies: readonly string[]
   if (currencies.length === 0) return null
   return (
     <Alert role="note">
-      
       {t('ยังไม่มีเรทวันนี้ของ ')}{currencies.join(', ')} {t(' · สินทรัพย์สกุลนี้นับที่ทุน และยังไม่รวมเงินสดสกุลนี้')}
     </Alert>
   )
@@ -131,11 +130,9 @@ export function HoldingsTable({ valuations, instruments, accountNames, base, rat
                 {stats ? (
                   <>
                     <span className="whitespace-nowrap">
-                      
                       {t('ยังไม่ขาย ')}<span className={plClass(v.unrealizedBase)}>{fmtSigned(v.unrealizedBase, 0)}</span>
                     </span>{' '}
                     <span className="whitespace-nowrap">
-                      
                       {t('· รวมปันผล ')}<span className={plClass(own?.totalReturnBase)}>{fmtSigned(own?.totalReturnBase, 0)}</span>
                     </span>
                   </>
@@ -143,7 +140,6 @@ export function HoldingsTable({ valuations, instruments, accountNames, base, rat
                   <>
                     <span className="whitespace-nowrap">{fmtNumber(p.quantity, 8)} {unitLabel(instrument)}</span>{' '}
                     <span className="whitespace-nowrap">
-                      
                       {t('· หุ้น ')}<span className={plClass(v.priceEffectBase)}>{fmtSigned(v.priceEffectBase, 0)}</span>
                     </span>
                   </>
@@ -152,7 +148,6 @@ export function HoldingsTable({ valuations, instruments, accountNames, base, rat
                   <>
                     {' '}
                     <span className="whitespace-nowrap">
-                      
                       {t('· ค่าเงิน ')}<span className="text-fx">{fmtSigned(v.fxEffectBase, 0)}</span>
                     </span>
                   </>

@@ -54,14 +54,12 @@ export function TaxPage() {
         <NativeSelect aria-label={t('ปีภาษี')} className="h-10 w-auto" value={year} onChange={(e) => setChosen(Number(e.target.value))}>
           {years.map((y) => (
             <option key={y} value={y}>
-              
               {t('ปีภาษี ')}{y + 543} ({y})
             </option>
           ))}
         </NativeSelect>
       </PageHeader>
       <Alert role="note">
-        
         {t('ตัวเลขช่วยเตรียมยื่นภาษีจากรายการที่บันทึก ใช้เงื่อนไขกองทุนลดหย่อนตามที่ประกาศสำหรับการซื้อตั้งแต่ปี ')}{TAX_RULES_YEAR + 543} {t(' · ไม่ใช่คำแนะนำทางภาษี ตรวจกับหนังสือรับรองจากโบรก บลจ. และกรมสรรพากรก่อนยื่น')}
       </Alert>
 
@@ -85,7 +83,6 @@ export function TaxPage() {
             <Line label={t('เงินที่โอนกลับเข้าไทย ปีภาษี {0}', year + 543)} note={t('จากรายการถอนที่ติ๊ก โอนกลับเข้าไทย')} value={money(remitted)} />
           </dl>
           <p className="mt-2 text-[12px] text-muted-foreground">
-            
             {t('เงินได้จากต่างประเทศที่เกิดตั้งแต่ปี 2567 ต้องนำมารวมคำนวณภาษีในปีที่นำเข้าไทย · แอปไม่รู้ว่าเงินที่โอนกลับเป็นเงินต้นหรือกำไรเท่าไหร่ ตรวจกับหลักฐานของคุณ')}
           </p>
         </Card>
@@ -120,7 +117,6 @@ export function TaxPage() {
             <Alert tone="error">
               {yearBreaches.map((b) => (
                 <p key={`${b.saleTxId}-${b.boughtOn}`}>
-                  
                   {t('ขาย ')}{symbolOf(b.instrumentId)} {fmtNumber(b.quantity, 4)} {t(' หน่วยเมื่อ ')}{fmtDate(b.soldOn)} {t(' ก่อนครบกำหนด (')}{fmtDate(b.freeFrom)}{t(') · อาจต้องคืนสิทธิลดหย่อนของปีที่ซื้อ (')}
                   {Number(b.boughtOn.slice(0, 4)) + 543})
                 </p>
@@ -136,7 +132,6 @@ export function TaxPage() {
                   <span>
                     <b className="font-display">{symbolOf(lot.instrumentId)}</b> <Badge>{TAX_FUND_RULES[lot.kind].label}</Badge>
                     <span className="block text-[12px] text-muted-foreground">
-                      
                       {t('ซื้อ ')}{fmtDate(lot.boughtOn)} · {fmtNumber(lot.quantity, 4)} {t(' หน่วย')}
                     </span>
                   </span>

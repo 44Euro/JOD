@@ -21,7 +21,6 @@ function receivedHint(draft: Draft, computed: string | null, rateMissing: boolea
         className="inline-flex min-h-11 items-center text-[13px] font-semibold text-fx underline underline-offset-[3px] md:min-h-0"
         onClick={restoreComputed}
       >
-        
         {t('ใช้ยอดคำนวณ ')}{fmtAmount(computed)}
       </button>
     )
@@ -69,7 +68,6 @@ export function ConvertFields({
 export function ConvertSummary({ draft, summary }: { draft: Draft; summary: FxConvertSummary }) {
   return (
     <p className="rounded-2xl bg-fx-soft px-[18px] py-3 text-[13px] text-fx">
-      
       {t('เรทที่ได้ 1 ')}{draft.toCurrency} = {fmtPrice(summary.effectiveRate)} {draft.currency}
       {summary.marketRate && t(' · เรทตลาด {0}', fmtPrice(summary.marketRate))}
       {summary.spreadPct && ` · ${spreadText(summary.spreadPct)}`}

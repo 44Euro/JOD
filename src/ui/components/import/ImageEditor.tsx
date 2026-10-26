@@ -90,7 +90,6 @@ export function ImageEditor({
       </div>
       <div className="flex flex-wrap gap-2">
         <Button type="button" disabled={busy || (!crop && covers.length === 0)} onClick={() => void apply()}>
-          
           {t('ใช้รูปนี้')}
         </Button>
         <Button
@@ -102,11 +101,9 @@ export function ImageEditor({
             setCrop(null)
           }}
         >
-          
           {t('ล้าง')}
         </Button>
         <Button type="button" variant="ghost" onClick={onCancel}>
-          
           {t('ยกเลิก')}
         </Button>
       </div>

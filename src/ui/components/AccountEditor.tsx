@@ -69,7 +69,6 @@ export function AccountEditor({ account, onDone }: { account: Account; onDone():
       </div>
       <label className="flex min-h-11 items-center gap-2.5 text-sm">
         <input type="checkbox" className="size-5 accent-primary" checked={hasFormula} onChange={(e) => setHasFormula(e.target.checked)} />
-        
         {t('บัญชีนี้มีค่าคอมซื้อขาย')}
       </label>
       {hasFormula && (
@@ -98,11 +97,9 @@ export function AccountEditor({ account, onDone }: { account: Account; onDone():
       {error && <Alert tone="error">{error}</Alert>}
       <div className="flex flex-wrap items-center gap-2">
         <Button type="submit" disabled={saving}>
-          
           {t('บันทึก')}
         </Button>
         <Button type="button" variant="ghost" onClick={onDone}>
-          
           {t('ยกเลิก')}
         </Button>
       </div>

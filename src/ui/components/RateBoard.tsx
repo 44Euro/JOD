@@ -59,7 +59,6 @@ export function RateBoard({ rows, base, full = false, caption = t('เรทเ�
     >
       <div className="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <h2 id="rate-board-title" className="text-lg font-semibold text-white">
-          
           {t('กระดานเรทของคุณ')}
         </h2>
         <p className="text-[12.5px] text-board-muted">{caption}</p>

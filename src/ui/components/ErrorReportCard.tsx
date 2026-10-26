@@ -15,7 +15,6 @@ export function ErrorReportCard() {
       <div>
         <h2 className="text-lg font-semibold">{t('รายงานปัญหา')}</h2>
         <p className="text-[12.5px] text-muted-foreground">
-          
           {t('แอปจดปัญหาที่เกิดไว้ในเครื่องนี้ ไม่ส่งไปไหนเอง · รายงานไม่มีตัวเลขหรือรายการของคุณ ส่งให้ผู้พัฒนาได้อย่างสบายใจ')}
         </p>
       </div>
@@ -24,7 +23,6 @@ export function ErrorReportCard() {
       ) : (
         <>
           <p className="text-sm">
-            
             {t('มี ')}{errors.length} {t(' ปัญหา · ล่าสุด ')}{fmtDate(errors[0].at.slice(0, 10))}
           </p>
           <ul aria-label={t('ปัญหาล่าสุด')} className="grid gap-1 text-[12.5px] text-muted-foreground">
@@ -48,11 +46,9 @@ export function ErrorReportCard() {
               {copied ? t('คัดลอกแล้ว') : t('คัดลอกรายงาน')}
             </Button>
             <Button type="button" variant="outline" onClick={() => downloadText(`jod-errors-${todayLocal()}.txt`, errorReport(errors), 'text/plain')}>
-              
               {t('ดาวน์โหลดรายงาน')}
             </Button>
             <Button type="button" variant="ghost" onClick={clearErrors}>
-              
               {t('ล้าง')}
             </Button>
           </div>

@@ -33,7 +33,6 @@ function formulaHint(draft: Draft, account: Account | undefined, restoreFormula:
     const { body, minimum } = feeTemplateParts(template)
     return (
       <>
-        
         {t('คำนวณจากสูตรของ ')}{account.name} · {body}
         {minimum && (
           <>
@@ -50,7 +49,6 @@ function formulaHint(draft: Draft, account: Account | undefined, restoreFormula:
       className="inline-flex min-h-11 items-center text-left text-[13px] font-semibold text-primary underline underline-offset-[3px] md:min-h-0"
       onClick={restoreFormula}
     >
-      
       {t('ใช้สูตรของบัญชี (')}{fmtMoney(computed)})
     </button>
   )

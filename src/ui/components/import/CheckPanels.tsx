@@ -81,11 +81,9 @@ export function PriceReviewPanel({
       {error && <Alert tone="error">{error}</Alert>}
       <div className="flex flex-wrap gap-2">
         <Button type="button" disabled={chosen.length === 0} onClick={() => void save()}>
-          
           {t('อัปเดตราคา ')}{chosen.length} {t(' ตัว')}
         </Button>
         <Button type="button" variant="ghost" onClick={onCancel}>
-          
           {t('ยกเลิก')}
         </Button>
       </div>
@@ -121,7 +119,6 @@ export function ComparePanel({
   return (
     <div className="grid gap-4">
       <p className="font-semibold">
-        
         {t('ตรงกัน ')}{matched} {t(' จาก ')}{lines.length} {t(' ตัว')}
       </p>
       <ul aria-label={t('ผลการเทียบยอด')}>
@@ -135,7 +132,6 @@ export function ComparePanel({
               {STATE_TEXT[line.state].label}
             </Badge>
             <span className="col-span-2 text-[13px] text-muted-foreground tabular-nums">
-              
               {t('ในโบรก ')}{line.broker ? fmtNumber(line.broker, 8) : '—'} {t(' · ในแอป ')}{line.app ? fmtNumber(line.app, 8) : '—'}
               {line.state === 'differ' && line.broker && line.app && t(' · ต่าง {0}', fmtNumber(line.broker.minus(line.app), 8))}
             </span>
@@ -147,7 +143,6 @@ export function ComparePanel({
       )}
       <div>
         <Button type="button" variant="outline" onClick={onDone}>
-          
           {t('เสร็จ')}
         </Button>
       </div>

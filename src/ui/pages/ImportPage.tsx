@@ -182,7 +182,6 @@ export function ImportPage() {
       <>
         <PageHeader title={t('นำเข้าข้อมูล')} />
         <Alert>
-          
           {t('เพิ่มบัญชีก่อน แล้วค่อยนำเข้ารายการของบัญชีนั้น · ')}<Link to="/settings">{t('ไปที่ตั้งค่า')}</Link>
         </Alert>
       </>
@@ -286,7 +285,6 @@ export function ImportPage() {
           </div>
 
           <p className="text-[13px] text-muted-foreground">
-            
             {t('อ่านด้วย: ')}<b className="text-ink-2">{READER_MODE_LABELS[mode]}</b>
             {' · '}
             {mode === 'local'
@@ -294,13 +292,11 @@ export function ImportPage() {
               : t('ไฟล์จะถูกส่งไปให้ {0} อ่าน{1}', READER_MODE_LABELS[mode], cost ? t(' · {0} ไฟล์ ≈ {1} {2}', files.length, cost, base === 'THB' ? 'บาท' : base) : '')}
             {' · '}
             <Link to="/settings" className="font-semibold text-primary-ink underline underline-offset-[3px]">
-              
               {t('เปลี่ยน')}
             </Link>
           </p>
           {needsKey && (
             <Alert>
-              
               {t('ตั้งค่า {0} ในหน้าตั้งค่าก่อน หรือเปลี่ยนเป็นอ่านในเครื่อง · ', READER_MODE_LABELS[mode])}<Link to="/settings">{t('ไปที่ตั้งค่า')}</Link>
             </Alert>
           )}
@@ -313,11 +309,9 @@ export function ImportPage() {
             {phase.name === 'reading' ? (
               <>
                 <Button type="button" disabled>
-                  
                   {t('กำลังอ่าน ')}{files.length} {t(' ไฟล์…')}
                 </Button>
                 <Button type="button" variant="ghost" onClick={() => abort.current?.abort()}>
-                  
                   {t('หยุดอ่าน')}
                 </Button>
               </>
@@ -388,11 +382,9 @@ export function ImportPage() {
           <Alert tone="ok">{phase.message}</Alert>
           <div className="flex flex-wrap gap-2">
             <Button type="button" onClick={() => setPhase({ name: 'pick' })}>
-              
               {t('นำเข้าเพิ่ม')}
             </Button>
             <Link to="/portfolio" className={cn(buttonVariants({ variant: 'outline' }))}>
-              
               {t('ไปที่พอร์ต')}
             </Link>
           </div>

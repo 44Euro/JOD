@@ -22,7 +22,6 @@ export function TransferFields({
     <>
       {targets.length === 0 ? (
         <Alert role="note">
-          
           {t('ต้องมีอย่างน้อย 2 บัญชีจึงจะโอนได้ · ')}<Link to="/settings">{t('เพิ่มบัญชีในหน้าตั้งค่า')}</Link>
         </Alert>
       ) : (
@@ -40,11 +39,9 @@ export function TransferFields({
       )}
       <div className="flex flex-wrap gap-2" role="group" aria-label={t('โอนอะไร')}>
         <Chip active={draft.transferKind === 'asset'} onClick={() => update({ transferKind: 'asset' })}>
-          
           {t('สินทรัพย์')}
         </Chip>
         <Chip active={draft.transferKind === 'cash'} onClick={() => update({ transferKind: 'cash' })}>
-          
           {t('เงินสด')}
         </Chip>
       </div>

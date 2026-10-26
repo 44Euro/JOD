@@ -12,7 +12,6 @@ function ReinvestSummary({ dividend, buy }: { dividend: Transaction; buy: Transa
   const left = cashDeltaQuote(dividend).plus(cashDeltaQuote(buy))
   return (
     <p className="rounded-2xl bg-muted px-[18px] py-3 text-[13px]">
-      
       {t('ซื้อ ')}{fmtNumber(buy.quantity, 8)} × {fmtPrice(buy.price)} = {fmtMoney(D(buy.quantity).times(D(buy.price)), buy.currency)}
       {fees.greaterThan(0) && t(' + ค่าธรรมเนียม {0}', fmtMoney(fees, buy.currency))}
       {' '}
@@ -43,7 +42,6 @@ export function ReinvestFields({
           checked={draft.reinvest}
           onChange={(e) => update({ reinvest: e.target.checked })}
         />
-        
         {t('นำปันผลไปซื้อหุ้นนี้ต่อ (บันทึก 2 รายการ)')}
       </label>
       {draft.reinvest && (

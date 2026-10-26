@@ -135,21 +135,18 @@ export function ImportReviewPanel({
         {total.state === 'match' && (
           <Badge variant="ok">
             <Check aria-hidden />
-            
             {t('ยอดรวมตรงกับรูป ')}{fmtNumber(total.stated)} {total.currency}
           </Badge>
         )}
         {total.state === 'mismatch' && (
           <Badge variant="warning">
             <TriangleAlert aria-hidden />
-            
             {t('ยอดรวมไม่ตรง: ในรูป ')}{fmtNumber(total.stated)} {t(' · แอปบวกได้ ')}{fmtNumber(total.counted)} {total.currency}
           </Badge>
         )}
         {toCheck > 0 && (
           <Badge variant="warning">
             <TriangleAlert aria-hidden />
-            
             {t('ต้องตรวจ ')}{toCheck} {t(' จุด')}
           </Badge>
         )}
@@ -192,14 +189,12 @@ export function ImportReviewPanel({
                 hint={
                   reference && (
                     <>
-                      
                       {t('ไม่รู้?')}{' '}
                       <button
                         type="button"
                         className="font-semibold text-primary-ink underline underline-offset-[3px]"
                         onClick={() => setOpeningRates((c) => ({ ...c, [currency]: { rate: reference, source: 'estimated' } }))}
                       >
-                        
                         {t('ใช้เรทกลาง ')}{fmtRate(reference)} {t(' เป็นค่าประมาณ')}
                       </button>
                       {value?.source === 'estimated' && <Badge variant="estimated" className="ml-1.5">{t('ประมาณ')}</Badge>}
@@ -226,7 +221,6 @@ export function ImportReviewPanel({
       {hasPrices && (
         <label className="flex min-h-11 items-center gap-2.5 text-sm">
           <input type="checkbox" className="size-5 accent-primary" checked={updatePrices} onChange={(e) => setUpdatePrices(e.target.checked)} />
-          
           {t('อัปเดตราคาล่าสุดจากรูปด้วย')}
         </label>
       )}
@@ -240,11 +234,9 @@ export function ImportReviewPanel({
       <div className="flex flex-wrap gap-2">
         <Button type="button" disabled={saving || chosen.length === 0} onClick={() => void confirm()}>
           <Check aria-hidden />
-          
           {t('ยืนยันบันทึก ')}{chosen.length} {t(' รายการ')}
         </Button>
         <Button type="button" variant="ghost" onClick={onCancel}>
-          
           {t('ยกเลิก')}
         </Button>
       </div>

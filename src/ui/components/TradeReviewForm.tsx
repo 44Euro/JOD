@@ -71,7 +71,6 @@ export function TradeReviewForm({
       </Field>
       <div className="grid gap-1.5">
         <span id={`${id}-mistakes`} className={labelClass}>
-          
           {t('ข้อผิดพลาดที่ทำ')}
         </span>
         <div role="group" aria-labelledby={`${id}-mistakes`} className="flex flex-wrap gap-2">
@@ -84,7 +83,6 @@ export function TradeReviewForm({
       </div>
       <div className="grid gap-1.5">
         <span aria-hidden className={labelClass}>
-          
           {t('คะแนนการลงมือ')}
         </span>
         {/* A segment cannot be pressed off, so pressing the chosen number again takes the score back. */}
@@ -104,11 +102,9 @@ export function TradeReviewForm({
       )}
       <div className="flex gap-2">
         <Button type="submit" disabled={saving}>
-          
           {t('บันทึก')}
         </Button>
         <Button type="button" variant="outline" onClick={onClose}>
-          
           {t('ยกเลิก')}
         </Button>
       </div>

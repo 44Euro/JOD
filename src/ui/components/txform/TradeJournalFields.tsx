@@ -45,7 +45,6 @@ function Scale({ id, label, value, onChange }: { id: string; label: string; valu
           className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg px-2 text-[13px] font-semibold text-primary focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/35 md:col-start-2 md:row-start-2 md:min-h-0 md:min-w-0 md:justify-self-start"
           onClick={() => onChange('')}
         >
-          
           {t('ล้าง')}
         </button>
       )}
@@ -96,7 +95,6 @@ export function TradeJournalFields({
           {!open && (
             <span aria-hidden className="text-muted-foreground">
               {' '}
-              
               {t('· กลยุทธ์ เหตุผล อารมณ์ Stop loss')}
             </span>
           )}
@@ -122,7 +120,6 @@ export function TradeJournalFields({
                 </label>
               ))}
               <span className="text-[12.5px] text-muted-foreground">
-                
                 {t('ติ๊กแล้ว ')}{journal.checked.filter((c) => checklist.includes(c)).length} {t(' จาก ')}{checklist.length} {t(' ข้อ')}
               </span>
             </fieldset>

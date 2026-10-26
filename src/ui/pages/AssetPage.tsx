@@ -68,7 +68,6 @@ export function AssetPage() {
   const back = (
     <Link to="/portfolio" className="-my-3 inline-flex min-h-11 w-fit items-center gap-1 text-sm font-semibold text-primary md:my-0 md:min-h-0">
       <ChevronLeft className="size-4" aria-hidden />
-      
       {t('พอร์ต')}
     </Link>
   )

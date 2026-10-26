@@ -96,7 +96,6 @@ function UndoButton({ label, className, onUndo }: { label: string; className?: s
       onClick={onUndo}
     >
       <Undo2 aria-hidden />
-      
       {t('ย้อนกลับ')}
     </button>
   )
@@ -190,12 +189,10 @@ export function TransactionsPage() {
           }
         >
           <Download aria-hidden />
-          
           {t('ส่งออก CSV')}
         </Button>
         <Link to="/transactions/new" className={cn(buttonVariants({ size: 'sm' }), 'max-md:hidden')}>
           <Plus aria-hidden />
-          
           {t('บันทึกรายการ')}
         </Link>
       </PageHeader>
@@ -242,7 +239,6 @@ export function TransactionsPage() {
 
       {ledger.issues.length > 0 && (
         <Alert>
-          
           {t('มี ')}{ledger.issues.length} {t(' รายการที่คำนวณไม่ได้ (แถวสีเหลือง) มักเกิดจากขายเกินจำนวนที่ถือ หรือแก้/ลบรายการซื้อก่อนหน้า')}
         </Alert>
       )}
@@ -327,7 +323,6 @@ export function TransactionsPage() {
                           {issue && (
                             <Badge variant="warning">
                               <TriangleAlert aria-hidden />
-                              
                               {t('ไม่นับในพอร์ต')}
                             </Badge>
                           )}
@@ -402,7 +397,6 @@ export function TransactionsPage() {
                             {describeMain(tx, accountNames, instruments)}
                             {!namesCurrency(tx) && ` ${tx.currency}`}
                           </span>{' '}
-                          
                           {t('· ลบเมื่อสักครู่')}
                         </span>
                         <UndoButton label={label(tx)} className="-mr-2" onUndo={() => void handleUndo(tx)} />
