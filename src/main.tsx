@@ -6,10 +6,13 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'
 import { installErrorCapture } from './errors/log'
+import { db } from './db/db'
 import { language } from './i18n'
+import { installDirtyTracking } from './sync/engine'
 import { ensurePersistentStorage } from './ui/storage'
 
 installErrorCapture()
+installDirtyTracking(db)
 document.documentElement.lang = language()
 void ensurePersistentStorage()
 

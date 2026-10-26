@@ -18,6 +18,7 @@ import { AiKeyCard } from '../components/AiKeyCard'
 import { ErrorReportCard } from '../components/ErrorReportCard'
 import { LockCard } from '../components/LockCard'
 import { PriceSourcesCard } from '../components/PriceSourcesCard'
+import { SyncCard } from '../components/SyncCard'
 import { DataSection } from '../components/DataSection'
 import { PageHeader } from '../components/PageHeader'
 import { feeTemplateParts } from '../feeTemplateText'
@@ -177,6 +178,8 @@ export function SettingsPage() {
         </div>
         <div className="grid content-start gap-3.5 md:gap-4">
           <DataSection data={data} />
+
+          <SyncCard />
 
           <AiKeyCard />
 

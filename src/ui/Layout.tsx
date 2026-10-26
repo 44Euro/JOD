@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router'
 import { buttonVariants } from '../components/ui/button'
 import { cn } from '../lib/cn'
 import { AutoPriceUpdater } from './AutoPriceUpdater'
+import { AutoSync } from './AutoSync'
 import { DailyValueRecorder } from './DailyValueRecorder'
 import { LockGate } from './LockGate'
 import {
@@ -92,6 +93,7 @@ function Shell() {
     <div className="min-h-dvh md:grid md:grid-cols-[240px_minmax(0,1fr)] print:block">
       <DailyValueRecorder />
       <AutoPriceUpdater />
+      <AutoSync />
       <ThemeSync />
       <aside className="sticky top-0 hidden h-dvh print:hidden flex-col gap-0.5 overflow-y-auto border-r bg-card px-4 py-[26px] md:flex">
         <p className="shrink-0 px-2 font-display text-[30px] font-semibold leading-none">
