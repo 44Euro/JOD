@@ -1,3 +1,4 @@
+import type { ReaderMode } from '../ai/reader'
 import type { IncomeKind } from '../domain/ledger'
 import type { TradePeriod } from '../domain/tradeStats'
 import {
@@ -7,6 +8,7 @@ import {
   type Emotion,
   type FeePaidIn,
   type FxSource,
+  type ImportSource,
   type Instrument,
   type Market,
   type Mistake,
@@ -135,4 +137,14 @@ export const INCOME_SERIES: Record<IncomeKind, { label: string; className: strin
   dividend: { label: 'ปันผล', className: 'bg-primary' },
   interest: { label: 'ดอกเบี้ย/คูปอง', className: 'bg-income-interest' },
   receive_asset: { label: 'รับเป็นสินทรัพย์', className: 'bg-income-asset' },
+}
+
+export const READER_MODE_LABELS: Record<ReaderMode, string> = { local: 'อ่านในเครื่อง (ฟรี)', claude: 'Claude' }
+
+export const IMPORT_SOURCE_LABELS: Record<ImportSource, string> = {
+  portfolio: 'รูปหน้าพอร์ต',
+  orders: 'ประวัติคำสั่ง',
+  income: 'ปันผลและดอกเบี้ย',
+  statement: 'statement',
+  other: 'ไฟล์',
 }

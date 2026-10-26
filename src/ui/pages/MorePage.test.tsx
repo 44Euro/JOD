@@ -13,17 +13,3 @@ describe('MorePage', () => {
     expect(links.map((link) => link.getAttribute('href'))).toEqual(['/transactions', '/income', '/fx', '/import', '/settings'])
   })
 })
-
-describe('ImportPage', () => {
-  beforeEach(resetDb)
-
-  it('says the import comes in phase 1.5 and points to the opening balance form meanwhile', async () => {
-    renderRoute('/import')
-    expect(await screen.findByRole('heading', { name: 'นำเข้าข้อมูล' })).toBeInTheDocument()
-    expect(screen.getByText(/จะมาในเฟส 1\.5/)).toBeInTheDocument()
-    const page = within(screen.getByRole('main'))
-    expect(page.getByRole('link', { name: 'กรอกยอดยกมา' })).toHaveAttribute('href', '/transactions/new?type=opening')
-    expect(page.getByRole('link', { name: 'บันทึกรายการ' })).toHaveAttribute('href', '/transactions/new')
-    for (const link of page.getAllByRole('link')) expect(link).toHaveClass('w-full', 'sm:w-auto')
-  })
-})

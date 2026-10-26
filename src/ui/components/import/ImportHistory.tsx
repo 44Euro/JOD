@@ -6,21 +6,14 @@ import { Card } from '../../../components/ui/card'
 import { db } from '../../../db/db'
 import { undoImport } from '../../../db/repo'
 import { todayLocal } from '../../../domain/dates'
-import type { Account, ImportSource } from '../../../domain/types'
+import type { Account } from '../../../domain/types'
 import { fmtDate } from '../../format'
-
-export const IMPORT_SOURCE_LABELS: Record<ImportSource, string> = {
-  portfolio: 'รูปหน้าพอร์ต',
-  orders: 'ประวัติคำสั่ง',
-  income: 'ปันผลและดอกเบี้ย',
-  statement: 'statement',
-  other: 'ไฟล์',
-}
+import { IMPORT_SOURCE_LABELS } from '../../labels'
 
 export function ImportHistory({ accounts }: { accounts: readonly Account[] }) {
   const batches = useLiveQuery(() => db.imports.orderBy('createdAt').reverse().toArray(), [])
   const [message, setMessage] = useState('')
-  if (!batches || batches.length === 0) return null
+  if (!batches || (batches.length === 0 && !message)) return null
   const names = new Map(accounts.map((a) => [a.id, a.name]))
 
   async function undo(id: string, count: number) {
@@ -33,6 +26,7 @@ export function ImportHistory({ accounts }: { accounts: readonly Account[] }) {
     <Card className="grid gap-3">
       <h2 className="text-lg font-semibold">ประวัติการนำเข้า</h2>
       {message && <Alert tone="ok">{message}</Alert>}
+      {batches.length === 0 && <p className="text-sm text-muted-foreground">ไม่มีการนำเข้าที่ยกเลิกได้</p>}
       <ul>
         {batches.map((batch) => (
           <li

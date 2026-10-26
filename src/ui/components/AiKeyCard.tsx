@@ -6,11 +6,10 @@ import { Field } from '../../components/ui/field'
 import { Input } from '../../components/ui/input'
 import { Segmented } from '../../components/ui/segmented'
 import { maskApiKey, useApiKey, useReaderMode, writeApiKey, writeReaderMode } from '../../ai/apiKey'
-import { describeAiError, useReaderFactory, type ReaderMode } from '../../ai/reader'
+import { describeAiError, useReaderFactory } from '../../ai/reader'
+import { READER_MODE_LABELS } from '../labels'
 
 type Status = { tone: 'ok' | 'error'; text: string } | null
-
-export const READER_MODE_LABELS: Record<ReaderMode, string> = { local: 'อ่านในเครื่อง (ฟรี)', claude: 'Claude' }
 
 export function AiKeyCard() {
   const key = useApiKey()
