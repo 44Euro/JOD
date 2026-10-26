@@ -25,7 +25,9 @@ export function PinPad({
 }) {
   const [pin, setPin] = useState('')
   const done = useRef(onComplete)
-  done.current = onComplete
+  useEffect(() => {
+    done.current = onComplete
+  })
 
   const press = (digit: string) => {
     if (disabled) return
