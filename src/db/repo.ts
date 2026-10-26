@@ -6,6 +6,8 @@ import {
   instrumentKey,
   type Account,
   type DcaPlan,
+  type WatchItem,
+  type TradePicture,
   type ImportBatch,
   type Instrument,
   type Mistake,
@@ -26,7 +28,7 @@ export function newId(): string {
 export async function getSettings(db: JodDB): Promise<Settings> {
   const row = await db.settings.get('app')
   return row
-    ? { baseCurrency: row.baseCurrency, lastBackupAt: row.lastBackupAt, hideNumbersOnLaunch: row.hideNumbersOnLaunch, theme: row.theme, benchmarkSymbol: row.benchmarkSymbol }
+    ? { baseCurrency: row.baseCurrency, lastBackupAt: row.lastBackupAt, hideNumbersOnLaunch: row.hideNumbersOnLaunch, theme: row.theme, benchmarkSymbol: row.benchmarkSymbol, checklist: row.checklist }
     : DEFAULT_SETTINGS
 }
 
@@ -296,4 +298,30 @@ export async function recordBenchmark(db: JodDB, date: string, symbol: string, p
     await db.dailyValues.update(date, { benchmarkSymbol: symbol, benchmarkPrice: price })
     return true
   })
+}
+
+export async function saveWatchItem(db: JodDB, item: WatchItem): Promise<void> {
+  const errors = validateSymbol(item.symbol)
+  if (item.buyBelow && (!isDecimalString(item.buyBelow) || D(item.buyBelow).isNegative())) errors.push('ราคาที่อยากซื้อต้องเป็นตัวเลข')
+  if (errors.length > 0) throw new Error(errors.join(', '))
+  await db.watchlist.put({ ...item, symbol: item.symbol.trim().toUpperCase() })
+}
+
+export async function deleteWatchItem(db: JodDB, id: string): Promise<void> {
+  await db.watchlist.delete(id)
+}
+
+export async function addPictures(db: JodDB, txId: string, files: readonly File[], now: Date = new Date()): Promise<void> {
+  const rows: TradePicture[] = files.map((file, i) => ({
+    id: newId(),
+    txId,
+    name: file.name,
+    blob: file,
+    createdAt: new Date(now.getTime() + i).toISOString(),
+  }))
+  await db.pictures.bulkAdd(rows)
+}
+
+export async function deletePicture(db: JodDB, id: string): Promise<void> {
+  await db.pictures.delete(id)
 }

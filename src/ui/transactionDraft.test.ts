@@ -1275,6 +1275,7 @@ describe('the trade journal of a draft', () => {
       review: 'sold into strength',
       mistakes: ['sold_early', 'no_stop'],
       score: 2,
+      checked: ['เทรนด์ขาขึ้น'],
     }
     expect(journalToDraft(journal)).toEqual({
       strategy: 'Breakout',
@@ -1287,6 +1288,7 @@ describe('the trade journal of a draft', () => {
       review: 'sold into strength',
       mistakes: ['sold_early', 'no_stop'],
       score: '2',
+      checked: ['เทรนด์ขาขึ้น'],
     })
     expect(journalFromDraft(journalToDraft(journal))).toEqual(journal)
     expect(journalToDraft(undefined)).toEqual(emptyJournalDraft())

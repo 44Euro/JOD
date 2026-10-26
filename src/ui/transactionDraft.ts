@@ -40,6 +40,7 @@ export interface JournalDraft {
   review: string
   mistakes: Mistake[]
   score: string
+  checked: string[]
 }
 
 export interface Draft {
@@ -111,7 +112,7 @@ const FEE_MARKET: Market = 'CRYPTO'
 const INSTRUMENT_TYPES: readonly TxType[] = ['buy', 'sell', 'dividend', 'interest', 'split', 'swap', 'receive_asset']
 
 export function emptyJournalDraft(): JournalDraft {
-  return { strategy: '', tags: '', reason: '', emotion: '', confidence: '', stopLoss: '', target: '', review: '', mistakes: [], score: '' }
+  return { strategy: '', tags: '', reason: '', emotion: '', confidence: '', stopLoss: '', target: '', review: '', mistakes: [], score: '', checked: [] }
 }
 
 export function emptyDraft(accountId: string, today: string): Draft {
@@ -565,6 +566,7 @@ export function journalFromDraft(j: JournalDraft): TradeJournal | undefined {
   if (review) journal.review = review
   if (j.mistakes.length > 0) journal.mistakes = [...j.mistakes]
   if (j.score) journal.score = Number(j.score)
+  if (j.checked.length > 0) journal.checked = [...j.checked]
   return Object.keys(journal).length > 0 ? journal : undefined
 }
 
@@ -580,6 +582,7 @@ export function journalToDraft(journal?: TradeJournal): JournalDraft {
     review: journal?.review ?? '',
     mistakes: journal?.mistakes ?? [],
     score: journal?.score?.toString() ?? '',
+    checked: journal?.checked ?? [],
   }
 }
 
@@ -587,7 +590,7 @@ export function journalToDraft(journal?: TradeJournal): JournalDraft {
 // the whole journal meanwhile, so a type changed back and forth loses nothing.
 function tradeJournal(draft: Draft): TradeJournal | undefined {
   if (draft.type === 'sell') return journalFromDraft(draft.journal)
-  if (draft.type === 'buy') return journalFromDraft({ ...draft.journal, review: '', mistakes: [], score: '' })
+  if (draft.type === 'buy') return journalFromDraft({ ...draft.journal, review: '', mistakes: [], score: '', checked: [] })
   return undefined
 }
 

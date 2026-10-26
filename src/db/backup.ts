@@ -13,6 +13,7 @@ import {
   type Instrument,
   type Market,
   type Transaction,
+  type WatchItem,
 } from '../domain/types'
 import { validateFeeTemplate, validateTransaction } from '../domain/validation'
 import type { DailyValueRecord, JodDB, SettingsRecord } from './db'
@@ -32,6 +33,7 @@ export interface BackupFile {
     dailyValues?: DailyValueRecord[]
     imports?: ImportBatch[]
     plans?: DcaPlan[]
+    watchlist?: WatchItem[]
   }
 }
 
@@ -40,7 +42,7 @@ export class BackupError extends Error {
 }
 
 export async function exportBackup(db: JodDB, now: Date = new Date()): Promise<BackupFile> {
-  const [accounts, instruments, transactions, settings, dailyValues, imports, plans] = await Promise.all([
+  const [accounts, instruments, transactions, settings, dailyValues, imports, plans, watchlist] = await Promise.all([
     db.accounts.toArray(),
     db.instruments.toArray(),
     db.transactions.toArray(),
@@ -48,12 +50,13 @@ export async function exportBackup(db: JodDB, now: Date = new Date()): Promise<B
     db.dailyValues.toArray(),
     db.imports.toArray(),
     db.plans.toArray(),
+    db.watchlist.toArray(),
   ])
   return {
     app: 'jod',
     version: 2,
     exportedAt: now.toISOString(),
-    data: { accounts, instruments, transactions, settings, dailyValues, imports, plans },
+    data: { accounts, instruments, transactions, settings, dailyValues, imports, plans, watchlist },
   }
 }
 
@@ -102,6 +105,7 @@ export function parseBackup(text: string): BackupFile {
     if (
       (row?.hideNumbersOnLaunch !== undefined && typeof row.hideNumbersOnLaunch !== 'boolean') ||
       (row?.theme !== undefined && !THEME_CHOICES.includes(row.theme)) ||
+      (row?.checklist !== undefined && !(Array.isArray(row.checklist) && row.checklist.every((item) => typeof item === 'string'))) ||
       (row?.benchmarkSymbol !== undefined && (typeof row.benchmarkSymbol !== 'string' || !/^[A-Z0-9.^-]{1,12}$/.test(row.benchmarkSymbol)))
     ) {
       throw new BackupError('การตั้งค่าในไฟล์สำรองไม่ถูกต้อง')
@@ -131,12 +135,22 @@ export function parseBackup(text: string): BackupFile {
   if (!Array.isArray(plans) || !plans.every((p) => typeof p === 'object' && p !== null && typeof p.id === 'string' && accountIds.has(p.accountId) && validatePlan(p).length === 0)) {
     throw new BackupError('แผนทยอยซื้อในไฟล์เสียหาย')
   }
+  const { watchlist = [] } = file.data
+  const validWatch = (w: Partial<WatchItem>) =>
+    typeof w.id === 'string' &&
+    typeof w.symbol === 'string' &&
+    MARKETS.includes(w.market as Market) &&
+    typeof w.note === 'string' &&
+    (w.buyBelow === undefined || (typeof w.buyBelow === 'string' && isDecimalString(w.buyBelow)))
+  if (!Array.isArray(watchlist) || !watchlist.every((w) => typeof w === 'object' && w !== null && validWatch(w))) {
+    throw new BackupError('รายการที่ติดตามในไฟล์เสียหาย')
+  }
   return file as BackupFile
 }
 
 // Runs as one transaction so a failure part-way leaves the existing data untouched.
 export async function restoreBackup(db: JodDB, backup: BackupFile): Promise<void> {
-  const tables = [db.accounts, db.instruments, db.transactions, db.settings, db.dailyValues, db.imports, db.plans]
+  const tables = [db.accounts, db.instruments, db.transactions, db.settings, db.dailyValues, db.imports, db.plans, db.watchlist]
   await db.transaction('rw', tables, async () => {
     await Promise.all(tables.map((table) => table.clear()))
     await db.accounts.bulkAdd(backup.data.accounts)
@@ -146,6 +160,7 @@ export async function restoreBackup(db: JodDB, backup: BackupFile): Promise<void
     await db.dailyValues.bulkAdd(backup.data.dailyValues ?? [])
     await db.imports.bulkAdd(backup.data.imports ?? [])
     await db.plans.bulkAdd(backup.data.plans ?? [])
+    await db.watchlist.bulkAdd(backup.data.watchlist ?? [])
   })
 }
 

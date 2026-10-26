@@ -68,6 +68,20 @@ describe('backup round trip', () => {
     expect(() => parseBackup(JSON.stringify(broken))).toThrow('สินทรัพย์ที่เสียหาย')
   })
 
+  it('brings the watchlist and the checklist back', async () => {
+    const watched = { id: 'w1', market: 'US' as const, symbol: 'NVDA', note: '', createdAt: '' }
+    await db.watchlist.add(watched)
+    await db.settings.put({ key: 'app', baseCurrency: 'THB', checklist: ['ตามแผน', 'มี Stop loss'] })
+    const target = createDb(`test-${crypto.randomUUID()}`)
+    const text = JSON.stringify(await exportBackup(db))
+    await restoreBackup(target, parseBackup(text))
+    expect(await target.watchlist.toArray()).toEqual([watched])
+    expect((await target.settings.get('app'))?.checklist).toEqual(['ตามแผน', 'มี Stop loss'])
+    const broken = JSON.parse(text)
+    broken.data.watchlist[0].market = 'MOON'
+    expect(() => parseBackup(JSON.stringify(broken))).toThrow('รายการที่ติดตาม')
+  })
+
   it('rejects a damaged import record', () => {
     const file = { app: 'jod', version: 2, exportedAt: '', data: { accounts: [account], instruments: [], settings: [], transactions: [], imports: [{ id: 'b1', accountId: 'acc-1', source: 'x' }] } }
     expect(() => parseBackup(JSON.stringify(file))).toThrow('ประวัติการนำเข้า')

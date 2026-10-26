@@ -13,8 +13,8 @@ describe('Layout', () => {
   it('lists the pages in the sidebar in the order of the spec, with แผน after เทรด', async () => {
     renderRoute('/')
     const sidebar = await screen.findByRole('navigation', { name: 'เมนูหลัก' })
-    expect(labels(sidebar)).toEqual(['ภาพรวม', 'พอร์ต', 'รายการ', 'เทรด', 'แผน', 'รายได้', 'ค่าเงิน', 'นำเข้าข้อมูล', 'ตั้งค่า'])
-    expect(hrefs(sidebar)).toEqual(['/', '/portfolio', '/transactions', '/trades', '/plans', '/income', '/fx', '/import', '/settings'])
+    expect(labels(sidebar)).toEqual(['ภาพรวม', 'พอร์ต', 'รายการ', 'เทรด', 'แผน', 'รายได้', 'สรุปประจำปี', 'ค่าเงิน', 'นำเข้าข้อมูล', 'ตั้งค่า'])
+    expect(hrefs(sidebar)).toEqual(['/', '/portfolio', '/transactions', '/trades', '/plans', '/income', '/summary', '/fx', '/import', '/settings'])
   })
 
   it('uses the line chart icon for เทรด', async () => {

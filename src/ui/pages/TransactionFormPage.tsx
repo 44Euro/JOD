@@ -8,6 +8,7 @@ import { Chip } from '../../components/ui/chip'
 import { Field } from '../../components/ui/field'
 import { Input, NativeSelect, Textarea } from '../../components/ui/input'
 import { db } from '../../db/db'
+import { addPictures } from '../../db/repo'
 import { CURRENCY_OPTIONS } from '../../domain/currencies'
 import { isIsoDate, todayLocal } from '../../domain/dates'
 import { D, isDecimalString } from '../../domain/decimal'
@@ -29,6 +30,7 @@ import { InstrumentFields } from '../components/txform/InstrumentFields'
 import { ReceiveFields, ReceiveTaxField } from '../components/txform/ReceiveFields'
 import { ReinvestFields } from '../components/txform/ReinvestFields'
 import { SwapFields, SwapSummary } from '../components/txform/SwapFields'
+import { JournalPictures } from '../components/txform/JournalPictures'
 import { TradeJournalFields } from '../components/txform/TradeJournalFields'
 import { MoveCurrencyFields, TransferAmountField, TransferFields } from '../components/txform/TransferFields'
 import { TypePicker } from '../components/txform/TypePicker'
@@ -190,6 +192,7 @@ function TransactionForm({
   const [copiedFrom, setCopiedFrom] = useState(copyOf)
   const [saving, setSaving] = useState(false)
   const [saveFailed, setSaveFailed] = useState(false)
+  const [pictures, setPictures] = useState<File[]>([])
   const savingRef = useRef(false)
   const update = (patch: Partial<Draft>) => setDraft((d) => ({ ...d, ...patch }))
 
@@ -327,6 +330,8 @@ function TransactionForm({
     setSaving(true)
     try {
       await writeSave(db, draft, prepared, data.instruments, at)
+      if (pictures.length > 0 && (draft.type === 'buy' || draft.type === 'sell')) await addPictures(db, tx.id, pictures, at)
+      setPictures([])
     } catch {
       savingRef.current = false
       setSaving(false)
@@ -514,7 +519,8 @@ function TransactionForm({
 
           {needsFx && <FxRateBox draft={draft} base={base} fxMessage={fxMessage} rateSpread={rateSpread} update={update} />}
 
-          {isTrade && <TradeJournalFields draft={draft} strategies={strategies} setDraft={setDraft} />}
+          {isTrade && <TradeJournalFields draft={draft} strategies={strategies} checklist={data.settings.checklist} setDraft={setDraft} />}
+          {isTrade && <JournalPictures txId={existing?.id} pending={pictures} setPending={setPictures} />}
 
           {convert && <ConvertSummary draft={draft} summary={convert} />}
 

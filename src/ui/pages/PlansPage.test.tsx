@@ -48,3 +48,31 @@ describe('PlansPage', () => {
     expect([plan.amount, plan.currency, plan.frequency]).toEqual(['3000', 'THB', 'monthly'])
   })
 })
+
+describe('watchlist and checklist', () => {
+  it('flags a watched asset that reached the price to buy at', async () => {
+    const user = userEvent.setup()
+    renderRoute('/plans')
+    await user.selectOptions(await screen.findByLabelText('ตลาด'), 'SET')
+    await user.type(screen.getByLabelText('สัญลักษณ์'), 'ptt')
+    await user.type(screen.getByLabelText('อยากซื้อต่ำกว่า (ไม่บังคับ)'), '31')
+    await user.click(screen.getByRole('button', { name: 'เพิ่มเข้า watchlist' }))
+    const list = await screen.findByRole('list', { name: 'สินทรัพย์ที่ติดตาม' })
+    expect(within(list).getByText('PTT')).toBeInTheDocument()
+    expect(within(list).getByText('ถึงราคาที่อยากซื้อ')).toBeInTheDocument()
+    expect(within(list).getByText(/ล่าสุด 30.00 · อยากซื้อต่ำกว่า 31.00/)).toBeInTheDocument()
+  })
+
+  it('keeps the checklist in settings and offers it when a buy is recorded', async () => {
+    const user = userEvent.setup()
+    const router = renderRoute('/plans')
+    await user.type(await screen.findByLabelText('เพิ่มข้อ'), 'มี Stop loss')
+    await user.click(screen.getByRole('button', { name: 'เพิ่ม' }))
+    expect(await screen.findByText('1. มี Stop loss')).toBeInTheDocument()
+    expect((await db.settings.get('app'))?.checklist).toEqual(['มี Stop loss'])
+    await router.navigate('/transactions/new')
+    await user.click(await screen.findByRole('button', { name: /บันทึกการเทรด/ }))
+    await user.click(screen.getByRole('checkbox', { name: 'มี Stop loss' }))
+    expect(screen.getByText('ติ๊กแล้ว 1 จาก 1 ข้อ')).toBeInTheDocument()
+  })
+})

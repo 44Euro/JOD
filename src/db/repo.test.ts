@@ -3,6 +3,9 @@ import { makeTx } from '../test/fixtures'
 import { createDb, type JodDB } from './db'
 import {
   addAccount,
+  addPictures,
+  deleteWatchItem,
+  saveWatchItem,
   deleteAccount,
   getSettings,
   recordBenchmark,
@@ -457,5 +460,22 @@ describe('benchmark prices', () => {
     expect(await recordBenchmark(db, '2026-10-26', 'SPY', '580.1')).toBe(true)
     await recordDailyValue(db, { date: '2026-10-26', valueBase: '101', netInvestedBase: '90' })
     expect(await db.dailyValues.get('2026-10-26')).toMatchObject({ valueBase: '101', benchmarkSymbol: 'SPY', benchmarkPrice: '580.1' })
+  })
+})
+
+describe('watchlist and pictures', () => {
+  it('keeps a watched symbol in capitals and refuses a bad price', async () => {
+    const item = { id: 'w1', market: 'US' as const, symbol: ' nvda ', note: 'รอย่อ', buyBelow: '110', createdAt: '' }
+    await saveWatchItem(db, item)
+    expect((await db.watchlist.get('w1'))?.symbol).toBe('NVDA')
+    await expect(saveWatchItem(db, { ...item, buyBelow: 'abc' })).rejects.toThrow('ราคาที่อยากซื้อ')
+    await deleteWatchItem(db, 'w1')
+    expect(await db.watchlist.count()).toBe(0)
+  })
+
+  it('files pictures under their trade in the order they were added', async () => {
+    await addPictures(db, 'tx-1', [new File(['a'], 'entry.png'), new File(['b'], 'exit.png')], new Date('2026-01-01T00:00:00Z'))
+    const rows = await db.pictures.where('txId').equals('tx-1').sortBy('createdAt')
+    expect(rows.map((r) => r.name)).toEqual(['entry.png', 'exit.png'])
   })
 })

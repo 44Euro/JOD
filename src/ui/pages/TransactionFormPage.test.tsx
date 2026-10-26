@@ -41,6 +41,22 @@ describe('TransactionFormPage', () => {
     expect(await db.instruments.get('US:AAPL')).toMatchObject({ symbol: 'AAPL', currency: 'USD', assetType: 'stock', unit: 'share' })
   })
 
+  it('saves pictures picked before the buy with the buy', async () => {
+    const user = userEvent.setup()
+    const router = renderRoute('/transactions/new', fakeFxProvider({ 'USD|THB': '35.1' }).provider)
+    await user.type(await screen.findByLabelText('สัญลักษณ์'), 'aapl')
+    await user.type(screen.getByLabelText('จำนวนหน่วย'), '2')
+    await user.type(screen.getByLabelText('ราคาต่อหน่วย'), '100')
+    await user.upload(screen.getByLabelText('เลือกรูปประกอบ'), new File(['png'], 'chart.png', { type: 'image/png' }))
+    expect(screen.getByRole('img', { name: 'chart.png' })).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByLabelText(/เรทแลกเปลี่ยน/)).toHaveValue('35.1'))
+    await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+    await waitFor(() => expect(router.state.location.pathname).toBe('/transactions'))
+    const [saved] = await db.transactions.toArray()
+    const [picture] = await db.pictures.toArray()
+    expect([picture.txId, picture.name]).toEqual([saved.id, 'chart.png'])
+  })
+
   it('refuses a new symbol with a space or a colon and saves nothing', async () => {
     const user = userEvent.setup()
     renderRoute('/transactions/new', fakeFxProvider({ 'USD|THB': '35.1' }).provider)

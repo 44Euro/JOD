@@ -116,6 +116,8 @@ export interface TradeJournal {
   review?: string
   mistakes?: Mistake[]
   score?: number
+  // The items of the pre-trade checklist that were ticked when the trade was entered.
+  checked?: string[]
 }
 
 // Amounts are decimal strings in `currency`; fxRate is the value of 1 `currency` in the base currency.
@@ -211,6 +213,28 @@ export interface Settings {
   theme?: ThemeChoice
   // A US symbol (an index fund such as SPY) the portfolio's growth is compared with.
   benchmarkSymbol?: string
+  // The user's own pre-trade checklist, offered when a buy is recorded.
+  checklist?: string[]
+}
+
+export interface WatchItem {
+  id: string
+  market: Market
+  symbol: string
+  note: string
+  // The price the user would like to buy at, in the asset's currency.
+  buyBelow?: string
+  createdAt: string
+}
+
+// A picture attached to a trade's journal, such as the chart at entry. Pictures stay on the device: they are not in
+// the JSON backup.
+export interface TradePicture {
+  id: string
+  txId: string
+  name: string
+  blob: Blob
+  createdAt: string
 }
 
 export const DEFAULT_SETTINGS: Settings = { baseCurrency: 'THB' }

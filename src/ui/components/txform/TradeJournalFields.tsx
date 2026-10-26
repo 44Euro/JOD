@@ -63,10 +63,12 @@ function Scale({ id, label, value, onChange }: { id: string; label: string; valu
 export function TradeJournalFields({
   draft,
   strategies,
+  checklist = [],
   setDraft,
 }: {
   draft: Draft
   strategies: readonly string[]
+  checklist?: readonly string[]
   setDraft(change: (d: Draft) => Draft): void
 }) {
   const journal = draft.journal
@@ -100,6 +102,27 @@ export function TradeJournalFields({
       </button>
       {open && (
         <div className="grid gap-3.5 border-t p-3 min-[360px]:p-4">
+          {draft.type === 'buy' && checklist.length > 0 && (
+            <fieldset className="grid gap-1">
+              <legend className={cn(labelClass, 'mb-1')}>เช็คลิสต์ก่อนเข้าเทรด</legend>
+              {checklist.map((item) => (
+                <label key={item} className="flex min-h-11 items-center gap-2.5 text-sm">
+                  <input
+                    type="checkbox"
+                    className="size-5 accent-primary"
+                    checked={journal.checked.includes(item)}
+                    onChange={(e) =>
+                      patch((j) => ({ checked: e.target.checked ? [...j.checked, item] : j.checked.filter((c) => c !== item) }))
+                    }
+                  />
+                  {item}
+                </label>
+              ))}
+              <span className="text-[12.5px] text-muted-foreground">
+                ติ๊กแล้ว {journal.checked.filter((c) => checklist.includes(c)).length} จาก {checklist.length} ข้อ
+              </span>
+            </fieldset>
+          )}
           <div className="grid gap-3.5 sm:grid-cols-2">
             <Field id="tx-journal-strategy" label="กลยุทธ์">
               <Input

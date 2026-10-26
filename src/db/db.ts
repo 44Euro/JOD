@@ -1,5 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie'
-import type { Account, DcaPlan, ImportBatch, Instrument, Settings, Transaction } from '../domain/types'
+import type { Account, DcaPlan, ImportBatch, Instrument, Settings, TradePicture, Transaction, WatchItem } from '../domain/types'
 
 export interface FxRateRecord {
   key: string
@@ -32,6 +32,8 @@ export type JodDB = Dexie & {
   dailyValues: EntityTable<DailyValueRecord, 'date'>
   imports: EntityTable<ImportBatch, 'id'>
   plans: EntityTable<DcaPlan, 'id'>
+  watchlist: EntityTable<WatchItem, 'id'>
+  pictures: EntityTable<TradePicture, 'id'>
 }
 
 export function createDb(name = 'jod'): JodDB {
@@ -47,6 +49,7 @@ export function createDb(name = 'jod'): JodDB {
   db.version(2).stores({ dailyValues: 'date' })
   db.version(3).stores({ transactions: 'id, accountId, instrumentId, date, type, importBatchId', imports: 'id, createdAt' })
   db.version(4).stores({ plans: 'id, instrumentId' })
+  db.version(5).stores({ watchlist: 'id, symbol', pictures: 'id, txId' })
   return db
 }
 

@@ -88,11 +88,11 @@ function Shell() {
   const inAssets = pathname.startsWith('/assets/')
   const editingTransaction = isTransactionEdit(pathname)
   return (
-    <div className="min-h-dvh md:grid md:grid-cols-[240px_minmax(0,1fr)]">
+    <div className="min-h-dvh md:grid md:grid-cols-[240px_minmax(0,1fr)] print:block">
       <DailyValueRecorder />
       <AutoPriceUpdater />
       <ThemeSync />
-      <aside className="sticky top-0 hidden h-dvh flex-col gap-0.5 overflow-y-auto border-r bg-card px-4 py-[26px] md:flex">
+      <aside className="sticky top-0 hidden h-dvh print:hidden flex-col gap-0.5 overflow-y-auto border-r bg-card px-4 py-[26px] md:flex">
         <p className="shrink-0 px-2 font-display text-[30px] font-semibold leading-none">
           JOD
           <span className="mt-1 block font-sans text-xs font-normal text-muted-foreground">จดทุกเทรด รู้ทุกบาท</span>
@@ -132,7 +132,7 @@ function Shell() {
       </main>
       <nav
         aria-label="เมนูด้านล่าง"
-        className="fixed inset-x-0 bottom-0 z-10 grid grid-cols-5 items-end border-t bg-card pt-1.5 pb-[max(env(safe-area-inset-bottom),22px)] md:hidden"
+        className="fixed inset-x-0 bottom-0 z-10 grid grid-cols-5 items-end border-t bg-card print:hidden pt-1.5 pb-[max(env(safe-area-inset-bottom),22px)] md:hidden"
       >
         <TabLink {...HOME} />
         <TabLink {...PORTFOLIO} active={inAssets} />

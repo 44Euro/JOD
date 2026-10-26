@@ -173,6 +173,7 @@ export function validateJournal(journal: TradeJournal): string[] {
     errors.push('ข้อผิดพลาดไม่ถูกต้อง')
   }
   if (journal.score !== undefined && !isScale(journal.score)) errors.push('คะแนนการลงมือต้องเป็น 1–5')
+  if (journal.checked !== undefined && !isTextList(journal.checked)) errors.push('เช็คลิสต์ไม่ถูกต้อง')
   return errors
 }
 
