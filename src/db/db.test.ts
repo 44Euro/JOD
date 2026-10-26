@@ -25,7 +25,7 @@ describe('database upgrade', () => {
 
     const db = createDb(name)
     await db.open()
-    expect(db.verno).toBe(3)
+    expect(db.verno).toBe(4)
     expect(await db.accounts.toArray()).toEqual([account])
     expect(await db.transactions.get('from-v1')).toEqual(tx)
     expect(await getSettings(db)).toEqual({ baseCurrency: 'THB', lastBackupAt: '2026-10-01T00:00:00.000Z' })

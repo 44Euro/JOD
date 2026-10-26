@@ -51,6 +51,23 @@ describe('backup round trip', () => {
     expect((await target.transactions.get('imported'))?.importBatchId).toBe('b1')
   })
 
+  it('brings plans and target shares back, and rejects a broken plan', async () => {
+    const plan = { id: 'p1', accountId: 'acc-1', instrumentId: 'US:AAPL', amount: '100', currency: 'USD', frequency: 'weekly' as const, startDate: '2026-01-05', createdAt: '' }
+    await db.plans.add(plan)
+    await db.instruments.add({ id: 'US:AAPL', market: 'US', symbol: 'AAPL', name: 'Apple', assetType: 'stock', currency: 'USD', targetPct: '25' })
+    const text = JSON.stringify(await exportBackup(db))
+    const target = createDb(`test-${crypto.randomUUID()}`)
+    await restoreBackup(target, parseBackup(text))
+    expect(await target.plans.toArray()).toEqual([plan])
+    expect((await target.instruments.get('US:AAPL'))?.targetPct).toBe('25')
+    const broken = JSON.parse(text)
+    broken.data.plans[0].frequency = 'daily'
+    expect(() => parseBackup(JSON.stringify(broken))).toThrow('แผนทยอยซื้อ')
+    broken.data.plans = []
+    broken.data.instruments[0].targetPct = '150'
+    expect(() => parseBackup(JSON.stringify(broken))).toThrow('สินทรัพย์ที่เสียหาย')
+  })
+
   it('rejects a damaged import record', () => {
     const file = { app: 'jod', version: 2, exportedAt: '', data: { accounts: [account], instruments: [], settings: [], transactions: [], imports: [{ id: 'b1', accountId: 'acc-1', source: 'x' }] } }
     expect(() => parseBackup(JSON.stringify(file))).toThrow('ประวัติการนำเข้า')

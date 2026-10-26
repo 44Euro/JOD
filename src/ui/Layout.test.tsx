@@ -10,11 +10,11 @@ const hrefs = (nav: HTMLElement) => within(nav).getAllByRole('link').map((link) 
 describe('Layout', () => {
   beforeEach(resetDb)
 
-  it('lists the eight pages in the sidebar in the order of the spec', async () => {
+  it('lists the pages in the sidebar in the order of the spec, with แผน after เทรด', async () => {
     renderRoute('/')
     const sidebar = await screen.findByRole('navigation', { name: 'เมนูหลัก' })
-    expect(labels(sidebar)).toEqual(['ภาพรวม', 'พอร์ต', 'รายการ', 'เทรด', 'รายได้', 'ค่าเงิน', 'นำเข้าข้อมูล', 'ตั้งค่า'])
-    expect(hrefs(sidebar)).toEqual(['/', '/portfolio', '/transactions', '/trades', '/income', '/fx', '/import', '/settings'])
+    expect(labels(sidebar)).toEqual(['ภาพรวม', 'พอร์ต', 'รายการ', 'เทรด', 'แผน', 'รายได้', 'ค่าเงิน', 'นำเข้าข้อมูล', 'ตั้งค่า'])
+    expect(hrefs(sidebar)).toEqual(['/', '/portfolio', '/transactions', '/trades', '/plans', '/income', '/fx', '/import', '/settings'])
   })
 
   it('uses the line chart icon for เทรด', async () => {

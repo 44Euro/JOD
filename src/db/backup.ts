@@ -7,6 +7,7 @@ import {
   THEME_CHOICES,
   UNITS,
   type Account,
+  type DcaPlan,
   type FeeTemplate,
   type ImportBatch,
   type Instrument,
@@ -15,6 +16,7 @@ import {
 } from '../domain/types'
 import { validateFeeTemplate, validateTransaction } from '../domain/validation'
 import type { DailyValueRecord, JodDB, SettingsRecord } from './db'
+import { validatePlan } from './repo'
 
 // Version 2 adds dailyValues. Version 1 files (from before the daily value table) still restore. imports came later
 // without a new version: an older app restoring the file only loses the import history, never a record.
@@ -29,6 +31,7 @@ export interface BackupFile {
     settings: SettingsRecord[]
     dailyValues?: DailyValueRecord[]
     imports?: ImportBatch[]
+    plans?: DcaPlan[]
   }
 }
 
@@ -37,19 +40,20 @@ export class BackupError extends Error {
 }
 
 export async function exportBackup(db: JodDB, now: Date = new Date()): Promise<BackupFile> {
-  const [accounts, instruments, transactions, settings, dailyValues, imports] = await Promise.all([
+  const [accounts, instruments, transactions, settings, dailyValues, imports, plans] = await Promise.all([
     db.accounts.toArray(),
     db.instruments.toArray(),
     db.transactions.toArray(),
     db.settings.toArray(),
     db.dailyValues.toArray(),
     db.imports.toArray(),
+    db.plans.toArray(),
   ])
   return {
     app: 'jod',
     version: 2,
     exportedAt: now.toISOString(),
-    data: { accounts, instruments, transactions, settings, dailyValues, imports },
+    data: { accounts, instruments, transactions, settings, dailyValues, imports, plans },
   }
 }
 
@@ -120,12 +124,16 @@ export function parseBackup(text: string): BackupFile {
   if (!Array.isArray(imports) || !imports.every((batch) => isValidImport(batch, accountIds))) {
     throw new BackupError('ประวัติการนำเข้าในไฟล์เสียหาย')
   }
+  const { plans = [] } = file.data
+  if (!Array.isArray(plans) || !plans.every((p) => typeof p === 'object' && p !== null && typeof p.id === 'string' && accountIds.has(p.accountId) && validatePlan(p).length === 0)) {
+    throw new BackupError('แผนทยอยซื้อในไฟล์เสียหาย')
+  }
   return file as BackupFile
 }
 
 // Runs as one transaction so a failure part-way leaves the existing data untouched.
 export async function restoreBackup(db: JodDB, backup: BackupFile): Promise<void> {
-  const tables = [db.accounts, db.instruments, db.transactions, db.settings, db.dailyValues, db.imports]
+  const tables = [db.accounts, db.instruments, db.transactions, db.settings, db.dailyValues, db.imports, db.plans]
   await db.transaction('rw', tables, async () => {
     await Promise.all(tables.map((table) => table.clear()))
     await db.accounts.bulkAdd(backup.data.accounts)
@@ -134,6 +142,7 @@ export async function restoreBackup(db: JodDB, backup: BackupFile): Promise<void
     await db.settings.bulkAdd(backup.data.settings)
     await db.dailyValues.bulkAdd(backup.data.dailyValues ?? [])
     await db.imports.bulkAdd(backup.data.imports ?? [])
+    await db.plans.bulkAdd(backup.data.plans ?? [])
   })
 }
 
@@ -146,7 +155,8 @@ function isValidInstrument(value: unknown): boolean {
     typeof i.symbol === 'string' &&
     MARKETS.includes(i.market as Market) &&
     (i.unit === undefined || UNITS.includes(i.unit)) &&
-    (i.previousSymbols === undefined || (Array.isArray(i.previousSymbols) && i.previousSymbols.every((s) => typeof s === 'string')))
+    (i.previousSymbols === undefined || (Array.isArray(i.previousSymbols) && i.previousSymbols.every((s) => typeof s === 'string'))) &&
+    (i.targetPct === undefined || (typeof i.targetPct === 'string' && isDecimalString(i.targetPct) && D(i.targetPct).gte(0) && D(i.targetPct).lte(100)))
   )
 }
 

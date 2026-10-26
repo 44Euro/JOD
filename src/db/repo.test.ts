@@ -14,7 +14,10 @@ import {
   saveTransaction,
   saveTransactions,
   setInstrumentPrice,
+  deletePlan,
   saveImport,
+  savePlan,
+  setTargetPct,
   undoImport,
   updateAccount,
   upsertInstrument,
@@ -422,5 +425,26 @@ describe('imports', () => {
     expect((await db.transactions.toArray()).map((t) => t.id)).toEqual(['mine'])
     expect((await db.instruments.toArray()).map((i) => i.id)).toEqual(['US:AAPL'])
     expect(await db.imports.count()).toBe(0)
+  })
+})
+
+describe('targets and plans', () => {
+  const plan = { id: 'p1', accountId: 'acc-1', instrumentId: 'US:VOO', amount: '100', currency: 'USD', frequency: 'monthly' as const, startDate: '2026-01-05', createdAt: '' }
+
+  it('sets and clears a target share, refusing one above 100%', async () => {
+    await db.instruments.add({ id: 'US:VOO', market: 'US', symbol: 'VOO', name: 'VOO', assetType: 'etf', currency: 'USD' })
+    await setTargetPct(db, 'US:VOO', '40.0')
+    expect((await db.instruments.get('US:VOO'))?.targetPct).toBe('40')
+    await expect(setTargetPct(db, 'US:VOO', '120')).rejects.toThrow('0–100%')
+    await setTargetPct(db, 'US:VOO', '')
+    expect((await db.instruments.get('US:VOO'))?.targetPct).toBeUndefined()
+  })
+
+  it('saves a valid plan only, and deletes it', async () => {
+    await expect(savePlan(db, { ...plan, amount: '0' })).rejects.toThrow('จำนวนเงินต่องวดต้องมากกว่า 0')
+    await savePlan(db, plan)
+    expect(await db.plans.get('p1')).toEqual(plan)
+    await deletePlan(db, 'p1')
+    expect(await db.plans.count()).toBe(0)
   })
 })

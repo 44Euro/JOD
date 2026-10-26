@@ -33,7 +33,11 @@ function ChartSlot({ height, children }: { height: number; children: React.React
 
 const RANGES = ['3m', '1y', 'all'] as const
 type Range = (typeof RANGES)[number]
-const RANGE_LABELS: Record<Range, string> = { '3m': '3 เดือน', '1y': '1 ปี', all: 'ทั้งหมด' }
+const RANGE_LABELS: Record<Range, string> = {
+  '3m': '3 เดือน',
+  '1y': '1 ปี',
+  all: 'ทั้งหมด',
+}
 
 const pct = (fraction: Decimal | null | undefined) => (fraction ? fmtSignedPct(fraction.times(100)) : '—')
 
@@ -53,14 +57,30 @@ export function PortfolioHistoryCard({ base, today }: { base: string; today: str
     <Card className="grid gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-lg font-semibold">มูลค่าพอร์ตตามเวลา</h2>
-        <Segmented label="ช่วงเวลา" singleRow options={RANGES.map((value) => ({ value, label: RANGE_LABELS[value] }))} value={range} onChange={setRange} />
+        <Segmented
+          label="ช่วงเวลา"
+          singleRow
+          options={RANGES.map((value) => ({
+            value,
+            label: RANGE_LABELS[value],
+          }))}
+          value={range}
+          onChange={setRange}
+        />
       </div>
       {points.length < 2 ? (
         <p className="text-sm text-muted-foreground">แอปบันทึกมูลค่าพอร์ตวันละครั้งตอนเปิดแอป กราฟจะขึ้นเมื่อมีข้อมูลอย่างน้อย 2 วัน</p>
       ) : (
         <>
           <ChartSlot height={220}>
-            <ValueChart base={base} data={points.map((p) => ({ date: p.date, value: p.value.toNumber(), invested: p.invested.toNumber() }))} />
+            <ValueChart
+              base={base}
+              data={points.map((p) => ({
+                date: p.date,
+                value: p.value.toNumber(),
+                invested: p.invested.toNumber(),
+              }))}
+            />
           </ChartSlot>
           <dl className="grid grid-cols-2 gap-3 text-sm sm:flex sm:gap-8">
             <div>
@@ -151,7 +171,13 @@ export function RealizedHistoryCard({ events, base, today }: { events: readonly 
       <h2 className="text-lg font-semibold">กำไรที่ขายแล้วสะสม</h2>
       {series.length > 1 && (
         <ChartSlot height={200}>
-          <RealizedChart base={base} data={series.map((p) => ({ date: p.date, total: p.total.toNumber() }))} />
+          <RealizedChart
+            base={base}
+            data={series.map((p) => ({
+              date: p.date,
+              total: p.total.toNumber(),
+            }))}
+          />
         </ChartSlot>
       )}
       <PlCalendar events={events} base={base} today={today} />
@@ -165,7 +191,12 @@ export function PriceHistoryCard({ transactions, instrument }: { transactions: r
       tradePricePoints(
         transactions,
         instrument.id,
-        instrument.lastPrice && instrument.lastPriceAt ? { price: instrument.lastPrice, date: instrument.lastPriceAt.slice(0, 10) } : undefined,
+        instrument.lastPrice && instrument.lastPriceAt
+          ? {
+              price: instrument.lastPrice,
+              date: instrument.lastPriceAt.slice(0, 10),
+            }
+          : undefined,
       ),
     [transactions, instrument],
   )
@@ -174,12 +205,28 @@ export function PriceHistoryCard({ transactions, instrument }: { transactions: r
     <Card className="grid gap-3">
       <h2 className="text-lg font-semibold">ราคาที่ซื้อขาย</h2>
       <ChartSlot height={200}>
-        <PriceChart currency={instrument.currency} data={points.map((p) => ({ date: p.date, price: p.price.toNumber(), kind: p.kind }))} />
+        <PriceChart
+          currency={instrument.currency}
+          data={points.map((p) => ({
+            date: p.date,
+            price: p.price.toNumber(),
+            kind: p.kind,
+          }))}
+        />
       </ChartSlot>
       <p className="flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-muted-foreground">
-        <span><span className="mr-1 inline-block size-2 rounded-full bg-gain" aria-hidden />ซื้อ</span>
-        <span><span className="mr-1 inline-block size-2 rounded-full bg-loss" aria-hidden />ขาย</span>
-        <span><span className="mr-1 inline-block size-2 rounded-full bg-primary" aria-hidden />ยอดยกมา</span>
+        <span>
+          <span className="mr-1 inline-block size-2 rounded-full bg-gain" aria-hidden />
+          ซื้อ
+        </span>
+        <span>
+          <span className="mr-1 inline-block size-2 rounded-full bg-loss" aria-hidden />
+          ขาย
+        </span>
+        <span>
+          <span className="mr-1 inline-block size-2 rounded-full bg-primary" aria-hidden />
+          ยอดยกมา
+        </span>
         <span>แอปไม่เก็บราคาย้อนหลัง เส้นนี้ลากจากราคาที่คุณซื้อขายจริงและราคาล่าสุด</span>
       </p>
     </Card>

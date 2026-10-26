@@ -88,6 +88,8 @@ export interface Instrument {
   holdReason?: string
   targetPrice?: string
   reviewDate?: string
+  // The share of the portfolio's value this asset should be, in percent.
+  targetPct?: string
 }
 
 export function unitOf(instrument: Pick<Instrument, 'assetType' | 'unit'>): Unit {
@@ -181,6 +183,21 @@ export interface ImportBatch {
   fileCount: number
   count: number
   createdInstrumentIds: string[]
+  createdAt: string
+}
+
+export const PLAN_FREQUENCIES = ['weekly', 'monthly'] as const
+export type PlanFrequency = (typeof PLAN_FREQUENCIES)[number]
+
+// A plan to buy amount (in currency) of an asset every week or month from startDate on.
+export interface DcaPlan {
+  id: string
+  accountId: string
+  instrumentId: string
+  amount: string
+  currency: string
+  frequency: PlanFrequency
+  startDate: string
   createdAt: string
 }
 

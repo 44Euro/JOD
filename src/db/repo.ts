@@ -1,7 +1,11 @@
+import { isIsoDate } from '../domain/dates'
+import { D, isDecimalString } from '../domain/decimal'
 import {
   DEFAULT_SETTINGS,
+  PLAN_FREQUENCIES,
   instrumentKey,
   type Account,
+  type DcaPlan,
   type ImportBatch,
   type Instrument,
   type Mistake,
@@ -254,4 +258,32 @@ export async function undoImport(db: JodDB, batchId: string): Promise<number> {
     await db.imports.delete(batchId)
     return removed
   })
+}
+
+// An empty value removes the target.
+export async function setTargetPct(db: JodDB, id: string, pct: string): Promise<void> {
+  const value = pct.trim()
+  if (value && (!isDecimalString(value) || D(value).isNegative() || D(value).gt(100))) throw new Error('เป้าหมายต้องเป็น 0–100%')
+  await db.instruments.update(id, { targetPct: value ? D(value).toString() : undefined })
+}
+
+export function validatePlan(plan: DcaPlan): string[] {
+  const errors: string[] = []
+  if (!plan.accountId) errors.push('เลือกบัญชี')
+  if (!plan.instrumentId) errors.push('เลือกสินทรัพย์')
+  if (!isDecimalString(plan.amount) || !D(plan.amount).gt(0)) errors.push('จำนวนเงินต่องวดต้องมากกว่า 0')
+  if (!/^[A-Z]{3,5}$/.test(plan.currency)) errors.push('สกุลเงินไม่ถูกต้อง')
+  if (!PLAN_FREQUENCIES.includes(plan.frequency)) errors.push('ความถี่ไม่ถูกต้อง')
+  if (!isIsoDate(plan.startDate)) errors.push('วันเริ่มไม่ถูกต้อง')
+  return errors
+}
+
+export async function savePlan(db: JodDB, plan: DcaPlan): Promise<void> {
+  const errors = validatePlan(plan)
+  if (errors.length > 0) throw new Error(errors.join(', '))
+  await db.plans.put(plan)
+}
+
+export async function deletePlan(db: JodDB, id: string): Promise<void> {
+  await db.plans.delete(id)
 }

@@ -27,7 +27,9 @@ export function RiskSummaryCard({ closed, transactions }: { closed: readonly Tra
         </div>
         <div>
           <dt className="text-[12.5px] text-muted-foreground">ขาดทุนสะสมหนักสุด</dt>
-          <dd className={cn('font-display text-xl font-semibold', plClass(drawdown))}>{drawdown.isZero() ? 'ไม่มี' : fmtSigned(drawdown, 0)}</dd>
+          <dd className={cn('font-display text-xl font-semibold', plClass(drawdown))}>
+            {drawdown.isZero() ? 'ไม่มี' : fmtSigned(drawdown, 0)}
+          </dd>
           <dd className="text-[12px] text-muted-foreground">ช่วงที่กำไรจากเทรดที่ปิดลดลงลึกที่สุด</dd>
         </div>
       </dl>
@@ -41,7 +43,13 @@ export function PositionSizeCard({ base }: { base: string }) {
   const [entry, setEntry] = useState('')
   const [stop, setStop] = useState('')
   const [lot, setLot] = useState('1')
-  const size = positionSize({ account: account.replace(/,/g, ''), riskPct, entry, stop, lot })
+  const size = positionSize({
+    account: account.replace(/,/g, ''),
+    riskPct,
+    entry,
+    stop,
+    lot,
+  })
   const field = (id: string, label: string, value: string, set: (v: string) => void, hint?: string) => (
     <Field id={id} label={label} hint={hint}>
       <Input id={id} inputMode="decimal" value={value} onChange={(e) => set(e.target.value)} className="h-10 tabular-nums" />
@@ -60,8 +68,8 @@ export function PositionSizeCard({ base }: { base: string }) {
       <p aria-live="polite" className="text-sm">
         {size ? (
           <>
-            ซื้อได้ <b className="font-display text-lg">{fmtNumber(size.units, 8)}</b> หน่วย · มูลค่า {fmtPrice(size.value)} · ถ้าโดน Stop เสีย{' '}
-            {fmtPrice(size.units.times(entry).minus(size.units.times(stop)))}
+            ซื้อได้ <b className="font-display text-lg">{fmtNumber(size.units, 8)}</b> หน่วย · มูลค่า {fmtPrice(size.value)} · ถ้าโดน Stop
+            เสีย {fmtPrice(size.units.times(entry).minus(size.units.times(stop)))}
             <span className="block text-[12px] text-muted-foreground">
               ยอมเสียได้ {fmtPrice(size.riskAmount)} · ราคาเข้าและ Stop ใช้สกุลเดียวกับหุ้น ถ้าคนละสกุลกับพอร์ต แปลงเงินในพอร์ตก่อน
             </span>
@@ -100,7 +108,10 @@ export function LotsCard({
       ) : (
         <ul className="text-sm">
           {lots.map((lot) => (
-            <li key={`${lot.accountId}-${lot.txId}`} className="grid grid-cols-[1fr_auto] gap-x-3 border-t border-muted py-2.5 first:border-t-0">
+            <li
+              key={`${lot.accountId}-${lot.txId}`}
+              className="grid grid-cols-[1fr_auto] gap-x-3 border-t border-muted py-2.5 first:border-t-0"
+            >
               <span>
                 {fmtDate(lot.date)}
                 {manyAccounts && <span className="text-muted-foreground"> · {names.get(lot.accountId)}</span>}
@@ -127,7 +138,9 @@ export function LotsCard({
           </div>
         </dl>
       )}
-      <p className="text-[12px] text-muted-foreground">แอปคิดกำไรด้วยต้นทุนเฉลี่ยเหมือนโบรกไทย ไม้แยกด้านบนนับแบบซื้อก่อนขายก่อน (FIFO) ไว้ดูเทียบ</p>
+      <p className="text-[12px] text-muted-foreground">
+        แอปคิดกำไรด้วยต้นทุนเฉลี่ยเหมือนโบรกไทย ไม้แยกด้านบนนับแบบซื้อก่อนขายก่อน (FIFO) ไว้ดูเทียบ
+      </p>
     </Card>
   )
 }

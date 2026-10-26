@@ -6,6 +6,7 @@ import { FxPage } from './ui/pages/FxPage'
 import { ImportPage } from './ui/pages/ImportPage'
 import { IncomePage } from './ui/pages/IncomePage'
 import { MorePage } from './ui/pages/MorePage'
+import { PlansPage } from './ui/pages/PlansPage'
 import { PortfolioPage } from './ui/pages/PortfolioPage'
 import { SettingsPage } from './ui/pages/SettingsPage'
 import { TradesPage } from './ui/pages/TradesPage'
@@ -22,6 +23,7 @@ export const routes: RouteObject[] = [
       { index: true, element: <DashboardPage /> },
       { path: 'portfolio', element: <PortfolioPage /> },
       { path: 'assets/:id', element: <AssetPage /> },
+      { path: 'plans', element: <PlansPage /> },
       { path: 'income', element: <IncomePage /> },
       { path: 'trades', element: <TradesPage /> },
       { path: 'fx', element: <FxPage /> },
