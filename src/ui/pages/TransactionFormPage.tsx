@@ -199,7 +199,8 @@ function TransactionForm({
   const needsFx = draft.currency !== base && draft.type !== 'split' && !movesNoMoney(draft)
   const openingAsset = isOpeningAsset(draft)
   const isTrade = draft.type === 'buy' || draft.type === 'sell'
-  const usesAmountField = !isTrade && !openingAsset && draft.type !== 'split' && draft.type !== 'transfer' && draft.type !== 'receive_asset'
+  const usesAmountField =
+    !isTrade && !openingAsset && draft.type !== 'split' && draft.type !== 'transfer' && draft.type !== 'receive_asset' && !(draft.type === 'swap' && draft.exercise)
 
   const others = useMemo(() => data.transactions.filter((t) => t.id !== existing?.id), [data.transactions, existing?.id])
   const heldLedger = useMemo(() => computeLedger(others), [others])
@@ -493,6 +494,17 @@ function TransactionForm({
             )}
             {draft.type === 'transfer' && <TransferAmountField draft={draft} update={update} />}
             {draft.type === 'receive_asset' && <ReceiveTaxField draft={draft} update={update} />}
+            {draft.type === 'swap' && draft.exercise && (
+              <Field id="tx-paid" label="เงินที่จ่ายค่าใช้สิทธิ" hint="ราคาใช้สิทธิ × จำนวนหุ้นที่ได้ · ต้นทุนวอร์แรนต์จะยกไปรวมกับหุ้นให้เอง">
+                <Input id="tx-paid" inputMode="decimal" value={draft.paid} onChange={(e) => update({ paid: e.target.value })} />
+              </Field>
+            )}
+            {draft.type === 'buy' && (
+              <label className="flex min-h-11 items-center gap-2.5 text-sm sm:col-span-2">
+                <input type="checkbox" className="size-5 accent-primary" checked={draft.rightsOffer} onChange={(e) => update({ rightsOffer: e.target.checked })} />
+                ซื้อหุ้นเพิ่มทุนตามสิทธิ (XR) ที่ราคาจองซื้อ
+              </label>
+            )}
             {usesAmountField && (
               <Field id="tx-amount" label={amountLabel(draft)}>
                 <Input id="tx-amount" inputMode="decimal" value={draft.amount} onChange={(e) => update({ amount: e.target.value })} />

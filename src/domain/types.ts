@@ -24,7 +24,7 @@ export type FeePaidIn = (typeof FEE_PAID_IN)[number]
 export const MARKETS = ['US', 'SET', 'FUND', 'BOND', 'GOLD', 'HK', 'JP', 'SG', 'CN', 'EU', 'UK', 'CRYPTO', 'OTHER'] as const
 export type Market = (typeof MARKETS)[number]
 
-export const ASSET_TYPES = ['stock', 'etf', 'dr', 'fund', 'bond', 'gold', 'crypto', 'other'] as const
+export const ASSET_TYPES = ['stock', 'etf', 'dr', 'warrant', 'fund', 'bond', 'gold', 'crypto', 'other'] as const
 export type AssetType = (typeof ASSET_TYPES)[number]
 
 export const UNITS = ['share', 'unit', 'coin', 'baht_gold', 'gram'] as const
@@ -167,6 +167,12 @@ export interface Transaction {
   remitToThailand?: boolean
   taxYear?: number
   journal?: TradeJournal
+  // A buy of new shares through a rights offering (XR), at the subscription price.
+  rightsOffer?: boolean
+  // A swap that exercises a warrant or right: what is given up passes its cost on to what is received, nothing is
+  // realized, and paid is the cash paid to exercise (exercise price × shares), in `currency`.
+  exercise?: boolean
+  paid?: string
   // Set on every record written by one AI import, so the whole import can be taken back together.
   importBatchId?: string
   note: string

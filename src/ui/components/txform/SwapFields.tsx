@@ -34,7 +34,11 @@ export function SwapFields({
   const update = (patch: Partial<Draft>) => setDraft((d) => ({ ...d, ...patch }))
   return (
     <>
-      <FieldGroup legend="แลกออก">
+      <label className="flex min-h-11 items-center gap-2.5 text-sm">
+        <input type="checkbox" className="size-5 accent-primary" checked={draft.exercise} onChange={(e) => update({ exercise: e.target.checked })} />
+        ใช้สิทธิแปลงสภาพ (วอร์แรนต์ หรือใบแสดงสิทธิ) เป็นหุ้น
+      </label>
+      <FieldGroup legend={draft.exercise ? 'วอร์แรนต์ที่ใช้สิทธิ' : 'แลกออก'}>
         <InstrumentFields
           idPrefix="tx"
           symbolLabel="สินทรัพย์ที่แลกออก"
@@ -52,12 +56,12 @@ export function SwapFields({
           onUnit={(unit) => update({ unit })}
         />
         <div className="grid gap-3.5 sm:grid-cols-2">
-          <Field id="tx-quantity" label="จำนวนที่แลกออก">
+          <Field id="tx-quantity" label={draft.exercise ? 'จำนวนวอร์แรนต์ที่ใช้สิทธิ' : 'จำนวนที่แลกออก'}>
             <Input id="tx-quantity" inputMode="decimal" value={draft.quantity} onChange={(e) => update({ quantity: e.target.value })} />
           </Field>
         </div>
       </FieldGroup>
-      <FieldGroup legend="ได้รับ">
+      <FieldGroup legend={draft.exercise ? 'หุ้นที่ได้' : 'ได้รับ'}>
         <InstrumentFields
           idPrefix="tx-to"
           symbolLabel="สินทรัพย์ที่ได้รับ"

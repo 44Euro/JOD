@@ -57,6 +57,29 @@ describe('TransactionFormPage', () => {
     expect([picture.txId, picture.name]).toEqual([saved.id, 'chart.png'])
   })
 
+  it('exercises a warrant into shares, carrying its cost and the exercise money', async () => {
+    await db.instruments.add({ id: 'SET:BTS-W5', market: 'SET', symbol: 'BTS-W5', name: 'BTS-W5', assetType: 'warrant', currency: 'THB' })
+    await db.transactions.add({
+      id: 'w', accountId: 'acc-1', type: 'buy', date: '2024-01-02', instrumentId: 'SET:BTS-W5', quantity: '100', price: '0.5', currency: 'THB',
+      fees: '1', tax: '0', fxRate: '1', fxSource: 'same', note: '', createdAt: '2024-01-02T00:00:00.000Z', updatedAt: '2024-01-02T00:00:00.000Z',
+    })
+    const user = userEvent.setup()
+    const router = renderRoute('/transactions/new?type=swap')
+    await user.click(await screen.findByLabelText('ใช้สิทธิแปลงสภาพ (วอร์แรนต์ หรือใบแสดงสิทธิ) เป็นหุ้น'))
+    expect(screen.queryByLabelText('มูลค่ารวม ณ ตอนแลก')).not.toBeInTheDocument()
+    await user.selectOptions(screen.getAllByLabelText('ตลาด')[0], 'SET')
+    await user.type(screen.getByLabelText('สินทรัพย์ที่แลกออก'), 'BTS-W5')
+    await user.type(screen.getByLabelText('จำนวนวอร์แรนต์ที่ใช้สิทธิ'), '100')
+    await user.selectOptions(screen.getAllByLabelText('ตลาด')[1], 'SET')
+    await user.type(screen.getByLabelText('สินทรัพย์ที่ได้รับ'), 'BTS')
+    await user.type(screen.getByLabelText('จำนวนที่ได้รับ'), '100')
+    await user.type(screen.getByLabelText('เงินที่จ่ายค่าใช้สิทธิ'), '900')
+    await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+    await waitFor(() => expect(router.state.location.pathname).toBe('/transactions'))
+    const saved = (await db.transactions.toArray()).find((t) => t.type === 'swap')!
+    expect([saved.exercise, saved.paid, saved.amount, saved.toInstrumentId]).toEqual([true, '900', undefined, 'SET:BTS'])
+  })
+
   it('refuses a new symbol with a space or a colon and saves nothing', async () => {
     const user = userEvent.setup()
     renderRoute('/transactions/new', fakeFxProvider({ 'USD|THB': '35.1' }).provider)

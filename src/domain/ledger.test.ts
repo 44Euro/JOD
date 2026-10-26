@@ -941,3 +941,26 @@ describe('computeLedger cash cost', () => {
     expect(cashOf([...usdCash])).toEqual(ledger.cash.map((c) => [c.accountId, c.currency, c.amount.toString(), c.costBase.toString()]))
   })
 })
+
+describe('exercising a warrant', () => {
+  const thb = { currency: 'THB', fxRate: '1', fxSource: 'same' as const }
+  const txs = [
+    makeTx({ ...thb, id: 'd', type: 'deposit', amount: '10000', instrumentId: undefined, quantity: undefined, price: undefined, date: '2024-01-01' }),
+    makeTx({ ...thb, id: 'w', instrumentId: 'SET:BTS-W5', quantity: '100', price: '0.5', fees: '1', date: '2024-01-02' }),
+    makeTx({
+      ...thb, id: 'x', type: 'swap', instrumentId: 'SET:BTS-W5', toInstrumentId: 'SET:BTS', quantity: '100', toQuantity: '100',
+      exercise: true, paid: '900', fees: '2', price: undefined, amount: undefined, date: '2024-06-01',
+    }),
+  ]
+
+  it('moves the warrant cost into the shares with the exercise money, realizing nothing', () => {
+    const ledger = computeLedger(txs)
+    expect(ledger.issues).toEqual([])
+    expect(ledger.realized).toEqual([])
+    const shares = ledger.positions.find((p) => p.instrumentId === 'SET:BTS')!
+    // Warrants cost 51; exercise adds 900 + fee 2.
+    expect([shares.quantity.toString(), shares.costQuote.toString(), shares.costBase.toString()]).toEqual(['100', '953', '953'])
+    expect(ledger.positions.find((p) => p.instrumentId === 'SET:BTS-W5')?.quantity.toString() ?? '0').toBe('0')
+    expect(ledger.cash.find((c) => c.currency === 'THB')?.amount.toString()).toBe(String(10000 - 51 - 902))
+  })
+})

@@ -102,6 +102,7 @@ export const ASSET_TYPE_LABELS: Record<AssetType, string> = {
   stock: 'หุ้น',
   etf: 'ETF',
   dr: 'DR',
+  warrant: 'วอร์แรนต์/สิทธิ',
   fund: 'กองทุนรวม',
   bond: 'หุ้นกู้/พันธบัตร',
   gold: 'ทองคำ',

@@ -52,7 +52,7 @@ export function describeMain(tx: Transaction, accountNames?: Names, instruments?
   switch (tx.type) {
     case 'buy':
     case 'sell':
-      return `${fmtNumber(tx.quantity, 8)} × ${fmtPrice(tx.price)}`
+      return `${fmtNumber(tx.quantity, 8)} × ${fmtPrice(tx.price)}${tx.rightsOffer ? ' · หุ้นเพิ่มทุน (XR)' : ''}`
     case 'opening':
       return tx.instrumentId ? `${fmtNumber(tx.quantity, 8)} × ${fmtPrice(tx.price)}` : fmtNumber(tx.amount)
     case 'split':
@@ -66,7 +66,7 @@ export function describeMain(tx: Transaction, accountNames?: Names, instruments?
         : `${fmtNumber(tx.amount)} ${tx.currency} → ${to}`
     }
     case 'swap':
-      return `${fmtNumber(tx.quantity, 8)} ${symbolOf(tx.instrumentId)} → ${fmtNumber(tx.toQuantity, 8)} ${symbolOf(tx.toInstrumentId)}`
+      return `${tx.exercise ? 'ใช้สิทธิ ' : ''}${fmtNumber(tx.quantity, 8)} ${symbolOf(tx.instrumentId)} → ${fmtNumber(tx.toQuantity, 8)} ${symbolOf(tx.toInstrumentId)}${tx.exercise ? ` · จ่าย ${fmtNumber(tx.paid)}` : ''}`
     case 'receive_asset':
       return `${fmtNumber(tx.quantity, 8)} × ${fmtPrice(tx.price)} · ${RECEIVE_KIND_LABELS[tx.receiveKind ?? 'other']}`
     default:

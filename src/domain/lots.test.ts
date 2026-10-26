@@ -38,3 +38,19 @@ describe('fifoByAccount', () => {
     ])
   })
 })
+
+describe('exercise in FIFO lots', () => {
+  it('turns the warrant lots into a share lot carrying their cost plus the exercise money', () => {
+    const txs = [
+      makeTx({ id: 'w', instrumentId: 'SET:BTS-W5', quantity: '100', price: '0.5', fees: '1', currency: 'THB', fxRate: '1', date: '2024-01-02' }),
+      makeTx({
+        id: 'x', type: 'swap', instrumentId: 'SET:BTS-W5', toInstrumentId: 'SET:BTS', quantity: '100', toQuantity: '100', exercise: true,
+        paid: '900', fees: '2', currency: 'THB', fxRate: '1', price: undefined, date: '2024-06-01',
+      }),
+    ]
+    expect(fifoByAccount(txs, 'SET:BTS-W5').get('acc-1')!.lots).toEqual([])
+    const r = fifoByAccount(txs, 'SET:BTS').get('acc-1')!
+    expect(r.sales).toEqual([])
+    expect(r.lots.map((l) => [l.txId, l.quantity.toString(), l.costQuote.toString()])).toEqual([['x', '100', '953']])
+  })
+})

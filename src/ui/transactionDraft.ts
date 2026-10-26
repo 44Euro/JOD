@@ -92,6 +92,9 @@ export interface Draft {
   note: string
   journal: JournalDraft
   reinvest: boolean
+  rightsOffer: boolean
+  exercise: boolean
+  paid: string
   reinvestQuantity: string
   reinvestPrice: string
   reinvestFees: string
@@ -164,6 +167,9 @@ export function emptyDraft(accountId: string, today: string): Draft {
     note: '',
     journal: emptyJournalDraft(),
     reinvest: false,
+    rightsOffer: false,
+    exercise: false,
+    paid: '',
     reinvestQuantity: '',
     reinvestPrice: '',
     reinvestFees: '',
@@ -508,6 +514,9 @@ export function draftFromTransaction(tx: Transaction, instruments: readonly Inst
     note: tx.note,
     journal: journalToDraft(tx.journal),
     reinvest: false,
+    rightsOffer: tx.rightsOffer === true,
+    exercise: tx.exercise === true,
+    paid: tx.paid ?? '',
     reinvestQuantity: '',
     reinvestPrice: '',
     reinvestFees: '',
@@ -610,7 +619,8 @@ export function draftToTransaction(draft: Draft, ctx: DraftContext): { tx: Trans
   const isSwap = draft.type === 'swap'
   const isReceive = draft.type === 'receive_asset'
   const sendsUnits = isTransfer && draft.transferKind === 'asset'
-  const usesAmount = !holding && !sendsUnits && !isReceive && draft.type !== 'split'
+  const exercise = isSwap && draft.exercise
+  const usesAmount = !holding && !sendsUnits && !isReceive && draft.type !== 'split' && !exercise
   const isConvert = draft.type === 'fx_convert'
   const remit = draft.type === 'withdraw' && draft.remitToThailand
   const feePaidIn = feePaidInOf(draft)
@@ -652,6 +662,9 @@ export function draftToTransaction(draft: Draft, ctx: DraftContext): { tx: Trans
     remitToThailand: remit ? true : undefined,
     taxYear: remit ? Number.parseInt(draft.taxYear, 10) : undefined,
     journal: tradeJournal(draft),
+    rightsOffer: draft.type === 'buy' && draft.rightsOffer ? true : undefined,
+    exercise: exercise ? true : undefined,
+    paid: exercise ? (num(draft.paid) ?? '0') : undefined,
     note: draft.note.trim(),
     createdAt: ctx.createdAt,
     updatedAt: ctx.createdAt,

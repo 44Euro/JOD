@@ -140,8 +140,9 @@ function receivedValueQuote(tx: Transaction): Decimal {
 }
 
 // The coin received in a swap costs the value it was swapped at plus the fees and tax paid on top.
+// For an exercise, the cash paid plus fees; the cost carried over from what was given up is added by the ledger.
 function receivedCostQuote(tx: Transaction): Decimal {
-  return D(tx.amount).plus(D(tx.fees)).plus(D(tx.tax))
+  return (tx.exercise ? D(tx.paid) : D(tx.amount)).plus(D(tx.fees)).plus(D(tx.tax))
 }
 
 export function receivedUnitCost(tx: Transaction): Decimal | null {
@@ -196,7 +197,7 @@ export function cashDeltaQuote(tx: Transaction): Decimal {
     // Only the fees and tax are paid in cash; the coin given up pays for the coin received, and an asset
     // received as income costs nothing in cash.
     case 'swap':
-      return cashFees.plus(tax).negated()
+      return cashFees.plus(tax).plus(tx.exercise ? D(tx.paid) : 0).negated()
     case 'receive_asset':
       return fees.plus(tax).negated()
     // An opening holding was paid for before the app existed, so only opening cash moves cash.
@@ -475,7 +476,7 @@ export function computeLedger(transactions: readonly Transaction[]): Ledger {
         continue
       }
       const cost = takeCost(held, quantity)
-      realized.push(realizedEvent(tx, instrumentId, quantity, D(tx.amount), cost))
+      if (!tx.exercise) realized.push(realizedEvent(tx, instrumentId, quantity, D(tx.amount), cost))
       removeUnits(tx, key, held, quantity, cost)
       const received = positions.get(toKey) ?? {
         key: toKey,
@@ -491,8 +492,9 @@ export function computeLedger(transactions: readonly Transaction[]): Ledger {
       const before = received.quantity
       received.quantity = before.plus(D(tx.toQuantity)).minus(feeUnitsTaken(tx))
       recordMove(tx, received, before, received.quantity)
-      received.costQuote = received.costQuote.plus(receivedCost)
-      received.costBase = received.costBase.plus(receivedCost.times(rate))
+      // Exercising carries the cost of what was given up, at the rates it was bought at, into what is received.
+      received.costQuote = received.costQuote.plus(receivedCost).plus(tx.exercise ? cost.costQuote : 0)
+      received.costBase = received.costBase.plus(receivedCost.times(rate)).plus(tx.exercise ? cost.costBase : 0)
       positions.set(toKey, received)
       payFeeInAsset(tx)
     }

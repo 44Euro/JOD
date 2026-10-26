@@ -87,7 +87,9 @@ export function fifoByAccount(transactions: readonly Transaction[], instrumentId
           dispose(tx, qty, qty.times(D(tx.price)).minus(extras).times(tx.fxRate))
           break
         case 'swap':
-          dispose(tx, qty, D(tx.amount).times(tx.fxRate))
+          // An exercise passes these units' cost on instead of selling them.
+          if (tx.exercise) take(result(tx.accountId).lots, qty)
+          else dispose(tx, qty, D(tx.amount).times(tx.fxRate))
           break
         case 'split':
           for (const lot of result(tx.accountId).lots) lot.quantity = lot.quantity.times(D(tx.splitRatio))
@@ -102,11 +104,33 @@ export function fifoByAccount(transactions: readonly Transaction[], instrumentId
     }
     if (tx.type === 'swap' && tx.toInstrumentId === instrumentId) {
       const received = tx.feePaidIn === 'received' ? D(tx.toQuantity).minus(D(tx.feeQuantity)) : D(tx.toQuantity)
-      acquire(tx, tx.accountId, received, D(tx.amount).plus(extras))
+      if (tx.exercise) {
+        const carried = exerciseCarry(transactions, tx)
+        const cash = D(tx.paid).plus(extras)
+        if (received.gt(0)) {
+          result(tx.accountId).lots.push({
+            txId: tx.id,
+            date: tx.date,
+            accountId: tx.accountId,
+            quantity: received,
+            costQuote: cash.plus(carried.quote),
+            costBase: cash.times(tx.fxRate).plus(carried.base),
+          })
+        }
+      } else acquire(tx, tx.accountId, received, D(tx.amount).plus(extras))
     }
     if (tx.feePaidIn === 'asset' && tx.feeInstrumentId === instrumentId && tx.feeQuantity) {
       dispose(tx, D(tx.feeQuantity), D(tx.fees).times(tx.fxRate))
     }
   }
   return results
+}
+
+// The FIFO cost of the units an exercise gives up: what the given-up asset's own lots held just before it.
+function exerciseCarry(transactions: readonly Transaction[], exercise: Transaction): { quote: Decimal; base: Decimal } {
+  const before = sortTransactions(transactions)
+  const upTo = before.slice(0, before.findIndex((t) => t.id === exercise.id))
+  const lots = [...(fifoByAccount(upTo, exercise.instrumentId ?? '').get(exercise.accountId)?.lots ?? [])].map((l) => ({ ...l }))
+  const taken = take(lots, D(exercise.quantity))
+  return { quote: sum(taken, (l) => l.costQuote), base: sum(taken, (l) => l.costBase) }
 }

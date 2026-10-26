@@ -72,7 +72,10 @@ export function validateTransaction(tx: Transaction, today: string = todayLocal(
       else if (tx.toInstrumentId === tx.instrumentId) errors.push('สินทรัพย์ที่ได้รับต้องต่างจากที่แลกออก')
       positive(tx.quantity, 'จำนวนที่แลกออก')
       positive(tx.toQuantity, 'จำนวนที่ได้รับ')
-      positive(tx.amount, 'มูลค่ารวม')
+      if (tx.exercise) {
+        nonNegative(tx.paid, 'เงินที่จ่ายค่าใช้สิทธิ')
+        if (tx.amount !== undefined) errors.push('การใช้สิทธิไม่มีมูลค่าแลก')
+      } else positive(tx.amount, 'มูลค่ารวม')
       break
     case 'receive_asset':
       if (!tx.receiveKind || !RECEIVE_KINDS.includes(tx.receiveKind)) errors.push('ประเภทการรับไม่ถูกต้อง')
@@ -103,6 +106,9 @@ export function validateTransaction(tx: Transaction, today: string = todayLocal(
   }
 
   if (tx.importBatchId !== undefined && typeof tx.importBatchId !== 'string') errors.push('เลขชุดนำเข้าไม่ถูกต้อง')
+  if (tx.rightsOffer !== undefined && (tx.rightsOffer !== true || tx.type !== 'buy')) errors.push('ซื้อหุ้นเพิ่มทุนใช้ได้กับการซื้อเท่านั้น')
+  if (tx.exercise !== undefined && (tx.exercise !== true || tx.type !== 'swap')) errors.push('การใช้สิทธิใช้ได้กับการแลกเท่านั้น')
+  if (tx.paid !== undefined && !tx.exercise) errors.push('เงินค่าใช้สิทธิใช้ได้กับการใช้สิทธิเท่านั้น')
 
   if (tx.journal !== undefined) {
     if (tx.type !== 'buy' && tx.type !== 'sell') errors.push('บันทึกเทรดใช้ได้กับการซื้อและขาย')
