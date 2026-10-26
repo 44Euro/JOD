@@ -5,3 +5,6 @@ coverage
 *.local
 .DS_Store
 sync-data/
+.env
+.env.*
+!.env.example
