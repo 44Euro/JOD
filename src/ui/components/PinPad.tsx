@@ -6,8 +6,8 @@ import { PIN_LENGTH } from '../../security/lock'
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9'] as const
 
-// Six dots and a number pad, as banking apps do, so the phone's own keyboard never covers the screen. The digits on a
-// physical keyboard work too. The PIN is handed over as soon as the sixth digit is in.
+// Six dots and a number pad on the navy rate board, as banking apps do, so the phone's own keyboard never covers the
+// screen. The digits on a physical keyboard work too. The PIN is handed over as soon as the sixth digit is in.
 export function PinPad({
   label,
   onComplete,
@@ -53,7 +53,7 @@ export function PinPad({
   })
 
   const keyClass =
-    'grid size-[72px] place-items-center rounded-full font-display text-[28px] font-semibold text-foreground transition-colors hover:bg-muted active:bg-input focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/35 disabled:opacity-40'
+    'grid size-[72px] place-items-center rounded-full font-display text-[28px] font-semibold text-white transition-colors hover:bg-board-line active:bg-board-line focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-board-mine/60 disabled:opacity-40'
 
   return (
     <div className="grid justify-items-center gap-8">
@@ -67,7 +67,7 @@ export function PinPad({
           <span
             key={i}
             aria-hidden
-            className={cn('size-4 rounded-full border-2 border-primary transition-colors', i < pin.length && 'bg-primary')}
+            className={cn('size-4 rounded-full border-2 border-board-muted transition-colors', i < pin.length && 'border-white bg-white')}
           />
         ))}
       </div>
@@ -81,7 +81,7 @@ export function PinPad({
         <button type="button" className={keyClass} disabled={disabled} onClick={() => press('0')}>
           0
         </button>
-        <button type="button" aria-label={t('ลบตัวเลข')} className={cn(keyClass, 'text-ink-2')} disabled={disabled || pin.length === 0} onClick={back}>
+        <button type="button" aria-label={t('ลบตัวเลข')} className={cn(keyClass, 'text-board-muted')} disabled={disabled || pin.length === 0} onClick={back}>
           <Delete className="size-7" aria-hidden />
         </button>
       </div>
