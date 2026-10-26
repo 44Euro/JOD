@@ -132,6 +132,16 @@
   --font-display: "Anuphan", "Noto Sans Thai", ui-sans-serif, sans-serif;
 }
 
+@keyframes route-draw {
+  from { transform: scaleX(0) }
+  to { transform: scaleX(1) }
+}
+
+@keyframes station-in {
+  from { opacity: 0; transform: scale(0.6) }
+  to { opacity: 1; transform: scale(1) }
+}
+
 @keyframes pin-shake {
   0%, 100% { transform: translateX(0) }
   25% { transform: translateX(-10px) }
@@ -152,7 +162,7 @@
     position: fixed;
     inset: 0 0 auto 0;
     height: env(safe-area-inset-top);
-    background: var(--background);
+    background: var(--status-strip, var(--background));
     z-index: 50;
     pointer-events: none;
   }

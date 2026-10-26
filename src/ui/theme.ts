@@ -53,3 +53,16 @@ export function ThemeSync() {
   useThemeSync(data ? (data.settings.theme ?? 'system') : null)
   return null
 }
+
+// A screen that opens on the navy rate board asks for the strip behind the status bar to match it, with light icons.
+export function useBoardStatusBar(): void {
+  useEffect(() => {
+    const root = document.documentElement
+    root.style.setProperty('--status-strip', 'var(--board)')
+    if (Capacitor.isNativePlatform()) void StatusBar.setStyle({ style: Style.Dark }).catch(() => {})
+    return () => {
+      root.style.removeProperty('--status-strip')
+      applyTheme(root.dataset.theme === 'dark' ? 'dark' : 'light')
+    }
+  }, [])
+}

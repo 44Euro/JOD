@@ -12,7 +12,8 @@ import { SyncError } from '../sync/client'
 import type { SyncOutcome } from '../sync/engine'
 import { authBypassed, keepSide, MIN_PASSWORD, signIn, signOut } from '../sync/session'
 import { useSyncState } from '../sync/state'
-import { ThemeSync } from './theme'
+import { cn } from '../lib/cn'
+import { ThemeSync, useBoardStatusBar } from './theme'
 
 function Screen({ children }: { children: ReactNode }) {
   return (
@@ -30,6 +31,69 @@ function messageOf(error: unknown): string {
   return error instanceof SyncError ? error.message : t('เข้าสู่ระบบไม่สำเร็จ ลองใหม่อีกครั้ง')
 }
 
+// The money route of the overview, drawn on the rate board: baht, exchanged at a rate, into an asset. It is what
+// the app is about, so it opens the app instead of a picture.
+function BoardRoute() {
+  const stations = [
+    { label: t('บาท'), ring: 'border-white' },
+    { label: t('แลกเงิน'), ring: 'border-board-fx' },
+    { label: t('สินทรัพย์'), ring: 'border-white' },
+  ]
+  return (
+    <div aria-hidden className="grid w-full max-w-[340px] grid-cols-[auto_1fr_auto_1fr_auto] items-center gap-y-2">
+      {stations.map((station, i) => [
+        i > 0 && (
+          <span
+            key={`line-${i}`}
+            className={cn(
+              'mx-1.5 h-[5px] origin-left rounded-full motion-safe:animate-[route-draw_0.7s_cubic-bezier(0.16,1,0.3,1)_both]',
+              i === 1 ? 'bg-board-muted/70' : 'bg-board-mine',
+            )}
+            style={{ animationDelay: `${150 + i * 220}ms` }}
+          />
+        ),
+        <span
+          key={`dot-${i}`}
+          className={cn('size-[22px] rounded-full border-[5px] bg-board motion-safe:animate-[station-in_0.4s_cubic-bezier(0.16,1,0.3,1)_both]', station.ring)}
+          style={{ animationDelay: `${i * 260}ms` }}
+        />,
+      ])}
+      {stations.map((station, i) => (
+        <span
+          key={`label-${i}`}
+          className={cn(
+            'text-[12.5px] text-board-muted',
+            i === 0 && 'col-start-1 justify-self-start',
+            i === 1 && 'col-start-3 justify-self-center text-board-fx',
+            i === 2 && 'col-start-5 justify-self-end',
+          )}
+        >
+          {station.label}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+function BoardScreen({ children }: { children: ReactNode }) {
+  useBoardStatusBar()
+  return (
+    <div className="flex min-h-dvh flex-col bg-board md:grid md:grid-cols-[minmax(0,1fr)_minmax(420px,520px)]">
+      <ThemeSync />
+      <header className="grid content-end gap-7 px-6 pt-10 pb-12 md:content-center md:px-14 md:pb-10">
+        <div>
+          <p className="font-display text-[56px] leading-none font-semibold tracking-[-0.02em] text-white md:text-[88px]">JOD</p>
+          <p className="mt-2 text-[15px] text-board-muted md:text-lg">{t('จดทุกเทรด รู้ทุกบาท')}</p>
+        </div>
+        <BoardRoute />
+      </header>
+      <main className="-mt-6 min-h-[60dvh] flex-1 rounded-t-[28px] bg-background px-5 pt-7 pb-[max(env(safe-area-inset-bottom),28px)] md:mt-0 md:grid md:min-h-dvh md:content-center md:rounded-none md:px-12">
+        <div className="mx-auto grid w-full max-w-sm gap-5">{children}</div>
+      </main>
+    </div>
+  )
+}
+
 function IconInput({
   id,
   icon: Icon,
@@ -40,8 +104,8 @@ function IconInput({
   const [shown, setShown] = useState(false)
   return (
     <div className="relative">
-      <Icon className="pointer-events-none absolute top-1/2 left-4 size-5 -translate-y-1/2 text-muted-foreground" aria-hidden />
-      <Input id={id} type={reveal && shown ? 'text' : type} className="h-14 rounded-2xl border-transparent bg-card pr-12 pl-12 shadow-sm" {...props} />
+      <Icon className="pointer-events-none absolute top-1/2 left-3.5 size-[18px] -translate-y-1/2 text-muted-foreground" aria-hidden />
+      <Input id={id} type={reveal && shown ? 'text' : type} className="h-12 bg-card pr-12 pl-11" {...props} />
       {reveal && (
         <button
           type="button"
@@ -94,26 +158,28 @@ function SignInScreen() {
 
   if (conflict) {
     return (
-      <Screen>
-        <div className="grid gap-3 text-center">
-          <h1 className="text-2xl font-semibold">{t('มีข้อมูลทั้งในเครื่องนี้และในบัญชี')}</h1>
+      <BoardScreen>
+        <div className="grid gap-3">
+          <h1 className="text-[26px] leading-tight font-semibold">{t('มีข้อมูลทั้งในเครื่องนี้และในบัญชี')}</h1>
           <p className="text-sm text-muted-foreground">{t('เลือกว่าจะใช้ข้อมูลชุดไหน อีกชุดจะถูกแทนที่')}</p>
-          <Button type="button" className="h-14 rounded-full" disabled={busy} onClick={() => void keepSide('server').then(() => setConflict(false))}>
+          <Button type="button" className="h-12" disabled={busy} onClick={() => void keepSide('server').then(() => setConflict(false))}>
             {t('ใช้ข้อมูลในบัญชี')}
           </Button>
-          <Button type="button" variant="outline" className="h-14 rounded-full" disabled={busy} onClick={() => void keepSide('device').then(() => setConflict(false))}>
+          <Button type="button" variant="outline" className="h-12" disabled={busy} onClick={() => void keepSide('device').then(() => setConflict(false))}>
             {t('ใช้ข้อมูลในเครื่องนี้')}
           </Button>
         </div>
-      </Screen>
+      </BoardScreen>
     )
   }
 
   return (
-    <Screen>
-      <div className="grid gap-1 pt-4 pb-2 text-center">
-        <h1 className="text-[28px] font-semibold">{signup ? t('สร้างบัญชีใหม่') : t('ยินดีต้อนรับกลับมา')}</h1>
-        <p className="text-sm text-muted-foreground">{t('จดทุกเทรด รู้ทุกบาท')}</p>
+    <BoardScreen>
+      <div className="grid gap-1">
+        <h1 className="text-[26px] leading-tight font-semibold">{signup ? t('สร้างบัญชีใหม่') : t('เข้าสู่ระบบ')}</h1>
+        <p className="text-sm text-muted-foreground">
+          {signup ? t('ข้อมูลจะถูกเข้ารหัสด้วยรหัสผ่านนี้ก่อนออกจากเครื่อง') : t('ใช้อีเมลและรหัสผ่านที่สมัครไว้')}
+        </p>
       </div>
       <form className="grid gap-4" onSubmit={(e) => void submit(e)}>
         <Field id="auth-email" label={t('อีเมล')}>
@@ -174,20 +240,18 @@ function SignInScreen() {
           </Alert>
         )}
         {error && <Alert tone="error">{error}</Alert>}
-        <Button type="submit" className="h-14 rounded-full text-base" disabled={busy || !email || !password}>
+        <Button type="submit" className="h-12 w-full text-base" disabled={busy || !email || !password}>
           {busy ? t('กำลังเข้าสู่ระบบ…') : signup ? t('สมัครและเข้าใช้งาน') : t('เข้าสู่ระบบ')}
         </Button>
       </form>
-      <p className="pt-6 text-center text-sm text-ink-2">
+      <p className="border-t pt-5 text-center text-sm text-ink-2">
         {signup ? t('มีบัญชีอยู่แล้ว?') : t('ยังไม่มีบัญชี?')}{' '}
         <button type="button" className="font-semibold text-primary-ink underline underline-offset-[3px]" onClick={() => switchTo(signup ? 'login' : 'signup')}>
           {signup ? t('เข้าสู่ระบบ') : t('สมัครเลย')}
         </button>
       </p>
-      <p className="text-center text-[12px] text-muted-foreground">
-        {t('ข้อมูลการลงทุนเก็บในเครื่องและถูกเข้ารหัสด้วยรหัสผ่านของคุณก่อนซิงก์ เซิร์ฟเวอร์อ่านไม่ได้ · ครั้งต่อไปเข้าแอปด้วย PIN 6 หลัก')}
-      </p>
-    </Screen>
+      <p className="text-center text-[12px] text-muted-foreground">{t('ครั้งต่อไปเข้าแอปด้วย PIN 6 หลัก')}</p>
+    </BoardScreen>
   )
 }
 

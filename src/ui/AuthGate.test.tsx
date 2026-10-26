@@ -48,7 +48,7 @@ describe('AuthGate', { timeout: 30_000 }, () => {
   it('asks to sign in first, then for a 6-digit PIN, then opens the app', async () => {
     const user = userEvent.setup()
     renderRoute('/settings')
-    expect(await screen.findByRole('heading', { name: 'ยินดีต้อนรับกลับมา' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'เข้าสู่ระบบ' })).toBeInTheDocument()
     expect(screen.queryByText('http://localhost:8787')).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'สมัครเลย' }))
     expect(screen.getByRole('heading', { name: 'สร้างบัญชีใหม่' })).toBeInTheDocument()
@@ -108,7 +108,7 @@ describe('AuthGate', { timeout: 30_000 }, () => {
     await db.accounts.add({ id: 'acc-1', name: 'Dime US', broker: 'Dime', note: '', createdAt: '2024-01-01T00:00:00.000Z' })
 
     await user.click(screen.getByRole('button', { name: 'ออกจากระบบ' }))
-    expect(await screen.findByRole('heading', { name: 'ยินดีต้อนรับกลับมา' }, { timeout: 15_000 })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'เข้าสู่ระบบ' }, { timeout: 15_000 })).toBeInTheDocument()
     expect(await db.accounts.count()).toBe(0)
 
     await user.type(screen.getByLabelText('อีเมล'), 'me@jod.test')

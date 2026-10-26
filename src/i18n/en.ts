@@ -1220,4 +1220,7 @@ export const EN: Record<string, string> = {
   "บันทึกการตั้งค่า AI": "Save AI settings",
   "อ่านด้วย AI ภายนอก (เลือกเอง)": "Read with an outside AI (your choice)",
   " — รูปหรือไฟล์ที่คุณกด \"ให้ AI อ่าน\" จะถูกส่งไปยังผู้ให้บริการที่คุณเลือก (Anthropic, OpenAI, Google หรือบริการที่คุณใส่ที่อยู่เอง) ด้วย API key ของคุณ ตามนโยบายของผู้ให้บริการนั้น · ครอปหรือปิดเลขบัญชีก่อนส่งได้": " — pictures or files you send with \"Read with AI\" go to the provider you chose (Anthropic, OpenAI, Google or a service at an address you entered) with your own key, under that provider's policy · you can crop or cover account numbers first",
+  "ข้อมูลจะถูกเข้ารหัสด้วยรหัสผ่านนี้ก่อนออกจากเครื่อง": "Your data is encrypted with this password before it leaves the device",
+  "ใช้อีเมลและรหัสผ่านที่สมัครไว้": "Use the email and password you signed up with",
+  "ครั้งต่อไปเข้าแอปด้วย PIN 6 หลัก": "Next time, open the app with a 6-digit PIN",
 }
