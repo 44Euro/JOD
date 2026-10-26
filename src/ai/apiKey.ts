@@ -1,24 +1,26 @@
 import { useSyncExternalStore } from 'react'
+import { READER_MODES, type ReaderMode } from './reader'
 
-// Kept in localStorage rather than the database, so it never ends up in a backup file.
+// Kept in localStorage rather than the database, so neither ends up in a backup file.
 export const API_KEY_STORAGE_KEY = 'jod-anthropic-key'
+export const READER_MODE_STORAGE_KEY = 'jod-ai-reader'
 
 const listeners = new Set<() => void>()
 
-export function readApiKey(): string {
+function read(key: string): string {
   try {
-    return localStorage.getItem(API_KEY_STORAGE_KEY) ?? ''
+    return localStorage.getItem(key) ?? ''
   } catch {
     return ''
   }
 }
 
-export function writeApiKey(key: string): void {
+function write(key: string, value: string): void {
   try {
-    if (key) localStorage.setItem(API_KEY_STORAGE_KEY, key)
-    else localStorage.removeItem(API_KEY_STORAGE_KEY)
+    if (value) localStorage.setItem(key, value)
+    else localStorage.removeItem(key)
   } catch {
-    // Storage blocked: the key lasts only until the page closes, which the user will notice and can live with.
+    // Storage blocked: the choice lasts only until the page closes, which the user will notice and can live with.
   }
   for (const listener of listeners) listener()
 }
@@ -28,8 +30,30 @@ function subscribe(listener: () => void): () => void {
   return () => listeners.delete(listener)
 }
 
+export function readApiKey(): string {
+  return read(API_KEY_STORAGE_KEY)
+}
+
+export function writeApiKey(key: string): void {
+  write(API_KEY_STORAGE_KEY, key)
+}
+
 export function useApiKey(): string {
   return useSyncExternalStore(subscribe, readApiKey)
+}
+
+// Reading on the device is the default: it costs nothing and nothing leaves the device.
+export function readReaderMode(): ReaderMode {
+  const stored = read(READER_MODE_STORAGE_KEY)
+  return READER_MODES.includes(stored as ReaderMode) ? (stored as ReaderMode) : 'local'
+}
+
+export function writeReaderMode(mode: ReaderMode): void {
+  write(READER_MODE_STORAGE_KEY, mode === 'local' ? '' : mode)
+}
+
+export function useReaderMode(): ReaderMode {
+  return useSyncExternalStore(subscribe, readReaderMode)
 }
 
 export function maskApiKey(key: string): string {

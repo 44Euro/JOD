@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { db } from '../../db/db'
 import { getSettings } from '../../db/repo'
 import { makeTx } from '../../test/fixtures'
-import { API_KEY_STORAGE_KEY } from '../../ai/apiKey'
+import { API_KEY_STORAGE_KEY, READER_MODE_STORAGE_KEY } from '../../ai/apiKey'
 import { renderRoute, resetDb } from '../../test/render'
 
 const account = { id: 'acc-1', name: 'Dime US', broker: 'Dime', note: '', createdAt: '2024-01-01T00:00:00.000Z' }
@@ -220,8 +220,24 @@ describe('SettingsPage', () => {
     })
   })
 
+  it('reads files on the device for free unless Claude is chosen', async () => {
+    localStorage.removeItem(READER_MODE_STORAGE_KEY)
+    const user = userEvent.setup()
+    renderRoute('/settings')
+    const group = await screen.findByRole('group', { name: 'วิธีอ่านรูปและไฟล์' })
+    expect(within(group).getByRole('button', { name: 'อ่านในเครื่อง (ฟรี)' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByText(/ไม่มีค่าใช้จ่าย ไฟล์ไม่ออกจากเครื่อง/)).toBeInTheDocument()
+    expect(screen.queryByLabelText('API key')).not.toBeInTheDocument()
+    await user.click(within(group).getByRole('button', { name: 'Claude' }))
+    expect(localStorage.getItem(READER_MODE_STORAGE_KEY)).toBe('claude')
+    expect(screen.getByLabelText('API key')).toBeInTheDocument()
+    await user.click(within(group).getByRole('button', { name: 'อ่านในเครื่อง (ฟรี)' }))
+    expect(localStorage.getItem(READER_MODE_STORAGE_KEY)).toBeNull()
+  })
+
   it('keeps the AI key on this device only, masks it and tests it', async () => {
     localStorage.removeItem(API_KEY_STORAGE_KEY)
+    localStorage.setItem(READER_MODE_STORAGE_KEY, 'claude')
     const tested: string[] = []
     const user = userEvent.setup()
     renderRoute('/settings', undefined, {

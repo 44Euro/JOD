@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { PreparedFile } from './files'
-import { AI_MODEL, createClaudeReader, describeAiError } from './reader'
+import { createClaudeReader } from './claudeReader'
+import { AI_MODEL, describeAiError } from './reader'
 
 const answer = { source: 'portfolio', rows: [], statedTotal: null, statedTotalCurrency: null, costIncludesFees: null, problems: ['รูปถูกตัด'] }
 
