@@ -3,7 +3,7 @@ import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { screen, waitFor, within } from '@testing-library/react'
+import { cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createApp } from '../../server/app.ts'
@@ -13,6 +13,7 @@ import { LOCK_STORAGE_KEY, resetLockForTests } from '../security/lock'
 import { installDirtyTracking } from '../sync/engine'
 import { setAuthBypassForTests, setSyncServerForTests } from '../sync/session'
 import { readSync, writeSync } from '../sync/state'
+import { WELCOME_STORAGE_KEY } from './welcome'
 import { renderRoute, resetDb } from '../test/render'
 
 let server: Server
@@ -27,6 +28,7 @@ beforeEach(async () => {
   setSyncServerForTests(`http://127.0.0.1:${(server.address() as AddressInfo).port}`)
   writeSync(null)
   localStorage.removeItem(LOCK_STORAGE_KEY)
+  localStorage.setItem(WELCOME_STORAGE_KEY, '1')
   resetLockForTests()
   setAuthBypassForTests(false)
 })
@@ -45,6 +47,18 @@ async function typePin(user: ReturnType<typeof userEvent.setup>, label: string, 
 
 // Each sign-in derives keys the slow way, as it does for real, so these tests need longer than the default.
 describe('AuthGate', { timeout: 30_000 }, () => {
+  it('greets a first launch, then goes straight to sign-in after that', async () => {
+    const user = userEvent.setup()
+    localStorage.removeItem(WELCOME_STORAGE_KEY)
+    renderRoute('/')
+    expect(await screen.findByRole('heading', { name: 'จดทุกเทรด รู้ทุกบาท' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'สมัครบัญชี' }))
+    expect(screen.getByRole('heading', { name: 'สร้างบัญชีใหม่' })).toBeInTheDocument()
+    cleanup()
+    renderRoute('/')
+    expect(await screen.findByRole('heading', { name: 'เข้าสู่ระบบ' })).toBeInTheDocument()
+  })
+
   it('asks to sign in first, then for a 6-digit PIN, then opens the app', async () => {
     const user = userEvent.setup()
     renderRoute('/settings')

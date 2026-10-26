@@ -14,6 +14,8 @@ import { authBypassed, keepSide, MIN_PASSWORD, signIn, signOut } from '../sync/s
 import { useSyncState } from '../sync/state'
 import { cn } from '../lib/cn'
 import { ThemeSync, useBoardStatusBar } from './theme'
+import { seenWelcome } from './welcome'
+import { WelcomeScreen } from './WelcomeScreen'
 
 function Screen({ children }: { children: ReactNode }) {
   return (
@@ -78,7 +80,7 @@ function BoardRoute() {
 function BoardScreen({ children }: { children: ReactNode }) {
   useBoardStatusBar()
   return (
-    <div className="flex min-h-dvh flex-col bg-board md:grid md:grid-cols-[minmax(0,1fr)_minmax(420px,520px)]">
+    <div className="flex min-h-[calc(100dvh-env(safe-area-inset-top))] flex-col bg-board md:grid md:grid-cols-[minmax(0,1fr)_minmax(420px,520px)]">
       <ThemeSync />
       <header className="grid content-end gap-7 px-6 pt-10 pb-12 md:content-center md:px-14 md:pb-10">
         <div>
@@ -121,8 +123,8 @@ function IconInput({
   )
 }
 
-function SignInScreen() {
-  const [mode, setMode] = useState<'login' | 'signup'>('login')
+function SignInScreen({ initialMode = 'login' }: { initialMode?: 'login' | 'signup' }) {
+  const [mode, setMode] = useState(initialMode)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [again, setAgain] = useState('')
@@ -363,13 +365,24 @@ export function AuthGate() {
   const session = useSyncState()
   const lock = useLockState()
   const { pathname } = useLocation()
+  const [welcome, setWelcome] = useState(() => !seenWelcome())
+  const [startMode, setStartMode] = useState<'login' | 'signup'>('login')
   useEffect(() => {
     const onChange = () => noteVisibility(document.visibilityState === 'visible')
     document.addEventListener('visibilitychange', onChange)
     return () => document.removeEventListener('visibilitychange', onChange)
   }, [])
   if (authBypassed() || pathname === '/privacy') return <Outlet />
-  if (!session) return <SignInScreen />
+  if (!session && welcome)
+    return (
+      <WelcomeScreen
+        onChoose={(mode) => {
+          setStartMode(mode)
+          setWelcome(false)
+        }}
+      />
+    )
+  if (!session) return <SignInScreen initialMode={startMode} />
   if (lock === 'off') return <SetPinScreen />
   if (lock === 'locked') return <UnlockScreen />
   return <Outlet />
