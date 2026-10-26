@@ -1,3 +1,5 @@
+import { Capacitor } from '@capacitor/core'
+import { StatusBar, Style } from '@capacitor/status-bar'
 import { useEffect } from 'react'
 import type { ThemeChoice } from '../domain/types'
 import { useAppData } from './hooks'
@@ -20,6 +22,8 @@ export function applyTheme(resolved: 'light' | 'dark'): void {
   root.dataset.theme = resolved
   root.style.colorScheme = resolved
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', THEME_COLORS[resolved])
+  // In the phone apps the clock and battery icons follow the theme: dark text on the light page, light on the dark one.
+  if (Capacitor.isNativePlatform()) void StatusBar.setStyle({ style: resolved === 'dark' ? Style.Dark : Style.Light }).catch(() => {})
 }
 
 function prefersDark(): boolean {

@@ -17,7 +17,7 @@ import { ThemeSync } from './theme'
 
 function Screen({ children }: { children: ReactNode }) {
   return (
-    <div className="grid min-h-dvh place-items-center bg-background px-4 py-10">
+    <div className="grid min-h-dvh content-start justify-items-center bg-background px-4 pt-12 pb-10 md:place-content-center">
       <ThemeSync />
       <main className="grid w-full max-w-sm gap-5">
         <p className="font-display text-[30px] font-semibold leading-none">
