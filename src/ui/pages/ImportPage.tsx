@@ -1,4 +1,4 @@
-import { FileText, ImagePlus, X } from 'lucide-react'
+import { Crop, FileText, ImagePlus, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { useApiKey, useReaderMode } from '../../ai/apiKey'
@@ -16,6 +16,7 @@ import { todayLocal } from '../../domain/dates'
 import { peekCachedQuote } from '../../fx/fxService'
 import { cn } from '../../lib/cn'
 import { ComparePanel, PriceReviewPanel } from '../components/import/CheckPanels'
+import { ImageEditor } from '../components/import/ImageEditor'
 import { ImportHistory } from '../components/import/ImportHistory'
 import { ImportReviewPanel } from '../components/import/ImportReviewPanel'
 import { PageHeader } from '../components/PageHeader'
@@ -41,15 +42,23 @@ function isPurpose(value: string | null): value is Purpose {
   return PURPOSES.includes(value as Purpose)
 }
 
-function FileChip({ file, onRemove }: { file: PreparedFile; onRemove: () => void }) {
+function FileChip({ file, edited, onEdit, onRemove }: { file: PreparedFile; edited: boolean; onEdit?: () => void; onRemove: () => void }) {
   return (
-    <li className="flex items-center gap-2.5 rounded-xl border bg-card p-2 pr-1">
+    <li className="flex items-center gap-1.5 rounded-xl border bg-card p-2 pr-1">
       {file.kind === 'image' ? (
         <img src={file.previewUrl} alt="" className="size-12 shrink-0 rounded-lg object-cover object-top" />
       ) : (
         <FileText className="size-6 shrink-0 text-ink-2" aria-hidden />
       )}
-      <span className="min-w-0 flex-1 truncate text-sm">{file.name}</span>
+      <span className="ml-1 min-w-0 flex-1">
+        <span className="block truncate text-sm">{file.name}</span>
+        {edited && <span className="block text-[12px] text-muted-foreground">ครอปหรือปิดข้อมูลแล้ว</span>}
+      </span>
+      {onEdit && (
+        <Button type="button" variant="ghost" size="icon" aria-label={`ครอปหรือปิดข้อมูลใน ${file.name}`} onClick={onEdit}>
+          <Crop aria-hidden />
+        </Button>
+      )}
       <Button type="button" variant="ghost" size="icon" aria-label={`เอา ${file.name} ออก`} onClick={onRemove}>
         <X aria-hidden />
       </Button>
@@ -70,6 +79,8 @@ export function ImportPage() {
   const [accountId, setAccountId] = useState('')
   const [files, setFiles] = useState<PreparedFile[]>([])
   const [fileErrors, setFileErrors] = useState<string[]>([])
+  const [editing, setEditing] = useState<number | null>(null)
+  const [edited, setEdited] = useState<ReadonlySet<PreparedFile>>(new Set())
   const [phase, setPhase] = useState<Phase>({ name: 'pick' })
   const [readError, setReadError] = useState('')
   const [cachedUsd, setCachedUsd] = useState<number | null>(null)
@@ -115,7 +126,19 @@ export function ImportPage() {
     setReadError('')
   }
 
+  async function replaceFile(index: number, file: File) {
+    const prepared = await prepareFile(file)
+    setFiles((current) => {
+      const old = current[index]
+      if (old?.kind === 'image') URL.revokeObjectURL(old.previewUrl)
+      return current.map((f, i) => (i === index ? prepared : f))
+    })
+    setEdited((current) => new Set(current).add(prepared))
+    setEditing(null)
+  }
+
   function removeFile(index: number) {
+    setEditing(null)
     setFiles((current) => {
       const file = current[index]
       if (file?.kind === 'image') URL.revokeObjectURL(file.previewUrl)
@@ -226,14 +249,29 @@ export function ImportPage() {
             >
               <ImagePlus className="size-6 text-ink-2" aria-hidden />
               <span className="font-semibold">ใส่รูปแคป, PDF หรือ CSV</span>
-              <span className="text-[12.5px] text-muted-foreground">ใส่ได้หลายไฟล์ · ครอปหรือปิดเลขบัญชีก่อนใส่ได้ · Excel ให้บันทึกเป็น CSV ก่อน</span>
+              <span className="text-[12.5px] text-muted-foreground">ใส่ได้หลายไฟล์ · ใส่รูปแล้วครอปหรือปิดเลขบัญชีได้ · Excel ให้บันทึกเป็น CSV ก่อน</span>
             </button>
             {files.length > 0 && (
               <ul className="grid gap-2 sm:grid-cols-2" aria-label="ไฟล์ที่จะอ่าน">
                 {files.map((file, index) => (
-                  <FileChip key={`${file.name}-${index}`} file={file} onRemove={() => removeFile(index)} />
+                  <FileChip
+                    key={`${file.name}-${index}`}
+                    file={file}
+                    edited={edited.has(file)}
+                    onEdit={file.kind === 'image' && phase.name === 'pick' ? () => setEditing(index) : undefined}
+                    onRemove={() => removeFile(index)}
+                  />
                 ))}
               </ul>
+            )}
+            {editing !== null && files[editing]?.kind === 'image' && (
+              <ImageEditor
+                key={editing}
+                previewUrl={(files[editing] as Extract<PreparedFile, { kind: 'image' }>).previewUrl}
+                name={files[editing].name}
+                onApply={(file) => replaceFile(editing, file)}
+                onCancel={() => setEditing(null)}
+              />
             )}
             {fileErrors.length > 0 && (
               <Alert tone="error">
