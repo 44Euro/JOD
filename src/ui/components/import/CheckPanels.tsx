@@ -8,7 +8,6 @@ import { setInstrumentPrice } from '../../../db/repo'
 import { parseDecimalInput } from '../../../domain/decimal'
 import { computeLedger } from '../../../domain/ledger'
 import type { Instrument, Transaction } from '../../../domain/types'
-import { cn } from '../../../lib/cn'
 import { fmtNumber, fmtPrice } from '../../format'
 import { compareHoldings, priceUpdates, type CompareState, type ReviewRow } from '../../importReview'
 import { t } from '../../../i18n'
@@ -125,7 +124,7 @@ export function ComparePanel({
         {lines.map((line) => (
           <li
             key={`${line.symbol}-${line.state}`}
-            className={cn('grid grid-cols-[1fr_auto] gap-x-3 gap-y-0.5 border-t border-muted py-3 first:border-t-0')}
+            className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-0.5 border-t border-muted py-3 first:border-t-0"
           >
             <b className="font-display">{line.symbol}</b>
             <Badge variant={STATE_TEXT[line.state].variant} className="justify-self-end">

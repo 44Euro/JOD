@@ -3,7 +3,6 @@ import { Link, useRouteError } from 'react-router'
 import { buttonVariants } from '../../components/ui/button-variants'
 import { Card } from '../../components/ui/card'
 import { logError } from '../../errors/log'
-import { cn } from '../../lib/cn'
 import { ThemeSync } from '../theme'
 import { t } from '../../i18n'
 
@@ -30,7 +29,7 @@ export function ErrorPage() {
             {t('กลับหน้าภาพรวม')}
           </Link>
           {!notFound && (
-            <button type="button" className={cn(buttonVariants({ variant: 'outline' }))} onClick={() => location.reload()}>
+            <button type="button" className={buttonVariants({ variant: 'outline' })} onClick={() => location.reload()}>
               {t('โหลดใหม่')}
             </button>
           )}

@@ -15,7 +15,6 @@ import { Segmented } from '../../components/ui/segmented'
 import { db } from '../../db/db'
 import { todayLocal } from '../../domain/dates'
 import { peekCachedQuote } from '../../fx/fxService'
-import { cn } from '../../lib/cn'
 import { ComparePanel, PriceReviewPanel } from '../components/import/CheckPanels'
 import { ImageEditor } from '../components/import/ImageEditor'
 import { ImportHistory } from '../components/import/ImportHistory'
@@ -39,10 +38,6 @@ type Phase =
   | { name: 'reading' }
   | { name: 'review'; extraction: Extraction; rows: ReviewRow[] }
   | { name: 'done'; message: string }
-
-function isPurpose(value: string | null): value is Purpose {
-  return PURPOSES.includes(value as Purpose)
-}
 
 function FileChip({ file, edited, onEdit, onRemove }: { file: PreparedFile; edited: boolean; onEdit?: () => void; onRemove: () => void }) {
   return (
@@ -74,10 +69,7 @@ export function ImportPage() {
   const mode = useReaderMode()
   const settings = useProviderSettings(mode)
   const readerFor = useReaderFactory()
-  const [purpose, setPurpose] = useState<Purpose>(() => {
-    const asked = params.get('purpose')
-    return isPurpose(asked) ? asked : 'import'
-  })
+  const [purpose, setPurpose] = useState<Purpose>(() => PURPOSES.find((p) => p === params.get('purpose')) ?? 'import')
   const [accountId, setAccountId] = useState('')
   const [files, setFiles] = useState<PreparedFile[]>([])
   const [fileErrors, setFileErrors] = useState<string[]>([])
@@ -111,6 +103,7 @@ export function ImportPage() {
   if (!data) return null
   const account = data.accounts.find((a) => a.id === accountId) ?? data.accounts[0]
   const needsKey = !providerReady(mode, settings)
+  const ctx = account && { accountId: account.id, baseCurrency: base, transactions: data.transactions, instruments: data.instruments }
 
   async function addFiles(list: FileList | null) {
     if (!list) return
@@ -149,20 +142,14 @@ export function ImportPage() {
   }
 
   async function read() {
-    if (!account) return
+    if (!ctx) return
     const controller = new AbortController()
     abort.current = controller
     setReadError('')
     setPhase({ name: 'reading' })
     try {
       const extraction = await readerFor(mode, settings).read(files, todayLocal(), controller.signal)
-      const rows = toReviewRows(extraction, {
-        accountId: account.id,
-        baseCurrency: base,
-        transactions: data!.transactions,
-        instruments: data!.instruments,
-      })
-      setPhase({ name: 'review', extraction, rows })
+      setPhase({ name: 'review', extraction, rows: toReviewRows(extraction, ctx) })
     } catch (error) {
       setPhase({ name: 'pick' })
       if (!isAbort(error)) setReadError(describeAiError(error))
@@ -190,7 +177,6 @@ export function ImportPage() {
 
   const step = phase.name === 'done' ? 4 : phase.name === 'review' ? 3 : phase.name === 'reading' || files.length > 0 ? 2 : 1
   const cost = mode === 'claude' && usdRate ? estimateCost(files, usdRate) : null
-  const ctx = { accountId: account.id, baseCurrency: base, transactions: data.transactions, instruments: data.instruments }
 
   return (
     <>
@@ -384,7 +370,7 @@ export function ImportPage() {
             <Button type="button" onClick={() => setPhase({ name: 'pick' })}>
               {t('นำเข้าเพิ่ม')}
             </Button>
-            <Link to="/portfolio" className={cn(buttonVariants({ variant: 'outline' }))}>
+            <Link to="/portfolio" className={buttonVariants({ variant: 'outline' })}>
               {t('ไปที่พอร์ต')}
             </Link>
           </div>
