@@ -164,10 +164,10 @@ export function SettingsPage() {
             )}
             <form onSubmit={handleAddAccount} className="grid gap-3 border-t pt-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
               <Field id="account-name" label={t('ชื่อบัญชี')}>
-                <Input id="account-name" value={name} placeholder="Dime US" onChange={(e) => setName(e.target.value)} />
+                <Input id="account-name" value={name} onChange={(e) => setName(e.target.value)} />
               </Field>
               <Field id="account-broker" label={t('โบรกเกอร์')}>
-                <Input id="account-broker" value={broker} placeholder="Dime" onChange={(e) => setBroker(e.target.value)} />
+                <Input id="account-broker" value={broker} onChange={(e) => setBroker(e.target.value)} />
               </Field>
               <Button type="submit" className="h-[46px]">
                 

@@ -1,6 +1,6 @@
 import { exportBackup, parseBackup, restoreBackup } from '../db/backup'
 import type { JodDB } from '../db/db'
-import { asEncrypted, decryptText, encryptText } from '../security/crypto'
+import { asEncrypted, decryptText, encryptText, keyIterations } from '../security/crypto'
 import type { SyncClient } from './client'
 import { isDirty, readSync, setDirty, writeSync, type SyncState } from './state'
 
@@ -12,7 +12,7 @@ function hex(bytes: ArrayBuffer): string {
 
 // One password, two keys: the login key goes to the server, the data key never leaves the device, so the server
 // cannot open what it stores. The email salts both, so the same password gives different keys for different people.
-export async function deriveKeys(email: string, password: string, iterations = 310_000): Promise<{ loginKey: string; dataKey: string }> {
+export async function deriveKeys(email: string, password: string, iterations = keyIterations()): Promise<{ loginKey: string; dataKey: string }> {
   const material = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits'])
   const derive = (purpose: string) =>
     crypto.subtle.deriveBits(
@@ -52,6 +52,16 @@ export type SyncOutcome =
   | { kind: 'pulled'; version: number }
   | { kind: 'conflict'; remoteVersion: number }
 
+// Two syncs at once (the automatic one and a tap) would both build on the same version and one would be refused as a
+// conflict, so they run one after the other.
+let queue: Promise<unknown> = Promise.resolve()
+
+function oneAtATime<T>(work: () => Promise<T>): Promise<T> {
+  const next = queue.then(work, work)
+  queue = next.catch(() => {})
+  return next
+}
+
 function saved(state: SyncState, version: number, now: Date) {
   writeSync({ ...state, version, syncedAt: now.toISOString() })
   setDirty(false)
@@ -59,7 +69,11 @@ function saved(state: SyncState, version: number, now: Date) {
 
 // The device remembers the version it last matched. Only one side changed: that side wins. Both changed: the user
 // picks, since merging two edited ledgers by record could keep a sale while dropping the buy it needs.
-export async function syncNow(db: JodDB, client: SyncClient, now: Date = new Date()): Promise<SyncOutcome> {
+export function syncNow(db: JodDB, client: SyncClient, now: Date = new Date()): Promise<SyncOutcome> {
+  return oneAtATime(() => syncOnce(db, client, now))
+}
+
+async function syncOnce(db: JodDB, client: SyncClient, now: Date): Promise<SyncOutcome> {
   const state = readSync()
   if (!state) throw new Error('not signed in')
   const remote = await client.pull(state.token)
@@ -82,7 +96,11 @@ async function isEmpty(db: JodDB) {
   return (await db.transactions.count()) === 0 && (await db.accounts.count()) === 0
 }
 
-export async function resolveConflict(db: JodDB, client: SyncClient, keep: 'device' | 'server', now: Date = new Date()): Promise<SyncOutcome> {
+export function resolveConflict(db: JodDB, client: SyncClient, keep: 'device' | 'server', now: Date = new Date()): Promise<SyncOutcome> {
+  return oneAtATime(() => resolveOnce(db, client, keep, now))
+}
+
+async function resolveOnce(db: JodDB, client: SyncClient, keep: 'device' | 'server', now: Date): Promise<SyncOutcome> {
   const state = readSync()
   if (!state) throw new Error('not signed in')
   const remote = await client.pull(state.token)

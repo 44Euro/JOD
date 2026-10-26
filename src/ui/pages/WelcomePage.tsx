@@ -107,7 +107,7 @@ export function WelcomePage() {
         <Stations steps={STEPS} step={step} />
         <p className="text-[12.5px] text-muted-foreground">
           
-          {t('ข้อมูลทั้งหมดอยู่ในเครื่องนี้ ไม่มีบัญชีผู้ใช้หรือตัวติดตาม ·')}{' '}
+          {t('ข้อมูลเก็บในเครื่องนี้และซิงก์แบบเข้ารหัส ไม่มีตัวติดตาม ·')}{' '}
           <Link to="/privacy" className="font-semibold text-primary-ink underline underline-offset-[3px]">
             
             {t('นโยบายความเป็นส่วนตัว')}

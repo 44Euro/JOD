@@ -2,7 +2,16 @@ import { t } from '../i18n'
 // Everything here uses the browser's own Web Crypto: PBKDF2 turns a passphrase into a key, AES-GCM seals the data and
 // refuses to open it if a single byte was changed.
 
-const ITERATIONS = 310_000
+let ITERATIONS = 310_000
+
+export function keyIterations() {
+  return ITERATIONS
+}
+
+// Deriving keys the full way takes about a second each; tests run hundreds and would time out on a busy machine.
+export function setKeyIterationsForTests(n: number) {
+  ITERATIONS = n
+}
 
 function toBase64(bytes: Uint8Array): string {
   let binary = ''
@@ -40,7 +49,7 @@ export class DecryptError extends Error {
   name = 'DecryptError'
 }
 
-export async function encryptText(text: string, passphrase: string, iterations = ITERATIONS): Promise<EncryptedFile> {
+export async function encryptText(text: string, passphrase: string, iterations = keyIterations()): Promise<EncryptedFile> {
   const salt = randomBytes(16)
   const iv = randomBytes(12)
   const key = await aesKey(passphrase, salt, iterations)
@@ -69,7 +78,7 @@ export interface PinRecord {
   iterations: number
 }
 
-export async function makePin(pin: string, iterations = ITERATIONS): Promise<PinRecord> {
+export async function makePin(pin: string, iterations = keyIterations()): Promise<PinRecord> {
   const salt = randomBytes(16)
   return { salt: toBase64(salt), hash: toBase64(new Uint8Array(await deriveBits(pin, salt, iterations))), iterations }
 }

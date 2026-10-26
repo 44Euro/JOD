@@ -5,7 +5,6 @@ import { cn } from '../lib/cn'
 import { AutoPriceUpdater } from './AutoPriceUpdater'
 import { AutoSync } from './AutoSync'
 import { DailyValueRecorder } from './DailyValueRecorder'
-import { LockGate } from './LockGate'
 import {
   HOME,
   MORE,
@@ -156,10 +155,8 @@ function Shell() {
 
 export function Layout() {
   return (
-    <LockGate>
-      <PrivacyProvider>
-        <Shell />
-      </PrivacyProvider>
-    </LockGate>
+    <PrivacyProvider>
+      <Shell />
+    </PrivacyProvider>
   )
 }

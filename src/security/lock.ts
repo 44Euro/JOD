@@ -53,17 +53,31 @@ export function hasBiometrics(): boolean {
   return Boolean(readRecord()?.credentialId)
 }
 
+export const PIN_LENGTH = 6
+
+export function validPin(pin: string): boolean {
+  return new RegExp(`^\\d{${PIN_LENGTH}}$`).test(pin)
+}
+
 export async function setPin(pin: string): Promise<void> {
-  if (!/^\d{4,8}$/.test(pin)) throw new Error(t('PIN ต้องเป็นตัวเลข 4–8 หลัก'))
+  if (!validPin(pin)) throw new Error(t('PIN ต้องเป็นตัวเลข 6 หลัก'))
   writeRecord({ ...(await makePin(pin)) })
   unlocked = true
   notify()
 }
 
-export async function removeLock(pin: string): Promise<void> {
+export async function changePin(current: string, next: string): Promise<void> {
   const record = readRecord()
-  if (record && !(await checkPin(pin, record))) throw new Error(t('PIN ไม่ถูก'))
+  if (!record || !(await checkPin(current, record))) throw new Error(t('PIN ปัจจุบันไม่ถูก'))
+  if (!validPin(next)) throw new Error(t('PIN ต้องเป็นตัวเลข 6 หลัก'))
+  writeRecord({ ...(await makePin(next)), credentialId: record.credentialId })
+}
+
+// Signing out removes the PIN with the session, so the next person has to sign in.
+export function clearLock() {
   writeRecord(null)
+  unlocked = false
+  notify()
 }
 
 export async function unlockWithPin(pin: string): Promise<boolean> {
