@@ -27,6 +27,12 @@ describe('privacy and problem reports', () => {
     expect(screen.getByText(/ไม่ผูกกับข้อมูลพอร์ตของคุณ/)).toBeInTheDocument()
   })
 
+  it('says the server asks SEC for a US company’s filings when its page opens', async () => {
+    renderRoute('/privacy')
+    expect(await screen.findByText('หน้าหุ้น')).toBeInTheDocument()
+    expect(screen.getByText(/ไปขอราคา กราฟ งบจาก SEC และข่าวของหุ้นตัวนั้น/)).toBeInTheDocument()
+  })
+
   it('says which symbols news asks about and that the calendar is filtered on the device', async () => {
     renderRoute('/privacy')
     expect(await screen.findByText('ข่าวและปฏิทินงบ')).toBeInTheDocument()
