@@ -16,9 +16,11 @@ import { HoldingsTable } from '../components/HoldingsTable'
 import { MiniRoute, MoneyRoute } from '../components/MoneyRoute'
 import { PageHeader } from '../components/PageHeader'
 import { HoldingsBoard } from '../components/HoldingsBoard'
+import { MorningNews } from '../components/MorningNews'
 import { Stat, SummaryPanel } from '../components/Summary'
 import { fmtDate, fmtHeadline, fmtNumber, fmtPrice, fmtRate, fmtSigned, fmtSignedPct, plClass } from '../format'
 import { useAppData, useInvestor } from '../hooks'
+import { useMySymbols } from '../useMarket'
 import { investorRoute } from '../moneyRoutes'
 import { buildNotices, type Notice, type NoticeKind } from '../notices'
 import { hasSampleData } from '../../db/sampleData'
@@ -62,6 +64,7 @@ function NoticeAlert({ notice }: { notice: Notice }) {
 export function DashboardPage() {
   const data = useAppData()
   const { ledger, valuations, rates, investor } = useInvestor(data)
+  const { held: heldSymbols } = useMySymbols(data)
   if (!data || !ledger || !investor) return <p className="text-muted-foreground">{t('กำลังโหลด…')}</p>
 
   if (data.accounts.length === 0) return <Navigate to="/welcome" replace />
@@ -147,7 +150,7 @@ export function DashboardPage() {
           </Card>
         )}
         {hasSideColumn && (
-          <div className="grid min-w-0 content-start gap-4">
+          <div className="grid min-w-0 content-start gap-4 xl:row-span-2">
             {showRoute && (
               <Link to={assetPath(largestId)} className="block rounded-[18px] border bg-card p-4 hover:bg-muted md:rounded-[20px] md:px-[26px] md:py-[22px]">
                 <h2 className="mb-4 text-lg font-semibold">{t('เส้นทางเงิน · ')}{largestSymbol}</h2>
@@ -167,6 +170,7 @@ export function DashboardPage() {
             ))}
           </div>
         )}
+        <MorningNews held={heldSymbols} today={today} />
       </div>
 
       <SummaryPanel

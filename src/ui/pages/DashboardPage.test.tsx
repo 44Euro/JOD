@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '../../db/db'
 import * as repo from '../../db/repo'
 import { getSettings, saveSettings } from '../../db/repo'
+import { MarketError, marketClient } from '../../market/client'
 import { fakeFxProvider, lateFxProvider } from '../../test/fakeFx'
 import { makeTx } from '../../test/fixtures'
 import { renderRoute, resetDb } from '../../test/render'
@@ -83,6 +84,32 @@ describe('DashboardPage', () => {
     expect(within(board).getByRole('link', { name: /AAPL/ })).toHaveTextContent('120.00')
     const value = screen.getByText('มูลค่าวันนี้ · สินทรัพย์ + เงินสด')
     expect(board.compareDocumentPosition(value) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('shows news of held shares under the board, or general news', async () => {
+    const story = (headline: string, symbols: string[]) => ({ id: headline, headline, source: 'Reuters', url: `https://news.test/${symbols.length}`, publishedAt: '2026-10-27T01:00:00.000Z', symbols })
+    const news = vi.spyOn(marketClient, 'news').mockImplementation(async (symbols) => (symbols.length ? [story('Apple beats estimates', symbols)] : [story('Markets close higher', [])]))
+    await seedDime()
+    renderRoute('/', usd())
+    const card = await screen.findByRole('region', { name: 'ข่าวหุ้นที่ถือ' })
+    expect(within(card).getByRole('link', { name: 'Apple beats estimates' })).toHaveAttribute('href', 'https://news.test/1')
+    expect(within(card).getByRole('link', { name: 'ดูทั้งหมด' })).toHaveAttribute('href', '/market/news')
+    expect(news).toHaveBeenCalledWith(['AAPL'])
+    const board = screen.getByRole('region', { name: 'ราคาที่ถืออยู่' })
+    expect(board.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+    cleanup()
+    news.mockImplementation(async (symbols) => (symbols.length ? [] : [story('Markets close higher', [])]))
+    renderRoute('/', usd())
+    const general = await screen.findByRole('region', { name: 'ข่าวต่างประเทศ' })
+    expect(await within(general).findByRole('link', { name: 'Markets close higher' })).toBeInTheDocument()
+  })
+
+  it('says news is not switched on when the server has no source', async () => {
+    vi.spyOn(marketClient, 'news').mockRejectedValue(new MarketError(503))
+    await seedDime()
+    renderRoute('/', usd())
+    expect(await screen.findByText(/ข่าวและปฏิทินงบยังไม่เปิด/)).toBeInTheDocument()
   })
 
   it('keeps the currency board off the home page', async () => {
@@ -238,7 +265,8 @@ describe('DashboardPage', () => {
     await saveSettings(db, { baseCurrency: 'THB', lastBackupAt: '2024-06-30T09:00:00.000Z' })
     renderRoute('/', usd())
     const board = (await screen.findByRole('region', { name: 'ราคาที่ถืออยู่' })).parentElement!
-    expect(board.children).toHaveLength(1)
+    expect(board.children).toHaveLength(2)
+    expect(board.lastElementChild).toHaveAccessibleName(/ข่าว/)
     expect(board).not.toHaveClass('xl:grid-cols-[minmax(0,1fr)_340px]')
   })
 
@@ -281,7 +309,7 @@ describe('DashboardPage', () => {
     await seedDime()
     renderRoute('/', usd())
     const board = (await screen.findByRole('region', { name: 'ราคาที่ถืออยู่' })).parentElement!
-    expect(board.children).toHaveLength(2)
+    expect(board.children).toHaveLength(3)
     expect(board).toHaveClass('xl:grid-cols-[minmax(0,1fr)_340px]')
   })
 
