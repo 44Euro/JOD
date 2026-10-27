@@ -2,7 +2,7 @@ import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '../../db/db'
-import { marketClient } from '../../market/client'
+import { MarketError, marketClient } from '../../market/client'
 import type { Transaction } from '../../domain/types'
 import { fakeFxProvider, lateFxProvider } from '../../test/fakeFx'
 import { makeTx } from '../../test/fixtures'
@@ -666,6 +666,57 @@ describe('AssetPage', () => {
   it('says so for a malformed id', async () => {
     renderRoute('/assets/NOPE')
     expect(await screen.findByText('ไม่พบสินทรัพย์นี้')).toBeInTheDocument()
+  })
+
+  describe('research sections', () => {
+    const filings = {
+      symbol: 'AAPL',
+      name: 'Apple Inc.',
+      currency: 'USD' as const,
+      shares: '15000000000',
+      annual: [{ period: 'CY2025', end: '2025-09-27', revenue: '416000000000', netIncome: '112000000000', freeCashFlow: '98000000000' }],
+      quarterly: [],
+    }
+
+    it('offers only the sections a Thai share has', async () => {
+      await db.instruments.add({ id: 'SET:PTT', market: 'SET', symbol: 'PTT', name: 'PTT', assetType: 'stock', currency: 'THB', lastPrice: '42' })
+      await db.transactions.add(makeTx({ instrumentId: 'SET:PTT', currency: 'THB', fxRate: '1', fxSource: 'same', quantity: '100', price: '40' }))
+      renderRoute('/assets/SET%3APTT', usd)
+      await screen.findByRole('region', { name: 'PTT' })
+      expect(screen.queryByRole('navigation', { name: 'ส่วนของหน้า' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('region', { name: 'งบการเงิน' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('region', { name: 'ข่าว' })).not.toBeInTheDocument()
+    })
+
+    it('jumps to a section from its chip', async () => {
+      vi.spyOn(marketClient, 'financials').mockResolvedValue(filings)
+      vi.spyOn(marketClient, 'news').mockResolvedValue([])
+      const scrolled: string[] = []
+      // jsdom does not lay pages out, so it has no scrollIntoView to watch.
+      Element.prototype.scrollIntoView ??= () => {}
+      vi.spyOn(Element.prototype, 'scrollIntoView').mockImplementation(function (this: Element) {
+        scrolled.push(this.id)
+      })
+      await db.instruments.add({ id: 'US:AAPL', market: 'US', symbol: 'AAPL', name: 'Apple', assetType: 'stock', currency: 'USD', lastPrice: '346' })
+      await db.transactions.add(makeTx({ instrumentId: 'US:AAPL', quantity: '2', price: '300' }))
+      const user = userEvent.setup({ advanceTimers: (ms) => vi.advanceTimersByTime(ms) })
+      renderRoute('/assets/US%3AAAPL', usd)
+      const chips = await screen.findByRole('navigation', { name: 'ส่วนของหน้า' })
+      expect(within(chips).getAllByRole('button').map((b) => b.textContent)).toEqual(['ของฉัน', 'งบ', 'มูลค่า', 'ข่าว'])
+      expect(await screen.findByRole('region', { name: 'งบการเงิน' })).toBeInTheDocument()
+      await user.click(within(chips).getByRole('button', { name: 'มูลค่า' }))
+      expect(scrolled).toEqual(['stock-value'])
+      expect(within(chips).getByRole('button', { name: 'มูลค่า' })).toHaveAttribute('aria-pressed', 'true')
+    })
+
+    it('hides the filings of a fund with none at SEC', async () => {
+      vi.spyOn(marketClient, 'financials').mockRejectedValue(new MarketError(404))
+      vi.spyOn(marketClient, 'news').mockResolvedValue([])
+      renderRoute('/assets/US%3AQQQ', usd)
+      await screen.findByRole('region', { name: 'QQQ' })
+      expect(await screen.findByRole('region', { name: 'ข่าว' })).toBeInTheDocument()
+      await waitFor(() => expect(screen.queryByRole('region', { name: 'งบการเงิน' })).not.toBeInTheDocument())
+    })
   })
 
   describe('an asset the app does not know', () => {

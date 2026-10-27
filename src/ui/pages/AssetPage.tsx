@@ -15,11 +15,14 @@ import { instrumentStats } from '../../domain/holdings'
 import { feesQuote, sortTransactions } from '../../domain/ledger'
 import { MARKETS, type Transaction } from '../../domain/types'
 import { cn } from '../../lib/cn'
-import { marketClient } from '../../market/client'
+import { MarketError, marketClient, type Financials } from '../../market/client'
 import { MoneyRoute } from '../components/MoneyRoute'
 import { RateCell } from '../components/RateCell'
 import { RenameInstrument } from '../components/RenameInstrument'
+import { MarketCard } from '../components/MarketCard'
+import { NEWS_SOURCE, NewsBody } from '../components/NewsList'
 import { StockHeader } from '../components/StockHeader'
+import { FinancialsSection, SectionChips, ValuationSection } from '../components/StockSections'
 import { Stat, SummaryPanel } from '../components/Summary'
 import { PriceHistoryCard } from '../components/HistoryCards'
 import { LotsCard } from '../components/RiskCards'
@@ -32,7 +35,7 @@ import { buyPath } from '../nav'
 import { defaultAssetType } from '../transactionDraft'
 import { describeAmount, describeFeePaid, feeFreeTransfer, feePaidNet, issueText, netOf } from '../transactionText'
 import { useIsDesktop } from '../useIsDesktop'
-import { useMarket } from '../useMarket'
+import { useMarket, type MarketState } from '../useMarket'
 import { t } from '../../i18n'
 
 function badgeOf(value: Decimal | null): 'ok' | 'loss' | 'default' {
@@ -71,6 +74,17 @@ export function AssetPage() {
   const live = useMarket(`quote:${id}`, async () => (priced ? ((await marketClient.quotes([id]))[0] ?? null) : null))
   const chart = useMarket(`chart:${id}`, async () => (priced ? marketClient.chart(id) : null))
   const watchlist = useLiveQuery(() => db.watchlist.toArray(), [])
+  // Filings and company news are for US shares; a fund SEC has no company facts for answers 404 and its sections go.
+  const us = market === 'US'
+  const filings = useMarket(`filings:${id}`, async () =>
+    us
+      ? marketClient.financials(idSymbol).catch((error: unknown) => {
+          if (error instanceof MarketError && error.status === 404) return null
+          throw error
+        })
+      : null,
+  )
+  const companyNews = useMarket(`stock-news:${id}`, async () => (us ? marketClient.news([idSymbol]) : []))
   // Coming back to an asset after visiting another must not find its form still open.
   if (renamingId !== undefined && renamingId !== id) setRenamingId(undefined)
   if (!data || !ledger || !ready) return <p className="text-muted-foreground">{t('กำลังโหลด…')}</p>
@@ -97,6 +111,15 @@ export function AssetPage() {
 
   const symbol = instrument?.symbol ?? idSymbol
   const charted = chart.status === 'ready' ? chart.data : null
+  const isFund = (instrument?.assetType ?? charted?.assetType) === 'etf'
+  const hasFilings = us && !isFund && !(filings.status === 'ready' && filings.data === null)
+  const filingsState: MarketState<Financials> = filings.status === 'ready' ? (filings.data ? { status: 'ready', data: filings.data } : { status: 'failed' }) : filings
+  const livePrice = live.status === 'ready' && live.data ? live.data.price : (instrument?.lastPrice ?? null)
+  const sections = [
+    ...(known ? [{ id: 'stock-mine', label: t('ของฉัน') }] : []),
+    ...(hasFilings ? [{ id: 'stock-financials', label: t('งบ') }, { id: 'stock-value', label: t('มูลค่า') }] : []),
+    ...(us ? [{ id: 'stock-news', label: t('ข่าว') }] : []),
+  ]
   const watchItem = watchlist?.find((w) => w.market === (instrument?.market ?? market) && w.symbol === symbol)
   const issues = new Map(ledger.issues.map((i) => [i.txId, issueText(i)]))
   const accountNames = new Map(data.accounts.map((a) => [a.id, a.name]))
@@ -182,139 +205,168 @@ export function AssetPage() {
 
       {instrument && renamingId === id && <RenameInstrument instrument={instrument} onClose={() => setRenamingId(undefined)} />}
 
-      {stats && (
-        <SummaryPanel
-          label={
-            stats.quantity.isZero()
-              ? t('ขายหมดแล้ว')
-              : t('มูลค่าวันนี้ · {0} {1} × {2} {3}', fmtNumber(stats.quantity, 8), unitLabel(instrument), fmtPrice(lastPrice), priceCurrency)
-          }
-          value={fmtHeadline(stats.valueBase, base)}
-          footer={
-            route.length > 0 && (
-              <>
-                <h2 className="mb-4 text-lg font-semibold">{t('เส้นทางเงินของ ')}{symbol}</h2>
-                <MoneyRoute label={t('เส้นทางเงินของ {0}', symbol)} stations={route} />
-                <p className="mt-[18px] flex flex-wrap gap-2">
-                  <Badge variant={badgeOf(stats.priceEffectBase)}>{t('จากหุ้น ')}{fmtSigned(stats.priceEffectBase, 0)}</Badge>
-                  {stats.currency !== base && <Badge variant="auto">{t('จากค่าเงิน ')}{fmtSigned(stats.fxEffectBase, 0)}</Badge>}
-                  <Badge>{t('ปันผล ')}{fmtSigned(stats.incomeBase, 0)}</Badge>
-                </p>
-              </>
-            )
-          }
-        >
-          <Stat
-            label={t('ผลตอบแทนรวม')}
-            value={fmtSigned(stats.totalReturnBase, 0)}
-            tone={plClass(stats.totalReturnBase)}
-            note={stats.totalReturnPct ? t('{0} รวมปันผล', fmtSignedPct(stats.totalReturnPct)) : undefined}
-          />
-          <Stat
-            label={t('ปันผลรับแล้ว')}
-            value={fmtHeadline(stats.incomeBase, base)}
-            note={t('ปันผล/ทุน {0}', fmtYield(stats.yieldOnCostPct))}
-          />
-          <Stat
-            label={t('ทุนเฉลี่ย')}
-            value={stats.quantity.isZero() || stats.currency === null ? '—' : fmtPrice(stats.costQuote.div(stats.quantity))}
-            note={stats.currency === null ? t('ถือหลายสกุลเงิน') : t('{0} ต่อหน่วย', stats.currency)}
-          />
-        </SummaryPanel>
-      )}
+      <SectionChips sections={sections} />
 
-      <div className="grid items-start gap-3.5 md:gap-[22px] xl:grid-cols-[minmax(0,1fr)_340px]">
-        <Card>
-          <div className="mb-3.5 flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold">{t('ทุกรายการของ ')}{symbol}</h2>
-            <Badge>{t('ทั้งหมด ')}{transactions.length} {t(' รายการ')}</Badge>
-          </div>
-          {isDesktop ? (
-            <Table>
-              <thead>
-                <tr>
-                  <Th>{t('วันที่')}</Th>
-                  <Th>{t('ประเภท')}</Th>
-                  <Th>{t('รายละเอียด')}</Th>
-                  <Th>{t('เรท')}</Th>
-                  <Th className="text-right">{t('สุทธิ (')}{base})</Th>
-                </tr>
-              </thead>
-              <tbody>
+      {known && (
+        <div id="stock-mine" className="grid scroll-mt-16 gap-3.5 md:gap-[22px] [&>*]:min-w-0">
+
+        {stats && (
+          <SummaryPanel
+            label={
+              stats.quantity.isZero()
+                ? t('ขายหมดแล้ว')
+                : t('มูลค่าวันนี้ · {0} {1} × {2} {3}', fmtNumber(stats.quantity, 8), unitLabel(instrument), fmtPrice(lastPrice), priceCurrency)
+            }
+            value={fmtHeadline(stats.valueBase, base)}
+            footer={
+              route.length > 0 && (
+                <>
+                  <h2 className="mb-4 text-lg font-semibold">{t('เส้นทางเงินของ ')}{symbol}</h2>
+                  <MoneyRoute label={t('เส้นทางเงินของ {0}', symbol)} stations={route} />
+                  <p className="mt-[18px] flex flex-wrap gap-2">
+                    <Badge variant={badgeOf(stats.priceEffectBase)}>{t('จากหุ้น ')}{fmtSigned(stats.priceEffectBase, 0)}</Badge>
+                    {stats.currency !== base && <Badge variant="auto">{t('จากค่าเงิน ')}{fmtSigned(stats.fxEffectBase, 0)}</Badge>}
+                    <Badge>{t('ปันผล ')}{fmtSigned(stats.incomeBase, 0)}</Badge>
+                  </p>
+                </>
+              )
+            }
+          >
+            <Stat
+              label={t('ผลตอบแทนรวม')}
+              value={fmtSigned(stats.totalReturnBase, 0)}
+              tone={plClass(stats.totalReturnBase)}
+              note={stats.totalReturnPct ? t('{0} รวมปันผล', fmtSignedPct(stats.totalReturnPct)) : undefined}
+            />
+            <Stat
+              label={t('ปันผลรับแล้ว')}
+              value={fmtHeadline(stats.incomeBase, base)}
+              note={t('ปันผล/ทุน {0}', fmtYield(stats.yieldOnCostPct))}
+            />
+            <Stat
+              label={t('ทุนเฉลี่ย')}
+              value={stats.quantity.isZero() || stats.currency === null ? '—' : fmtPrice(stats.costQuote.div(stats.quantity))}
+              note={stats.currency === null ? t('ถือหลายสกุลเงิน') : t('{0} ต่อหน่วย', stats.currency)}
+            />
+          </SummaryPanel>
+        )}
+
+        <div className="grid items-start gap-3.5 md:gap-[22px] xl:grid-cols-[minmax(0,1fr)_340px]">
+          <Card>
+            <div className="mb-3.5 flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold">{t('ทุกรายการของ ')}{symbol}</h2>
+              <Badge>{t('ทั้งหมด ')}{transactions.length} {t(' รายการ')}</Badge>
+            </div>
+            {isDesktop ? (
+              <Table>
+                <thead>
+                  <tr>
+                    <Th>{t('วันที่')}</Th>
+                    <Th>{t('ประเภท')}</Th>
+                    <Th>{t('รายละเอียด')}</Th>
+                    <Th>{t('เรท')}</Th>
+                    <Th className="text-right">{t('สุทธิ (')}{base})</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {transactions.map((tx) => {
+                    const issue = issues.get(tx.id)
+                    const feeRow = feeOnly(tx)
+                    const net = feeRow ? feePaidNet(tx, issue !== undefined) : netOf(tx, issue !== undefined)
+                    return (
+                      <tr key={tx.id} className={cn(issue && 'bg-warning-bg [&>td]:border-transparent')}>
+                        <Td>
+                          <Link to={`/transactions/${tx.id}`} className="hover:underline">
+                            {fmtDate(tx.date)}
+                          </Link>
+                        </Td>
+                        <Td>{feeRow ? FEE_PAID_ROW_LABEL : TX_TYPE_LABELS[tx.type]}</Td>
+                        <Td className="max-w-64 truncate">
+                          {feeRow ? describeFeePaid(tx) : describeAmount(tx, accountNames, instruments)}
+                          {tx.note && <span className="text-muted-foreground"> · {tx.note}</span>}
+                          {!feeRow && <JournalLine journal={tx.journal} />}
+                        </Td>
+                        <Td>{feeFreeTransfer(tx) ? <span className="text-muted-foreground">—</span> : <RateCell tx={tx} />}</Td>
+                        <Td className={cn('text-right font-display font-semibold', net.className)}>{net.text}</Td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </Table>
+            ) : (
+              <ul aria-label={t('ทุกรายการของ {0}', symbol)}>
                 {transactions.map((tx) => {
-                  const issue = issues.get(tx.id)
                   const feeRow = feeOnly(tx)
-                  const net = feeRow ? feePaidNet(tx, issue !== undefined) : netOf(tx, issue !== undefined)
+                  const net = feeRow ? feePaidNet(tx, issues.has(tx.id)) : netOf(tx, issues.has(tx.id))
                   return (
-                    <tr key={tx.id} className={cn(issue && 'bg-warning-bg [&>td]:border-transparent')}>
-                      <Td>
-                        <Link to={`/transactions/${tx.id}`} className="hover:underline">
-                          {fmtDate(tx.date)}
-                        </Link>
-                      </Td>
-                      <Td>{feeRow ? FEE_PAID_ROW_LABEL : TX_TYPE_LABELS[tx.type]}</Td>
-                      <Td className="max-w-64 truncate">
-                        {feeRow ? describeFeePaid(tx) : describeAmount(tx, accountNames, instruments)}
-                        {tx.note && <span className="text-muted-foreground"> · {tx.note}</span>}
-                        {!feeRow && <JournalLine journal={tx.journal} />}
-                      </Td>
-                      <Td>{feeFreeTransfer(tx) ? <span className="text-muted-foreground">—</span> : <RateCell tx={tx} />}</Td>
-                      <Td className={cn('text-right font-display font-semibold', net.className)}>{net.text}</Td>
-                    </tr>
+                    <li key={tx.id} className="border-t border-muted first:border-t-0">
+                      <Link to={`/transactions/${tx.id}`} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2.5 py-3">
+                        <span>{fmtDate(tx.date)}</span>
+                        <span className={cn('font-display font-semibold', net.className)}>{net.text}</span>
+                        <span className="col-span-2 text-[12.5px] text-muted-foreground">
+                          {feeRow ? `${FEE_PAID_ROW_LABEL} ${describeFeePaid(tx)}` : `${TX_TYPE_LABELS[tx.type]} ${describeAmount(tx, accountNames, instruments)}`}
+                          {tx.fxSource !== 'same' && !feeFreeTransfer(tx) && ` · ${tx.fxSource === 'estimated' ? t('เรทประมาณ') : t('เรท')} ${fmtPrice(tx.fxRate)}`}
+                        </span>
+                        {!feeRow && <JournalLine journal={tx.journal} className="col-span-2" />}
+                      </Link>
+                    </li>
                   )
                 })}
-              </tbody>
-            </Table>
-          ) : (
-            <ul aria-label={t('ทุกรายการของ {0}', symbol)}>
-              {transactions.map((tx) => {
-                const feeRow = feeOnly(tx)
-                const net = feeRow ? feePaidNet(tx, issues.has(tx.id)) : netOf(tx, issues.has(tx.id))
-                return (
-                  <li key={tx.id} className="border-t border-muted first:border-t-0">
-                    <Link to={`/transactions/${tx.id}`} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2.5 py-3">
-                      <span>{fmtDate(tx.date)}</span>
-                      <span className={cn('font-display font-semibold', net.className)}>{net.text}</span>
-                      <span className="col-span-2 text-[12.5px] text-muted-foreground">
-                        {feeRow ? `${FEE_PAID_ROW_LABEL} ${describeFeePaid(tx)}` : `${TX_TYPE_LABELS[tx.type]} ${describeAmount(tx, accountNames, instruments)}`}
-                        {tx.fxSource !== 'same' && !feeFreeTransfer(tx) && ` · ${tx.fxSource === 'estimated' ? t('เรทประมาณ') : t('เรท')} ${fmtPrice(tx.fxRate)}`}
-                      </span>
-                      {!feeRow && <JournalLine journal={tx.journal} className="col-span-2" />}
-                    </Link>
-                  </li>
-                )
-              })}
-            </ul>
-          )}
-        </Card>
+              </ul>
+            )}
+          </Card>
 
-        <div className="grid content-start gap-4">
-          {instrument && <PriceHistoryCard transactions={data.transactions} instrument={instrument} />}
-          {instrument && (
-            <LotsCard transactions={data.transactions} instrument={instrument} accounts={data.accounts} averageRealized={stats?.realizedBase ?? null} />
+          <div className="grid content-start gap-4">
+            {instrument && <PriceHistoryCard transactions={data.transactions} instrument={instrument} />}
+            {instrument && (
+              <LotsCard transactions={data.transactions} instrument={instrument} accounts={data.accounts} averageRealized={stats?.realizedBase ?? null} />
+            )}
+            {instrument && <ThesisCard key={instrument.id} instrument={instrument} today={today} />}
+            {stats && (
+              <Card>
+                <h2 className="mb-2 text-base font-semibold">{t('สรุป')}</h2>
+                <dl className="grid text-sm">
+                  <div className="flex justify-between gap-3 py-2.5">
+                    <dt className="text-muted-foreground">{t('กำไรที่ขายแล้ว')}</dt>
+                    <dd className={plClass(stats.realizedBase)}>{fmtSigned(stats.realizedBase, 0)}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3 border-t border-muted py-2.5">
+                    <dt className="text-muted-foreground">{t('ปันผลรวม (หลังภาษี)')}</dt>
+                    <dd className={plClass(stats.incomeBase)}>{fmtSigned(stats.incomeBase, 0)}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3 border-t border-muted py-2.5">
+                    <dt className="text-muted-foreground">{t('ค่าธรรมเนียมรวม')}</dt>
+                    <dd>{fmtValue(fees)}</dd>
+                  </div>
+                </dl>
+              </Card>
+            )}
+          </div>
+        </div>
+        </div>
+      )}
+
+      {(hasFilings || us) && (
+        <div className="grid items-start gap-3.5 md:gap-[22px] xl:grid-cols-2">
+          {hasFilings && (
+            <div id="stock-financials" className="min-w-0 scroll-mt-16">
+              <FinancialsSection state={filingsState} />
+            </div>
           )}
-          {instrument && <ThesisCard key={instrument.id} instrument={instrument} today={today} />}
-          {stats && (
-            <Card>
-              <h2 className="mb-2 text-base font-semibold">{t('สรุป')}</h2>
-              <dl className="grid text-sm">
-                <div className="flex justify-between gap-3 py-2.5">
-                  <dt className="text-muted-foreground">{t('กำไรที่ขายแล้ว')}</dt>
-                  <dd className={plClass(stats.realizedBase)}>{fmtSigned(stats.realizedBase, 0)}</dd>
-                </div>
-                <div className="flex justify-between gap-3 border-t border-muted py-2.5">
-                  <dt className="text-muted-foreground">{t('ปันผลรวม (หลังภาษี)')}</dt>
-                  <dd className={plClass(stats.incomeBase)}>{fmtSigned(stats.incomeBase, 0)}</dd>
-                </div>
-                <div className="flex justify-between gap-3 border-t border-muted py-2.5">
-                  <dt className="text-muted-foreground">{t('ค่าธรรมเนียมรวม')}</dt>
-                  <dd>{fmtValue(fees)}</dd>
-                </div>
-              </dl>
-            </Card>
+          {hasFilings && (
+            <div id="stock-value" className="min-w-0 scroll-mt-16">
+              <ValuationSection state={filingsState} price={livePrice} />
+            </div>
+          )}
+          {us && (
+            <div id="stock-news" className="min-w-0 scroll-mt-16 xl:col-span-2">
+              <MarketCard title={t('ข่าว')} source={NEWS_SOURCE}>
+                <NewsBody state={companyNews} today={today} limit={10} />
+              </MarketCard>
+            </div>
           )}
         </div>
-      </div>
+      )}
     </>
   )
 }

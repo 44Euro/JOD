@@ -36,10 +36,10 @@ export function NewsList({ items, today }: { items: readonly NewsItem[]; today: 
   )
 }
 
-export function MarketNote({ state }: { state: MarketState<unknown> }) {
+export function MarketNote({ state, offText }: { state: MarketState<unknown>; offText?: string }) {
   const text =
     state.status === 'off'
-      ? t('ข่าวและปฏิทินงบยังไม่เปิด: เซิร์ฟเวอร์ยังไม่มี key ของ Finnhub')
+      ? (offText ?? t('ข่าวและปฏิทินงบยังไม่เปิด: เซิร์ฟเวอร์ยังไม่มี key ของ Finnhub'))
       : state.status === 'failed'
         ? t('ดึงข้อมูลตลาดไม่ได้ตอนนี้ ลองใหม่ภายหลัง')
         : t('กำลังดึงข้อมูลตลาด…')
