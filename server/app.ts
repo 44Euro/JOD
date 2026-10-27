@@ -1,6 +1,7 @@
 import { createHash, randomBytes, scrypt, timingSafeEqual } from 'node:crypto'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { promisify } from 'node:util'
+import { createMarket, type Market } from './market.ts'
 import { RECORD_KINDS, type IncomingRecord, type SealedKeys, type Store, type User } from './store.ts'
 
 const scryptAsync = promisify(scrypt) as (password: string, salt: string, length: number) => Promise<Buffer>
@@ -11,6 +12,8 @@ const SESSION_DAYS = 90
 const LOGIN_LIMIT = 10
 const RESET_MINUTES = 30
 const RESET_ATTEMPTS = 5
+const MAX_QUERY = 40
+const MAX_IDS = 50
 // No 0/O or 1/I/L, so a code read from an email is typed back without guessing.
 const CODE_LETTERS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
 
@@ -21,6 +24,7 @@ export interface AppOptions {
   // Where the reset link in an email points.
   appUrl?: string
   sendMail?: (to: string, subject: string, text: string) => Promise<void>
+  market?: Market
 }
 
 // Until a mail service is set up the email goes to the server log, which is enough on a developer's machine.
@@ -55,7 +59,7 @@ async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> 
 
 // The server never sees the password or the data: the app sends a key derived from the password for signing in, and
 // each record sealed on the device with a key the server never gets.
-export function createApp({ store, origin = '*', appUrl = 'http://localhost:5173', sendMail = logMail }: AppOptions) {
+export function createApp({ store, origin = '*', appUrl = 'http://localhost:5173', sendMail = logMail, market = createMarket() }: AppOptions) {
   const attempts = new Map<string, { count: number; resetAt: number }>()
 
   function limited(ip: string) {
@@ -220,6 +224,22 @@ export function createApp({ store, origin = '*', appUrl = 'http://localhost:5173
         const { userId } = await userOf(req)
         const records = incoming((await readJson(req)).records)
         return { status: 200, body: { change: await store.putRecords(userId, records) } }
+      }
+      // The session keeps the free quotas of the outside sources from being drained by anyone; who asked is not kept.
+      case 'GET /api/market/search': {
+        await userOf(req)
+        const query = (url.searchParams.get('q') ?? '').trim()
+        if (query === '' || query.length > MAX_QUERY) throw new HttpError(400, 'bad query')
+        const results = await market.search(query).catch(() => {
+          throw new HttpError(502, 'market source failed')
+        })
+        return { status: 200, body: { results } }
+      }
+      case 'GET /api/market/quotes': {
+        await userOf(req)
+        const ids = (url.searchParams.get('ids') ?? '').split(',').filter(Boolean)
+        if (ids.length === 0 || ids.length > MAX_IDS) throw new HttpError(400, 'bad ids')
+        return { status: 200, body: { quotes: await market.quotes(ids) } }
       }
       case 'DELETE /api/account': {
         const { userId } = await userOf(req)

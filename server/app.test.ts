@@ -3,6 +3,7 @@ import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createApp } from './app.ts'
+import type { Market } from './market.ts'
 import type { Store } from './store.ts'
 import { createTestStore } from './testStore.ts'
 
@@ -11,6 +12,15 @@ let base = ''
 let store: Store
 let mails: { to: string; text: string }[] = []
 const key = (c: string) => c.repeat(64)
+let searchFails = false
+const market: Market = {
+  search: async (query) => {
+    if (searchFails) throw new Error('down')
+    return [{ market: 'SET', symbol: query.toUpperCase(), name: 'Kasikornbank', assetType: 'stock' }]
+  },
+  quotes: async (ids) =>
+    ids.map((id) => ({ id, price: '42', currency: 'THB', at: '2026-10-27T09:39:00.000Z', previousClose: '41.75', previousCloseAt: '2026-10-24T03:00:00.000Z', source: 'Yahoo' })),
+}
 
 async function call(method: string, path: string, body?: unknown, token?: string) {
   const res = await fetch(base + path, {
@@ -25,8 +35,9 @@ async function call(method: string, path: string, body?: unknown, token?: string
 beforeEach(async () => {
   store = await createTestStore()
   mails = []
+  searchFails = false
   const sendMail = async (to: string, _subject: string, text: string) => void mails.push({ to, text })
-  server = createServer(createApp({ store, sendMail, appUrl: 'https://jod.test' }))
+  server = createServer(createApp({ store, sendMail, appUrl: 'https://jod.test', market }))
   await new Promise<void>((resolve) => server.listen(0, resolve))
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
 })
@@ -118,5 +129,29 @@ describe('sync server', () => {
     const done = await call('POST', '/api/reset/complete', { email: 'a@x.io', code, loginKey: key('b'), keys: { password: 'new-p', recovery: 'new-r' }, fresh: true })
     expect((await call('GET', '/api/records', undefined, done.body.token)).body.records).toEqual([])
     expect((await call('POST', '/api/login', { email: 'a@x.io', loginKey: key('b') })).body.keys).toEqual({ password: 'new-p', recovery: 'new-r' })
+  })
+
+  it('answers market searches and quotes only for a signed-in device', async () => {
+    expect((await call('GET', '/api/market/search?q=kbank')).status).toBe(401)
+    expect((await call('GET', '/api/market/quotes?ids=SET:PTT')).status).toBe(401)
+    const { body } = await call('POST', '/api/signup', { email: 'a@x.io', loginKey: key('a') })
+    expect((await call('GET', '/api/market/search?q=kbank', undefined, body.token)).body.results[0].symbol).toBe('KBANK')
+    const quotes = await call('GET', '/api/market/quotes?ids=SET:PTT,US:AAPL', undefined, body.token)
+    expect(quotes.body.quotes.map((q: { id: string; price: string }) => [q.id, q.price])).toEqual([['SET:PTT', '42'], ['US:AAPL', '42']])
+  })
+
+  it('refuses an empty or overlong search and too many ids', async () => {
+    const { body } = await call('POST', '/api/signup', { email: 'a@x.io', loginKey: key('a') })
+    expect((await call('GET', '/api/market/search?q=%20', undefined, body.token)).status).toBe(400)
+    expect((await call('GET', `/api/market/search?q=${'a'.repeat(41)}`, undefined, body.token)).status).toBe(400)
+    const ids = Array.from({ length: 51 }, (_, i) => `US:A${i}`).join(',')
+    expect((await call('GET', `/api/market/quotes?ids=${ids}`, undefined, body.token)).status).toBe(400)
+    expect((await call('GET', '/api/market/quotes?ids=', undefined, body.token)).status).toBe(400)
+  })
+
+  it('says the sources failed with 502', async () => {
+    const { body } = await call('POST', '/api/signup', { email: 'a@x.io', loginKey: key('a') })
+    searchFails = true
+    expect((await call('GET', '/api/market/search?q=kbank', undefined, body.token)).status).toBe(502)
   })
 })
