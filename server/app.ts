@@ -14,6 +14,9 @@ const RESET_MINUTES = 30
 const RESET_ATTEMPTS = 5
 const MAX_QUERY = 40
 const MAX_IDS = 50
+const MAX_NEWS_SYMBOLS = 10
+const MAX_EARNINGS_DAYS = 14
+const SYMBOL = /^[A-Z0-9.-]{1,12}$/
 // No 0/O or 1/I/L, so a code read from an email is typed back without guessing.
 const CODE_LETTERS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
 
@@ -240,6 +243,30 @@ export function createApp({ store, origin = '*', appUrl = 'http://localhost:5173
         const ids = (url.searchParams.get('ids') ?? '').split(',').filter(Boolean)
         if (ids.length === 0 || ids.length > MAX_IDS) throw new HttpError(400, 'bad ids')
         return { status: 200, body: { quotes: await market.quotes(ids) } }
+      }
+      case 'GET /api/market/news': {
+        await userOf(req)
+        const symbols = (url.searchParams.get('symbols') ?? '').split(',').filter(Boolean)
+        if (symbols.length > MAX_NEWS_SYMBOLS || !symbols.every((s) => SYMBOL.test(s))) throw new HttpError(400, 'bad symbols')
+        if (!market.newsReady) throw new HttpError(503, 'news source not set')
+        const news = await market.news(symbols).catch(() => {
+          throw new HttpError(502, 'market source failed')
+        })
+        return { status: 200, body: { news } }
+      }
+      case 'GET /api/market/earnings': {
+        await userOf(req)
+        const from = url.searchParams.get('from') ?? ''
+        const to = url.searchParams.get('to') ?? ''
+        const days = (Date.parse(to) - Date.parse(from)) / 86_400_000
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to) || !(days >= 0 && days <= MAX_EARNINGS_DAYS)) {
+          throw new HttpError(400, 'bad range')
+        }
+        if (!market.newsReady) throw new HttpError(503, 'news source not set')
+        const earnings = await market.earnings(from, to).catch(() => {
+          throw new HttpError(502, 'market source failed')
+        })
+        return { status: 200, body: { earnings } }
       }
       case 'DELETE /api/account': {
         const { userId } = await userOf(req)

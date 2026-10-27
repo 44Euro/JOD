@@ -13,6 +13,7 @@ let store: Store
 let mails: { to: string; text: string }[] = []
 const key = (c: string) => c.repeat(64)
 let searchFails = false
+let newsReady = true
 const market: Market = {
   search: async (query) => {
     if (searchFails) throw new Error('down')
@@ -20,9 +21,14 @@ const market: Market = {
   },
   quotes: async (ids) =>
     ids.map((id) => ({ id, price: '42', currency: 'THB', at: '2026-10-27T09:39:00.000Z', previousClose: '41.75', previousCloseAt: '2026-10-24T03:00:00.000Z', source: 'Yahoo' })),
-  newsReady: false,
-  news: async () => [],
-  earnings: async () => [],
+  get newsReady() {
+    return newsReady
+  },
+  news: async (symbols) => {
+    if (searchFails) throw new Error('down')
+    return [{ id: '1', headline: `News of ${symbols.join(',') || 'the market'}`, source: 'Reuters', url: 'https://a.test/1', publishedAt: '2026-10-27T08:00:00.000Z', symbols }]
+  },
+  earnings: async (from) => [{ symbol: 'AAPL', date: from, time: 'after', epsEstimate: '1.6', epsActual: null }],
 }
 
 async function call(method: string, path: string, body?: unknown, token?: string) {
@@ -39,6 +45,7 @@ beforeEach(async () => {
   store = await createTestStore()
   mails = []
   searchFails = false
+  newsReady = true
   const sendMail = async (to: string, _subject: string, text: string) => void mails.push({ to, text })
   server = createServer(createApp({ store, sendMail, appUrl: 'https://jod.test', market }))
   await new Promise<void>((resolve) => server.listen(0, resolve))
@@ -156,5 +163,32 @@ describe('sync server', () => {
     const { body } = await call('POST', '/api/signup', { email: 'a@x.io', loginKey: key('a') })
     searchFails = true
     expect((await call('GET', '/api/market/search?q=kbank', undefined, body.token)).status).toBe(502)
+  })
+
+  it('serves news and the earnings week to a signed-in device', async () => {
+    expect((await call('GET', '/api/market/news')).status).toBe(401)
+    const { body } = await call('POST', '/api/signup', { email: 'a@x.io', loginKey: key('a') })
+    expect((await call('GET', '/api/market/news', undefined, body.token)).body.news[0].headline).toBe('News of the market')
+    expect((await call('GET', '/api/market/news?symbols=AAPL,BRK.B', undefined, body.token)).body.news[0].symbols).toEqual(['AAPL', 'BRK.B'])
+    expect((await call('GET', '/api/market/earnings?from=2026-10-26&to=2026-10-30', undefined, body.token)).body.earnings[0]).toMatchObject({ symbol: 'AAPL', date: '2026-10-26' })
+  })
+
+  it('refuses bad symbols and ranges', async () => {
+    const { body } = await call('POST', '/api/signup', { email: 'a@x.io', loginKey: key('a') })
+    const status = async (path: string) => (await call('GET', path, undefined, body.token)).status
+    expect(await status('/api/market/news?symbols=aapl')).toBe(400)
+    expect(await status(`/api/market/news?symbols=${Array.from({ length: 11 }, (_, i) => `A${i}`).join(',')}`)).toBe(400)
+    expect(await status('/api/market/earnings?from=2026-10-30&to=2026-10-26')).toBe(400)
+    expect(await status('/api/market/earnings?from=2026-10-01&to=2026-10-30')).toBe(400)
+    expect(await status('/api/market/earnings?from=2026-10-26')).toBe(400)
+  })
+
+  it('says the news source is not set up with 503, and a failed source with 502', async () => {
+    const { body } = await call('POST', '/api/signup', { email: 'a@x.io', loginKey: key('a') })
+    searchFails = true
+    expect((await call('GET', '/api/market/news', undefined, body.token)).status).toBe(502)
+    newsReady = false
+    expect((await call('GET', '/api/market/news', undefined, body.token)).status).toBe(503)
+    expect((await call('GET', '/api/market/earnings?from=2026-10-26&to=2026-10-30', undefined, body.token)).status).toBe(503)
   })
 })
