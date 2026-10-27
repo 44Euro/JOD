@@ -26,6 +26,8 @@ export const routes: RouteObject[] = [
         children: [
           { index: true, element: <DashboardPage /> },
           { path: 'market', element: <MarketPage /> },
+          { path: 'market/news', lazy: async () => ({ Component: (await import('./ui/pages/MarketNewsPage')).MarketNewsPage }) },
+          { path: 'market/earnings', lazy: async () => ({ Component: (await import('./ui/pages/EarningsPage')).EarningsPage }) },
           { path: 'portfolio', element: <PortfolioPage /> },
           { path: 'assets/:id', element: <AssetPage /> },
           { path: 'plans', lazy: async () => ({ Component: (await import('./ui/pages/PlansPage')).PlansPage }) },

@@ -1,7 +1,9 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '../../db/db'
+import { todayLocal, tradingWeek } from '../../domain/dates'
+import { marketClient } from '../../market/client'
 import { renderRoute, resetDb } from '../../test/render'
 
 beforeEach(async () => {
@@ -10,7 +12,25 @@ beforeEach(async () => {
   await db.instruments.add({ id: 'SET:PTT', market: 'SET', symbol: 'PTT', name: 'PTT', assetType: 'stock', currency: 'THB', lastPrice: '30' })
 })
 
+afterEach(() => vi.restoreAllMocks())
+
 describe('MarketPage', () => {
+  it('shows the earnings week and the news before the watchlist', async () => {
+    const week = tradingWeek(todayLocal())
+    vi.spyOn(marketClient, 'earnings').mockResolvedValue([{ symbol: 'AAPL', date: week[2], time: 'after', epsEstimate: '1.6', epsActual: null }])
+    vi.spyOn(marketClient, 'news').mockResolvedValue([
+      { id: '1', headline: 'Markets close higher', source: 'CNBC', url: 'https://news.test/1', publishedAt: '2026-10-27T01:00:00.000Z', symbols: [] },
+    ])
+    renderRoute('/market')
+    const earnings = await screen.findByRole('region', { name: 'ประกาศงบสัปดาห์นี้' })
+    const news = screen.getByRole('region', { name: 'ข่าวต่างประเทศ' })
+    expect(await within(news).findByRole('link', { name: 'Markets close higher' })).toBeInTheDocument()
+    expect(await within(earnings).findByText('ทั้งตลาดสัปดาห์นี้ 1 บริษัท')).toBeInTheDocument()
+    const watchlist = screen.getByRole('heading', { name: 'ติดตาม (watchlist)' })
+    expect(earnings.compareDocumentPosition(news) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(news.compareDocumentPosition(watchlist) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
   it('opens under its own title on a navy band', async () => {
     renderRoute('/market')
     const title = await screen.findByRole('heading', { level: 1, name: 'ตลาด' })
