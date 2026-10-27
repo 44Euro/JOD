@@ -171,5 +171,7 @@ describe('AuthGate', { timeout: 30_000 }, () => {
     await user.click(screen.getByRole('button', { name: 'ตั้งรหัสผ่านใหม่' }))
     expect(await screen.findByRole('heading', { name: 'ตั้ง PIN 6 หลัก' }, { timeout: 15_000 })).toBeInTheDocument()
     expect(readSync()?.email).toBe('me@jod.test')
+    // The PIN screen shows once the session is written, while the first sync still runs; let it finish inside the test.
+    await waitFor(() => expect(readSync()?.syncedAt).toBeTruthy(), { timeout: 15_000 })
   })
 })
