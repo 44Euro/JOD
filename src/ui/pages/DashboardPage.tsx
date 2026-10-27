@@ -149,8 +149,10 @@ export function DashboardPage() {
             </Link>
           </Card>
         )}
+        <MorningNews held={heldSymbols} today={today} />
         {hasSideColumn && (
-          <div className="grid min-w-0 content-start gap-4 xl:row-span-2">
+          // Placed explicitly so on desktop it stays beside the board and the headlines, while phones read it after them.
+          <div className="grid min-w-0 content-start gap-4 xl:col-start-2 xl:row-span-2 xl:row-start-1">
             {showRoute && (
               <Link to={assetPath(largestId)} className="block rounded-[18px] border bg-card p-4 hover:bg-muted md:rounded-[20px] md:px-[26px] md:py-[22px]">
                 <h2 className="mb-4 text-lg font-semibold">{t('เส้นทางเงิน · ')}{largestSymbol}</h2>
@@ -170,7 +172,6 @@ export function DashboardPage() {
             ))}
           </div>
         )}
-        <MorningNews held={heldSymbols} today={today} />
       </div>
 
       <SummaryPanel

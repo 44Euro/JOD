@@ -105,6 +105,17 @@ describe('DashboardPage', () => {
     expect(await within(general).findByRole('link', { name: 'Markets close higher' })).toBeInTheDocument()
   })
 
+  it('puts the headlines right after the board, before the short route, and keeps the route on the right on desktop', async () => {
+    vi.spyOn(marketClient, 'news').mockResolvedValue([])
+    setToday(2024, 6, 1)
+    await seedDime()
+    renderRoute('/', usd())
+    const news = await screen.findByRole('region', { name: 'ข่าวต่างประเทศ' })
+    const route = screen.getByRole('heading', { name: /เส้นทางเงิน/ })
+    expect(news.compareDocumentPosition(route) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(route.closest('.xl\\:col-start-2')).toHaveClass('xl:row-start-1', 'xl:row-span-2')
+  })
+
   it('says news is not switched on when the server has no source', async () => {
     vi.spyOn(marketClient, 'news').mockRejectedValue(new MarketError(503))
     await seedDime()
