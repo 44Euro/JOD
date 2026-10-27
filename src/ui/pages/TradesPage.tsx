@@ -26,6 +26,7 @@ import { symbolOf, type Emotion, type Instrument, type Transaction } from '../..
 import { cn } from '../../lib/cn'
 import { MarketPill } from '../components/MarketPill'
 import { PageHeader } from '../components/PageHeader'
+import { PortfolioSwitch } from '../components/PortfolioSwitch'
 import { Stat } from '../components/Summary'
 import { TradeReviewForm } from '../components/TradeReviewForm'
 import { currencyMark, fmtDate, fmtMonth, fmtNumber, fmtPct, fmtRatio, fmtSigned, plClass } from '../format'
@@ -282,17 +283,20 @@ function TradesView({ data, ledger }: { data: AppData; ledger: Ledger }) {
   })
 
   const header = (
-    <PageHeader title={t('เทรด')}>
-      <Segmented
-        label={t('ช่วงเวลา')}
-        options={PERIODS}
-        value={period}
-        onChange={(value) => {
-          setPeriod(value)
-          setReviewing(null)
-        }}
-      />
-    </PageHeader>
+    <>
+      <PageHeader title={t('เทรด')}>
+        <Segmented
+          label={t('ช่วงเวลา')}
+          options={PERIODS}
+          value={period}
+          onChange={(value) => {
+            setPeriod(value)
+            setReviewing(null)
+          }}
+        />
+      </PageHeader>
+      <PortfolioSwitch />
+    </>
   )
   if (trades.length === 0) {
     return (

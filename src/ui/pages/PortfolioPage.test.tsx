@@ -17,6 +17,17 @@ afterEach(() => {
 })
 
 describe('PortfolioPage', () => {
+  it('switches between holdings and trades', async () => {
+    renderRoute('/portfolio')
+    const views = await screen.findByRole('navigation', { name: 'มุมมองพอร์ต' })
+    expect(within(views).getByRole('link', { name: 'ถืออยู่' })).toHaveAttribute('aria-current', 'page')
+    expect(within(views).getByRole('link', { name: 'เทรด' })).toHaveAttribute('href', '/trades')
+    cleanup()
+    renderRoute('/trades')
+    const onTrades = await screen.findByRole('navigation', { name: 'มุมมองพอร์ต' })
+    expect(within(onTrades).getByRole('link', { name: 'เทรด' })).toHaveAttribute('aria-current', 'page')
+  })
+
   it('shows no value and no missing-price alert until the rates arrive', async () => {
     await db.instruments.add({ id: 'US:AAPL', market: 'US', symbol: 'AAPL', name: 'Apple', assetType: 'stock', currency: 'USD', lastPrice: '120' })
     await db.transactions.add(makeTx({ quantity: '10', price: '100', fxRate: '35' }))

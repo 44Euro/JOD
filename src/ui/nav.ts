@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Briefcase, ChartLine, Coins, Ellipsis, FileText, House, List, Receipt, Settings, Target, Upload, type LucideIcon } from 'lucide-react'
+import { ArrowLeftRight, Briefcase, ChartLine, Coins, Ellipsis, FileText, House, List, Newspaper, Receipt, Settings, Target, Upload, type LucideIcon } from 'lucide-react'
 import { t } from '../i18n'
 
 export interface NavItem {
@@ -8,6 +8,7 @@ export interface NavItem {
 }
 
 export const HOME: NavItem = { to: '/', label: t('เช้านี้'), icon: House }
+export const MARKET: NavItem = { to: '/market', label: t('ตลาด'), icon: Newspaper }
 export const PORTFOLIO: NavItem = { to: '/portfolio', label: t('พอร์ต'), icon: Briefcase }
 export const TRANSACTIONS: NavItem = { to: '/transactions', label: t('รายการ'), icon: List }
 export const TRADES: NavItem = { to: '/trades', label: t('เทรด'), icon: ChartLine }
@@ -21,13 +22,18 @@ export const SETTINGS: NavItem = { to: '/settings', label: t('ตั้งค่
 export const MORE: NavItem = { to: '/more', label: t('เพิ่มเติม'), icon: Ellipsis }
 export const NEW_TRANSACTION = '/transactions/new'
 
-export const SIDEBAR_PAGES: readonly NavItem[] = [HOME, PORTFOLIO, TRANSACTIONS, TRADES, PLANS, INCOME, SUMMARY, FX, IMPORT, SETTINGS]
+export const SIDEBAR_PAGES: readonly NavItem[] = [HOME, MARKET, PORTFOLIO, TRANSACTIONS, TRADES, PLANS, INCOME, SUMMARY, FX, IMPORT, SETTINGS]
 
 // Pages that sit behind "เพิ่มเติม" in the phone tab bar.
 export const MORE_PAGES: readonly NavItem[] = [TRANSACTIONS, PLANS, INCOME, SUMMARY, TAX, FX, IMPORT, SETTINGS]
 
 function isUnder(pathname: string, to: string): boolean {
   return pathname === to || pathname.startsWith(`${to}/`)
+}
+
+// On a phone เทรด lives inside พอร์ต, so the พอร์ต tab stands for holdings, asset pages and trades.
+export function isPortfolioTab(pathname: string): boolean {
+  return [PORTFOLIO.to, TRADES.to, '/assets'].some((to) => isUnder(pathname, to))
 }
 
 export function isTransactionEdit(pathname: string): boolean {

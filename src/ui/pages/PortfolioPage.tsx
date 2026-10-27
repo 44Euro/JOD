@@ -13,6 +13,7 @@ import { cn } from '../../lib/cn'
 import { CurrencyView, MarketView } from '../components/AllocationViews'
 import { HoldingsTable, MissingRatesNote } from '../components/HoldingsTable'
 import { PageHeader } from '../components/PageHeader'
+import { PortfolioSwitch } from '../components/PortfolioSwitch'
 import { PriceUpdateButton } from '../components/PriceUpdateButton'
 import { Stat, SummaryPanel } from '../components/Summary'
 import { fmtHeadline, fmtMoney, fmtSigned, fmtValue, plClass } from '../format'
@@ -64,6 +65,7 @@ export function PortfolioPage() {
         <EyeButton />
         <PriceUpdateButton data={data} ledger={ledger} />
       </PageHeader>
+      <PortfolioSwitch />
 
       <SummaryPanel label={t('มูลค่าสินทรัพย์ · ไม่รวมเงินสด')} value={fmtHeadline(summary.marketValueBase, base)}>
         <Stat label={t('ยังไม่ขาย')} value={fmtSigned(summary.unrealizedBase, 0)} tone={plClass(summary.unrealizedBase)} />

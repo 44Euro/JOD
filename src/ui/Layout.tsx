@@ -7,14 +7,15 @@ import { AutoSync } from './AutoSync'
 import { DailyValueRecorder } from './DailyValueRecorder'
 import {
   HOME,
+  MARKET,
   MORE,
   NEW_TRANSACTION,
   PORTFOLIO,
   SIDEBAR_PAGES,
-  TRADES,
   TRANSACTIONS,
   isExactLink,
   isMoreTab,
+  isPortfolioTab,
   isTransactionEdit,
   type NavItem,
 } from './nav'
@@ -137,14 +138,14 @@ function Shell() {
         className="fixed inset-x-0 bottom-0 z-10 grid grid-cols-5 items-end border-t bg-card print:hidden pt-1.5 pb-[max(env(safe-area-inset-bottom),22px)] md:hidden"
       >
         <TabLink {...HOME} />
-        <TabLink {...PORTFOLIO} active={inAssets} />
+        <TabLink {...MARKET} />
         <NavLink to={NEW_TRANSACTION} className="flex flex-col items-center gap-0.5 text-[11px] text-muted-foreground">
           <span className="-mt-5 grid size-[54px] place-items-center rounded-[17px] bg-primary text-primary-foreground shadow-[0_8px_18px_rgba(29,78,216,.3)]">
             <Plus className="size-6" aria-hidden />
           </span>
           {t('บันทึก')}
         </NavLink>
-        <TabLink {...TRADES} />
+        <TabLink {...PORTFOLIO} active={isPortfolioTab(pathname)} />
         <TabLink {...MORE} active={inMore} />
       </nav>
     </div>
