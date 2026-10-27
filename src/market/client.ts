@@ -35,12 +35,40 @@ export interface EarningsEvent {
   epsActual: string | null
 }
 
+export interface ChartData {
+  id: string
+  name: string
+  exchange: string
+  assetType: 'stock' | 'etf'
+  currency: string
+  points: { date: string; close: string }[]
+}
+
+export interface FinancialPeriod {
+  period: string
+  end: string
+  revenue: string | null
+  netIncome: string | null
+  freeCashFlow: string | null
+}
+
+export interface Financials {
+  symbol: string
+  name: string
+  currency: 'USD'
+  shares: string | null
+  annual: FinancialPeriod[]
+  quarterly: FinancialPeriod[]
+}
+
 export interface MarketClient {
   ready(): boolean
   search(query: string, signal?: AbortSignal): Promise<FoundAsset[]>
   quotes(ids: string[], signal?: AbortSignal): Promise<MarketQuote[]>
   news(symbols: string[]): Promise<NewsItem[]>
   earnings(from: string, to: string): Promise<EarningsEvent[]>
+  chart(id: string): Promise<ChartData>
+  financials(symbol: string): Promise<Financials>
 }
 
 // 503 means the server has no news source set up yet, which screens tell apart from a failure.
@@ -55,6 +83,8 @@ export class MarketError extends Error {
 
 const NEWS_MEMO = 10 * 60_000
 const EARNINGS_MEMO = 60 * 60_000
+const CHART_MEMO = 60 * 60_000
+const FILINGS_MEMO = 24 * 60 * 60_000
 
 type Where = () => { server: string; token: string } | null
 
@@ -108,6 +138,12 @@ export function createMarketClient(where: Where = session, fetchFn: typeof fetch
     },
     async earnings(from, to) {
       return (await remembered(`/api/market/earnings?from=${from}&to=${to}`, EARNINGS_MEMO)).earnings as EarningsEvent[]
+    },
+    async chart(id) {
+      return (await remembered(`/api/market/chart?id=${encodeURIComponent(id)}`, CHART_MEMO)).chart as ChartData
+    },
+    async financials(symbol) {
+      return (await remembered(`/api/market/financials?symbol=${encodeURIComponent(symbol)}`, FILINGS_MEMO)).financials as Financials
     },
   }
 }

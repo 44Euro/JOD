@@ -2,6 +2,7 @@ import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '../../db/db'
+import { marketClient } from '../../market/client'
 import type { Transaction } from '../../domain/types'
 import { fakeFxProvider, lateFxProvider } from '../../test/fakeFx'
 import { makeTx } from '../../test/fixtures'
@@ -25,6 +26,7 @@ beforeEach(async () => {
 afterEach(() => {
   vi.useRealTimers()
   vi.unstubAllGlobals()
+  vi.restoreAllMocks()
 })
 
 describe('AssetPage', () => {
@@ -478,7 +480,7 @@ describe('AssetPage', () => {
     const link = screen.getByRole('link', { name: 'ทำซ้ำรายการซื้อ' })
     expect(link).toHaveAttribute('href', '/transactions/new?from=voo-latest')
     expect(link).toHaveClass('h-11', 'md:h-[34px]')
-    expect(screen.getByRole('heading', { name: 'VOO' }).closest('div')!.parentElement).toContainElement(link)
+    expect(link.compareDocumentPosition(screen.getByRole('region', { name: 'VOO' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('picks the latest buy among every account', async () => {
@@ -523,7 +525,8 @@ describe('AssetPage', () => {
       expect(await screen.findByRole('heading', { name: 'META' })).toBeInTheDocument()
       expect(router.state.location.pathname).toBe('/assets/US%3AMETA')
       expect(router.state.historyAction).toBe('REPLACE')
-      expect(screen.getByText('เดิม: FB')).toBeInTheDocument()
+      // A well-formed id opens at once, so the renamed record may arrive a moment after the new address.
+      expect(await screen.findByText('เดิม: FB')).toBeInTheDocument()
       expect(screen.getByText('Meta Platforms')).toBeInTheDocument()
       expect(screen.queryByLabelText('สัญลักษณ์')).not.toBeInTheDocument()
       expect(await screen.findByText('ทั้งหมด 2 รายการ')).toBeInTheDocument()
@@ -604,16 +607,16 @@ describe('AssetPage', () => {
       expect(screen.getByRole('button', { name: 'เปลี่ยนชื่อ/สัญลักษณ์' })).toBeInTheDocument()
     })
 
-    it('never clips the symbol: only the name shrinks, and the actions wrap under the title when they do not fit', async () => {
+    it('never clips the symbol: only the name shrinks, and the actions wrap when they do not fit', async () => {
       renderRoute('/assets/US%3AFB', usd)
       const title = await screen.findByRole('heading', { name: 'FB' })
       expect(title).toHaveClass('shrink-0')
       expect(title).not.toHaveClass('truncate')
-      const group = title.closest('div')!
-      expect(group).toHaveClass('flex-nowrap', 'min-w-0')
-      expect(screen.getByText('Facebook')).toHaveClass('truncate', 'max-lg:hidden')
-      expect(group.parentElement).toHaveClass('flex-wrap')
-      expect(screen.getByRole('button', { name: 'เปลี่ยนชื่อ/สัญลักษณ์' }).parentElement).toHaveClass('ml-auto')
+      expect(title.closest('div')).toHaveClass('flex-nowrap', 'min-w-0')
+      expect(screen.getByText('Facebook')).toHaveClass('truncate')
+      const actions = screen.getByRole('button', { name: 'เปลี่ยนชื่อ/สัญลักษณ์' }).parentElement!
+      expect(actions).toHaveClass('ml-auto')
+      expect(actions.parentElement).toHaveClass('flex-wrap')
     })
 
     it('turns the repeat link into a 44px icon below 360px without losing its name', async () => {
@@ -640,9 +643,9 @@ describe('AssetPage', () => {
     it('shows no line for old symbols when the list is empty', async () => {
       await db.instruments.update('US:FB', { previousSymbols: [] })
       renderRoute('/assets/US%3AFB', usd)
-      const header = (await screen.findByRole('heading', { name: 'FB' })).closest('div')!.parentElement!.parentElement!
+      const header = await screen.findByRole('region', { name: 'FB' })
       expect(screen.queryByText(/^เดิม:/)).not.toBeInTheDocument()
-      expect(header).not.toHaveTextContent('0')
+      expect(within(header).queryByText('0')).not.toBeInTheDocument()
     })
 
     it('closes the form when another asset opens', async () => {
@@ -660,8 +663,49 @@ describe('AssetPage', () => {
     })
   })
 
-  it('says so when the asset does not exist', async () => {
-    renderRoute('/assets/US%3ANOPE')
+  it('says so for a malformed id', async () => {
+    renderRoute('/assets/NOPE')
     expect(await screen.findByText('ไม่พบสินทรัพย์นี้')).toBeInTheDocument()
+  })
+
+  describe('an asset the app does not know', () => {
+    const nvidia = { id: 'US:NVDA', name: 'NVIDIA Corporation', exchange: 'NasdaqGS', assetType: 'stock' as const, currency: 'USD', points: [] }
+
+    it('opens a well-formed asset the app does not know, with a way to record a buy', async () => {
+      vi.spyOn(marketClient, 'chart').mockResolvedValue(nvidia)
+      vi.spyOn(marketClient, 'quotes').mockResolvedValue([
+        { id: 'US:NVDA', price: '140', currency: 'USD', at: '2024-10-16T01:00:00.000Z', previousClose: '137', previousCloseAt: '2024-10-15T13:30:00.000Z', source: 'Yahoo' },
+      ])
+      renderRoute('/assets/US%3ANVDA', usd)
+      const board = await screen.findByRole('region', { name: 'NVDA' })
+      expect(await within(board).findByText('NVIDIA Corporation · NasdaqGS')).toBeInTheDocument()
+      expect(board).toHaveTextContent('140.00')
+      expect(screen.getByRole('link', { name: 'บันทึกการซื้อ' })).toHaveAttribute(
+        'href',
+        '/transactions/new?type=buy&market=US&symbol=NVDA&name=NVIDIA+Corporation&assetType=stock',
+      )
+      expect(within(screen.getByRole('main')).getByRole('link', { name: 'ตลาด' })).toHaveAttribute('href', '/market')
+      expect(screen.queryByText('ไม่พบสินทรัพย์นี้')).not.toBeInTheDocument()
+    })
+
+    it('still opens a coin with no market data, with the market’s own asset type in the buy', async () => {
+      renderRoute('/assets/CRYPTO%3ASOL', usd)
+      expect(await screen.findByRole('heading', { level: 1, name: 'SOL' })).toBeInTheDocument()
+      expect(screen.getByText('ยังไม่มีราคา')).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'บันทึกการซื้อ' }).getAttribute('href')).toContain('market=CRYPTO&symbol=SOL&name=SOL&assetType=crypto')
+    })
+
+    it('watches and unwatches from the star', async () => {
+      const user = userEvent.setup({ advanceTimers: (ms) => vi.advanceTimersByTime(ms) })
+      renderRoute('/assets/US%3ANVDA', usd)
+      const star = await screen.findByRole('button', { name: 'จับตา' })
+      expect(star).toHaveAttribute('aria-pressed', 'false')
+      await user.click(star)
+      await waitFor(() => expect(star).toHaveAttribute('aria-pressed', 'true'))
+      expect((await db.watchlist.toArray()).map((w) => [w.market, w.symbol])).toEqual([['US', 'NVDA']])
+      await user.click(star)
+      await waitFor(() => expect(star).toHaveAttribute('aria-pressed', 'false'))
+      expect(await db.watchlist.count()).toBe(0)
+    })
   })
 })

@@ -22,5 +22,5 @@ export function GlobalSearch() {
   }, [])
 
   const instruments = data?.instruments ?? []
-  return <SearchSheet open={open} onClose={() => setOpen(false)} onPick={(found) => navigate(foundPath(found, instruments))} instruments={instruments} />
+  return <SearchSheet open={open} onClose={() => setOpen(false)} onPick={(found) => navigate(foundPath(found))} instruments={instruments} />
 }

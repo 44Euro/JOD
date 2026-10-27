@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { foundPath, isMoreTab, isTransactionEdit } from './nav'
+import { buyPath, foundPath, isMoreTab, isTransactionEdit } from './nav'
 
 describe('isMoreTab', () => {
   it.each([
@@ -37,15 +37,14 @@ describe('isTransactionEdit', () => {
   })
 })
 
-describe('foundPath', () => {
-  const ptt = { id: 'SET:PTT', market: 'SET', symbol: 'PTT', name: 'PTT', assetType: 'stock', currency: 'THB' } as const
-
-  it('opens the asset page of an asset the app knows', () => {
-    expect(foundPath({ market: 'SET', symbol: 'PTT', name: 'PTT Public', assetType: 'stock' }, [ptt])).toBe('/assets/SET%3APTT')
+describe('foundPath and buyPath', () => {
+  it('opens the stock page of any picked asset', () => {
+    expect(foundPath({ market: 'SET', symbol: 'PTT', name: 'PTT Public', assetType: 'stock' })).toBe('/assets/SET%3APTT')
+    expect(foundPath({ market: 'US', symbol: 'BRK.B', name: 'Berkshire', assetType: 'stock' })).toBe('/assets/US%3ABRK.B')
   })
 
   it('starts a buy of an asset the app does not know yet', () => {
-    expect(foundPath({ market: 'US', symbol: 'BRK.B', name: 'Berkshire & Co', assetType: 'stock' }, [ptt])).toBe(
+    expect(buyPath({ market: 'US', symbol: 'BRK.B', name: 'Berkshire & Co', assetType: 'stock' })).toBe(
       '/transactions/new?type=buy&market=US&symbol=BRK.B&name=Berkshire+%26+Co&assetType=stock',
     )
   })

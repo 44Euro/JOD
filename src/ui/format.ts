@@ -158,3 +158,12 @@ export function fmtDay(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number)
   return `${WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]} ${fmtDate(iso)}`
 }
+
+// A time of today only needs the clock; an older one carries its date too, in the device's own time zone.
+export function fmtWhen(iso: string, today: string): string {
+  const at = new Date(iso)
+  const time = `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`
+  const [y, m, d] = [at.getFullYear(), at.getMonth() + 1, at.getDate()]
+  const day = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+  return day === today ? time : `${fmtDate(day)} ${time}`
+}

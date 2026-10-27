@@ -304,7 +304,7 @@ export function changeOpeningKind(draft: Draft, openingKind: OpeningKind): Draft
 
 const MARKET_ASSET_TYPE: Partial<Record<Market, AssetType>> = { FUND: 'fund', BOND: 'bond', GOLD: 'gold', CRYPTO: 'crypto' }
 
-function defaultAssetType(market: Market): AssetType {
+export function defaultAssetType(market: Market): AssetType {
   return MARKET_ASSET_TYPE[market] ?? 'stock'
 }
 

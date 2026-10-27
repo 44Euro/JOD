@@ -1,4 +1,5 @@
-import { ChevronLeft, Copy, Pencil } from 'lucide-react'
+import { useLiveQuery } from 'dexie-react-hooks'
+import { ChevronLeft, Copy, Pencil, Plus, Star } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { Badge } from '../../components/ui/badge'
@@ -6,26 +7,32 @@ import { Button } from '../../components/ui/button'
 import { buttonVariants } from '../../components/ui/button-variants'
 import { Card } from '../../components/ui/card'
 import { Table, Td, Th } from '../../components/ui/table'
+import { db } from '../../db/db'
+import { deleteWatchItem, newId, saveWatchItem } from '../../db/repo'
 import { todayLocal } from '../../domain/dates'
 import { D, sumBy, type Decimal } from '../../domain/decimal'
 import { instrumentStats } from '../../domain/holdings'
 import { feesQuote, sortTransactions } from '../../domain/ledger'
-import type { Transaction } from '../../domain/types'
+import { MARKETS, type Transaction } from '../../domain/types'
 import { cn } from '../../lib/cn'
-import { MarketPill } from '../components/MarketPill'
+import { marketClient } from '../../market/client'
 import { MoneyRoute } from '../components/MoneyRoute'
 import { RateCell } from '../components/RateCell'
 import { RenameInstrument } from '../components/RenameInstrument'
+import { StockHeader } from '../components/StockHeader'
 import { Stat, SummaryPanel } from '../components/Summary'
 import { PriceHistoryCard } from '../components/HistoryCards'
 import { LotsCard } from '../components/RiskCards'
 import { ThesisCard } from '../components/ThesisCard'
 import { fmtDate, fmtHeadline, fmtNumber, fmtPrice, fmtSigned, fmtSignedPct, fmtValue, fmtYield, plClass } from '../format'
 import { useAppData, usePortfolio } from '../hooks'
-import { EMOTION_LABELS, FEE_PAID_ROW_LABEL, TX_TYPE_LABELS, marketOf, unitLabel } from '../labels'
+import { EMOTION_LABELS, FEE_PAID_ROW_LABEL, TX_TYPE_LABELS, unitLabel } from '../labels'
 import { assetRoute } from '../moneyRoutes'
+import { buyPath } from '../nav'
+import { defaultAssetType } from '../transactionDraft'
 import { describeAmount, describeFeePaid, feeFreeTransfer, feePaidNet, issueText, netOf } from '../transactionText'
 import { useIsDesktop } from '../useIsDesktop'
+import { useMarket } from '../useMarket'
 import { t } from '../../i18n'
 
 function badgeOf(value: Decimal | null): 'ok' | 'loss' | 'default' {
@@ -57,6 +64,13 @@ export function AssetPage() {
   // The history table is cut off beside the sidebar on a tablet, so rows are used until 1024px.
   const isDesktop = useIsDesktop(1024)
   const [renamingId, setRenamingId] = useState<string>()
+  const [idMarket, idSymbol = ''] = id.split(':')
+  const market = MARKETS.find((m) => m === idMarket)
+  // The JOD server prices and charts US and Thai shares; other markets show what the app has stored.
+  const priced = market === 'US' || market === 'SET'
+  const live = useMarket(`quote:${id}`, async () => (priced ? ((await marketClient.quotes([id]))[0] ?? null) : null))
+  const chart = useMarket(`chart:${id}`, async () => (priced ? marketClient.chart(id) : null))
+  const watchlist = useLiveQuery(() => db.watchlist.toArray(), [])
   // Coming back to an asset after visiting another must not find its form still open.
   if (renamingId !== undefined && renamingId !== id) setRenamingId(undefined)
   if (!data || !ledger || !ready) return <p className="text-muted-foreground">{t('กำลังโหลด…')}</p>
@@ -65,13 +79,14 @@ export function AssetPage() {
   const today = todayLocal()
   const instrument = data.instruments.find((i) => i.id === id)
   const stats = instrumentStats(id, valuations, ledger, today)
+  const known = instrument !== undefined || stats !== null
   const back = (
-    <Link to="/portfolio" className="-my-3 inline-flex min-h-11 w-fit items-center gap-1 text-sm font-semibold text-primary md:my-0 md:min-h-0">
+    <Link to={known ? '/portfolio' : '/market'} className="-my-3 inline-flex min-h-11 w-fit items-center gap-1 text-sm font-semibold text-primary md:my-0 md:min-h-0">
       <ChevronLeft className="size-4" aria-hidden />
-      {t('พอร์ต')}
+      {known ? t('พอร์ต') : t('ตลาด')}
     </Link>
   )
-  if (!instrument && !stats) {
+  if (!known && !(market && idSymbol)) {
     return (
       <>
         {back}
@@ -80,7 +95,9 @@ export function AssetPage() {
     )
   }
 
-  const symbol = instrument?.symbol ?? id.split(':')[1] ?? id
+  const symbol = instrument?.symbol ?? idSymbol
+  const charted = chart.status === 'ready' ? chart.data : null
+  const watchItem = watchlist?.find((w) => w.market === (instrument?.market ?? market) && w.symbol === symbol)
   const issues = new Map(ledger.issues.map((i) => [i.txId, issueText(i)]))
   const accountNames = new Map(data.accounts.map((a) => [a.id, a.name]))
   const instruments = new Map(data.instruments.map((i) => [i.id, i]))
@@ -102,47 +119,66 @@ export function AssetPage() {
   const todayRate = stats?.currency && rates[stats.currency] ? D(rates[stats.currency].rate) : null
   const route = stats ? assetRoute(stats, lastPrice, todayRate, base, instrument) : []
 
+  async function toggleWatch() {
+    if (watchItem) await deleteWatchItem(db, watchItem.id)
+    else await saveWatchItem(db, { id: newId(), market: instrument?.market ?? market!, symbol, note: '', createdAt: new Date().toISOString() })
+  }
+
   return (
     <>
-      {back}
-      <div>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex min-w-0 flex-nowrap items-center gap-3">
-            <MarketPill market={instrument?.market ?? marketOf(id)} assetType={instrument?.assetType} />
-            <h1 className="shrink-0 text-[26px] font-semibold leading-tight md:text-[34px]">{symbol}</h1>
-            {instrument && instrument.name !== instrument.symbol && (
-              <span className="max-w-64 truncate text-muted-foreground max-lg:hidden">{instrument.name}</span>
-            )}
-          </div>
-          <div className="ml-auto flex shrink-0 items-center gap-2">
-            {lastBuy && (
-              <Link
-                to={`/transactions/new?from=${lastBuy.id}`}
-                className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'max-[360px]:w-11 max-[360px]:px-0')}
-              >
-                <Copy aria-hidden />
-                <span className="max-[360px]:sr-only">{t('ทำซ้ำรายการซื้อ')}</span>
-              </Link>
-            )}
-            {instrument && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="aria-expanded:bg-muted max-md:w-11 max-md:px-0"
-                aria-expanded={renamingId === id}
-                onClick={() => setRenamingId(renamingId === id ? undefined : id)}
-              >
-                <Pencil aria-hidden />
-                <span className="max-md:sr-only">{t('เปลี่ยนชื่อ/สัญลักษณ์')}</span>
-              </Button>
-            )}
-          </div>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        {back}
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          {!known && market && (
+            <Link
+              to={buyPath({ market, symbol, name: charted?.name ?? symbol, assetType: charted?.assetType ?? defaultAssetType(market) })}
+              className={buttonVariants({ size: 'sm' })}
+            >
+              <Plus aria-hidden />
+              {t('บันทึกการซื้อ')}
+            </Link>
+          )}
+          {lastBuy && (
+            <Link
+              to={`/transactions/new?from=${lastBuy.id}`}
+              className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'max-[360px]:w-11 max-[360px]:px-0')}
+            >
+              <Copy aria-hidden />
+              <span className="max-[360px]:sr-only">{t('ทำซ้ำรายการซื้อ')}</span>
+            </Link>
+          )}
+          {instrument && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="aria-expanded:bg-muted max-md:w-11 max-md:px-0"
+              aria-expanded={renamingId === id}
+              onClick={() => setRenamingId(renamingId === id ? undefined : id)}
+            >
+              <Pencil aria-hidden />
+              <span className="max-md:sr-only">{t('เปลี่ยนชื่อ/สัญลักษณ์')}</span>
+            </Button>
+          )}
+          <Button type="button" variant="outline" size="sm" className="max-md:w-11 max-md:px-0" aria-pressed={watchItem !== undefined} onClick={() => void toggleWatch()}>
+            <Star aria-hidden className={cn(watchItem && 'fill-current text-primary')} />
+            <span className="max-md:sr-only">{t('จับตา')}</span>
+          </Button>
         </div>
-        {instrument?.previousSymbols && instrument.previousSymbols.length > 0 && (
-          <p className="mt-1 text-[12.5px] text-muted-foreground">{t('เดิม: ')}{instrument.previousSymbols.join(', ')}</p>
-        )}
       </div>
+
+      <StockHeader
+        market={instrument?.market ?? market!}
+        assetType={instrument?.assetType ?? charted?.assetType}
+        symbol={symbol}
+        name={instrument?.name ?? charted?.name}
+        exchange={charted?.exchange}
+        previousSymbols={instrument?.previousSymbols}
+        live={live.status === 'ready' ? live.data : null}
+        instrument={instrument}
+        points={charted?.points ?? []}
+        today={today}
+      />
 
       {instrument && renamingId === id && <RenameInstrument instrument={instrument} onClose={() => setRenamingId(undefined)} />}
 

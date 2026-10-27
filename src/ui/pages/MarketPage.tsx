@@ -41,7 +41,7 @@ export function MarketPage() {
           </kbd>
         </button>
       </header>
-      <SearchSheet open={searching} onClose={() => setSearching(false)} onPick={(found) => navigate(foundPath(found, instruments))} instruments={instruments} />
+      <SearchSheet open={searching} onClose={() => setSearching(false)} onPick={(found) => navigate(foundPath(found))} instruments={instruments} />
       {data ? (
         <div className="grid items-start gap-3.5 md:gap-[22px] xl:grid-cols-2">
           <div className="min-w-0 xl:col-span-2">

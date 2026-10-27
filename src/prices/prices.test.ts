@@ -53,6 +53,8 @@ describe('price sources', () => {
       search: async () => [],
       news: async () => [],
       earnings: async () => [],
+      chart: async () => Promise.reject(new Error('unused')),
+      financials: async () => Promise.reject(new Error('unused')),
       quotes: async (ids) => {
         asked.push(ids)
         return [{ id: 'SET:PTT', price: '42', currency: 'THB', at: '2026-10-27T09:39:00.000Z', previousClose: '41.75', previousCloseAt: '2026-10-24T03:00:00.000Z', source: 'Yahoo' }]

@@ -77,5 +77,16 @@ describe('market client', () => {
     expect(error).toBeInstanceOf(MarketError)
     expect((error as MarketError).status).toBe(503)
   })
+
+  it('asks for a chart and the filings, and remembers them', async () => {
+    const chart = fakeServer({ chart: { id: 'US:AAPL', name: 'Apple Inc.', exchange: 'NasdaqGS', assetType: 'stock', currency: 'USD', points: [] } })
+    const client = createMarketClient(signedIn, chart.fetchFn)
+    expect((await client.chart('US:AAPL')).name).toBe('Apple Inc.')
+    await client.chart('US:AAPL')
+    expect(chart.calls.map((c) => c.url)).toEqual(['http://jod.test/api/market/chart?id=US%3AAAPL'])
+    const filings = fakeServer({ financials: { symbol: 'BRK.B', name: 'Berkshire', currency: 'USD', shares: null, annual: [], quarterly: [] } })
+    expect((await createMarketClient(signedIn, filings.fetchFn).financials('BRK.B')).name).toBe('Berkshire')
+    expect(filings.calls[0].url).toBe('http://jod.test/api/market/financials?symbol=BRK.B')
+  })
 })
 
