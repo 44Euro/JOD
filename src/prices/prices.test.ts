@@ -51,6 +51,8 @@ describe('price sources', () => {
     const market: MarketClient = {
       ready: () => true,
       search: async () => [],
+      news: async () => [],
+      earnings: async () => [],
       quotes: async (ids) => {
         asked.push(ids)
         return [{ id: 'SET:PTT', price: '42', currency: 'THB', at: '2026-10-27T09:39:00.000Z', previousClose: '41.75', previousCloseAt: '2026-10-24T03:00:00.000Z', source: 'Yahoo' }]

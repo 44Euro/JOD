@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { CURRENCY_OPTIONS, MARKET_CURRENCY, supportsAutoFx } from './currencies'
-import { addDays, daysBetween, isIsoDate, monthKey, todayLocal } from './dates'
+import { addDays, daysBetween, isIsoDate, monthKey, todayLocal, tradingWeek } from './dates'
 import { D, parseDecimalInput, sumBy } from './decimal'
 import { ASSET_TYPES, defaultUnit, instrumentKey, MARKETS, UNITS } from './types'
 
@@ -71,6 +71,16 @@ describe('dates', () => {
     expect(daysBetween('2024-02-28', '2024-03-01')).toBe(2)
     expect(daysBetween('2024-01-15', '2024-01-15')).toBe(0)
     expect(daysBetween('2024-01-10', '2024-04-10')).toBe(91)
+  })
+})
+
+describe('tradingWeek', () => {
+  it('gives Monday to Friday of this week, or of next week at the weekend', () => {
+    expect(tradingWeek('2026-10-27')).toEqual(['2026-10-26', '2026-10-27', '2026-10-28', '2026-10-29', '2026-10-30'])
+    expect(tradingWeek('2026-10-26')[0]).toBe('2026-10-26')
+    expect(tradingWeek('2026-10-30')[4]).toBe('2026-10-30')
+    expect(tradingWeek('2026-10-31')).toEqual(['2026-11-02', '2026-11-03', '2026-11-04', '2026-11-05', '2026-11-06'])
+    expect(tradingWeek('2026-11-01')[0]).toBe('2026-11-02')
   })
 })
 

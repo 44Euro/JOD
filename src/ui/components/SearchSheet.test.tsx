@@ -15,7 +15,7 @@ const results: FoundAsset[] = [
 ]
 
 function client(search: MarketClient['search']): MarketClient {
-  return { ready: () => true, search, quotes: async () => [] }
+  return { ready: () => true, search, quotes: async () => [], news: async () => [], earnings: async () => [] }
 }
 
 function sheet(market: MarketClient, onPick = vi.fn(), onClose = vi.fn()) {

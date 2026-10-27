@@ -45,3 +45,11 @@ export function addDays(date: string, days: number): string {
   const next = new Date(Date.UTC(y, m - 1, d + days))
   return next.toISOString().slice(0, 10)
 }
+
+// The US week the earnings calendar shows: Monday to Friday of today's week, or of the coming one at the weekend.
+export function tradingWeek(today: string): string[] {
+  const [y, m, d] = today.split('-').map(Number)
+  const weekday = new Date(Date.UTC(y, m - 1, d)).getUTCDay()
+  const monday = addDays(today, weekday === 0 ? 1 : weekday === 6 ? 2 : 1 - weekday)
+  return [0, 1, 2, 3, 4].map((i) => addDays(monday, i))
+}
