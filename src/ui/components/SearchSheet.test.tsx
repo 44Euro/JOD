@@ -1,5 +1,6 @@
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { useState } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Instrument } from '../../domain/types'
 import type { FoundAsset, MarketClient } from '../../market/client'
@@ -78,6 +79,24 @@ describe('SearchSheet', () => {
     await user.type(input, 'kb')
     expect(await screen.findByText('ค้นหาจากเซิร์ฟเวอร์ไม่ได้ตอนนี้')).toBeInTheDocument()
     expect(screen.getByRole('option', { name: /KBANK/ })).toBeInTheDocument()
+  })
+
+  it('gives the focus back to the button that opened it', async () => {
+    function Opener() {
+      const [open, setOpen] = useState(false)
+      return (
+        <>
+          <button onClick={() => setOpen(true)}>เปิดค้นหา</button>
+          <SearchSheet open={open} onClose={() => setOpen(false)} onPick={() => {}} instruments={[]} market={client(async () => [])} />
+        </>
+      )
+    }
+    const user = userEvent.setup()
+    render(<Opener />)
+    await user.click(screen.getByRole('button', { name: 'เปิดค้นหา' }))
+    expect(screen.getByRole('combobox', { name: 'ค้นหาสินทรัพย์' })).toHaveFocus()
+    await user.keyboard('{Escape}')
+    expect(screen.getByRole('button', { name: 'เปิดค้นหา' })).toHaveFocus()
   })
 
   it('closes on Escape and with the close button', async () => {

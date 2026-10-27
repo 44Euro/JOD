@@ -53,13 +53,11 @@ function OpenSheet({ onClose, onPick, instruments, market = marketClient }: Sear
   const [found, setFound] = useState<{ query: string; results: FoundAsset[]; failed: boolean } | null>(null)
   const [active, setActive] = useState(0)
   const [recent] = useState(readRecent)
-  const opener = useRef<Element | null>(null)
+  // Read while rendering, before the input's autoFocus moves the focus into the sheet.
+  const [opener] = useState(() => document.activeElement)
   const latest = useRef('')
 
-  useEffect(() => {
-    opener.current = document.activeElement
-    return () => (opener.current as HTMLElement | null)?.focus?.()
-  }, [])
+  useEffect(() => () => (opener as HTMLElement | null)?.focus?.(), [opener])
 
   const typed = query.trim()
   useEffect(() => {
