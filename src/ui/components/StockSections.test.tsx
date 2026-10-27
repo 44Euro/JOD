@@ -20,17 +20,19 @@ describe('FinancialsSection', () => {
     render(<FinancialsSection state={{ status: 'ready', data: financials }} />)
     const section = screen.getByRole('region', { name: 'งบการเงิน' })
     const table = within(section).getByRole('table')
-    expect(within(table).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['', '2021', '2022', '2023', '2024', '2025'])
-    expect(within(table).getByRole('row', { name: /รายได้/ })).toHaveTextContent('416.2B')
-    expect(within(table).getByRole('row', { name: /กำไรสุทธิ/ })).toHaveTextContent('−5.2B')
+    // One row per period, so the three figures fit a phone.
+    expect(within(table).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['ช่วง', 'รายได้', 'กำไรสุทธิ', 'กระแสเงินสดอิสระ'])
+    expect(within(table).getAllByRole('rowheader').map((h) => h.textContent)).toEqual(['2025', '2024', '2023', '2022', '2021'])
+    expect(within(table).getByRole('row', { name: /^2025/ })).toHaveTextContent('416.2B')
+    expect(within(table).getByRole('row', { name: /^2022/ })).toHaveTextContent('−5.2B')
     expect(section).toHaveTextContent('ที่มา SEC · งบปี 2025 สิ้นสุด 27 ก.ย. 2025')
     await user.click(within(section).getByRole('button', { name: 'ไตรมาส' }))
-    expect(within(table).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['', 'Q2 2026'])
+    expect(within(table).getAllByRole('rowheader').map((h) => h.textContent)).toEqual(['Q2 2026'])
   })
 
   it('blanks a missing figure', () => {
     render(<FinancialsSection state={{ status: 'ready', data: financials }} />)
-    expect(within(screen.getByRole('table')).getByRole('row', { name: /กระแสเงินสดอิสระ/ })).toHaveTextContent('—')
+    expect(within(screen.getByRole('table')).getByRole('row', { name: /^2021/ })).toHaveTextContent('—')
   })
 
   it('says filings are not switched on', () => {

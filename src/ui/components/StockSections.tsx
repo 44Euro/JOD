@@ -63,30 +63,35 @@ export function FinancialsSection({ state }: { state: MarketState<Financials> })
             <p className="text-[13.5px] text-muted-foreground">{t('ไม่มีตัวเลขช่วงนี้ใน SEC')}</p>
           ) : (
             <>
-              <div aria-hidden className="flex h-14 items-end gap-2 pl-[38%]">
+              <div aria-hidden className="grid grid-flow-col auto-cols-fr items-end gap-2">
                 {periods.map((p) => (
-                  <span key={p.period} className="flex-1 rounded-t-[4px] bg-primary/80" style={{ height: `${(Number(p.revenue ?? 0) / top) * 100}%` }} />
+                  <span key={p.period} className="grid justify-items-center gap-1">
+                    <span className="flex h-12 w-full max-w-10 items-end">
+                      <span className="w-full rounded-t-[4px] bg-primary/80" style={{ height: `${(Number(p.revenue ?? 0) / top) * 48}px` }} />
+                    </span>
+                    <span className="text-[12px] text-muted-foreground">{periodLabel(p.period)}</span>
+                  </span>
                 ))}
               </div>
               <Table>
                 <thead>
                   <tr>
-                    <Th className="w-[38%]" />
-                    {periods.map((p) => (
-                      <Th key={p.period} className="text-right">
-                        {periodLabel(p.period)}
+                    <Th>{t('ช่วง')}</Th>
+                    {ROWS.map((row) => (
+                      <Th key={row.key} className="whitespace-normal text-right">
+                        {row.label}
                       </Th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {ROWS.map((row) => (
-                    <tr key={row.key}>
+                  {[...periods].reverse().map((p) => (
+                    <tr key={p.period}>
                       <Th scope="row" className="border-t border-muted py-3 text-[13.5px] text-ink-2">
-                        {row.label}
+                        {periodLabel(p.period)}
                       </Th>
-                      {periods.map((p) => (
-                        <Td key={p.period} className={cn('text-right font-display', Number(p[row.key]) < 0 && 'text-loss')}>
+                      {ROWS.map((row) => (
+                        <Td key={row.key} className={cn('text-right font-display', Number(p[row.key]) < 0 && 'text-loss')}>
                           {fmtCompact(p[row.key])}
                         </Td>
                       ))}

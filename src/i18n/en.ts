@@ -233,6 +233,7 @@ export const EN: Record<string, string> = {
   "จับตา": "Watch",
   "จำนวนปี": "Years",
   "ชื่อหรือสัญลักษณ์ เช่น NVDA, PTT, BTC": "Name or symbol, e.g. NVDA, PTT, BTC",
+  "ช่วง": "Period",
   "ช่วงงบ": "Period",
   "ดึงข้อมูลตลาดไม่ได้ตอนนี้ ลองใหม่ภายหลัง": "Market data cannot be fetched right now. Try again later",
   "ดูทั้งหมด": "See all",

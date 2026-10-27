@@ -709,6 +709,21 @@ describe('AssetPage', () => {
       expect(within(chips).getByRole('button', { name: 'มูลค่า' })).toHaveAttribute('aria-pressed', 'true')
     })
 
+    it('starts the chips afresh on another asset', async () => {
+      vi.spyOn(marketClient, 'financials').mockResolvedValue(filings)
+      vi.spyOn(marketClient, 'news').mockResolvedValue([])
+      Element.prototype.scrollIntoView ??= () => {}
+      const user = userEvent.setup({ advanceTimers: (ms) => vi.advanceTimersByTime(ms) })
+      const router = renderRoute('/assets/US%3AMSFT', usd)
+      const chips = await screen.findByRole('navigation', { name: 'ส่วนของหน้า' })
+      await user.click(within(chips).getByRole('button', { name: 'ข่าว' }))
+      await act(() => router.navigate('/assets/US%3AAAPL'))
+      await screen.findByRole('region', { name: 'AAPL' })
+      const fresh = screen.getByRole('navigation', { name: 'ส่วนของหน้า' })
+      expect(within(fresh).getByRole('button', { name: 'งบ' })).toHaveAttribute('aria-pressed', 'true')
+      expect(within(fresh).getByRole('button', { name: 'ข่าว' })).toHaveAttribute('aria-pressed', 'false')
+    })
+
     it('hides the filings of a fund with none at SEC', async () => {
       vi.spyOn(marketClient, 'financials').mockRejectedValue(new MarketError(404))
       vi.spyOn(marketClient, 'news').mockResolvedValue([])

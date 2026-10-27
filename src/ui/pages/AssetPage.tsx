@@ -205,7 +205,7 @@ export function AssetPage() {
 
       {instrument && renamingId === id && <RenameInstrument instrument={instrument} onClose={() => setRenamingId(undefined)} />}
 
-      <SectionChips sections={sections} />
+      <SectionChips key={id} sections={sections} />
 
       {known && (
         <div id="stock-mine" className="grid scroll-mt-16 gap-3.5 md:gap-[22px] [&>*]:min-w-0">
