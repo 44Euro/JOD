@@ -253,7 +253,7 @@ export function FxPage() {
     <>
       <PageHeader title={t('ค่าเงิน')} note={ecbNote ? t('เรทกลาง {0}', ecbNote) : undefined} />
 
-      {board.length > 0 && <RateBoard rows={board} base={base} caption={caption} full />}
+      {board.length > 0 && <RateBoard rows={board} base={base} caption={caption} />}
 
       {cashRows.length > 0 && (
         <Section id="fx-cash-title" title={t('เงินสดต่างประเทศ')}>

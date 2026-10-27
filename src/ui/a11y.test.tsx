@@ -6,7 +6,7 @@ import { fakeFxProvider } from '../test/fakeFx'
 import { renderRoute, resetDb } from '../test/render'
 
 const PAGES: [string, string][] = [
-  ['/', 'ภาพรวม'],
+  ['/', 'เช้านี้'],
   ['/portfolio', 'พอร์ต'],
   ['/transactions', 'รายการทั้งหมด'],
   ['/trades', 'เทรด'],

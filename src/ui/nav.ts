@@ -7,7 +7,7 @@ export interface NavItem {
   icon: LucideIcon
 }
 
-export const HOME: NavItem = { to: '/', label: t('ภาพรวม'), icon: House }
+export const HOME: NavItem = { to: '/', label: t('เช้านี้'), icon: House }
 export const PORTFOLIO: NavItem = { to: '/portfolio', label: t('พอร์ต'), icon: Briefcase }
 export const TRANSACTIONS: NavItem = { to: '/transactions', label: t('รายการ'), icon: List }
 export const TRADES: NavItem = { to: '/trades', label: t('เทรด'), icon: ChartLine }

@@ -5,52 +5,33 @@ import { currencyMark, fmtNumber, fmtRate, fmtSigned, fmtSignedPct } from '../fo
 import type { RateBoardRow } from '../rateBoard'
 import { t } from '../../i18n'
 
-// Both layouts switch from stacked rows to columns on the board's own width (container query), which a tablet beside the
-// sidebar, or the left column of the two-column overview, does not always have. The five columns need about 680px of it and
-// the six about 800px. Tailwind only sees whole class names, so each layout spells out its own.
-// Stacked, a row is two lines as in the mock: the currency and the gap, then the rates and the effect. The two lines are
-// wrappers that become `contents` in the columns, so their children are the grid cells there. The effect wraps below the
-// rate pair when the two do not fit side by side, and the pair itself never splits. The held amount sits before the gap
-// once the board is 320px wide, which a phone in portrait does not give.
+// The board switches from stacked rows to six columns on its own width (container query), which a tablet beside the
+// sidebar does not always have; the columns need about 800px of it. Stacked, a row is two lines: the currency and the gap,
+// then the rates and the effect. The two lines are wrappers that become `contents` in the columns, so their children are
+// the grid cells there. The effect wraps below the rate pair when the two do not fit side by side, and the pair itself
+// never splits. The held amount sits before the gap once the board is 320px wide, which a phone in portrait does not give.
 // A rate below one has up to six decimals and is set a size smaller, so it stays inside its column in both layouts.
-const LAYOUTS = {
-  compact: {
-    row: 'flex-col @min-[680px]:grid @min-[680px]:grid-cols-[150px_1fr_1fr_100px_170px] @min-[680px]:items-center @min-[680px]:gap-2',
-    head: '@min-[680px]:grid @min-[680px]:grid-cols-[150px_1fr_1fr_100px_170px]',
-    line: '@min-[680px]:contents',
-    rates: '@min-[680px]:contents',
-    size: 'text-[22px] @min-[680px]:text-[34px]',
-    smallSize: 'text-base @min-[680px]:text-2xl',
-    arrow: '@min-[680px]:hidden',
-    note: '@max-[680px]:hidden',
-    diff: '@min-[680px]:order-1 @min-[680px]:text-left',
-    effect: '@min-[680px]:order-2 @min-[680px]:ml-0 @min-[680px]:text-left @min-[680px]:text-xl',
-  },
-  full: {
-    row: 'flex-col @min-[800px]:grid @min-[800px]:grid-cols-[176px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_100px_132px] @min-[800px]:items-center @min-[800px]:gap-2',
-    head: '@min-[800px]:grid @min-[800px]:grid-cols-[176px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_100px_132px]',
-    line: '@min-[800px]:contents',
-    held: 'hidden @min-[320px]:block',
-    rates: '@min-[800px]:contents',
-    size: 'text-[22px] @min-[800px]:text-[34px]',
-    smallSize: 'text-base @min-[800px]:text-2xl',
-    arrow: '@min-[800px]:hidden',
-    note: '@max-[800px]:hidden',
-    diff: '@min-[800px]:order-1 @min-[800px]:text-left',
-    effect: '@min-[800px]:order-2 @min-[800px]:ml-0 @min-[800px]:text-left @min-[800px]:text-xl',
-  },
+const layout = {
+  row: 'flex-col @min-[800px]:grid @min-[800px]:grid-cols-[176px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_100px_132px] @min-[800px]:items-center @min-[800px]:gap-2',
+  head: '@min-[800px]:grid @min-[800px]:grid-cols-[176px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_100px_132px]',
+  line: '@min-[800px]:contents',
+  held: 'hidden @min-[320px]:block',
+  rates: '@min-[800px]:contents',
+  size: 'text-[22px] @min-[800px]:text-[34px]',
+  smallSize: 'text-base @min-[800px]:text-2xl',
+  arrow: '@min-[800px]:hidden',
+  note: '@max-[800px]:hidden',
+  diff: '@min-[800px]:order-1 @min-[800px]:text-left',
+  effect: '@min-[800px]:order-2 @min-[800px]:ml-0 @min-[800px]:text-left @min-[800px]:text-xl',
 }
 
 interface RateBoardProps {
   rows: readonly RateBoardRow[]
   base: string
-  // The currency page adds what is held.
-  full?: boolean
   caption?: ReactNode
 }
 
-export function RateBoard({ rows, base, full = false, caption = t('เรทเฉลี่ยที่แลกมา เทียบเรทวันนี้') }: RateBoardProps) {
-  const layout = LAYOUTS[full ? 'full' : 'compact']
+export function RateBoard({ rows, base, caption = t('เรทเฉลี่ยที่แลกมา เทียบเรทวันนี้') }: RateBoardProps) {
   const mark = currencyMark(base)
   return (
     <section
@@ -67,7 +48,7 @@ export function RateBoard({ rows, base, full = false, caption = t('เรทเ�
         <>
           <div aria-hidden className={cn('hidden gap-2 pt-1.5 pb-2 text-xs text-board-muted', layout.head)}>
             <span>{t('สกุลที่ถือ')}</span>
-            {full && <span>{t('ถืออยู่')}</span>}
+            <span>{t('ถืออยู่')}</span>
             <span>{t('เรทเฉลี่ยของคุณ')}</span>
             <span>{t('เรทวันนี้')}</span>
             <span>{t('ส่วนต่าง')}</span>
@@ -90,11 +71,7 @@ export function RateBoard({ rows, base, full = false, caption = t('เรทเ�
                         </span>
                       )}
                     </span>
-                    {full && (
-                      <span className={cn('min-w-0 text-base', LAYOUTS.full.held)}>
-                        {`${fmtNumber(row.heldQuote, 0)} ${row.currency}`}
-                      </span>
-                    )}
+                    <span className={cn('min-w-0 text-base', layout.held)}>{`${fmtNumber(row.heldQuote, 0)} ${row.currency}`}</span>
                     <span
                       className={cn(
                         'shrink-0 text-right font-display text-xl font-semibold',

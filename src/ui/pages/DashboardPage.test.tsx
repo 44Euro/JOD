@@ -75,6 +75,32 @@ describe('DashboardPage', () => {
     expect(router.state.location.pathname).toBe('/welcome')
   })
 
+  it('opens on the held-price board before the portfolio value', async () => {
+    setToday(2024, 6, 1)
+    await seedDime()
+    renderRoute('/', usd())
+    const board = await screen.findByRole('region', { name: 'ราคาที่ถืออยู่' })
+    expect(within(board).getByRole('link', { name: /AAPL/ })).toHaveTextContent('120.00')
+    const value = screen.getByText('มูลค่าวันนี้ · สินทรัพย์ + เงินสด')
+    expect(board.compareDocumentPosition(value) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('keeps the currency board off the home page', async () => {
+    setToday(2024, 6, 1)
+    await seedDime()
+    renderRoute('/', usd())
+    await screen.findByRole('region', { name: 'ราคาที่ถืออยู่' })
+    expect(screen.queryByRole('region', { name: 'กระดานเรทของคุณ' })).not.toBeInTheDocument()
+  })
+
+  it('shows an empty board with a record button when nothing is held', async () => {
+    await db.accounts.add(account)
+    renderRoute('/', usd())
+    expect(await screen.findByText('ยังไม่มีสินทรัพย์')).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'ราคาที่ถืออยู่' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'บันทึกรายการแรก' })).toHaveAttribute('href', '/transactions/new')
+  })
+
   it('marks the overview while sample data is loaded', async () => {
     setToday(2024, 6, 1)
     await seedDime()
@@ -124,21 +150,6 @@ describe('DashboardPage', () => {
         '35,789วันนี้',
       ]),
     )
-    const board = screen.getByRole('region', { name: 'กระดานเรทของคุณ' })
-    expect(within(board).getByText('−2.94%')).toBeInTheDocument()
-    expect(within(board).getByText('−360 ฿')).toBeInTheDocument()
-  })
-
-  it('names each currency of the rate board in Thai beside its code and leaves out what is held', async () => {
-    setToday(2024, 6, 1)
-    await seedDime()
-    renderRoute('/', usd())
-    const board = await screen.findByRole('region', { name: 'กระดานเรทของคุณ' })
-    const [row] = within(board).getAllByRole('listitem')
-    expect(within(row).getByText('USD')).toBeInTheDocument()
-    expect(within(row).getByText('ดอลลาร์สหรัฐ')).toBeInTheDocument()
-    expect(within(board).queryByText('ถืออยู่')).not.toBeInTheDocument()
-    expect(within(board).getByText('เรทเฉลี่ยที่แลกมา เทียบเรทวันนี้')).toBeInTheDocument()
   })
 
   it('splits the gain of each holding into stock and currency in whole baht', async () => {
@@ -213,7 +224,7 @@ describe('DashboardPage', () => {
     expect(await screen.findByRole('heading', { name: 'เส้นทางเงิน · AAPL' })).toBeInTheDocument()
   })
 
-  it('gives the rate board the whole width when nothing is left for a right-hand column', async () => {
+  it('gives the held-price board the whole width when nothing is left for a right-hand column', async () => {
     setToday(2024, 6, 1)
     await db.accounts.bulkAdd([
       { id: 'bitkub', name: 'Bitkub', broker: 'Bitkub', note: '', createdAt: '2024-01-01T00:00:00.000Z' },
@@ -226,7 +237,7 @@ describe('DashboardPage', () => {
     ])
     await saveSettings(db, { baseCurrency: 'THB', lastBackupAt: '2024-06-30T09:00:00.000Z' })
     renderRoute('/', usd())
-    const board = (await screen.findByRole('region', { name: 'กระดานเรทของคุณ' })).parentElement!
+    const board = (await screen.findByRole('region', { name: 'ราคาที่ถืออยู่' })).parentElement!
     expect(board.children).toHaveLength(1)
     expect(board).not.toHaveClass('xl:grid-cols-[minmax(0,1fr)_340px]')
   })
@@ -269,7 +280,7 @@ describe('DashboardPage', () => {
     setToday(2024, 6, 1)
     await seedDime()
     renderRoute('/', usd())
-    const board = (await screen.findByRole('region', { name: 'กระดานเรทของคุณ' })).parentElement!
+    const board = (await screen.findByRole('region', { name: 'ราคาที่ถืออยู่' })).parentElement!
     expect(board.children).toHaveLength(2)
     expect(board).toHaveClass('xl:grid-cols-[minmax(0,1fr)_340px]')
   })
@@ -488,39 +499,17 @@ describe('DashboardPage', () => {
       setToday(2024, 6, 1)
       await seedDime()
       renderRoute('/', usd())
-      const board = await screen.findByRole('region', { name: 'กระดานเรทของคุณ' })
+      const board = await screen.findByRole('region', { name: 'ราคาที่ถืออยู่' })
       expect(board.parentElement).toHaveClass('grid-cols-[minmax(0,1fr)]', 'xl:grid-cols-[minmax(0,1fr)_340px]')
     })
 
-    it('switches the route and the rate board on their own width, not the screen’s', async () => {
+    it('switches the route on its own width, not the screen’s', async () => {
       setToday(2024, 6, 1)
       await seedDime()
       renderRoute('/', usd())
       const route = await screen.findByRole('list', { name: 'จากเงินลงทุนถึงวันนี้' })
       expect(route.parentElement).toHaveClass('@container')
       expect(route).toHaveClass('@min-[768px]:grid-cols-[repeat(var(--n),minmax(0,1fr))]')
-      const board = screen.getByRole('region', { name: 'กระดานเรทของคุณ' })
-      expect(board).toHaveClass('@container')
-      const [row] = within(board).getAllByRole('listitem')
-      expect(row).toHaveClass('@min-[680px]:grid-cols-[150px_1fr_1fr_100px_170px]')
-    })
-
-    it('stacks a rate row as the currency and the gap, then the rates and the effect', async () => {
-      setToday(2024, 6, 1)
-      await seedDime()
-      renderRoute('/', usd())
-      const [row] = within(await screen.findByRole('region', { name: 'กระดานเรทของคุณ' })).getAllByRole('listitem')
-      expect(row).toHaveClass('flex', 'flex-col', '@min-[680px]:grid')
-      const [first, second] = [...row.children]
-      expect(first).toHaveClass('flex', '@min-[680px]:contents')
-      expect(second).toHaveClass('flex', 'flex-wrap', '@min-[680px]:contents')
-      const [currency, gap] = [...first.children]
-      const [rates, effect] = [...second.children]
-      expect(currency).toHaveClass('flex-1', 'min-w-0')
-      expect(gap).toHaveClass('text-right', '@min-[680px]:order-1')
-      expect(rates).toHaveClass('whitespace-nowrap', 'leading-[1.1]', 'text-[22px]', '@min-[680px]:text-[34px]')
-      expect(effect).toHaveClass('ml-auto', 'text-right', '@min-[680px]:order-2')
-      expect(effect).toHaveTextContent('−360 ฿')
     })
   })
 
@@ -593,7 +582,7 @@ describe('DashboardPage', () => {
       renderRoute('/', usd())
       const main = await screen.findByRole('main')
       await screen.findByText('ฝาก 100,000 · ถอน 0')
-      const heading = screen.getByRole('heading', { name: 'ภาพรวม' })
+      const heading = screen.getByRole('heading', { name: 'เช้านี้' })
       const watch = watchText()
       await user.click(screen.getByRole('button', { name: 'ซ่อนตัวเลข' }))
       expect(screen.getByText('ฝาก ••• · ถอน •••')).toBeInTheDocument()
@@ -601,7 +590,7 @@ describe('DashboardPage', () => {
       expect(screen.getByText('ฝาก 100,000 · ถอน 0')).toBeInTheDocument()
       watch.stop()
       expect(watch.seen.join('\n')).not.toContain('กำลังโหลด…')
-      expect(screen.getByRole('heading', { name: 'ภาพรวม' })).toBe(heading)
+      expect(screen.getByRole('heading', { name: 'เช้านี้' })).toBe(heading)
       expect(main).toContainElement(heading)
     })
 
@@ -640,17 +629,6 @@ describe('DashboardPage', () => {
       watch.stop()
       expect(watch.seen.length).toBeGreaterThan(0)
       expect(watch.seen.join('\n')).not.toMatch(THOUSANDS)
-    })
-
-    it('keeps the percentages and rates of the board while the numbers are hidden', async () => {
-      setToday(2024, 6, 1)
-      await seedDime()
-      await saveSettings(db, { baseCurrency: 'THB', hideNumbersOnLaunch: true })
-      renderRoute('/', usd())
-      const board = await screen.findByRole('region', { name: 'กระดานเรทของคุณ' })
-      await waitFor(() => expect(board).toHaveTextContent('−2.94%'))
-      expect(board).toHaveTextContent('34.00→33.00')
-      expect(board).toHaveTextContent('••• ฿')
     })
 
     it('opens with the numbers hidden when the setting asks for it', async () => {

@@ -15,7 +15,7 @@ import { PortfolioHistoryCard } from '../components/HistoryCards'
 import { HoldingsTable } from '../components/HoldingsTable'
 import { MiniRoute, MoneyRoute } from '../components/MoneyRoute'
 import { PageHeader } from '../components/PageHeader'
-import { RateBoard } from '../components/RateBoard'
+import { HoldingsBoard } from '../components/HoldingsBoard'
 import { Stat, SummaryPanel } from '../components/Summary'
 import { fmtDate, fmtHeadline, fmtNumber, fmtPrice, fmtRate, fmtSigned, fmtSignedPct, plClass } from '../format'
 import { useAppData, useInvestor } from '../hooks'
@@ -24,6 +24,7 @@ import { buildNotices, type Notice, type NoticeKind } from '../notices'
 import { hasSampleData } from '../../db/sampleData'
 import { assetPath } from '../nav'
 import { EyeButton } from '../privacy'
+import { buildHoldingsBoard } from '../holdingsBoard'
 import { buildRateBoard } from '../rateBoard'
 import { t } from '../../i18n'
 
@@ -70,8 +71,8 @@ export function DashboardPage() {
   const { invested, worth, gain } = investor
   const ret = portfolioReturn(investor.flows, worth.totalBase, today)
   const gainPct = ret.sinceStartPct
-  const board = buildRateBoard(valuations, base, rates)
-  const rateNote = board.find((row) => row.todayNote)?.todayNote
+  const rateNote = buildRateBoard(valuations, base, rates).find((row) => row.todayNote)?.todayNote
+  const board = buildHoldingsBoard(valuations, data.instruments)
   const instruments = new Map(data.instruments.map((i) => [i.id, i]))
   const held = new Set(ledger.positions.map((p) => p.instrumentId))
   const unpriced = unpricedInstrumentCount(valuations)
@@ -109,7 +110,7 @@ export function DashboardPage() {
 
   return (
     <>
-      <PageHeader title={t('ภาพรวม')} note={rateNote ? t('เรทวันนี้ {0}', rateNote) : undefined}>
+      <PageHeader title={t('เช้านี้')} note={rateNote ? t('เรทวันนี้ {0}', rateNote) : undefined}>
         {hasSampleData(data.accounts) && (
           <Link
             to="/settings"
@@ -128,6 +129,45 @@ export function DashboardPage() {
       {topNotices.map((notice) => (
         <NoticeAlert key={notice.id} notice={notice} />
       ))}
+
+      <div
+        className={cn(
+          'grid grid-cols-[minmax(0,1fr)] items-start gap-3.5 md:gap-[22px]',
+          hasSideColumn && 'xl:grid-cols-[minmax(0,1fr)_340px]',
+        )}
+      >
+        {board.length > 0 ? (
+          <HoldingsBoard rows={board} today={today} />
+        ) : (
+          <Card className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-ink-2">{t('ยังไม่มีสินทรัพย์')}</p>
+            <Link to="/transactions/new" className={buttonVariants({ size: 'sm' })}>
+              {t('บันทึกรายการแรก')}
+            </Link>
+          </Card>
+        )}
+        {hasSideColumn && (
+          <div className="grid min-w-0 content-start gap-4">
+            {showRoute && (
+              <Link to={assetPath(largestId)} className="block rounded-[18px] border bg-card p-4 hover:bg-muted md:rounded-[20px] md:px-[26px] md:py-[22px]">
+                <h2 className="mb-4 text-lg font-semibold">{t('เส้นทางเงิน · ')}{largestSymbol}</h2>
+                <MiniRoute
+                  from={base === 'THB' ? t('บาท') : base}
+                  via={
+                    largest.currency === base
+                      ? t('ไม่ต้องแลกเงิน')
+                      : t('แลกที่ {0}', fmtRate(largest.costQuote.isZero() ? null : largest.costBase.div(largest.costQuote)))
+                  }
+                  to={`${largestSymbol} @${fmtPrice(largest.costQuote.div(largest.quantity))}`}
+                />
+              </Link>
+            )}
+            {sideNotices.map((notice) => (
+              <NoticeAlert key={notice.id} notice={notice} />
+            ))}
+          </div>
+        )}
+      </div>
 
       <SummaryPanel
         label={t('มูลค่าวันนี้ · สินทรัพย์ + เงินสด')}
@@ -170,36 +210,6 @@ export function DashboardPage() {
           />
         )}
       </SummaryPanel>
-
-      <div
-        className={cn(
-          'grid grid-cols-[minmax(0,1fr)] items-start gap-3.5 md:gap-[22px]',
-          hasSideColumn && 'xl:grid-cols-[minmax(0,1fr)_340px]',
-        )}
-      >
-        {board.length > 0 && <RateBoard rows={board} base={base} />}
-        {hasSideColumn && (
-          <div className="grid min-w-0 content-start gap-4">
-            {showRoute && (
-              <Link to={assetPath(largestId)} className="block rounded-[18px] border bg-card p-4 hover:bg-muted md:rounded-[20px] md:px-[26px] md:py-[22px]">
-                <h2 className="mb-4 text-lg font-semibold">{t('เส้นทางเงิน · ')}{largestSymbol}</h2>
-                <MiniRoute
-                  from={base === 'THB' ? t('บาท') : base}
-                  via={
-                    largest.currency === base
-                      ? t('ไม่ต้องแลกเงิน')
-                      : t('แลกที่ {0}', fmtRate(largest.costQuote.isZero() ? null : largest.costBase.div(largest.costQuote)))
-                  }
-                  to={`${largestSymbol} @${fmtPrice(largest.costQuote.div(largest.quantity))}`}
-                />
-              </Link>
-            )}
-            {sideNotices.map((notice) => (
-              <NoticeAlert key={notice.id} notice={notice} />
-            ))}
-          </div>
-        )}
-      </div>
 
       <PortfolioHistoryCard base={base} today={today} />
 

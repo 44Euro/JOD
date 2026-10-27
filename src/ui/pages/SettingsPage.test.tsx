@@ -60,7 +60,7 @@ describe('SettingsPage', () => {
     renderRoute('/settings')
     await user.click(await screen.findByRole('switch', { name: 'ซ่อนตัวเลขทุกครั้งที่เปิดแอป' }))
     await screen.findByRole('switch', { name: 'ซ่อนตัวเลขทุกครั้งที่เปิดแอป', checked: true })
-    await user.click(within(screen.getByRole('navigation', { name: 'เมนูหลัก' })).getByRole('link', { name: 'ภาพรวม' }))
+    await user.click(within(screen.getByRole('navigation', { name: 'เมนูหลัก' })).getByRole('link', { name: 'เช้านี้' }))
     expect(await screen.findByRole('button', { name: 'ซ่อนตัวเลข' })).toHaveAttribute('aria-pressed', 'false')
   })
 

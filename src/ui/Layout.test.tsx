@@ -13,7 +13,7 @@ describe('Layout', () => {
   it('lists the pages in the sidebar in the order of the spec, with แผน after เทรด', async () => {
     renderRoute('/')
     const sidebar = await screen.findByRole('navigation', { name: 'เมนูหลัก' })
-    expect(labels(sidebar)).toEqual(['ภาพรวม', 'พอร์ต', 'รายการ', 'เทรด', 'แผน', 'รายได้', 'สรุปประจำปี', 'ค่าเงิน', 'นำเข้าข้อมูล', 'ตั้งค่า'])
+    expect(labels(sidebar)).toEqual(['เช้านี้', 'พอร์ต', 'รายการ', 'เทรด', 'แผน', 'รายได้', 'สรุปประจำปี', 'ค่าเงิน', 'นำเข้าข้อมูล', 'ตั้งค่า'])
     expect(hrefs(sidebar)).toEqual(['/', '/portfolio', '/transactions', '/trades', '/plans', '/income', '/summary', '/fx', '/import', '/settings'])
   })
 
@@ -44,7 +44,7 @@ describe('Layout', () => {
   it('puts five tabs in the bottom bar with the new-transaction button in the middle', async () => {
     renderRoute('/')
     const bottom = await screen.findByRole('navigation', { name: 'เมนูด้านล่าง' })
-    expect(labels(bottom)).toEqual(['ภาพรวม', 'พอร์ต', 'บันทึก', 'เทรด', 'เพิ่มเติม'])
+    expect(labels(bottom)).toEqual(['เช้านี้', 'พอร์ต', 'บันทึก', 'เทรด', 'เพิ่มเติม'])
     expect(hrefs(bottom)).toEqual(['/', '/portfolio', '/transactions/new', '/trades', '/more'])
   })
 
@@ -53,7 +53,7 @@ describe('Layout', () => {
     const bottom = await screen.findByRole('navigation', { name: 'เมนูด้านล่าง' })
     expect(within(bottom).getByRole('link', { name: 'เพิ่มเติม' })).toHaveAttribute('aria-current', 'page')
     expect(within(bottom).getByRole('link', { name: 'เทรด' })).not.toHaveAttribute('aria-current')
-    expect(within(bottom).getByRole('link', { name: 'ภาพรวม' })).not.toHaveAttribute('aria-current')
+    expect(within(bottom).getByRole('link', { name: 'เช้านี้' })).not.toHaveAttribute('aria-current')
   })
 
   it('keeps เพิ่มเติม as the current tab while a transaction is being edited', async () => {
@@ -66,7 +66,7 @@ describe('Layout', () => {
     expect(within(bottom).getByRole('link', { name: 'บันทึก' })).not.toHaveAttribute('aria-current')
     const sidebar = screen.getByRole('navigation', { name: 'เมนูหลัก' })
     expect(within(sidebar).getByRole('link', { name: 'รายการ' })).toHaveAttribute('aria-current', 'page')
-    expect(within(sidebar).getByRole('link', { name: 'ภาพรวม' })).not.toHaveAttribute('aria-current')
+    expect(within(sidebar).getByRole('link', { name: 'เช้านี้' })).not.toHaveAttribute('aria-current')
   })
 
   it('keeps the bottom bar clear of the home indicator by at least 22px', async () => {
@@ -107,7 +107,7 @@ describe('Layout', () => {
     renderRoute('/assets/US%3AVOO')
     const sidebar = await screen.findByRole('navigation', { name: 'เมนูหลัก' })
     expect(within(sidebar).getByRole('link', { name: 'พอร์ต' })).toHaveAttribute('aria-current', 'page')
-    expect(within(sidebar).getByRole('link', { name: 'ภาพรวม' })).not.toHaveAttribute('aria-current')
+    expect(within(sidebar).getByRole('link', { name: 'เช้านี้' })).not.toHaveAttribute('aria-current')
     const bottom = screen.getByRole('navigation', { name: 'เมนูด้านล่าง' })
     expect(within(bottom).getByRole('link', { name: 'พอร์ต' })).toHaveAttribute('aria-current', 'page')
     expect(within(bottom).getByRole('link', { name: 'เพิ่มเติม' })).not.toHaveAttribute('aria-current')

@@ -1,7 +1,8 @@
-import { screen, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '../../db/db'
+import { saveSettings } from '../../db/repo'
 import type { Instrument } from '../../domain/types'
 import { fakeFxProvider } from '../../test/fakeFx'
 import { makeTx } from '../../test/fixtures'
@@ -74,6 +75,16 @@ describe('FxPage', () => {
       expect(
         sentence(await board(), 'ค่าเงินทำให้พอร์ตลดลง −600 ฿ จากสินทรัพย์ และ −1,274 ฿ จากเงินสดที่ถืออยู่'),
       ).toBeInTheDocument()
+    })
+
+    it('keeps the percentages and rates of the board while the numbers are hidden', async () => {
+      await seedFx()
+      await saveSettings(db, { baseCurrency: 'THB', hideNumbersOnLaunch: true })
+      renderRoute('/fx', usd())
+      const shown = await board()
+      await waitFor(() => expect(shown).toHaveTextContent(/[+−]\d+\.\d{2}%/))
+      expect(shown).toHaveTextContent(/\d+\.\d{2}→\d+\.\d{2}/)
+      expect(shown).toHaveTextContent('••• ฿')
     })
 
     it('lists each currency with the Thai name, what is held, both rates, the gap and the effect in whole baht', async () => {
