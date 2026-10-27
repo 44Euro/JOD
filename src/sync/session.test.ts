@@ -3,11 +3,12 @@ import type { AddressInfo } from 'node:net'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createApp } from '../../server/app.ts'
 import { createTestStore } from '../../server/testStore.ts'
+import { SEARCH_RECENT_STORAGE_KEY, readLocal, writeLocal } from '../ai/apiKey'
 import { db } from '../db/db'
 import { resetDb } from '../test/render'
 import { createSyncClient } from './client'
 import { deriveKeys, installDirtyTracking, syncNow } from './engine'
-import { confirmRecoverySaved, renewRecoveryCode, requestPasswordReset, resetPassword, serverClient, setSyncServerForTests, signIn } from './session'
+import { confirmRecoverySaved, renewRecoveryCode, requestPasswordReset, resetPassword, serverClient, setSyncServerForTests, signIn, signOut } from './session'
 import { clearPending, readSync, writeSync } from './state'
 
 let server: Server
@@ -59,6 +60,14 @@ describe('accounts and password reset', () => {
     expect(readSync()!.recoveryCode).toMatch(/^([A-Z0-9]{4}-){4}[A-Z0-9]{4}$/)
     confirmRecoverySaved()
     expect(readSync()!.recoveryCode).toBeUndefined()
+  })
+
+  it('forgets the recent searches when signing out, so the next person does not see them', async () => {
+    await signIn('signup', 'a@x.io', 'first password')
+    confirmRecoverySaved()
+    writeLocal(SEARCH_RECENT_STORAGE_KEY, JSON.stringify([{ market: 'US', symbol: 'NVDA', name: 'NVIDIA', assetType: 'stock' }]))
+    expect(await signOut()).toBe('done')
+    expect(readLocal(SEARCH_RECENT_STORAGE_KEY)).toBe('')
   })
 
   it('opens the same data on a second device with the password alone', async () => {

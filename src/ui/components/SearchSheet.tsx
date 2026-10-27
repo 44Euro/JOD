@@ -1,6 +1,6 @@
 import { Search, X } from 'lucide-react'
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
-import { readLocal, writeLocal } from '../../ai/apiKey'
+import { SEARCH_RECENT_STORAGE_KEY, readLocal, writeLocal } from '../../ai/apiKey'
 import { Button } from '../../components/ui/button'
 import type { Instrument } from '../../domain/types'
 import { marketClient, type FoundAsset, type MarketClient } from '../../market/client'
@@ -9,7 +9,6 @@ import { MARKET_LABELS } from '../labels'
 import { MarketPill } from './MarketPill'
 import { t } from '../../i18n'
 
-const RECENT_KEY = 'jod-search-recent'
 const RECENT_MAX = 5
 const DEBOUNCE_MS = 250
 
@@ -23,7 +22,7 @@ const same = (a: FoundAsset, b: FoundAsset) => a.market === b.market && a.symbol
 
 function readRecent(): FoundAsset[] {
   try {
-    const parsed = JSON.parse(readLocal(RECENT_KEY) || '[]') as unknown
+    const parsed = JSON.parse(readLocal(SEARCH_RECENT_STORAGE_KEY) || '[]') as unknown
     return Array.isArray(parsed) ? (parsed as FoundAsset[]) : []
   } catch {
     return []
@@ -31,7 +30,7 @@ function readRecent(): FoundAsset[] {
 }
 
 function remember(found: FoundAsset) {
-  writeLocal(RECENT_KEY, JSON.stringify([found, ...readRecent().filter((r) => !same(r, found))].slice(0, RECENT_MAX)))
+  writeLocal(SEARCH_RECENT_STORAGE_KEY, JSON.stringify([found, ...readRecent().filter((r) => !same(r, found))].slice(0, RECENT_MAX)))
 }
 
 export interface SearchSheetProps {

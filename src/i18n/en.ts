@@ -68,7 +68,7 @@ export const EN: Record<string, string> = {
   "AI ตอบกลับมาในรูปแบบที่อ่านไม่ได้ ลองใหม่อีกครั้ง": "The AI answered in a form the app cannot read. Please try again",
   "AI รับไฟล์นี้ไม่ได้ ไฟล์อาจใหญ่เกินไปหรือเสีย ลองแบ่งเป็นหลายครั้ง": "The AI could not take this file. It may be too large or damaged; try splitting it",
   "AI ไม่อ่านไฟล์นี้ ลองใช้รูปอื่นหรือกรอกรายการเอง": "The AI would not read this file. Try another picture or enter the records yourself",
-  "API key ของบริการที่คุณใส่เอง, PIN ล็อกแอป (เก็บเป็นค่าแฮช ไม่ใช่ตัว PIN) และบันทึกปัญหา เก็บใน localStorage ของเครื่องนี้ และไม่อยู่ในไฟล์สำรอง": "Keys of services you enter yourself, the app-lock PIN (stored as a hash, not the PIN) and the problem log are kept in this device's localStorage and are not in backups",
+  "API key ของบริการที่คุณใส่เอง, PIN ล็อกแอป (เก็บเป็นค่าแฮช ไม่ใช่ตัว PIN), สินทรัพย์ที่ค้นล่าสุด (ล้างเมื่อออกจากระบบ) และบันทึกปัญหา เก็บใน localStorage ของเครื่องนี้ และไม่อยู่ในไฟล์สำรอง": "Keys of services you enter yourself, the app-lock PIN (stored as a hash, not the PIN), your recent searches (cleared when you sign out) and the problem log are kept in this device's localStorage and are not in backups",
   "API key นี้ไม่มีสิทธิ์ใช้โมเดลที่แอปเรียก": "This API key may not use the model the app calls",
   "API key ไม่ถูกต้อง ตรวจอีกครั้งในหน้าตั้งค่า": "The API key is wrong. Check it again in Settings",
   "CoinGecko demo key (ไม่บังคับ)": "CoinGecko demo key (optional)",

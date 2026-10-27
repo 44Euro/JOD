@@ -35,6 +35,8 @@ function subscribe(listener: () => void): () => void {
 export const FINNHUB_KEY_STORAGE_KEY = 'jod-finnhub-key'
 export const COINGECKO_KEY_STORAGE_KEY = 'jod-coingecko-key'
 export const AUTO_PRICES_STORAGE_KEY = 'jod-auto-prices'
+// What the person picked in the asset search lately; it belongs to the account, so signing out clears it.
+export const SEARCH_RECENT_STORAGE_KEY = 'jod-search-recent'
 
 export function readLocal(key: string): string {
   return read(key)
