@@ -268,6 +268,27 @@ export function createApp({ store, origin = '*', appUrl = 'http://localhost:5173
         })
         return { status: 200, body: { earnings } }
       }
+      case 'GET /api/market/chart': {
+        await userOf(req)
+        const id = url.searchParams.get('id') ?? ''
+        if (!/^[A-Z]{2,6}:[A-Z0-9.&-]{1,20}$/.test(id)) throw new HttpError(400, 'bad id')
+        const chart = await market.chart(id).catch(() => {
+          throw new HttpError(502, 'market source failed')
+        })
+        if (!chart) throw new HttpError(404, 'no chart')
+        return { status: 200, body: { chart } }
+      }
+      case 'GET /api/market/financials': {
+        await userOf(req)
+        const symbol = url.searchParams.get('symbol') ?? ''
+        if (!SYMBOL.test(symbol)) throw new HttpError(400, 'bad symbol')
+        if (!market.financialsReady) throw new HttpError(503, 'filings source not set')
+        const financials = await market.financials(symbol).catch(() => {
+          throw new HttpError(502, 'market source failed')
+        })
+        if (!financials) throw new HttpError(404, 'no filings')
+        return { status: 200, body: { financials } }
+      }
       case 'DELETE /api/account': {
         const { userId } = await userOf(req)
         await store.removeUser(userId)

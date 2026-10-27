@@ -14,6 +14,8 @@ let mails: { to: string; text: string }[] = []
 const key = (c: string) => c.repeat(64)
 let searchFails = false
 let newsReady = true
+let financialsReady = true
+const filings = { symbol: 'AAPL', name: 'Apple Inc.', currency: 'USD' as const, shares: '15000000000', annual: [], quarterly: [] }
 const market: Market = {
   search: async (query) => {
     if (searchFails) throw new Error('down')
@@ -29,9 +31,14 @@ const market: Market = {
     return [{ id: '1', headline: `News of ${symbols.join(',') || 'the market'}`, source: 'Reuters', url: 'https://a.test/1', publishedAt: '2026-10-27T08:00:00.000Z', symbols }]
   },
   earnings: async (from) => [{ symbol: 'AAPL', date: from, time: 'after', epsEstimate: '1.6', epsActual: null }],
-  chart: async () => null,
-  financialsReady: false,
-  financials: async () => null,
+  chart: async (id) => (id === 'US:AAPL' ? { id, name: 'Apple Inc.', exchange: 'NasdaqGS', assetType: 'stock', currency: 'USD', points: [] } : null),
+  get financialsReady() {
+    return financialsReady
+  },
+  financials: async (symbol) => {
+    if (searchFails) throw new Error('down')
+    return symbol === 'AAPL' ? filings : null
+  },
 }
 
 async function call(method: string, path: string, body?: unknown, token?: string) {
@@ -49,6 +56,7 @@ beforeEach(async () => {
   mails = []
   searchFails = false
   newsReady = true
+  financialsReady = true
   const sendMail = async (to: string, _subject: string, text: string) => void mails.push({ to, text })
   server = createServer(createApp({ store, sendMail, appUrl: 'https://jod.test', market }))
   await new Promise<void>((resolve) => server.listen(0, resolve))
@@ -193,5 +201,29 @@ describe('sync server', () => {
     newsReady = false
     expect((await call('GET', '/api/market/news', undefined, body.token)).status).toBe(503)
     expect((await call('GET', '/api/market/earnings?from=2026-10-26&to=2026-10-30', undefined, body.token)).status).toBe(503)
+  })
+
+  it('serves a chart and financials to a signed-in device', async () => {
+    expect((await call('GET', '/api/market/chart?id=US:AAPL')).status).toBe(401)
+    const { body } = await call('POST', '/api/signup', { email: 'a@x.io', loginKey: key('a') })
+    expect((await call('GET', '/api/market/chart?id=US:AAPL', undefined, body.token)).body.chart.name).toBe('Apple Inc.')
+    expect((await call('GET', '/api/market/financials?symbol=AAPL', undefined, body.token)).body.financials.shares).toBe('15000000000')
+  })
+
+  it('refuses a bad symbol and answers 404 for an unknown one', async () => {
+    const { body } = await call('POST', '/api/signup', { email: 'a@x.io', loginKey: key('a') })
+    const status = async (path: string) => (await call('GET', path, undefined, body.token)).status
+    expect(await status('/api/market/chart?id=')).toBe(400)
+    expect(await status('/api/market/chart?id=US:NOPE')).toBe(404)
+    expect(await status('/api/market/financials?symbol=aapl')).toBe(400)
+    expect(await status('/api/market/financials?symbol=NOPE')).toBe(404)
+  })
+
+  it('says financials are not switched on with 503, and a failed source with 502', async () => {
+    const { body } = await call('POST', '/api/signup', { email: 'a@x.io', loginKey: key('a') })
+    searchFails = true
+    expect((await call('GET', '/api/market/financials?symbol=AAPL', undefined, body.token)).status).toBe(502)
+    financialsReady = false
+    expect((await call('GET', '/api/market/financials?symbol=AAPL', undefined, body.token)).status).toBe(503)
   })
 })
