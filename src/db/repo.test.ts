@@ -132,6 +132,33 @@ describe('instruments', () => {
   })
 })
 
+describe('instrument prices', () => {
+  const aapl = { id: 'US:AAPL', market: 'US', symbol: 'AAPL', name: 'Apple', assetType: 'stock', currency: 'USD' } as const
+  const yesterday = new Date(2026, 9, 26, 9)
+
+  beforeEach(() => upsertInstrument(db, aapl))
+
+  it('keeps the price it replaces from an earlier day as the previous price', async () => {
+    await setInstrumentPrice(db, 'US:AAPL', '100', yesterday)
+    await setInstrumentPrice(db, 'US:AAPL', '104', new Date(2026, 9, 27, 8))
+    const stored = await db.instruments.get('US:AAPL')
+    expect([stored?.lastPrice, stored?.previousPrice, stored?.previousPriceAt]).toEqual(['104', '100', yesterday.toISOString()])
+  })
+
+  it('keeps yesterday as the previous price when today is updated twice', async () => {
+    await setInstrumentPrice(db, 'US:AAPL', '100', yesterday)
+    await setInstrumentPrice(db, 'US:AAPL', '104', new Date(2026, 9, 27, 8))
+    await setInstrumentPrice(db, 'US:AAPL', '105', new Date(2026, 9, 27, 15))
+    const stored = await db.instruments.get('US:AAPL')
+    expect([stored?.lastPrice, stored?.previousPrice]).toEqual(['105', '100'])
+  })
+
+  it('has no previous price after the first one', async () => {
+    await setInstrumentPrice(db, 'US:AAPL', '100', yesterday)
+    expect((await db.instruments.get('US:AAPL'))?.previousPrice).toBeUndefined()
+  })
+})
+
 describe('instrument thesis', () => {
   const base = { id: 'US:VOO', market: 'US', symbol: 'VOO', name: 'Vanguard', assetType: 'etf', currency: 'USD' } as const
 

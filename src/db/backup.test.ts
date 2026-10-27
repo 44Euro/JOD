@@ -24,6 +24,14 @@ describe('backup round trip', () => {
     expect((await target.transactions.get('journaled'))?.journal).toEqual(journal)
   })
 
+  it('carries the previous price through a backup', async () => {
+    const instrument = { id: 'US:AAPL', market: 'US', symbol: 'AAPL', name: 'Apple', assetType: 'stock', currency: 'USD', lastPrice: '104', lastPriceAt: '2026-10-27T01:00:00.000Z', previousPrice: '100', previousPriceAt: '2026-10-26T02:00:00.000Z' } as const
+    await db.instruments.add(instrument)
+    const target = createDb(`test-${crypto.randomUUID()}`)
+    await restoreBackup(target, parseBackup(JSON.stringify(await exportBackup(db))))
+    expect(await target.instruments.get('US:AAPL')).toEqual(instrument)
+  })
+
   it('restores exactly what was exported', async () => {
     const backup = await exportBackup(db, new Date('2024-06-01T00:00:00Z'))
     const target = createDb(`test-${crypto.randomUUID()}`)

@@ -1,4 +1,4 @@
-import { isIsoDate } from '../domain/dates'
+import { isIsoDate, todayLocal } from '../domain/dates'
 import { D, isDecimalString } from '../domain/decimal'
 import {
   DEFAULT_SETTINGS,
@@ -81,7 +81,13 @@ export async function upsertInstrument(
 }
 
 export async function setInstrumentPrice(db: JodDB, id: string, price: string, now: Date = new Date()): Promise<void> {
-  await db.instruments.update(id, { lastPrice: price, lastPriceAt: now.toISOString() })
+  const current = await db.instruments.get(id)
+  const newDay = current?.lastPrice !== undefined && current.lastPriceAt !== undefined && todayLocal(new Date(current.lastPriceAt)) < todayLocal(now)
+  await db.instruments.update(id, {
+    lastPrice: price,
+    lastPriceAt: now.toISOString(),
+    ...(newDay ? { previousPrice: current.lastPrice, previousPriceAt: current.lastPriceAt } : {}),
+  })
 }
 
 // Empty fields are removed from the record rather than stored as empty strings.

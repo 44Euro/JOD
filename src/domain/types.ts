@@ -85,6 +85,9 @@ export interface Instrument {
   previousSymbols?: string[]
   lastPrice?: string
   lastPriceAt?: string
+  // The price a new day's price replaced, so the day's change can be shown without a previous-close source.
+  previousPrice?: string
+  previousPriceAt?: string
   holdReason?: string
   targetPrice?: string
   reviewDate?: string
