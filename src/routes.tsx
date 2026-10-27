@@ -5,6 +5,7 @@ import { AssetPage } from './ui/pages/AssetPage'
 import { DashboardPage } from './ui/pages/DashboardPage'
 import { ErrorPage } from './ui/pages/ErrorPage'
 import { IncomePage } from './ui/pages/IncomePage'
+import { MarketPage } from './ui/pages/MarketPage'
 import { MorePage } from './ui/pages/MorePage'
 import { PortfolioPage } from './ui/pages/PortfolioPage'
 import { SettingsPage } from './ui/pages/SettingsPage'
@@ -24,6 +25,7 @@ export const routes: RouteObject[] = [
         element: <Layout />,
         children: [
           { index: true, element: <DashboardPage /> },
+          { path: 'market', element: <MarketPage /> },
           { path: 'portfolio', element: <PortfolioPage /> },
           { path: 'assets/:id', element: <AssetPage /> },
           { path: 'plans', lazy: async () => ({ Component: (await import('./ui/pages/PlansPage')).PlansPage }) },

@@ -50,17 +50,10 @@ describe('PlansPage', () => {
 })
 
 describe('watchlist and checklist', () => {
-  it('flags a watched asset that reached the price to buy at', async () => {
-    const user = userEvent.setup()
+  it('no longer shows the watchlist on แผน', async () => {
     renderRoute('/plans')
-    await user.selectOptions(await screen.findByLabelText('ตลาด'), 'SET')
-    await user.type(screen.getByLabelText('สัญลักษณ์'), 'ptt')
-    await user.type(screen.getByLabelText('อยากซื้อต่ำกว่า (ไม่บังคับ)'), '31')
-    await user.click(screen.getByRole('button', { name: 'เพิ่มเข้า watchlist' }))
-    const list = await screen.findByRole('list', { name: 'สินทรัพย์ที่ติดตาม' })
-    expect(within(list).getByText('PTT')).toBeInTheDocument()
-    expect(within(list).getByText('ถึงราคาที่อยากซื้อ')).toBeInTheDocument()
-    expect(within(list).getByText(/ล่าสุด 30.00 · อยากซื้อต่ำกว่า 31.00/)).toBeInTheDocument()
+    await screen.findByRole('heading', { name: 'แผน' })
+    expect(screen.queryByRole('button', { name: 'เพิ่มเข้า watchlist' })).not.toBeInTheDocument()
   })
 
   it('keeps the checklist in settings and offers it when a buy is recorded', async () => {

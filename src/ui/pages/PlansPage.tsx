@@ -17,7 +17,7 @@ import { PLAN_FREQUENCIES, symbolOf, type DcaPlan, type Instrument, type PlanFre
 import { cn } from '../../lib/cn'
 import { MarketPill } from '../components/MarketPill'
 import { PageHeader } from '../components/PageHeader'
-import { ChecklistCard, WatchlistCard } from '../components/WatchCards'
+import { ChecklistCard } from '../components/WatchCards'
 import { fmtDate, fmtHeadline, fmtMonth, fmtPct, fmtPrice, fmtValue } from '../format'
 import { useAppData, usePortfolio, type AppData } from '../hooks'
 import { marketOf } from '../labels'
@@ -294,7 +294,6 @@ export function PlansPage() {
       <div className="grid items-start gap-3.5 md:gap-[22px] xl:grid-cols-2">
         <TargetsCard data={data} />
         <PlansCard data={data} />
-        <WatchlistCard data={data} />
         <ChecklistCard data={data} />
       </div>
     </>
