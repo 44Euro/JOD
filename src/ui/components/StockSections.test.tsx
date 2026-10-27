@@ -47,7 +47,7 @@ describe('ValuationSection', () => {
     expect(within(section).getByLabelText('การเติบโตต่อปี (%)')).toHaveValue('10')
     expect(within(section).getByLabelText('ผลตอบแทนที่ต้องการ (%)')).toHaveValue('10')
     expect(within(section).getByLabelText('จำนวนปี')).toHaveValue('5')
-    expect(section).toHaveTextContent('205.33')
+    expect(section).toHaveTextContent('205.33 USD')
     expect(section).toHaveTextContent('สูงกว่าราคาตลาด 36.89%')
     expect(section).toHaveTextContent('คำนวณจากตัวเลขที่คุณใส่ ไม่ใช่คำแนะนำการลงทุน')
     await user.clear(within(section).getByLabelText('ผลตอบแทนที่ต้องการ (%)'))

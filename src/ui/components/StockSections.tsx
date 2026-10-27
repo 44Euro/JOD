@@ -154,7 +154,7 @@ function Valuation({ financials, price }: { financials: Financials; price: strin
         <div>
           <p className="text-[13.5px] text-muted-foreground">{t('มูลค่าที่ประเมินได้ต่อหุ้น')}</p>
           <p className="font-display text-[34px] font-semibold leading-tight">
-            {fmtPrice(value.perShare)} <span className="text-[15px] font-normal text-muted-foreground">USD</span>
+            {fmtPrice(value.perShare.toDecimalPlaces(2))} <span className="text-[15px] font-normal text-muted-foreground">USD</span>
           </p>
           {gap && price && (
             <p className="text-[15px] text-ink-2">
