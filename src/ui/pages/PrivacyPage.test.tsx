@@ -27,6 +27,12 @@ describe('privacy and problem reports', () => {
     expect(screen.getByText(/ไม่ผูกกับข้อมูลพอร์ตของคุณ/)).toBeInTheDocument()
   })
 
+  it('says which symbols news asks about and that the calendar is filtered on the device', async () => {
+    renderRoute('/privacy')
+    expect(await screen.findByText('ข่าวและปฏิทินงบ')).toBeInTheDocument()
+    expect(screen.getByText(/ปฏิทินงบดึงมาทั้งตลาดแล้วกรองในเครื่อง/)).toBeInTheDocument()
+  })
+
   it('shows logged problems in settings and clears them', async () => {
     logError(new Error('boom 123'), '#/fx')
     const user = userEvent.setup()
