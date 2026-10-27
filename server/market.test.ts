@@ -92,9 +92,15 @@ describe('market search', () => {
       { symbol: '7203.T', exchange: 'TYO', quoteType: 'EQUITY', longname: 'Toyota Motor Corporation' },
     ],
   }
-  const gecko = { coins: [{ id: 'bitkub-coin', symbol: 'kub', name: 'Bitkub Coin' }, { id: 'blockbank', symbol: 'bbank', name: 'blockbank' }] }
+  const gecko = {
+    coins: [
+      { id: 'bitkub-coin', symbol: 'kub', name: 'Bitkub Coin' },
+      { id: 'blockbank', symbol: 'bbank', name: 'blockbank' },
+      { id: 'kub-wrapped', symbol: 'KUB', name: 'KUB (Wrapped)' },
+    ],
+  }
 
-  it('searches US and Thai shares and the coins whose symbol or name starts with the query', async () => {
+  it('searches US and Thai shares and the coins whose symbol or name starts with the query, one per symbol', async () => {
     const { fetchFn } = fakeFetch({ 'finance/search?q=k': yahoo, 'search?query=k': gecko })
     expect(await createMarket(fetchFn).search('k')).toEqual([
       { market: 'SET', symbol: 'KBANK', name: 'Kasikornbank Public Company Limited', assetType: 'stock' },

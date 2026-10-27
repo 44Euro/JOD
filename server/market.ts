@@ -117,10 +117,12 @@ export function createMarket(fetchFn: typeof fetch = (i, o) => fetch(i, o), now:
     const body = (await cached(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(query)}`, SEARCH_TTL)) as {
       coins?: { symbol: string; name: string }[]
     }
-    // CoinGecko also matches inside names (kbank finds blockbank), which only clutters a search for a share.
+    // CoinGecko also matches inside names (kbank finds blockbank), and lists many tokens under one symbol (a dozen
+    // tokenised NVDA); the first of a symbol is the largest by market value, which is the one JOD prices.
     const starts = (text: string) => text.toLowerCase().startsWith(query.toLowerCase())
+    const seen = new Set<string>()
     return (body.coins ?? [])
-      .filter((c) => starts(c.symbol) || starts(c.name))
+      .filter((c) => (starts(c.symbol) || starts(c.name)) && !seen.has(c.symbol.toUpperCase()) && seen.add(c.symbol.toUpperCase()))
       .slice(0, 8)
       .map((c) => ({ market: 'CRYPTO', symbol: c.symbol.toUpperCase(), name: c.name, assetType: 'crypto' }))
   }
