@@ -4,7 +4,7 @@ import { PageHeader } from '../components/PageHeader'
 import { t } from '../../i18n'
 
 // The policy describes what the code does. When a service is added or changed, this page changes in the same commit.
-const PRIVACY_UPDATED = t('26 ต.ค. 2026')
+const PRIVACY_UPDATED = t('27 ต.ค. 2026')
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -35,7 +35,10 @@ export function PrivacyPage() {
             <b>{t('เรทค่าเงิน')}</b> {t(' — ถามเรทจาก api.frankfurter.dev (ECB) โดยส่งเฉพาะคู่สกุลเงินและวันที่ ไม่ส่งจำนวนเงิน')}
           </li>
           <li>
-            <b>{t('ราคาอัตโนมัติ')}</b> {t(' — เมื่อคุณกดดึงราคาหรือเปิดการดึงอัตโนมัติ แอปส่งชื่อสินทรัพย์ที่ถือไปถาม CoinGecko และ Finnhub (เมื่อใส่ key) ไม่ส่งจำนวนหรือมูลค่า')}
+            <b>{t('ราคาอัตโนมัติ')}</b> {t(' — เมื่อคุณกดดึงราคาหรือเปิดการดึงอัตโนมัติ แอปส่งสัญลักษณ์ของหุ้นที่ถือไปถามเซิร์ฟเวอร์ JOD ซึ่งไปถาม Yahoo ให้ และส่งชื่อคริปโตไปถาม CoinGecko (ใช้ Finnhub เมื่อใส่ key และเซิร์ฟเวอร์ต่อไม่ได้) ไม่ส่งจำนวนหรือมูลค่า · เซิร์ฟเวอร์ไม่บันทึกว่าใครถามอะไร')}
+          </li>
+          <li>
+            <b>{t('ค้นหาสินทรัพย์')}</b> {t(' — คำที่พิมพ์ค้นหาถูกส่งไปเซิร์ฟเวอร์ JOD ซึ่งไปถาม Yahoo และ CoinGecko ให้ ไม่ผูกกับข้อมูลพอร์ตของคุณ')}
           </li>
           <li>
             <b>{t('อ่านรูปและไฟล์แบบในเครื่อง (ค่าเริ่มต้น)')}</b> {t(' — รูปและไฟล์ไม่ออกจากเครื่อง ครั้งแรกแอปโหลดชุดอ่านตัวอักษร (tesseract) จาก CDN สาธารณะ')}

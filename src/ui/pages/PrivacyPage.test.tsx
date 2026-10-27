@@ -20,6 +20,13 @@ describe('privacy and problem reports', () => {
     expect(screen.getByText(/ส่งเฉพาะคู่สกุลเงินและวันที่/)).toBeInTheDocument()
   })
 
+  it('says the JOD server asks Yahoo for prices and searches without knowing the holdings', async () => {
+    renderRoute('/privacy')
+    expect(await screen.findByText(/แอปส่งสัญลักษณ์ของหุ้นที่ถือไปถามเซิร์ฟเวอร์ JOD ซึ่งไปถาม Yahoo ให้/)).toBeInTheDocument()
+    expect(screen.getByText('ค้นหาสินทรัพย์')).toBeInTheDocument()
+    expect(screen.getByText(/ไม่ผูกกับข้อมูลพอร์ตของคุณ/)).toBeInTheDocument()
+  })
+
   it('shows logged problems in settings and clears them', async () => {
     logError(new Error('boom 123'), '#/fx')
     const user = userEvent.setup()
