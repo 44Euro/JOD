@@ -29,6 +29,9 @@ const market: Market = {
     return [{ id: '1', headline: `News of ${symbols.join(',') || 'the market'}`, source: 'Reuters', url: 'https://a.test/1', publishedAt: '2026-10-27T08:00:00.000Z', symbols }]
   },
   earnings: async (from) => [{ symbol: 'AAPL', date: from, time: 'after', epsEstimate: '1.6', epsActual: null }],
+  chart: async () => null,
+  financialsReady: false,
+  financials: async () => null,
 }
 
 async function call(method: string, path: string, body?: unknown, token?: string) {

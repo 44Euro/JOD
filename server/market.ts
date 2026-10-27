@@ -1,5 +1,6 @@
-// Public market data for every device: share prices and asset search from Yahoo, coin search from CoinGecko, news and
-// the earnings calendar from Finnhub with the server's own free key. Nothing here knows who asked.
+// Public market data for every device: share prices, charts and asset search from Yahoo, coin search from CoinGecko,
+// news and the earnings calendar from Finnhub with the server's own free key, and US filings from SEC under the
+// operator's own User-Agent, as SEC's fair-access rules ask. Nothing here knows who asked.
 
 export interface FoundAsset {
   market: 'US' | 'SET' | 'CRYPTO'
@@ -35,6 +36,32 @@ export interface EarningsEvent {
   epsActual: string | null
 }
 
+export interface ChartData {
+  id: string
+  name: string
+  exchange: string
+  assetType: 'stock' | 'etf'
+  currency: string
+  points: { date: string; close: string }[]
+}
+
+export interface FinancialPeriod {
+  period: string
+  end: string
+  revenue: string | null
+  netIncome: string | null
+  freeCashFlow: string | null
+}
+
+export interface Financials {
+  symbol: string
+  name: string
+  currency: 'USD'
+  shares: string | null
+  annual: FinancialPeriod[]
+  quarterly: FinancialPeriod[]
+}
+
 export interface Market {
   search(query: string): Promise<FoundAsset[]>
   quotes(ids: string[]): Promise<MarketQuote[]>
@@ -42,6 +69,10 @@ export interface Market {
   newsReady: boolean
   news(symbols: string[]): Promise<NewsItem[]>
   earnings(from: string, to: string): Promise<EarningsEvent[]>
+  chart(id: string): Promise<ChartData | null>
+  // SEC wants the requester named in the User-Agent; without SEC_USER_AGENT the filings are off.
+  financialsReady: boolean
+  financials(symbol: string): Promise<Financials | null>
 }
 
 const QUOTE_TTL = 5 * 60_000
@@ -52,6 +83,11 @@ const NEWS_MAX = 50
 // Covers a weekend, so Monday morning still has Friday's company news.
 const NEWS_DAYS = 3
 const EARNINGS_TIMES: Record<string, EarningsEvent['time']> = { bmo: 'before', amc: 'after', dmh: 'during' }
+const CHART_TTL = 3_600_000
+const FILINGS_TTL = 24 * 3_600_000
+const PERIODS_SHOWN = 5
+// Companies have moved between these tags over the years; for a period, the first tag that has it wins.
+const REVENUE_TAGS = ['RevenueFromContractWithCustomerExcludingAssessedTax', 'Revenues', 'SalesRevenueNet', 'RevenueFromContractWithCustomerIncludingAssessedTax']
 const CACHE_SIZE = 2000
 const TIMEOUT_MS = 8000
 const US_EXCHANGES = new Set(['NMS', 'NGM', 'NCM', 'NYQ', 'ASE', 'PCX', 'BTS', 'NAS', 'NYS', 'PNK'])
@@ -70,7 +106,17 @@ function yahooSymbol(id: string): string | null {
 }
 
 interface Chart {
-  meta: { currency: string; regularMarketPrice: number; regularMarketTime: number; gmtoffset: number }
+  meta: {
+    currency: string
+    regularMarketPrice: number
+    regularMarketTime: number
+    gmtoffset: number
+    longName?: string
+    shortName?: string
+    fullExchangeName?: string
+    exchangeName?: string
+    instrumentType?: string
+  }
   timestamp?: number[]
   indicators: { quote: { close: (number | null)[] }[] }
 }
@@ -120,20 +166,78 @@ function toNews(items: FinnhubNews[]): NewsItem[] {
     }))
 }
 
+type Fact = { frame?: string; val: number; end: string }
+type Facts = { entityName?: string; facts?: { dei?: Record<string, { units: Record<string, Fact[]> }>; 'us-gaap'?: Record<string, { units: Record<string, Fact[]> }> } }
+
+function byFrame(gaap: NonNullable<NonNullable<Facts['facts']>['us-gaap']>, tags: string[]): Map<string, Fact> {
+  const found = new Map<string, Fact>()
+  for (const tag of tags) for (const fact of gaap[tag]?.units.USD ?? []) if (fact.frame && !found.has(fact.frame)) found.set(fact.frame, fact)
+  return found
+}
+
+// SEC gives every fact ever filed; the page needs five years and five quarters of three lines. Free cash flow is
+// operating cash flow less capital spending, and only when both were reported for the same period: 10-Qs report cash
+// flow year to date, so most quarters have none.
+function toFinancials(symbol: string, body: Facts): Financials | null {
+  const gaap = body.facts?.['us-gaap']
+  if (!gaap) return null
+  const revenue = byFrame(gaap, REVENUE_TAGS)
+  const income = byFrame(gaap, ['NetIncomeLoss'])
+  const operating = byFrame(gaap, ['NetCashProvidedByUsedInOperatingActivities'])
+  const capex = byFrame(gaap, ['PaymentsToAcquirePropertyPlantAndEquipment'])
+  if (revenue.size === 0 && income.size === 0) return null
+  const periods = (pattern: RegExp): FinancialPeriod[] => {
+    const ends = new Map<string, string>()
+    for (const facts of [revenue, income]) for (const [frame, fact] of facts) if (pattern.test(frame)) ends.set(frame, fact.end)
+    return [...ends]
+      .sort((a, b) => a[1].localeCompare(b[1]))
+      .slice(-PERIODS_SHOWN)
+      .map(([frame, end]) => {
+        const cash = operating.get(frame)
+        const spent = capex.get(frame)
+        return {
+          period: frame,
+          end,
+          revenue: decimal(revenue.get(frame)?.val),
+          netIncome: decimal(income.get(frame)?.val),
+          freeCashFlow: cash && spent ? plain(cash.val - spent.val) : null,
+        }
+      })
+  }
+  const shares = [...(body.facts?.dei?.EntityCommonStockSharesOutstanding?.units.shares ?? [])].sort((a, b) => a.end.localeCompare(b.end)).at(-1)
+  return {
+    symbol,
+    name: body.entityName ?? symbol,
+    currency: 'USD',
+    shares: shares ? plain(shares.val) : null,
+    annual: periods(/^CY\d{4}$/),
+    quarterly: periods(/^CY\d{4}Q\d$/),
+  }
+}
+
 const isoDay = (ms: number) => new Date(ms).toISOString().slice(0, 10)
 const decimal = (n: number | null | undefined) => (typeof n === 'number' ? plain(n) : null)
 
-export function createMarket(fetchFn: typeof fetch = (i, o) => fetch(i, o), now: () => number = Date.now, finnhubKey = ''): Market {
+export interface MarketOptions {
+  fetchFn?: typeof fetch
+  now?: () => number
+  finnhubKey?: string
+  secUserAgent?: string
+}
+
+export function createMarket({ fetchFn = (i, o) => fetch(i, o), now = Date.now, finnhubKey = '', secUserAgent = '' }: MarketOptions = {}): Market {
   const cache = new Map<string, { expires: number; value: Promise<unknown> }>()
 
-  // Concurrent asks for the same URL share one request; a failure is forgotten at once so the next ask retries.
-  function cached(url: string, ttl: number): Promise<unknown> {
+  // Concurrent asks for the same URL share one request; a failure is forgotten at once so the next ask retries. A
+  // reducer keeps only what JOD uses, so a large file such as SEC's company facts is not held in memory.
+  function cached(url: string, ttl: number, { userAgent = 'Mozilla/5.0', reduce }: { userAgent?: string; reduce?: (body: never) => unknown } = {}): Promise<unknown> {
     const hit = cache.get(url)
     if (hit && hit.expires > now()) return hit.value
     cache.delete(url)
-    const value = fetchFn(url, { headers: { 'user-agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(TIMEOUT_MS) }).then((res) => {
+    const value = fetchFn(url, { headers: { 'user-agent': userAgent }, signal: AbortSignal.timeout(TIMEOUT_MS) }).then(async (res) => {
       if (!res.ok) throw new Error(`HTTP ${res.status} from ${new URL(url).host}`)
-      return res.json()
+      const body = await res.json()
+      return reduce ? reduce(body as never) : body
     })
     value.catch(() => cache.delete(url))
     cache.set(url, { expires: now() + ttl, value })
@@ -198,8 +302,47 @@ export function createMarket(fetchFn: typeof fetch = (i, o) => fetch(i, o), now:
     return [...byUrl.values()]
   }
 
+  async function financials(symbol: string): Promise<Financials | null> {
+    if (!secUserAgent) throw new Error('SEC_USER_AGENT is not set')
+    const tickers = (await cached('https://www.sec.gov/files/company_tickers.json', FILINGS_TTL, {
+      userAgent: secUserAgent,
+      reduce: (body: Record<string, { cik_str: number; ticker: string }>) => new Map(Object.values(body).map((c) => [c.ticker, c.cik_str])),
+    })) as Map<string, number>
+    // SEC lists class shares with a dash (BRK-B).
+    const cik = tickers.get(symbol.replace(/\./g, '-'))
+    if (!cik) return null
+    return (await cached(`https://data.sec.gov/api/xbrl/companyfacts/CIK${String(cik).padStart(10, '0')}.json`, FILINGS_TTL, {
+      userAgent: secUserAgent,
+      reduce: (body: Facts) => toFinancials(symbol, body),
+    })) as Financials | null
+  }
+
   return {
     newsReady: Boolean(finnhubKey),
+    financialsReady: Boolean(secUserAgent),
+    financials,
+    async chart(id) {
+      const symbol = yahooSymbol(id)
+      if (!symbol) return null
+      const body = (await cached(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=6mo&interval=1d`, CHART_TTL)) as {
+        chart?: { result?: Chart[] }
+      }
+      const chart = body.chart?.result?.[0]
+      if (!chart) return null
+      const { meta } = chart
+      const closes = chart.indicators?.quote?.[0]?.close ?? []
+      return {
+        id,
+        name: meta.longName ?? meta.shortName ?? id.split(':')[1],
+        exchange: meta.fullExchangeName ?? meta.exchangeName ?? '',
+        assetType: meta.instrumentType === 'ETF' ? 'etf' : 'stock',
+        currency: meta.currency,
+        points: (chart.timestamp ?? []).flatMap((t, i) => {
+          const close = closes[i]
+          return typeof close === 'number' ? [{ date: new Date((t + meta.gmtoffset) * 1000).toISOString().slice(0, 10), close: plain(close) }] : []
+        }),
+      }
+    },
     async news(symbols) {
       const items = symbols.length > 0 ? await companyNews(symbols) : toNews((await finnhub('news?category=general', NEWS_TTL)) as FinnhubNews[])
       return items.sort((a, b) => b.publishedAt.localeCompare(a.publishedAt)).slice(0, NEWS_MAX)
