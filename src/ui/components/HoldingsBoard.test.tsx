@@ -51,4 +51,11 @@ describe('HoldingsBoard', () => {
   it('names what the change is measured against', () => {
     expect(show([nvda])).toHaveTextContent('เทียบราคาก่อนหน้า')
   })
+
+  it('dates a change measured against another day than the one in the caption', () => {
+    const board = show([nvda, { ...nvda, instrumentId: 'SET:PTT', symbol: 'PTT', market: 'SET', comparedWithDay: '2026-10-01' }])
+    expect(board).toHaveTextContent('เทียบราคาก่อนหน้า 26 ต.ค. 2026')
+    expect(within(board).getByRole('link', { name: /PTT/ })).toHaveTextContent('1 ต.ค. 2026')
+    expect(within(board).getByRole('link', { name: /NVDA/ })).not.toHaveTextContent('26 ต.ค.')
+  })
 })

@@ -47,6 +47,9 @@ export function HoldingsBoard({ rows, today }: { rows: readonly HoldingsBoardRow
                 )}
               >
                 {row.changePct === null ? '—' : fmtSignedPct(row.changePct, 2)}
+                {row.comparedWithDay && row.comparedWithDay !== compared && (
+                  <span className="block font-sans text-[11px] font-normal text-board-muted">{fmtDate(row.comparedWithDay)}</span>
+                )}
               </span>
             </Link>
           </li>
