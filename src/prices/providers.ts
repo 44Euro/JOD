@@ -1,11 +1,18 @@
 import { isDecimalString } from '../domain/decimal'
 import type { Instrument } from '../domain/types'
 import { timeLimited } from '../fx/frankfurter'
+import type { MarketClient } from '../market/client'
 
 export interface PriceQuote {
   price: string
   // The currency the price is in; it can differ from the instrument's (CoinGecko quotes coins in USD or THB).
   currency: string
+  // When the price was made, if the source says; otherwise it counts from when it was fetched.
+  at?: string
+  previousClose?: string
+  previousCloseAt?: string
+  // The source behind a relay such as the JOD server.
+  source?: string
 }
 
 export interface PriceSource {
@@ -75,6 +82,26 @@ export function createFinnhub(apiKey: string, fetchFn: typeof fetch = (i, o) => 
         signal,
       )) as { c?: number }
       return typeof data.c === 'number' && data.c > 0 ? { price: toPlain(data.c), currency: 'USD' } : null
+    },
+  }
+}
+
+// US and Thai shares through the JOD server, which asks Yahoo once for everyone and adds the previous close.
+export function createJodServer(market: MarketClient): PriceSource {
+  return {
+    name: 'JOD',
+    covers: (i) => (i.market === 'US' || i.market === 'SET') && market.ready(),
+    async quote(instrument, signal) {
+      const [found] = await market.quotes([instrument.id], signal)
+      if (!found) return null
+      return {
+        price: found.price,
+        currency: found.currency,
+        at: found.at,
+        previousClose: found.previousClose ?? undefined,
+        previousCloseAt: found.previousCloseAt ?? undefined,
+        source: found.source,
+      }
     },
   }
 }

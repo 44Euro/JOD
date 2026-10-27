@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createDb, type JodDB } from '../db/db'
 import type { Instrument } from '../domain/types'
-import { createCoinGecko, createFinnhub, toPlain } from './providers'
-import { describeUpdate } from './run'
+import type { MarketClient } from '../market/client'
+import { createCoinGecko, createFinnhub, createJodServer, toPlain, type PriceSource } from './providers'
+import { describeUpdate, runPriceUpdate } from './run'
 import { updatePrices } from './update'
 
 function jsonFetch(routes: Record<string, unknown>) {
@@ -45,6 +46,31 @@ describe('price sources', () => {
     expect(urls[0]).toContain('token=my-key')
   })
 
+  it('quotes US and Thai shares through the JOD server with the time and previous close', async () => {
+    const asked: string[][] = []
+    const market: MarketClient = {
+      ready: () => true,
+      search: async () => [],
+      quotes: async (ids) => {
+        asked.push(ids)
+        return [{ id: 'SET:PTT', price: '42', currency: 'THB', at: '2026-10-27T09:39:00.000Z', previousClose: '41.75', previousCloseAt: '2026-10-24T03:00:00.000Z', source: 'Yahoo' }]
+      },
+    }
+    const server = createJodServer(market)
+    expect([server.covers(stock('AAPL')), server.covers(stock('PTT', 'SET', 'THB')), server.covers(coin('BTC'))]).toEqual([true, true, false])
+    expect(createJodServer({ ...market, ready: () => false }).covers(stock('AAPL'))).toBe(false)
+    expect(await server.quote(stock('PTT', 'SET', 'THB'))).toEqual({
+      price: '42',
+      currency: 'THB',
+      at: '2026-10-27T09:39:00.000Z',
+      previousClose: '41.75',
+      previousCloseAt: '2026-10-24T03:00:00.000Z',
+      source: 'Yahoo',
+    })
+    expect(asked).toEqual([['SET:PTT']])
+    expect(await createJodServer({ ...market, quotes: async () => [] }).quote(stock('PTT', 'SET', 'THB'))).toBeNull()
+  })
+
   it('writes tiny prices without exponents', () => {
     expect(toPlain(1.23e-7)).toBe('0.000000123')
   })
@@ -63,6 +89,44 @@ describe('updatePrices', () => {
     expect(result).toEqual({ updated: ['BTC', 'USDT'], manual: ['PTT'], failed: ['NOPE'] })
     expect(await db.instruments.get('CRYPTO:BTC')).toMatchObject({ lastPrice: '65000', lastPriceAt: '2026-10-26T01:00:00.000Z' })
     expect((await db.instruments.get('CRYPTO:USDT'))?.lastPrice).toBe('1.0002')
+  })
+})
+
+describe('updatePrices with the JOD server', () => {
+  it('keeps the price time, source and previous close the server sends', async () => {
+    await db.instruments.add(stock('PTT', 'SET', 'THB'))
+    const server: PriceSource = {
+      name: 'JOD',
+      covers: () => true,
+      quote: async () => ({ price: '42', currency: 'THB', at: '2026-10-27T09:39:00.000Z', previousClose: '41.75', previousCloseAt: '2026-10-24T03:00:00.000Z', source: 'Yahoo' }),
+    }
+    await updatePrices(db, [stock('PTT', 'SET', 'THB')], [server], new Date('2026-10-27T12:00:00Z'))
+    expect(await db.instruments.get('SET:PTT')).toMatchObject({
+      lastPrice: '42',
+      lastPriceAt: '2026-10-27T09:39:00.000Z',
+      priceSource: 'Yahoo',
+      previousPrice: '41.75',
+      previousPriceAt: '2026-10-24T03:00:00.000Z',
+    })
+  })
+
+  it('falls through to the next source when the first fails', async () => {
+    await db.instruments.add(stock('AAPL'))
+    const down: PriceSource = { name: 'JOD', covers: () => true, quote: async () => Promise.reject(new Error('offline')) }
+    const { fetchFn } = jsonFetch({ 'quote?symbol=AAPL': { c: 231.42 } })
+    const result = await updatePrices(db, [stock('AAPL')], [down, createFinnhub('my-key', fetchFn)], new Date('2026-10-27T12:00:00Z'))
+    expect(result).toEqual({ updated: ['AAPL'], manual: [], failed: [] })
+    expect(await db.instruments.get('US:AAPL')).toMatchObject({ lastPrice: '231.42', priceSource: 'Finnhub', lastPriceAt: '2026-10-27T12:00:00.000Z' })
+  })
+})
+
+describe('runPriceUpdate', () => {
+  it('prices the benchmark from the next source when the first fails', async () => {
+    await db.dailyValues.add({ date: '2026-10-27', valueBase: '100', netInvestedBase: '90', recordedAt: '2026-10-27T01:00:00.000Z' })
+    const down: PriceSource = { name: 'JOD', covers: () => true, quote: async () => Promise.reject(new Error('offline')) }
+    const { fetchFn } = jsonFetch({ 'quote?symbol=SPY': { c: 580.1 } })
+    await runPriceUpdate(db, [], [down, createFinnhub('my-key', fetchFn)], 'SPY', '2026-10-27')
+    expect(await db.dailyValues.get('2026-10-27')).toMatchObject({ benchmarkSymbol: 'SPY', benchmarkPrice: '580.1' })
   })
 })
 

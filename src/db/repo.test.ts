@@ -157,6 +157,24 @@ describe('instrument prices', () => {
     await setInstrumentPrice(db, 'US:AAPL', '100', yesterday)
     expect((await db.instruments.get('US:AAPL'))?.previousPrice).toBeUndefined()
   })
+
+  it('stores the source and the previous close a fetched price brings', async () => {
+    await setInstrumentPrice(db, 'US:AAPL', '100', yesterday)
+    await setInstrumentPrice(db, 'US:AAPL', '104', new Date(2026, 9, 27, 8), { source: 'Yahoo', previousPrice: '101.5', previousPriceAt: '2026-10-26T13:30:00.000Z' })
+    expect(await db.instruments.get('US:AAPL')).toMatchObject({
+      lastPrice: '104',
+      priceSource: 'Yahoo',
+      previousPrice: '101.5',
+      previousPriceAt: '2026-10-26T13:30:00.000Z',
+    })
+  })
+
+  it('drops the source when a price is typed by hand', async () => {
+    await setInstrumentPrice(db, 'US:AAPL', '104', yesterday, { source: 'Yahoo' })
+    await setInstrumentPrice(db, 'US:AAPL', '105', new Date(2026, 9, 26, 15))
+    const stored = await db.instruments.get('US:AAPL')
+    expect([stored?.lastPrice, stored?.priceSource]).toEqual(['105', undefined])
+  })
 })
 
 describe('instrument thesis', () => {

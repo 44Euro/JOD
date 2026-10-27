@@ -88,6 +88,8 @@ export interface Instrument {
   // The price a new day's price replaced, so the day's change can be shown without a previous-close source.
   previousPrice?: string
   previousPriceAt?: string
+  // Where the last price was fetched from; none when it was typed or read from a picture.
+  priceSource?: string
   holdReason?: string
   targetPrice?: string
   reviewDate?: string

@@ -4,7 +4,8 @@ import type { JodDB } from '../db/db'
 import { recordBenchmark } from '../db/repo'
 import type { Ledger } from '../domain/ledger'
 import type { Instrument } from '../domain/types'
-import { createCoinGecko, createFinnhub, type PriceSource } from './providers'
+import { marketClient } from '../market/client'
+import { createCoinGecko, createFinnhub, createJodServer, type PriceSource } from './providers'
 import { updatePrices, type PriceUpdateResult } from './update'
 import { t } from '../i18n'
 
@@ -13,7 +14,7 @@ export const DEFAULT_BENCHMARK = 'SPY'
 export function usePriceSources(): PriceSource[] {
   const finnhub = useLocal(FINNHUB_KEY_STORAGE_KEY)
   const gecko = useLocal(COINGECKO_KEY_STORAGE_KEY)
-  return useMemo(() => [createCoinGecko(undefined, gecko), createFinnhub(finnhub)], [finnhub, gecko])
+  return useMemo(() => [createJodServer(marketClient), createCoinGecko(undefined, gecko), createFinnhub(finnhub)], [finnhub, gecko])
 }
 
 export function heldInstruments(ledger: Ledger, instruments: readonly Instrument[]): Instrument[] {
@@ -32,10 +33,11 @@ export async function runPriceUpdate(
 ): Promise<PriceUpdateResult> {
   const result = await updatePrices(db, held, sources, now)
   const benchmark: Instrument = { id: `US:${benchmarkSymbol}`, market: 'US', symbol: benchmarkSymbol, name: benchmarkSymbol, assetType: 'etf', currency: 'USD' }
-  const source = sources.find((s) => s.covers(benchmark))
-  if (source) {
+  for (const source of sources.filter((s) => s.covers(benchmark))) {
     const quote = await source.quote(benchmark).catch(() => null)
-    if (quote) await recordBenchmark(db, today, benchmarkSymbol, quote.price)
+    if (!quote) continue
+    await recordBenchmark(db, today, benchmarkSymbol, quote.price)
+    break
   }
   return result
 }

@@ -13,7 +13,8 @@ export interface PriceUpdateResult {
 
 const sameMoney = (a: string, b: string) => a === b || (a === 'USD' && USD_PEGGED.includes(b)) || (b === 'USD' && USD_PEGGED.includes(a))
 
-// One asset at a time, so a free plan's rate limit is not hit by a burst; a failure leaves that price as it was.
+// One asset at a time, so a free plan's rate limit is not hit by a burst. Each source that covers an asset is tried in
+// turn, so the user's own keys still work when the JOD server cannot be reached; a failure leaves the price as it was.
 export async function updatePrices(
   db: JodDB,
   instruments: readonly Instrument[],
@@ -24,23 +25,28 @@ export async function updatePrices(
   const result: PriceUpdateResult = { updated: [], manual: [], failed: [] }
   for (const instrument of instruments) {
     signal?.throwIfAborted()
-    const source = sources.find((s) => s.covers(instrument))
-    if (!source) {
+    const covering = sources.filter((s) => s.covers(instrument))
+    if (covering.length === 0) {
       result.manual.push(instrument.symbol)
       continue
     }
-    try {
-      const quote = await source.quote(instrument, signal)
-      if (!quote || !sameMoney(quote.currency, instrument.currency)) {
-        result.failed.push(instrument.symbol)
-        continue
+    let updated = false
+    for (const source of covering) {
+      try {
+        const quote = await source.quote(instrument, signal)
+        if (!quote || !sameMoney(quote.currency, instrument.currency)) continue
+        await setInstrumentPrice(db, instrument.id, quote.price, quote.at ? new Date(quote.at) : now, {
+          source: quote.source ?? source.name,
+          previousPrice: quote.previousClose,
+          previousPriceAt: quote.previousCloseAt,
+        })
+        updated = true
+        break
+      } catch {
+        if (signal?.aborted) throw signal.reason
       }
-      await setInstrumentPrice(db, instrument.id, quote.price, now)
-      result.updated.push(instrument.symbol)
-    } catch {
-      if (signal?.aborted) throw signal.reason
-      result.failed.push(instrument.symbol)
     }
+    result[updated ? 'updated' : 'failed'].push(instrument.symbol)
   }
   return result
 }

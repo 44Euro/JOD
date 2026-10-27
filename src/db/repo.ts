@@ -80,14 +80,22 @@ export async function upsertInstrument(
   await db.instruments.put({ ...existing, ...input })
 }
 
-export async function setInstrumentPrice(db: JodDB, id: string, price: string, now: Date = new Date()): Promise<void> {
+// A fetched price may bring the previous close with it; otherwise the price a new day replaces stands in for it.
+export async function setInstrumentPrice(
+  db: JodDB,
+  id: string,
+  price: string,
+  now: Date = new Date(),
+  fetched?: { source: string; previousPrice?: string; previousPriceAt?: string },
+): Promise<void> {
   const current = await db.instruments.get(id)
   const newDay = current?.lastPrice !== undefined && current.lastPriceAt !== undefined && todayLocal(new Date(current.lastPriceAt)) < todayLocal(now)
-  await db.instruments.update(id, {
-    lastPrice: price,
-    lastPriceAt: now.toISOString(),
-    ...(newDay ? { previousPrice: current.lastPrice, previousPriceAt: current.lastPriceAt } : {}),
-  })
+  const previous = fetched?.previousPrice
+    ? { previousPrice: fetched.previousPrice, previousPriceAt: fetched.previousPriceAt }
+    : newDay
+      ? { previousPrice: current.lastPrice, previousPriceAt: current.lastPriceAt }
+      : {}
+  await db.instruments.update(id, { lastPrice: price, lastPriceAt: now.toISOString(), priceSource: fetched?.source, ...previous })
 }
 
 // Empty fields are removed from the record rather than stored as empty strings.
