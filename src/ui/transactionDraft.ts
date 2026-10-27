@@ -1,4 +1,5 @@
 import { MARKET_CURRENCY } from '../domain/currencies'
+import type { FoundAsset } from '../market/client'
 import { D, Decimal, parseDecimalInput } from '../domain/decimal'
 import { orderFee } from '../domain/fees'
 import { cashDeltaQuote, type Position } from '../domain/ledger'
@@ -350,6 +351,14 @@ export function pickSymbol(draft: Draft, symbol: string, instruments: readonly I
     return changeAssetType({ ...draft, symbol, instrumentName: '' }, defaultAssetType(draft.market))
   }
   return { ...draft, symbol }
+}
+
+// A pick from the market search sets market and symbol together; an asset the app already knows keeps its own name,
+// type and currency, and a new one takes them from the catalog.
+export function pickFound(draft: Draft, found: FoundAsset, instruments: readonly Instrument[] = [], held: readonly HeldPosition[] = []): Draft {
+  const moved = changeMarket({ ...draft, symbol: '' }, found.market, instruments, held)
+  if (findInstrument(instruments, found.market, found.symbol)) return pickSymbol(moved, found.symbol, instruments, held)
+  return changeAssetType({ ...moved, symbol: found.symbol, instrumentName: found.name }, found.assetType)
 }
 
 // The coin received is picked like the main instrument, but its currency is not the currency of the swap, so only

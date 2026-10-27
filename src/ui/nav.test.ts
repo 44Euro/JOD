@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isMoreTab, isTransactionEdit } from './nav'
+import { foundPath, isMoreTab, isTransactionEdit } from './nav'
 
 describe('isMoreTab', () => {
   it.each([
@@ -34,5 +34,19 @@ describe('isTransactionEdit', () => {
     ['/', false],
   ])('%s is %s', (pathname, expected) => {
     expect(isTransactionEdit(pathname)).toBe(expected)
+  })
+})
+
+describe('foundPath', () => {
+  const ptt = { id: 'SET:PTT', market: 'SET', symbol: 'PTT', name: 'PTT', assetType: 'stock', currency: 'THB' } as const
+
+  it('opens the asset page of an asset the app knows', () => {
+    expect(foundPath({ market: 'SET', symbol: 'PTT', name: 'PTT Public', assetType: 'stock' }, [ptt])).toBe('/assets/SET%3APTT')
+  })
+
+  it('starts a buy of an asset the app does not know yet', () => {
+    expect(foundPath({ market: 'US', symbol: 'BRK.B', name: 'Berkshire & Co', assetType: 'stock' }, [ptt])).toBe(
+      '/transactions/new?type=buy&market=US&symbol=BRK.B&name=Berkshire+%26+Co&assetType=stock',
+    )
   })
 })

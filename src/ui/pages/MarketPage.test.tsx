@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { db } from '../../db/db'
@@ -15,6 +15,16 @@ describe('MarketPage', () => {
     renderRoute('/market')
     const title = await screen.findByRole('heading', { level: 1, name: 'ตลาด' })
     expect(title.closest('header')).toHaveClass('bg-board')
+  })
+
+  it('opens the search from the board and goes to a picked asset the app knows', async () => {
+    const user = userEvent.setup()
+    const router = renderRoute('/market')
+    await user.click(await screen.findByRole('button', { name: 'ค้นหาหุ้นหรือคริปโต' }))
+    await user.type(screen.getByRole('combobox', { name: 'ค้นหาสินทรัพย์' }), 'ptt')
+    await user.click(screen.getByRole('option', { name: /^PTT/ }))
+    await waitFor(() => expect(router.state.location.pathname).toBe('/assets/SET%3APTT'))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
   it('lists watched symbols on ตลาด and flags one that reached the price to buy at', async () => {

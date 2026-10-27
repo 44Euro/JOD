@@ -15,9 +15,10 @@ import { isIsoDate, todayLocal } from '../../domain/dates'
 import { D, isDecimalString } from '../../domain/decimal'
 import { fxConvertSummary, spreadPct } from '../../domain/fxConvert'
 import { computeLedger, positionKey } from '../../domain/ledger'
-import { TX_TYPES, findInstrument, instrumentKey, symbolOf, unitOf, type Market, type Transaction, type TxType } from '../../domain/types'
+import { ASSET_TYPES, MARKETS, TX_TYPES, findInstrument, instrumentKey, symbolOf, unitOf, type Market, type Transaction, type TxType } from '../../domain/types'
 import { useFxProvider } from '../../fx/context'
 import { quoteWithPegFallback } from '../../fx/fxService'
+import type { FoundAsset } from '../../market/client'
 import { cn } from '../../lib/cn'
 import { previewAfterSave } from '../afterSave'
 import { prepareSave, writeSave } from '../saveDraft'
@@ -55,6 +56,7 @@ import {
   isOpeningAsset,
   knownStrategies,
   movesNoMoney,
+  pickFound,
   pickSymbol,
   reinvestTransaction,
   showsInstrument,
@@ -89,7 +91,25 @@ export function TransactionFormPage() {
   const copyOf = from ? data.transactions.find((t) => t.id === from) : undefined
   const asked = searchParams.get('type')
   const startType = !id && !from ? TX_TYPES.find((type) => type === asked) : undefined
-  return <TransactionForm key={id ?? `new-${from ?? ''}-${startType ?? ''}`} data={data} existing={existing} copyOf={copyOf} startType={startType} />
+  const startFound = !id && !from ? foundFrom(searchParams) : undefined
+  return (
+    <TransactionForm
+      key={id ?? `new-${from ?? ''}-${startType ?? ''}-${startFound?.market ?? ''}:${startFound?.symbol ?? ''}`}
+      data={data}
+      existing={existing}
+      copyOf={copyOf}
+      startType={startType}
+      startFound={startFound}
+    />
+  )
+}
+
+// A pick from the market search that the app did not know arrives in the address; anything else in it is ignored.
+function foundFrom(params: URLSearchParams): FoundAsset | undefined {
+  const market = MARKETS.find((m) => m === params.get('market'))
+  const symbol = params.get('symbol')?.trim().toUpperCase()
+  if (!market || !symbol) return undefined
+  return { market, symbol, name: params.get('name')?.trim() ?? '', assetType: ASSET_TYPES.find((a) => a === params.get('assetType')) ?? 'stock' }
 }
 
 function positiveDecimal(value: string | undefined): boolean {
@@ -159,11 +179,13 @@ function TransactionForm({
   existing,
   copyOf,
   startType,
+  startFound,
 }: {
   data: AppData
   existing?: Transaction
   copyOf?: Transaction
   startType?: TxType
+  startFound?: FoundAsset
 }) {
   const navigate = useNavigate()
   const provider = useFxProvider()
@@ -173,7 +195,8 @@ function TransactionForm({
     if (existing) return draftFromTransaction(existing, data.instruments)
     if (copyOf) return duplicateDraft(copyOf, data.instruments, todayLocal())
     const blank = emptyDraft(data.accounts[0].id, todayLocal())
-    return startType ? withTransferTarget(changeType(blank, startType, base), data.accounts) : blank
+    const started = startType ? withTransferTarget(changeType(blank, startType, base), data.accounts) : blank
+    return startFound ? pickFound(started, startFound, data.instruments) : started
   })
   // The accounts come from a live query that hands over a new array on every write, and setDraft is a dependency of
   // the rate lookups below, so a ref keeps it stable.
@@ -447,6 +470,7 @@ function TransactionForm({
               onName={(instrumentName) => update({ instrumentName })}
               onAssetType={(assetType) => setDraft((d) => changeAssetType(d, assetType))}
               onUnit={(unit) => update({ unit })}
+              onFound={(found) => setDraft((d) => pickFound(d, found, data.instruments, heldLedger.positions))}
             />
           )}
 

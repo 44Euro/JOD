@@ -205,6 +205,7 @@ export const EN: Record<string, string> = {
   "ค้นล่าสุด": "Recent",
   "ค้นหาจากเซิร์ฟเวอร์ไม่ได้ตอนนี้": "The server search cannot be reached right now",
   "ค้นหาสินทรัพย์": "Search assets",
+  "ค้นหาหุ้นหรือคริปโต": "Search stocks or coins",
   "ชื่อหรือสัญลักษณ์ เช่น NVDA, PTT, BTC": "Name or symbol, e.g. NVDA, PTT, BTC",
   "ปิด": "Close",
   "ผลการค้นหา": "Search results",

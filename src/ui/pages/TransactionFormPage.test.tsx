@@ -5,6 +5,7 @@ import { db } from '../../db/db'
 import { saveSettings } from '../../db/repo'
 import { FxUnavailableError, type FxProvider } from '../../fx/frankfurter'
 import { fakeFxProvider } from '../../test/fakeFx'
+import { marketClient } from '../../market/client'
 import { makeTx } from '../../test/fixtures'
 import { renderRoute, resetDb } from '../../test/render'
 import { resetUndoStoreForTests } from '../undoDelete'
@@ -407,6 +408,25 @@ describe('TransactionFormPage', () => {
     await user.click(screen.getByRole('button', { name: 'บันทึก' }))
     await waitFor(() => expect(router.state.location.pathname).toBe('/transactions'))
     expect(await db.transactions.count()).toBe(1)
+  })
+
+  it('fills the symbol from the search', async () => {
+    vi.spyOn(marketClient, 'search').mockResolvedValue([{ market: 'SET', symbol: 'KBANK', name: 'Kasikornbank', assetType: 'stock' }])
+    const user = userEvent.setup()
+    renderRoute('/transactions/new', fakeFxProvider({ 'USD|THB': '35' }).provider)
+    await user.click(await screen.findByRole('button', { name: 'ค้นหา' }))
+    await user.type(screen.getByRole('combobox', { name: 'ค้นหาสินทรัพย์' }), 'kb')
+    await user.click(await screen.findByRole('option', { name: /KBANK/ }))
+    expect(screen.getByLabelText('ตลาด')).toHaveValue('SET')
+    expect(screen.getByLabelText('สัญลักษณ์')).toHaveValue('KBANK')
+    expect(screen.getByLabelText('ชื่อ (ไม่บังคับ)')).toHaveValue('Kasikornbank')
+  })
+
+  it('starts a buy of a picked asset from the address', async () => {
+    renderRoute('/transactions/new?type=buy&market=US&symbol=NVDA&name=NVIDIA&assetType=stock', fakeFxProvider({ 'USD|THB': '35' }).provider)
+    expect(await screen.findByLabelText('สัญลักษณ์')).toHaveValue('NVDA')
+    expect(screen.getByLabelText('ตลาด')).toHaveValue('US')
+    expect(screen.getByLabelText('ชื่อ (ไม่บังคับ)')).toHaveValue('NVIDIA')
   })
 
   it('keeps the stored details of a known instrument', async () => {

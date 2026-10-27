@@ -1,4 +1,6 @@
 import { ArrowLeftRight, Briefcase, ChartLine, Coins, Ellipsis, FileText, House, List, Newspaper, Receipt, Settings, Target, Upload, type LucideIcon } from 'lucide-react'
+import { findInstrument, type Instrument } from '../domain/types'
+import type { FoundAsset } from '../market/client'
 import { t } from '../i18n'
 
 export interface NavItem {
@@ -54,4 +56,12 @@ export function isExactLink(to: string): boolean {
 // Instrument ids contain ":" and fund symbols can contain "&", so the id is encoded into one path segment.
 export function assetPath(instrumentId: string): string {
   return `/assets/${encodeURIComponent(instrumentId)}`
+}
+
+// Until the stock page opens for any asset, picking one the app does not know yet starts a buy of it.
+export function foundPath(found: FoundAsset, instruments: readonly Instrument[]): string {
+  const known = findInstrument(instruments, found.market, found.symbol)
+  if (known) return assetPath(known.id)
+  const { market, symbol, name, assetType } = found
+  return `/transactions/new?${new URLSearchParams({ type: 'buy', market, symbol, name, assetType })}`
 }

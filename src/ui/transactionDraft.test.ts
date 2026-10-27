@@ -22,6 +22,7 @@ import {
   journalToDraft,
   knownStrategies,
   movesNoMoney,
+  pickFound,
   pickSymbol,
   pickToSymbol,
   receivedAfterFee,
@@ -1412,5 +1413,20 @@ describe('reinvesting a dividend', () => {
   it('refuses a fee that is not a number', () => {
     const { errors } = reinvestTransaction(reinvestDraft({ reinvestFees: 'abc' }), paid, ctx)
     expect(errors).toEqual(['ค่าธรรมเนียมต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป'])
+  })
+})
+
+describe('pickFound', () => {
+  it('fills a picked asset the app does not know yet', () => {
+    const next = pickFound(buyDraft({ market: 'US', symbol: 'AAPL', currency: 'USD' }), { market: 'SET', symbol: 'KBANK', name: 'Kasikornbank', assetType: 'stock' })
+    expect([next.market, next.symbol, next.instrumentName, next.assetType, next.currency]).toEqual(['SET', 'KBANK', 'Kasikornbank', 'stock', 'THB'])
+    const etf = pickFound(buyDraft({ market: 'SET', currency: 'THB' }), { market: 'US', symbol: 'SPY', name: 'SPDR S&P 500 ETF Trust', assetType: 'etf' })
+    expect([etf.market, etf.symbol, etf.assetType, etf.unit, etf.currency]).toEqual(['US', 'SPY', 'etf', 'unit', 'USD'])
+  })
+
+  it('uses what the app knows for a picked asset it holds', () => {
+    const known: Instrument = { id: 'CRYPTO:BTC', market: 'CRYPTO', symbol: 'BTC', name: 'Bitcoin', assetType: 'crypto', currency: 'USDT' }
+    const next = pickFound(buyDraft({ market: 'US', symbol: '' }), { market: 'CRYPTO', symbol: 'BTC', name: 'Bitcoin (catalog)', assetType: 'crypto' }, [known])
+    expect([next.market, next.symbol, next.instrumentName, next.currency]).toEqual(['CRYPTO', 'BTC', 'Bitcoin', 'USDT'])
   })
 })

@@ -163,4 +163,16 @@ describe('keyboard shortcuts', () => {
     const button = nav.parentElement!.querySelector('[aria-keyshortcuts="N"]')
     expect(button).toHaveAttribute('title', 'บันทึกรายการ (N)')
   })
+
+  it('opens the search with ⌘K or Ctrl+K', async () => {
+    renderRoute('/')
+    await screen.findByRole('navigation', { name: 'เมนูหลัก' })
+    fireEvent.keyDown(window, { key: 'k', metaKey: true })
+    expect(await screen.findByRole('dialog', { name: 'ค้นหาสินทรัพย์' })).toBeInTheDocument()
+    fireEvent.keyDown(screen.getByRole('combobox', { name: 'ค้นหาสินทรัพย์' }), { key: 'Escape' })
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    fireEvent.keyDown(window, { key: 'K', ctrlKey: true })
+    expect(await screen.findByRole('dialog', { name: 'ค้นหาสินทรัพย์' })).toBeInTheDocument()
+  })
 })
+

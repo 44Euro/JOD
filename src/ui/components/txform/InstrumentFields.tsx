@@ -1,7 +1,12 @@
+import { Search } from 'lucide-react'
+import { useState } from 'react'
+import { Button } from '../../../components/ui/button'
 import { Field } from '../../../components/ui/field'
 import { Input, NativeSelect } from '../../../components/ui/input'
 import { ASSET_TYPES, MARKETS, UNITS, findInstrument, type AssetType, type Instrument, type Market, type Unit } from '../../../domain/types'
+import type { FoundAsset } from '../../../market/client'
 import { ASSET_TYPE_LABELS, MARKET_LABELS, UNIT_LABELS } from '../../labels'
+import { SearchSheet } from '../SearchSheet'
 import { t } from '../../../i18n'
 
 const SYMBOL_PLACEHOLDERS: Partial<Record<Market, string>> = { FUND: 'SCBS&P500', BOND: 'CPALL26NA', GOLD: '96.5' }
@@ -22,6 +27,8 @@ export interface InstrumentFieldsProps {
   onName(name: string): void
   onAssetType(assetType: AssetType): void
   onUnit(unit: Unit): void
+  // Given, a search button beside the symbol fills the fields from the market catalog.
+  onFound?(found: FoundAsset): void
 }
 
 export function InstrumentFields({
@@ -40,7 +47,9 @@ export function InstrumentFields({
   onName,
   onAssetType,
   onUnit,
+  onFound,
 }: InstrumentFieldsProps) {
+  const [searching, setSearching] = useState(false)
   const known = findInstrument(instruments, market, symbol) !== undefined
   const listId = `${idPrefix}-symbols`
   return (
@@ -55,14 +64,22 @@ export function InstrumentFields({
         </NativeSelect>
       </Field>
       <Field id={`${idPrefix}-symbol`} label={symbolLabel} hint={hint}>
-        <Input
-          id={`${idPrefix}-symbol`}
-          list={listId}
-          autoCapitalize="characters"
-          placeholder={SYMBOL_PLACEHOLDERS[market] ?? 'AAPL, PTT, BTC'}
-          value={symbol}
-          onChange={(e) => onSymbol(e.target.value)}
-        />
+        <div className="flex gap-2">
+          <Input
+            id={`${idPrefix}-symbol`}
+            list={listId}
+            autoCapitalize="characters"
+            placeholder={SYMBOL_PLACEHOLDERS[market] ?? 'AAPL, PTT, BTC'}
+            value={symbol}
+            onChange={(e) => onSymbol(e.target.value)}
+          />
+          {onFound && (
+            <Button type="button" variant="outline" className="h-[46px] shrink-0" onClick={() => setSearching(true)}>
+              <Search aria-hidden />
+              {t('ค้นหา')}
+            </Button>
+          )}
+        </div>
         <datalist id={listId}>
           {instruments
             .filter((i) => i.market === market)
@@ -73,6 +90,7 @@ export function InstrumentFields({
             ))}
         </datalist>
       </Field>
+      {onFound && <SearchSheet open={searching} onClose={() => setSearching(false)} onPick={onFound} instruments={instruments} />}
       {allowNew && !known && (
         <>
           <Field id={`${idPrefix}-name`} label={t('ชื่อ (ไม่บังคับ)')} className="sm:col-span-2">
