@@ -20,6 +20,9 @@ const market: Market = {
   },
   quotes: async (ids) =>
     ids.map((id) => ({ id, price: '42', currency: 'THB', at: '2026-10-27T09:39:00.000Z', previousClose: '41.75', previousCloseAt: '2026-10-24T03:00:00.000Z', source: 'Yahoo' })),
+  newsReady: false,
+  news: async () => [],
+  earnings: async () => [],
 }
 
 async function call(method: string, path: string, body?: unknown, token?: string) {

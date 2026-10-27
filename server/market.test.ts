@@ -117,3 +117,78 @@ describe('market search', () => {
     await expect(createMarket(down.fetchFn).search('k')).rejects.toThrow()
   })
 })
+
+describe('market news and earnings', () => {
+  const now = () => Date.parse('2026-10-27T10:00:00Z')
+  const story = (id: number, url: string, related = '', at = '2026-10-27T08:00:00Z') => ({
+    id,
+    datetime: day(at),
+    headline: `Story ${id}`,
+    source: 'Reuters',
+    url,
+    related,
+    summary: 'Text JOD must not copy',
+    image: 'https://img.test/x.jpg',
+    category: 'company',
+  })
+
+  it('reads the general news newest first without article text', async () => {
+    const { fetchFn, urls } = fakeFetch({
+      'news?category=general': [story(1, 'https://a.test/1', 'AAPL,MSFT', '2026-10-27T07:00:00Z'), story(2, ''), story(3, 'https://a.test/3', '', '2026-10-27T09:00:00Z')],
+    })
+    const news = await createMarket(fetchFn, now, 'key').news([])
+    expect(news).toEqual([
+      { id: '3', headline: 'Story 3', source: 'Reuters', url: 'https://a.test/3', publishedAt: '2026-10-27T09:00:00.000Z', symbols: [] },
+      { id: '1', headline: 'Story 1', source: 'Reuters', url: 'https://a.test/1', publishedAt: '2026-10-27T07:00:00.000Z', symbols: ['AAPL', 'MSFT'] },
+    ])
+    expect(urls[0]).toContain('token=key')
+  })
+
+  it('merges the news of several symbols once per story', async () => {
+    const { fetchFn, urls } = fakeFetch({
+      'company-news?symbol=AAPL': [story(1, 'https://a.test/both', 'AAPL'), story(2, 'https://a.test/aapl', 'AAPL', '2026-10-26T08:00:00Z')],
+      'company-news?symbol=NVDA': [story(9, 'https://a.test/both', 'NVDA')],
+    })
+    const news = await createMarket(fetchFn, now, 'key').news(['AAPL', 'NVDA'])
+    expect(news.map((n) => n.url)).toEqual(['https://a.test/both', 'https://a.test/aapl'])
+    expect(urls[0]).toContain('from=2026-10-24&to=2026-10-27')
+  })
+
+  it("keeps the other symbols' news when one fails", async () => {
+    const { fetchFn } = fakeFetch({ 'company-news?symbol=AAPL': [story(1, 'https://a.test/1', 'AAPL')], 'company-news?symbol=NVDA': 500 })
+    expect((await createMarket(fetchFn, now, 'key').news(['AAPL', 'NVDA'])).map((n) => n.id)).toEqual(['1'])
+  })
+
+  it('reads the earnings calendar', async () => {
+    const row = (symbol: string, hour: string, epsEstimate: number | null, epsActual: number | null = null) => ({
+      symbol,
+      date: '2026-10-28',
+      hour,
+      epsEstimate,
+      epsActual,
+      revenueEstimate: 1e9,
+      revenueActual: null,
+      quarter: 3,
+      year: 2026,
+    })
+    const { fetchFn, urls } = fakeFetch({
+      'calendar/earnings?from=2026-10-26&to=2026-10-30': { earningsCalendar: [row('AAPL', 'amc', 1.6), row('KO', 'bmo', 0.7, 0.71), row('X', 'dmh', null), row('Y', '', 0.1)] },
+    })
+    expect(await createMarket(fetchFn, now, 'key').earnings('2026-10-26', '2026-10-30')).toEqual([
+      { symbol: 'AAPL', date: '2026-10-28', time: 'after', epsEstimate: '1.6', epsActual: null },
+      { symbol: 'KO', date: '2026-10-28', time: 'before', epsEstimate: '0.7', epsActual: '0.71' },
+      { symbol: 'X', date: '2026-10-28', time: 'during', epsEstimate: null, epsActual: null },
+      { symbol: 'Y', date: '2026-10-28', time: null, epsEstimate: '0.1', epsActual: null },
+    ])
+    expect(urls[0]).toContain('token=key')
+  })
+
+  it('is not ready without a key and asks nothing', async () => {
+    const { fetchFn, urls } = fakeFetch({})
+    const market = createMarket(fetchFn, now)
+    expect([market.newsReady, createMarket(fetchFn, now, 'key').newsReady]).toEqual([false, true])
+    await expect(market.news([])).rejects.toThrow()
+    await expect(market.earnings('2026-10-26', '2026-10-30')).rejects.toThrow()
+    expect(urls).toHaveLength(0)
+  })
+})
