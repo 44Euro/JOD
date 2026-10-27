@@ -19,7 +19,7 @@ describe('t', () => {
   it('looks the Thai up in English, falling back to the Thai when missing', () => {
     setLanguageForTests('en')
     expect(t('{0} วัน', 3)).toBe('3 days')
-    expect(t('ภาพรวม')).toBe('Overview')
+    expect(t('เช้านี้')).toBe('This morning')
     expect(t('ข้อความที่ไม่มีคำแปล')).toBe('ข้อความที่ไม่มีคำแปล')
   })
 
