@@ -13,6 +13,7 @@ export interface HoldingsBoardRow {
   priceDay: string | null
   changePct: Decimal | null
   comparedWithDay: string | null
+  source: string | null
 }
 
 const dayOf = (iso: string | undefined) => (iso ? todayLocal(new Date(iso)) : null)
@@ -49,6 +50,7 @@ export function buildHoldingsBoard(valuations: readonly PositionValuation[], ins
         priceDay: price ? dayOf(instrument?.lastPriceAt) : null,
         changePct: price && previous && !previous.isZero() ? price.minus(previous).div(previous).times(100) : null,
         comparedWithDay: previous ? dayOf(instrument?.previousPriceAt) : null,
+        source: price ? (instrument?.priceSource ?? null) : null,
       }
     })
 }

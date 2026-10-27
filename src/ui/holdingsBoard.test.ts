@@ -62,6 +62,12 @@ describe('buildHoldingsBoard', () => {
     expect([unpriced.price, unpriced.changePct, unpriced.priceDay]).toEqual([null, null, null])
   })
 
+  it('carries the source of each price', () => {
+    const [fetched] = buildHoldingsBoard([valuePosition(position({}), '200', '35')], [instrument({ lastPrice: '200', priceSource: 'Yahoo' })])
+    const [typed] = buildHoldingsBoard([valuePosition(position({}), '200', '35')], [instrument({ lastPrice: '200' })])
+    expect([fetched.source, typed.source]).toEqual(['Yahoo', null])
+  })
+
   it('skips closed positions', () => {
     expect(buildHoldingsBoard([valuePosition(position({ quantity: D(0) }), '200', '35')], [instrument({ lastPrice: '200' })])).toEqual([])
   })

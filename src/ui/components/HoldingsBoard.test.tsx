@@ -16,6 +16,7 @@ const nvda: HoldingsBoardRow = {
   priceDay: '2026-10-27',
   changePct: D('2.1'),
   comparedWithDay: '2026-10-26',
+  source: null,
 }
 
 function show(rows: HoldingsBoardRow[]) {
@@ -50,6 +51,16 @@ describe('HoldingsBoard', () => {
 
   it('names what the change is measured against', () => {
     expect(show([nvda])).toHaveTextContent('เทียบราคาก่อนหน้า')
+  })
+
+  it('names the sources of the prices under the board', () => {
+    const btc: HoldingsBoardRow = { ...nvda, instrumentId: 'CRYPTO:BTC', symbol: 'BTC', market: 'CRYPTO', source: 'CoinGecko' }
+    const ptt: HoldingsBoardRow = { ...nvda, instrumentId: 'SET:PTT', symbol: 'PTT', market: 'SET', source: 'Yahoo' }
+    expect(show([{ ...nvda, source: 'Yahoo' }, btc, ptt])).toHaveTextContent('ราคาจาก Yahoo ช้าราว 15 นาที · CoinGecko')
+  })
+
+  it('says nothing about sources when every price was typed', () => {
+    expect(show([nvda])).not.toHaveTextContent('ราคาจาก')
   })
 
   it('dates a change measured against another day than the one in the caption', () => {

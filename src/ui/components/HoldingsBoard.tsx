@@ -10,6 +10,7 @@ import { t } from '../../i18n'
 // The morning look at what is held: one row per asset, its price and how far it moved since the price before it.
 export function HoldingsBoard({ rows, today }: { rows: readonly HoldingsBoardRow[]; today: string }) {
   const compared = rows.find((row) => row.comparedWithDay)?.comparedWithDay
+  const sources = [...new Set(rows.flatMap((row) => (row.source ? [row.source] : [])))]
   return (
     <section aria-labelledby="holdings-board-title" className="rounded-[18px] bg-board p-4 text-[#e8eef8] md:rounded-[20px] md:px-[26px] md:py-[22px]">
       <div className="mb-1 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
@@ -55,6 +56,11 @@ export function HoldingsBoard({ rows, today }: { rows: readonly HoldingsBoardRow
           </li>
         ))}
       </ul>
+      {sources.length > 0 && (
+        <p className="mt-2 text-[12px] text-board-muted">
+          {t('ราคาจาก {0}', sources.map((name) => (name === 'Yahoo' ? t('Yahoo ช้าราว 15 นาที') : name)).join(' · '))}
+        </p>
+      )}
     </section>
   )
 }
