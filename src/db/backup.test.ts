@@ -184,6 +184,15 @@ describe('parseBackup', () => {
     expect(() => parseBackup(file({ theme: 'blue' }))).toThrow('การตั้งค่าในไฟล์สำรองไม่ถูกต้อง')
   })
 
+  it('keeps goals and rejects a broken one', () => {
+    const file = (setting: unknown) =>
+      JSON.stringify({ app: 'jod', version: 2, exportedAt: '', data: { accounts: [account], instruments: [], settings: [{ key: 'app', baseCurrency: 'THB', ...(setting as object) }], transactions: [] } })
+    const goal = { id: 'g1', name: 'บ้าน', target: '1000000', targetDate: '2028-11-01', createdAt: '2026-11-01T00:00:00.000Z' }
+    expect(parseBackup(file({ goals: [goal] })).data.settings[0]).toMatchObject({ goals: [goal] })
+    expect(() => parseBackup(file({ goals: [{ ...goal, target: 'lots' }] }))).toThrow('การตั้งค่าในไฟล์สำรองไม่ถูกต้อง')
+    expect(() => parseBackup(file({ goals: 'บ้าน' }))).toThrow('การตั้งค่าในไฟล์สำรองไม่ถูกต้อง')
+  })
+
   it('rejects a damaged instrument before it can reach a page', () => {
     const good = { id: 'US:VOO', market: 'US', symbol: 'VOO', name: 'VOO', assetType: 'etf', currency: 'USD' }
     const file = (instrument: object) =>

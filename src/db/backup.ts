@@ -71,6 +71,21 @@ function isValidFeeTemplate(value: unknown): value is FeeTemplate {
   return validateFeeTemplate(value as FeeTemplate).length === 0
 }
 
+// A goal from a file has to be a goal the app could have saved, with its amount and date in the shapes it writes.
+function isValidGoal(goal: unknown): boolean {
+  if (typeof goal !== 'object' || goal === null) return false
+  const g = goal as Record<string, unknown>
+  return (
+    typeof g.id === 'string' &&
+    typeof g.name === 'string' &&
+    typeof g.target === 'string' &&
+    isDecimalString(g.target) &&
+    typeof g.targetDate === 'string' &&
+    isIsoDate(g.targetDate) &&
+    (g.accountIds === undefined || (Array.isArray(g.accountIds) && g.accountIds.every((a) => typeof a === 'string')))
+  )
+}
+
 export function parseBackup(text: string): BackupFile {
   let parsed: unknown
   try {
@@ -108,6 +123,7 @@ export function parseBackup(text: string): BackupFile {
       (row?.hideNumbersOnLaunch !== undefined && typeof row.hideNumbersOnLaunch !== 'boolean') ||
       (row?.theme !== undefined && !THEME_CHOICES.includes(row.theme)) ||
       (row?.checklist !== undefined && !(Array.isArray(row.checklist) && row.checklist.every((item) => typeof item === 'string'))) ||
+      (row?.goals !== undefined && !(Array.isArray(row.goals) && row.goals.every(isValidGoal))) ||
       (row?.benchmarkSymbol !== undefined && (typeof row.benchmarkSymbol !== 'string' || !/^[A-Z0-9.^-]{1,12}$/.test(row.benchmarkSymbol)))
     ) {
       throw new BackupError(t('การตั้งค่าในไฟล์สำรองไม่ถูกต้อง'))

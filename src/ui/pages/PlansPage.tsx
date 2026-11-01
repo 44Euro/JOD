@@ -15,6 +15,7 @@ import { positionValueBase } from '../../domain/investor'
 import { planProgress, rebalance } from '../../domain/plans'
 import { PLAN_FREQUENCIES, symbolOf, type DcaPlan, type Instrument, type PlanFrequency } from '../../domain/types'
 import { cn } from '../../lib/cn'
+import { GoalsCard } from '../components/GoalsCard'
 import { MarketPill } from '../components/MarketPill'
 import { PageHeader } from '../components/PageHeader'
 import { ChecklistCard } from '../components/WatchCards'
@@ -291,6 +292,7 @@ export function PlansPage() {
   return (
     <>
       <PageHeader title={t('แผน')} />
+      <GoalsCard data={data} />
       <div className="grid items-start gap-3.5 md:gap-[22px] xl:grid-cols-2">
         <TargetsCard data={data} />
         <PlansCard data={data} />
