@@ -61,6 +61,59 @@ export interface Financials {
   quarterly: FinancialPeriod[]
 }
 
+export interface FundMove {
+  issuer: string
+  ticker: string | null
+  shares: string
+  value: string
+  change: 'new' | 'add' | 'reduce' | 'exit' | 'same'
+  sharesChange: string
+  valueChange: string
+}
+
+export interface FundReport {
+  cik: string
+  name: string
+  period: string
+  filedAt: string
+  moves: FundMove[]
+}
+
+export interface CongressTrade {
+  ticker: string
+  asset: string
+  type: 'buy' | 'sell' | 'partial' | 'exchange'
+  tradedAt: string
+  notifiedAt: string
+  amount: string
+  member: string
+  state: string
+  filedAt: string
+  url: string
+}
+
+export interface Insider {
+  owner: string
+  role: string
+  date: string
+  side: 'buy' | 'sell'
+  shares: string
+  price: string
+  filedAt: string
+}
+
+// Null where a source is off (SEC without SEC_USER_AGENT on the server) or has never answered.
+export interface BigMoney {
+  funds: FundReport[] | null
+  congress: CongressTrade[] | null
+}
+
+export interface BigMoneyFor {
+  holders: (FundMove & { fund: string; period: string; filedAt: string })[] | null
+  insiders: Insider[] | null
+  congress: CongressTrade[]
+}
+
 export interface MarketClient {
   ready(): boolean
   search(query: string, signal?: AbortSignal): Promise<FoundAsset[]>
@@ -69,6 +122,8 @@ export interface MarketClient {
   earnings(from: string, to: string): Promise<EarningsEvent[]>
   chart(id: string): Promise<ChartData>
   financials(symbol: string): Promise<Financials>
+  bigMoney(): Promise<BigMoney>
+  bigMoneyFor(symbol: string): Promise<BigMoneyFor>
 }
 
 // 503 means the server has no news source set up yet, which screens tell apart from a failure.
@@ -85,6 +140,7 @@ const NEWS_MEMO = 10 * 60_000
 const EARNINGS_MEMO = 60 * 60_000
 const CHART_MEMO = 60 * 60_000
 const FILINGS_MEMO = 24 * 60 * 60_000
+const BIG_MONEY_MEMO = 60 * 60_000
 
 type Where = () => { server: string; token: string } | null
 
@@ -144,6 +200,12 @@ export function createMarketClient(where: Where = session, fetchFn: typeof fetch
     },
     async financials(symbol) {
       return (await remembered(`/api/market/financials?symbol=${encodeURIComponent(symbol)}`, FILINGS_MEMO)).financials as Financials
+    },
+    async bigMoney() {
+      return (await remembered('/api/market/bigmoney', BIG_MONEY_MEMO)).bigMoney as BigMoney
+    },
+    async bigMoneyFor(symbol) {
+      return (await remembered(`/api/market/bigmoney?symbol=${encodeURIComponent(symbol)}`, BIG_MONEY_MEMO)).bigMoney as BigMoneyFor
     },
   }
 }

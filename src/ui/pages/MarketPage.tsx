@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { todayLocal, tradingWeek } from '../../domain/dates'
 import { marketClient } from '../../market/client'
+import { BigMoneySection } from '../components/BigMoney'
 import { EarningsWeek } from '../components/EarningsWeek'
 import { MarketCard } from '../components/MarketCard'
 import { NEWS_SOURCE, NewsBody } from '../components/NewsList'
@@ -24,6 +25,7 @@ export function MarketPage() {
   const week = tradingWeek(today)
   const earnings = useMarket(`earnings:${week[0]}`, () => marketClient.earnings(week[0], week[4]))
   const news = useMarket('news:', () => marketClient.news([]))
+  const bigMoney = useMarket('bigmoney', () => marketClient.bigMoney())
   return (
     <>
       <header className="rounded-[18px] bg-board px-4 py-5 md:rounded-[20px] md:px-[26px] md:py-[22px]">
@@ -50,6 +52,7 @@ export function MarketPage() {
           <MarketCard title={t('ข่าวต่างประเทศ')} more="/market/news" source={NEWS_SOURCE}>
             <NewsBody state={news} today={today} limit={5} />
           </MarketCard>
+          <BigMoneySection state={bigMoney} />
           <WatchlistCard data={data} />
         </div>
       ) : (

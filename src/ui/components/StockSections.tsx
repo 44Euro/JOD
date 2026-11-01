@@ -8,19 +8,13 @@ import { TERMINAL_GROWTH_PCT, dcf, historicalGrowthPct } from '../../domain/dcf'
 import { D, Decimal, parseDecimalInput } from '../../domain/decimal'
 import type { FinancialPeriod, Financials } from '../../market/client'
 import { cn } from '../../lib/cn'
-import { fmtDate, fmtPct, fmtPrice } from '../format'
+import { fmtCompact, fmtDate, fmtPct, fmtPrice } from '../format'
 import type { MarketState } from '../useMarket'
 import { MarketCard } from './MarketCard'
 import { MarketNote } from './NewsList'
 import { t } from '../../i18n'
 
 const FILINGS_OFF = t('งบการเงินยังไม่เปิด: เซิร์ฟเวอร์ยังไม่ได้ตั้งชื่อผู้ขอข้อมูลกับ SEC (SEC_USER_AGENT)')
-const compact = new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 })
-
-// Filings run to hundreds of billions; 416.2B reads at a glance where a full figure would not fit a phone.
-export function fmtCompact(value: string | null): string {
-  return value === null ? '—' : compact.format(Number(value)).replace('-', '−')
-}
 
 // SEC aligns each fiscal period to the calendar: CY2025 is the fiscal year that ended in 2025.
 function periodLabel(period: string): string {

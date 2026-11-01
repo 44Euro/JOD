@@ -27,6 +27,7 @@ export const routes: RouteObject[] = [
           { index: true, element: <DashboardPage /> },
           { path: 'market', element: <MarketPage /> },
           { path: 'market/news', lazy: async () => ({ Component: (await import('./ui/pages/MarketNewsPage')).MarketNewsPage }) },
+          { path: 'market/bigmoney', lazy: async () => ({ Component: (await import('./ui/pages/BigMoneyPage')).BigMoneyPage }) },
           { path: 'market/earnings', lazy: async () => ({ Component: (await import('./ui/pages/EarningsPage')).EarningsPage }) },
           { path: 'portfolio', element: <PortfolioPage /> },
           { path: 'assets/:id', element: <AssetPage /> },

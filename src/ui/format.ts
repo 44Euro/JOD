@@ -167,3 +167,10 @@ export function fmtWhen(iso: string, today: string): string {
   const day = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`
   return day === today ? time : `${fmtDate(day)} ${time}`
 }
+
+const compact = new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 })
+
+// Filings run to hundreds of billions; 416.2B reads at a glance where a full figure would not fit a phone.
+export function fmtCompact(value: string | null): string {
+  return value === null ? '—' : compact.format(Number(value)).replace('-', '−')
+}

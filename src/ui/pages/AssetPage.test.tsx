@@ -724,6 +724,29 @@ describe('AssetPage', () => {
       expect(within(fresh).getByRole('button', { name: 'ข่าว' })).toHaveAttribute('aria-pressed', 'false')
     })
 
+    it('shows the big money trading the stock under its own chip', async () => {
+      vi.spyOn(marketClient, 'financials').mockRejectedValue(new MarketError(503))
+      vi.spyOn(marketClient, 'news').mockResolvedValue([])
+      vi.spyOn(marketClient, 'bigMoneyFor').mockResolvedValue({
+        holders: null,
+        insiders: [{ owner: 'COOK TIMOTHY D', role: 'CEO', date: '2024-10-01', side: 'sell', shares: '1000', price: '250', filedAt: '2024-10-03' }],
+        congress: [],
+      })
+      renderRoute('/assets/US%3AAAPL', usd)
+      const section = await screen.findByRole('region', { name: 'เงินใหญ่' })
+      expect(within(section).getByRole('listitem', { name: /COOK TIMOTHY D/ })).toHaveTextContent('− ขาย 1,000 หุ้น @ 250.00')
+      expect(within(screen.getByRole('navigation', { name: 'ส่วนของหน้า' })).getByRole('button', { name: 'เงินใหญ่' })).toBeInTheDocument()
+    })
+
+    it('leaves out big money when nobody traded the stock', async () => {
+      vi.spyOn(marketClient, 'news').mockResolvedValue([])
+      vi.spyOn(marketClient, 'bigMoneyFor').mockResolvedValue({ holders: [], insiders: [], congress: [] })
+      renderRoute('/assets/US%3AAAPL', usd)
+      await screen.findByRole('region', { name: 'ข่าว' })
+      expect(screen.queryByRole('region', { name: 'เงินใหญ่' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'เงินใหญ่' })).not.toBeInTheDocument()
+    })
+
     it('hides the filings of a fund with none at SEC', async () => {
       vi.spyOn(marketClient, 'financials').mockRejectedValue(new MarketError(404))
       vi.spyOn(marketClient, 'news').mockResolvedValue([])

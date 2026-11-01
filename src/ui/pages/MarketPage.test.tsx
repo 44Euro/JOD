@@ -31,6 +31,21 @@ describe('MarketPage', () => {
     expect(news.compareDocumentPosition(watchlist) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
+  it('shows the big-money moves after the news and before the watchlist', async () => {
+    vi.spyOn(marketClient, 'news').mockResolvedValue([])
+    vi.spyOn(marketClient, 'bigMoney').mockResolvedValue({
+      funds: null,
+      congress: [{ ticker: 'NVDA', asset: 'NVIDIA', type: 'buy', tradedAt: '2026-10-15', notifiedAt: '2026-10-29', amount: '$1,001 – $15,000', member: 'Josh Gottheimer', state: 'NJ05', filedAt: '2026-10-29', url: 'https://house.test/1.pdf' }],
+    })
+    renderRoute('/market')
+    const big = await screen.findByRole('region', { name: 'เงินใหญ่ขยับ' })
+    expect(await within(big).findByRole('listitem', { name: /NVDA/ })).toBeInTheDocument()
+    const news = screen.getByRole('region', { name: 'ข่าวต่างประเทศ' })
+    const watchlist = screen.getByRole('heading', { name: 'ติดตาม (watchlist)' })
+    expect(news.compareDocumentPosition(big) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(big.compareDocumentPosition(watchlist) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
   it('opens under its own title on a navy band', async () => {
     renderRoute('/market')
     const title = await screen.findByRole('heading', { level: 1, name: 'ตลาด' })

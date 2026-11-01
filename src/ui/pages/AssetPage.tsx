@@ -19,6 +19,7 @@ import { MarketError, marketClient, type Financials } from '../../market/client'
 import { MoneyRoute } from '../components/MoneyRoute'
 import { RateCell } from '../components/RateCell'
 import { RenameInstrument } from '../components/RenameInstrument'
+import { StockBigMoney } from '../components/BigMoney'
 import { MarketCard } from '../components/MarketCard'
 import { NEWS_SOURCE, NewsBody } from '../components/NewsList'
 import { StockHeader } from '../components/StockHeader'
@@ -85,6 +86,7 @@ export function AssetPage() {
       : null,
   )
   const companyNews = useMarket(`stock-news:${id}`, async () => (us ? marketClient.news([idSymbol]) : []))
+  const bigMoney = useMarket(`stock-bigmoney:${id}`, async () => (us ? marketClient.bigMoneyFor(idSymbol) : null))
   // Coming back to an asset after visiting another must not find its form still open.
   if (renamingId !== undefined && renamingId !== id) setRenamingId(undefined)
   if (!data || !ledger || !ready) return <p className="text-muted-foreground">{t('กำลังโหลด…')}</p>
@@ -115,9 +117,14 @@ export function AssetPage() {
   const hasFilings = us && !isFund && !(filings.status === 'ready' && filings.data === null)
   const filingsState: MarketState<Financials> = filings.status === 'ready' ? (filings.data ? { status: 'ready', data: filings.data } : { status: 'failed' }) : filings
   const livePrice = live.status === 'ready' && live.data ? live.data.price : (instrument?.lastPrice ?? null)
+  const traded =
+    bigMoney.status === 'ready' && bigMoney.data !== null && ((bigMoney.data.holders?.length ?? 0) > 0 || (bigMoney.data.insiders?.length ?? 0) > 0 || bigMoney.data.congress.length > 0)
+      ? bigMoney.data
+      : null
   const sections = [
     ...(known ? [{ id: 'stock-mine', label: t('ของฉัน') }] : []),
     ...(hasFilings ? [{ id: 'stock-financials', label: t('งบ') }, { id: 'stock-value', label: t('มูลค่า') }] : []),
+    ...(traded ? [{ id: 'stock-bigmoney', label: t('เงินใหญ่') }] : []),
     ...(us ? [{ id: 'stock-news', label: t('ข่าว') }] : []),
   ]
   const watchItem = watchlist?.find((w) => w.market === (instrument?.market ?? market) && w.symbol === symbol)
@@ -356,6 +363,11 @@ export function AssetPage() {
           {hasFilings && (
             <div id="stock-value" className="min-w-0 scroll-mt-16">
               <ValuationSection state={filingsState} price={livePrice} />
+            </div>
+          )}
+          {traded && (
+            <div id="stock-bigmoney" className="min-w-0 scroll-mt-16 xl:col-span-2">
+              <StockBigMoney data={traded} />
             </div>
           )}
           {us && (

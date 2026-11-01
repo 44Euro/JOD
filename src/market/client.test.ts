@@ -88,5 +88,13 @@ describe('market client', () => {
     expect((await createMarketClient(signedIn, filings.fetchFn).financials('BRK.B')).name).toBe('Berkshire')
     expect(filings.calls[0].url).toBe('http://jod.test/api/market/financials?symbol=BRK.B')
   })
+
+  it('asks for big money, for the market or one symbol', async () => {
+    const server = fakeServer({ bigMoney: { funds: null, congress: [] } })
+    const client = createMarketClient(signedIn, server.fetchFn)
+    expect(await client.bigMoney()).toEqual({ funds: null, congress: [] })
+    await client.bigMoneyFor('BRK.B')
+    expect(server.calls.map((c) => c.url)).toEqual(['http://jod.test/api/market/bigmoney', 'http://jod.test/api/market/bigmoney?symbol=BRK.B'])
+  })
 })
 

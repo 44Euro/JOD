@@ -15,7 +15,7 @@ const results: FoundAsset[] = [
 ]
 
 function client(search: MarketClient['search']): MarketClient {
-  return { ready: () => true, search, quotes: async () => [], news: async () => [], earnings: async () => [], chart: () => Promise.reject(new Error('unused')), financials: () => Promise.reject(new Error('unused')) }
+  return { ready: () => true, search, quotes: async () => [], news: async () => [], earnings: async () => [], chart: () => Promise.reject(new Error('unused')), financials: () => Promise.reject(new Error('unused')), bigMoney: () => Promise.reject(new Error('unused')), bigMoneyFor: () => Promise.reject(new Error('unused')) }
 }
 
 function sheet(market: MarketClient, onPick = vi.fn(), onClose = vi.fn()) {
