@@ -58,6 +58,13 @@ describe('BigMoneySection', () => {
     expect(within(section).getByRole('link', { name: 'ดูทั้งหมด' })).toHaveAttribute('href', '/market/bigmoney')
   })
 
+  it('spreads the House trades on ตลาด across members', () => {
+    const many = ['T', 'LRCX', 'MPC', 'COST'].map((ticker) => trade(ticker, 'buy', 'David J. Taylor'))
+    const section = show({ status: 'ready', data: { funds: null, congress: [...many, trade('NVDA', 'sell', 'Josh Gottheimer')] } })
+    const rows = within(section).getAllByRole('listitem').map((row) => row.getAttribute('aria-label'))
+    expect(rows).toEqual(['T David J. Taylor', 'NVDA Josh Gottheimer', 'LRCX David J. Taylor', 'MPC David J. Taylor'])
+  })
+
   it('says 13F is not switched on when the server has no SEC user agent', () => {
     expect(show({ status: 'ready', data: { ...data, funds: null } })).toHaveTextContent('ข้อมูล 13F ยังไม่เปิด')
   })

@@ -129,13 +129,19 @@ export function FundMoves({ funds, limit }: { funds: BigMoney['funds']; limit?: 
   )
 }
 
+// One report often lists many trades; a short list shows each member's newest trade before anyone's second.
+function spread(trades: readonly CongressTrade[]): CongressTrade[] {
+  const firsts = trades.filter((trade, i) => trades.findIndex((t) => t.member === trade.member) === i)
+  return [...firsts, ...trades.filter((trade) => !firsts.includes(trade))]
+}
+
 export function CongressTrades({ trades, limit }: { trades: BigMoney['congress']; limit?: number }) {
   if (trades === null) return <p className="text-[13.5px] text-muted-foreground">{t('ดึงรายงานสภาผู้แทนฯ ไม่ได้ตอนนี้')}</p>
   if (trades.length === 0) return <p className="text-[13.5px] text-muted-foreground">{t('ยังไม่มีรายงานการซื้อขายหุ้น')}</p>
   return (
     <>
       <ul>
-        {trades.slice(0, limit).map((trade, i) => (
+        {(limit ? spread(trades).slice(0, limit) : trades).map((trade, i) => (
           <CongressRow key={`${trade.url}:${i}`} trade={trade} />
         ))}
       </ul>
