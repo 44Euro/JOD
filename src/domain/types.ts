@@ -231,6 +231,17 @@ export interface Settings {
   benchmarkSymbol?: string
   // The user's own pre-trade checklist, offered when a buy is recorded.
   checklist?: string[]
+  goals?: Goal[]
+}
+
+// A saving goal: an amount in the base currency by a date, counting all accounts or only those listed.
+export interface Goal {
+  id: string
+  name: string
+  target: string
+  targetDate: string
+  accountIds?: string[]
+  createdAt: string
 }
 
 export interface WatchItem {
