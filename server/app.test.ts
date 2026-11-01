@@ -39,6 +39,12 @@ const market: Market = {
     if (searchFails) throw new Error('down')
     return symbol === 'AAPL' ? filings : null
   },
+  bigMoney: async () => {
+    if (searchFails) throw new Error('down')
+    return { funds: null, congress: [] }
+  },
+  bigMoneyFor: async (symbol) => ({ holders: null, insiders: null, congress: [{ ticker: symbol, asset: 'Apple', type: 'buy', tradedAt: '2026-03-02', notifiedAt: '2026-03-05', amount: '$1,001 – $15,000', member: 'Pat Newer', state: 'NJ05', filedAt: '2026-03-09', url: 'https://house.test/1.pdf' }] }),
+  warmUp: async () => {},
 }
 
 async function call(method: string, path: string, body?: unknown, token?: string) {
@@ -225,5 +231,15 @@ describe('sync server', () => {
     expect((await call('GET', '/api/market/financials?symbol=AAPL', undefined, body.token)).status).toBe(502)
     financialsReady = false
     expect((await call('GET', '/api/market/financials?symbol=AAPL', undefined, body.token)).status).toBe(503)
+  })
+
+  it('serves big money to a signed-in device, for the market or one symbol', async () => {
+    expect((await call('GET', '/api/market/bigmoney')).status).toBe(401)
+    const { body } = await call('POST', '/api/signup', { email: 'a@x.io', loginKey: key('a') })
+    expect((await call('GET', '/api/market/bigmoney', undefined, body.token)).body.bigMoney).toEqual({ funds: null, congress: [] })
+    expect((await call('GET', '/api/market/bigmoney?symbol=AAPL', undefined, body.token)).body.bigMoney.congress[0].ticker).toBe('AAPL')
+    expect((await call('GET', '/api/market/bigmoney?symbol=aapl', undefined, body.token)).status).toBe(400)
+    searchFails = true
+    expect((await call('GET', '/api/market/bigmoney', undefined, body.token)).status).toBe(502)
   })
 })

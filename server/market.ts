@@ -1,3 +1,7 @@
+import { createBigMoney, type BigMoney, type BigMoneyFor } from './bigMoney.ts'
+import { nameIndex, type SecCompany } from './edgar.ts'
+import { pdfText } from './house.ts'
+
 // Public market data for every device: share prices, charts and asset search from Yahoo, coin search from CoinGecko,
 // news and the earnings calendar from Finnhub with the server's own free key, and US filings from SEC under the
 // operator's own User-Agent, as SEC's fair-access rules ask. Nothing here knows who asked.
@@ -73,6 +77,11 @@ export interface Market {
   // SEC wants the requester named in the User-Agent; without SEC_USER_AGENT the filings are off.
   financialsReady: boolean
   financials(symbol: string): Promise<Financials | null>
+  // 13F moves of well-known funds and House members' trades; insiders (Form 4) for one symbol.
+  bigMoney(): Promise<BigMoney>
+  bigMoneyFor(symbol: string): Promise<BigMoneyFor>
+  // Reads the slow sources (House report PDFs, 13F tables) ahead of the first request.
+  warmUp(): Promise<void>
 }
 
 const QUOTE_TTL = 5 * 60_000
@@ -223,21 +232,26 @@ export interface MarketOptions {
   now?: () => number
   finnhubKey?: string
   secUserAgent?: string
+  readPdf?: (pdf: Uint8Array) => Promise<string>
 }
 
-export function createMarket({ fetchFn = (i, o) => fetch(i, o), now = Date.now, finnhubKey = '', secUserAgent = '' }: MarketOptions = {}): Market {
+export function createMarket({ fetchFn = (i, o) => fetch(i, o), now = Date.now, finnhubKey = '', secUserAgent = '', readPdf = pdfText }: MarketOptions = {}): Market {
   const cache = new Map<string, { expires: number; value: Promise<unknown> }>()
 
   // Concurrent asks for the same URL share one request; a failure is forgotten at once so the next ask retries. A
   // reducer keeps only what JOD uses, so a large file such as SEC's company facts is not held in memory.
-  function cached(url: string, ttl: number, { userAgent = 'Mozilla/5.0', reduce }: { userAgent?: string; reduce?: (body: never) => unknown } = {}): Promise<unknown> {
+  function cached(
+    url: string,
+    ttl: number,
+    { userAgent = 'Mozilla/5.0', body = 'json', reduce }: { userAgent?: string; body?: 'json' | 'text' | 'bytes'; reduce?: (body: never) => unknown } = {},
+  ): Promise<unknown> {
     const hit = cache.get(url)
     if (hit && hit.expires > now()) return hit.value
     cache.delete(url)
     const value = fetchFn(url, { headers: { 'user-agent': userAgent }, signal: AbortSignal.timeout(TIMEOUT_MS) }).then(async (res) => {
       if (!res.ok) throw new Error(`HTTP ${res.status} from ${new URL(url).host}`)
-      const body = await res.json()
-      return reduce ? reduce(body as never) : body
+      const read = body === 'bytes' ? new Uint8Array(await res.arrayBuffer()) : body === 'text' ? await res.text() : await res.json()
+      return reduce ? reduce(read as never) : read
     })
     value.catch(() => cache.delete(url))
     cache.set(url, { expires: now() + ttl, value })
@@ -302,14 +316,20 @@ export function createMarket({ fetchFn = (i, o) => fetch(i, o), now = Date.now, 
     return [...byUrl.values()]
   }
 
+  // SEC's list of listed companies: ticker to CIK for filings, and names for matching 13F rows to tickers.
+  function companies() {
+    return cached('https://www.sec.gov/files/company_tickers.json', FILINGS_TTL, {
+      userAgent: secUserAgent,
+      reduce: (body: Record<string, SecCompany>) => ({ cik: new Map(Object.values(body).map((c) => [c.ticker, c.cik_str])), names: nameIndex(body) }),
+    }) as Promise<{ cik: Map<string, number>; names: Map<string, string> }>
+  }
+
+  const big = createBigMoney({ get: cached, now, secUserAgent, readPdf, companies })
+
   async function financials(symbol: string): Promise<Financials | null> {
     if (!secUserAgent) throw new Error('SEC_USER_AGENT is not set')
-    const tickers = (await cached('https://www.sec.gov/files/company_tickers.json', FILINGS_TTL, {
-      userAgent: secUserAgent,
-      reduce: (body: Record<string, { cik_str: number; ticker: string }>) => new Map(Object.values(body).map((c) => [c.ticker, c.cik_str])),
-    })) as Map<string, number>
     // SEC lists class shares with a dash (BRK-B).
-    const cik = tickers.get(symbol.replace(/\./g, '-'))
+    const cik = (await companies()).cik.get(symbol.replace(/\./g, '-'))
     if (!cik) return null
     return (await cached(`https://data.sec.gov/api/xbrl/companyfacts/CIK${String(cik).padStart(10, '0')}.json`, FILINGS_TTL, {
       userAgent: secUserAgent,
@@ -321,6 +341,7 @@ export function createMarket({ fetchFn = (i, o) => fetch(i, o), now = Date.now, 
     newsReady: Boolean(finnhubKey),
     financialsReady: Boolean(secUserAgent),
     financials,
+    ...big,
     async chart(id) {
       const symbol = yahooSymbol(id)
       if (!symbol) return null
