@@ -3,6 +3,7 @@ import { Card } from '../../components/ui/card'
 import { Segmented } from '../../components/ui/segmented'
 import { Table, Td, Th } from '../../components/ui/table'
 import { todayLocal } from '../../domain/dates'
+import { dividendCalendar } from '../../domain/dividendCalendar'
 import { sumBy } from '../../domain/decimal'
 import { instrumentStats } from '../../domain/holdings'
 import {
@@ -22,6 +23,7 @@ import type { IncomeEvent } from '../../domain/ledger'
 import type { Instrument } from '../../domain/types'
 import { valuePosition } from '../../domain/valuation'
 import { cn } from '../../lib/cn'
+import { DividendCalendar } from '../components/DividendCalendar'
 import { IncomeBars } from '../components/IncomeBars'
 import { CashPill, MarketPill } from '../components/MarketPill'
 import { PageHeader } from '../components/PageHeader'
@@ -209,6 +211,8 @@ export function IncomePage() {
         <Stat label={t('เฉลี่ยต่อเดือน')} value={fmtHeadline(monthlyAverage, base)} note={t('12 เดือนล่าสุด {0}', fmtHeadline(twelve, base))} />
         <Stat label={t('ภาษีที่ถูกหัก')} value={fmtHeadline(totals.taxBase, base)} note={withholdingNote(rows) || undefined} />
       </SummaryPanel>
+
+      <DividendCalendar months={dividendCalendar(ledger, today)} symbols={new Map(data.instruments.map((i) => [i.id, i.symbol]))} base={base} />
 
       <div className="grid items-start gap-3.5 md:gap-[22px] xl:grid-cols-[minmax(0,1fr)_340px]">
         <Card>

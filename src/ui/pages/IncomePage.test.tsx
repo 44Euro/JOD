@@ -36,6 +36,16 @@ async function seedIncome() {
 }
 
 describe('IncomePage', () => {
+  it('shows the dividends expected in the next twelve months', async () => {
+    await seedIncome()
+    renderRoute('/income')
+    const card = await screen.findByRole('region', { name: 'ปันผล 12 เดือนข้างหน้า' })
+    expect(within(card).getByRole('listitem', { name: 'พ.ย. 2025' })).toHaveTextContent('PTT')
+    expect(within(card).getByRole('listitem', { name: 'พ.ย. 2025' })).toHaveTextContent('฿900')
+    expect(within(card).getByRole('listitem', { name: 'ส.ค. 2026' })).toHaveTextContent('฿1,080')
+    expect(within(card).getByRole('listitem', { name: 'ต.ค. 2025' })).toHaveTextContent('—')
+  })
+
   it('invites the user to record income when there is none', async () => {
     renderRoute('/income')
     expect(await screen.findByText('ยังไม่มีรายได้')).toBeInTheDocument()
