@@ -1157,6 +1157,7 @@ export const EN: Record<string, string> = {
   "ใส่ตัวเลขให้ครบ จำนวนปีตั้งแต่ 1 ปี": "Fill in every number; at least 1 year",
   "ใส่ทุนเฉลี่ย": "Enter the average cost",
   "ใส่ราคา": "Enter the price",
+  "ใส่ราคาที่มากกว่า 0": "Enter a price above 0",
   "ใส่รูป": "Add pictures",
   "ใส่รูปแคป, PDF หรือ CSV": "Add screenshots, PDF or CSV",
   "ใส่วันที่": "Enter the date",

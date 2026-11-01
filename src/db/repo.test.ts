@@ -34,6 +34,12 @@ beforeEach(() => {
 })
 
 describe('settings', () => {
+  it('reads back the goals and price alerts kept in the settings', async () => {
+    const alert = { id: 'a1', instrumentId: 'SET:PTT', direction: 'below' as const, price: '35', createdAt: '2026-11-01T00:00:00.000Z' }
+    await saveSettings(db, { baseCurrency: 'THB', alerts: [alert] })
+    expect((await getSettings(db)).alerts).toEqual([alert])
+  })
+
   it('defaults to THB and persists changes', async () => {
     expect(await getSettings(db)).toEqual({ baseCurrency: 'THB' })
     await saveSettings(db, { baseCurrency: 'USD', lastBackupAt: '2024-06-01T00:00:00.000Z' })

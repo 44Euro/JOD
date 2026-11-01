@@ -30,7 +30,7 @@ export function newId(): string {
 export async function getSettings(db: JodDB): Promise<Settings> {
   const row = await db.settings.get('app')
   return row
-    ? { baseCurrency: row.baseCurrency, lastBackupAt: row.lastBackupAt, hideNumbersOnLaunch: row.hideNumbersOnLaunch, theme: row.theme, benchmarkSymbol: row.benchmarkSymbol, checklist: row.checklist, goals: row.goals }
+    ? { baseCurrency: row.baseCurrency, lastBackupAt: row.lastBackupAt, hideNumbersOnLaunch: row.hideNumbersOnLaunch, theme: row.theme, benchmarkSymbol: row.benchmarkSymbol, checklist: row.checklist, goals: row.goals, alerts: row.alerts }
     : DEFAULT_SETTINGS
 }
 

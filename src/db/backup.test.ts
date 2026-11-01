@@ -184,6 +184,14 @@ describe('parseBackup', () => {
     expect(() => parseBackup(file({ theme: 'blue' }))).toThrow('การตั้งค่าในไฟล์สำรองไม่ถูกต้อง')
   })
 
+  it('keeps price alerts and rejects a broken one', () => {
+    const file = (setting: unknown) =>
+      JSON.stringify({ app: 'jod', version: 2, exportedAt: '', data: { accounts: [account], instruments: [], settings: [{ key: 'app', baseCurrency: 'THB', ...(setting as object) }], transactions: [] } })
+    const alert = { id: 'a1', instrumentId: 'SET:PTT', direction: 'below', price: '35', createdAt: '2026-11-01T00:00:00.000Z' }
+    expect(parseBackup(file({ alerts: [alert] })).data.settings[0]).toMatchObject({ alerts: [alert] })
+    expect(() => parseBackup(file({ alerts: [{ ...alert, direction: 'sideways' }] }))).toThrow('การตั้งค่าในไฟล์สำรองไม่ถูกต้อง')
+  })
+
   it('keeps goals and rejects a broken one', () => {
     const file = (setting: unknown) =>
       JSON.stringify({ app: 'jod', version: 2, exportedAt: '', data: { accounts: [account], instruments: [], settings: [{ key: 'app', baseCurrency: 'THB', ...(setting as object) }], transactions: [] } })

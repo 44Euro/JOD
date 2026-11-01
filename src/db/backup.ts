@@ -86,6 +86,20 @@ function isValidGoal(goal: unknown): boolean {
   )
 }
 
+function isValidAlert(alert: unknown): boolean {
+  if (typeof alert !== 'object' || alert === null) return false
+  const a = alert as Record<string, unknown>
+  return (
+    typeof a.id === 'string' &&
+    typeof a.instrumentId === 'string' &&
+    a.instrumentId.includes(':') &&
+    (a.direction === 'above' || a.direction === 'below') &&
+    typeof a.price === 'string' &&
+    isDecimalString(a.price) &&
+    (a.firedAt === undefined || typeof a.firedAt === 'string')
+  )
+}
+
 export function parseBackup(text: string): BackupFile {
   let parsed: unknown
   try {
@@ -124,6 +138,7 @@ export function parseBackup(text: string): BackupFile {
       (row?.theme !== undefined && !THEME_CHOICES.includes(row.theme)) ||
       (row?.checklist !== undefined && !(Array.isArray(row.checklist) && row.checklist.every((item) => typeof item === 'string'))) ||
       (row?.goals !== undefined && !(Array.isArray(row.goals) && row.goals.every(isValidGoal))) ||
+      (row?.alerts !== undefined && !(Array.isArray(row.alerts) && row.alerts.every(isValidAlert))) ||
       (row?.benchmarkSymbol !== undefined && (typeof row.benchmarkSymbol !== 'string' || !/^[A-Z0-9.^-]{1,12}$/.test(row.benchmarkSymbol)))
     ) {
       throw new BackupError(t('การตั้งค่าในไฟล์สำรองไม่ถูกต้อง'))

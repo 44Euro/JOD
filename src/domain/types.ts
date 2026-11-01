@@ -232,6 +232,17 @@ export interface Settings {
   // The user's own pre-trade checklist, offered when a buy is recorded.
   checklist?: string[]
   goals?: Goal[]
+  alerts?: PriceAlert[]
+}
+
+// A one-shot price alert on any asset, held or not: it fires once the price is at or past the target.
+export interface PriceAlert {
+  id: string
+  instrumentId: string
+  direction: 'above' | 'below'
+  price: string
+  createdAt: string
+  firedAt?: string
 }
 
 // A saving goal: an amount in the base currency by a date, counting all accounts or only those listed.
