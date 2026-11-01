@@ -33,6 +33,12 @@ describe('privacy and problem reports', () => {
     expect(screen.getByText(/ไปขอราคา กราฟ งบจาก SEC และข่าวของหุ้นตัวนั้น/)).toBeInTheDocument()
   })
 
+  it('says the big-money data is public filings the server reads for everyone', async () => {
+    renderRoute('/privacy')
+    expect(await screen.findByText('เงินใหญ่')).toBeInTheDocument()
+    expect(screen.getByText(/อ่านรายงานสาธารณะของ SEC และสภาผู้แทนฯ สหรัฐ/)).toBeInTheDocument()
+  })
+
   it('says which symbols news asks about and that the calendar is filtered on the device', async () => {
     renderRoute('/privacy')
     expect(await screen.findByText('ข่าวและปฏิทินงบ')).toBeInTheDocument()
