@@ -2,6 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '../../db/db'
+import { saveSettings } from '../../db/repo'
 import { todayLocal, tradingWeek } from '../../domain/dates'
 import { marketClient } from '../../market/client'
 import { renderRoute, resetDb } from '../../test/render'
@@ -44,6 +45,28 @@ describe('MarketPage', () => {
     const watchlist = screen.getByRole('heading', { name: 'ติดตาม (watchlist)' })
     expect(news.compareDocumentPosition(big) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(big.compareDocumentPosition(watchlist) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('lists the price alerts in จับตา and deletes one', async () => {
+    await saveSettings(db, {
+      baseCurrency: 'THB',
+      alerts: [
+        { id: 'a1', instrumentId: 'SET:PTT', direction: 'below', price: '35', createdAt: '2026-11-01T00:00:00.000Z' },
+        { id: 'a2', instrumentId: 'US:NVDA', direction: 'above', price: '200', createdAt: '2026-11-01T00:00:00.000Z', firedAt: '2026-11-02T00:00:00.000Z' },
+      ],
+    })
+    const user = userEvent.setup()
+    renderRoute('/market')
+    const list = await screen.findByRole('list', { name: 'แจ้งเตือนราคา' })
+    expect(within(list).getAllByRole('listitem').map((li) => li.getAttribute('aria-label'))).toEqual(['PTT ต่ำกว่า 35.00'])
+    await user.click(within(list).getByRole('button', { name: 'ลบแจ้งเตือน PTT ต่ำกว่า 35.00' }))
+    await waitFor(async () => expect((await db.settings.get('app'))?.alerts?.map((a) => a.id)).toEqual(['a2']))
+  })
+
+  it('opens the stock page alert form from a watched symbol', async () => {
+    await db.watchlist.add({ id: 'w1', market: 'US', symbol: 'MSFT', note: '', createdAt: '2026-11-01T00:00:00.000Z' })
+    renderRoute('/market')
+    expect(await screen.findByRole('link', { name: 'ตั้งแจ้งเตือน MSFT' })).toHaveAttribute('href', '/assets/US%3AMSFT?alert=1')
   })
 
   it('opens under its own title on a navy band', async () => {

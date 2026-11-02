@@ -1,9 +1,11 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Trash2, X } from 'lucide-react'
+import { Bell, Trash2, X } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
+import { Link } from 'react-router'
 import { Alert } from '../../components/ui/alert'
 import { Badge } from '../../components/ui/badge'
 import { Button } from '../../components/ui/button'
+import { buttonVariants } from '../../components/ui/button-variants'
 import { Card } from '../../components/ui/card'
 import { Field } from '../../components/ui/field'
 import { Input, NativeSelect } from '../../components/ui/input'
@@ -14,6 +16,8 @@ import { instrumentKey, MARKETS, type Market } from '../../domain/types'
 import { fmtPrice } from '../format'
 import type { AppData } from '../hooks'
 import { MARKET_LABELS } from '../labels'
+import { assetPath } from '../nav'
+import { AlertList } from './Alerts'
 import { MarketPill } from './MarketPill'
 import { t } from '../../i18n'
 
@@ -55,9 +59,18 @@ export function WatchlistCard({ data }: { data: AppData }) {
                   <b className="font-display">{item.symbol}</b>
                   {reached && <Badge variant="ok">{t('ถึงราคาที่อยากซื้อ')}</Badge>}
                 </span>
-                <Button type="button" variant="ghost" size="icon" aria-label={t('เลิกติดตาม {0}', item.symbol)} onClick={() => void deleteWatchItem(db, item.id)}>
-                  <Trash2 aria-hidden />
-                </Button>
+                <span className="flex items-center">
+                  <Link
+                    to={`${assetPath(instrumentKey(item.market, item.symbol))}?alert=1`}
+                    aria-label={t('ตั้งแจ้งเตือน {0}', item.symbol)}
+                    className={buttonVariants({ variant: 'ghost', size: 'icon' })}
+                  >
+                    <Bell aria-hidden />
+                  </Link>
+                  <Button type="button" variant="ghost" size="icon" aria-label={t('เลิกติดตาม {0}', item.symbol)} onClick={() => void deleteWatchItem(db, item.id)}>
+                    <Trash2 aria-hidden />
+                  </Button>
+                </span>
                 <span className="col-span-2 text-[13px] text-muted-foreground">
                   {[price && t('ล่าสุด {0}', fmtPrice(price)), item.buyBelow && t('อยากซื้อต่ำกว่า {0}', fmtPrice(item.buyBelow)), item.note].filter(Boolean).join(' · ') ||
                     t('ยังไม่มีราคา')}
@@ -66,6 +79,12 @@ export function WatchlistCard({ data }: { data: AppData }) {
             )
           })}
         </ul>
+      )}
+      {(data.settings.alerts ?? []).some((a) => !a.firedAt) && (
+        <div className="border-t pt-3">
+          <h3 className="mb-1 text-[13.5px] font-semibold text-muted-foreground">{t('แจ้งเตือนราคา')}</h3>
+          <AlertList alerts={data.settings.alerts ?? []} settings={data.settings} />
+        </div>
       )}
       <form onSubmit={(e) => void add(e)} className="grid gap-3 border-t pt-4 sm:grid-cols-3">
         <Field id="watch-market" label={t('ตลาด')}>

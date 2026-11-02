@@ -1,4 +1,5 @@
-import { Link } from 'react-router'
+import { useRef, type MouseEvent } from 'react'
+import { Link, useNavigate } from 'react-router'
 import { cn } from '../../lib/cn'
 import { fmtDate, fmtNumber, fmtPrice, fmtSignedPct } from '../format'
 import type { HoldingsBoardRow } from '../holdingsBoard'
@@ -7,9 +8,42 @@ import { assetPath } from '../nav'
 import { MarketPill } from './MarketPill'
 import { t } from '../../i18n'
 
+const LONG_PRESS_MS = 500
+
+// Holding a row (or right-clicking it) opens the asset's alert form; the tap that ends a long press does not also
+// follow the link.
+function useLongPress(open: (id: string) => void) {
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const held = useRef(false)
+  const stop = () => clearTimeout(timer.current)
+  return (id: string) => ({
+    onPointerDown: () => {
+      held.current = false
+      stop()
+      timer.current = setTimeout(() => {
+        held.current = true
+        open(id)
+      }, LONG_PRESS_MS)
+    },
+    onPointerUp: stop,
+    onPointerLeave: stop,
+    onPointerCancel: stop,
+    onContextMenu: (e: MouseEvent) => {
+      e.preventDefault()
+      stop()
+      open(id)
+    },
+    onClick: (e: MouseEvent) => {
+      if (held.current) e.preventDefault()
+    },
+  })
+}
+
 // The morning look at what is held: one row per asset, its price and how far it moved since the price before it.
 export function HoldingsBoard({ rows, today }: { rows: readonly HoldingsBoardRow[]; today: string }) {
   const compared = rows.find((row) => row.comparedWithDay)?.comparedWithDay
+  const navigate = useNavigate()
+  const press = useLongPress((id) => navigate(`${assetPath(id)}?alert=1`))
   const sources = [...new Set(rows.flatMap((row) => (row.source ? [row.source] : [])))]
   return (
     <section aria-labelledby="holdings-board-title" className="rounded-[18px] bg-board p-4 text-[#e8eef8] md:rounded-[20px] md:px-[26px] md:py-[22px]">
@@ -26,7 +60,8 @@ export function HoldingsBoard({ rows, today }: { rows: readonly HoldingsBoardRow
           <li key={row.instrumentId} className="border-t border-board-line first:border-t-0">
             <Link
               to={assetPath(row.instrumentId)}
-              className="-mx-2 grid min-h-14 grid-cols-[minmax(0,1fr)_auto_5.5rem] items-center gap-x-3 rounded-xl px-2 py-2.5 hover:bg-board-line/60 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-board-mine/50"
+              {...press(row.instrumentId)}
+              className="-mx-2 grid select-none [-webkit-touch-callout:none] min-h-14 grid-cols-[minmax(0,1fr)_auto_5.5rem] items-center gap-x-3 rounded-xl px-2 py-2.5 hover:bg-board-line/60 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-board-mine/50"
             >
               <span className="min-w-0">
                 <span className="flex items-center gap-2">

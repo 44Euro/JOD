@@ -757,6 +757,33 @@ describe('AssetPage', () => {
     })
   })
 
+  describe('price alerts', () => {
+    it('sets an alert from the bell and lists it there', async () => {
+      const user = userEvent.setup({ advanceTimers: (ms) => vi.advanceTimersByTime(ms) })
+      renderRoute('/assets/US%3ANVDA', usd)
+      await user.click(await screen.findByRole('button', { name: 'แจ้งเตือนราคา' }))
+      const form = screen.getByRole('form', { name: 'ตั้งแจ้งเตือนราคา NVDA' })
+      await user.click(within(form).getByRole('button', { name: 'สูงกว่า' }))
+      await user.type(within(form).getByLabelText('ราคา'), '200')
+      await user.click(within(form).getByRole('button', { name: 'ตั้งแจ้งเตือน' }))
+      await waitFor(async () => expect((await db.settings.get('app'))?.alerts?.map((a) => [a.instrumentId, a.direction, a.price])).toEqual([['US:NVDA', 'above', '200']]))
+      expect(await screen.findByRole('listitem', { name: 'NVDA สูงกว่า 200.00' })).toBeInTheDocument()
+    })
+
+    it('refuses an alert without a price', async () => {
+      const user = userEvent.setup({ advanceTimers: (ms) => vi.advanceTimersByTime(ms) })
+      renderRoute('/assets/US%3ANVDA', usd)
+      await user.click(await screen.findByRole('button', { name: 'แจ้งเตือนราคา' }))
+      await user.click(screen.getByRole('button', { name: 'ตั้งแจ้งเตือน' }))
+      expect(screen.getByRole('alert')).toHaveTextContent('ใส่ราคาที่มากกว่า 0')
+    })
+
+    it('opens the alert form straight away when asked in the address', async () => {
+      renderRoute('/assets/US%3ANVDA?alert=1', usd)
+      expect(await screen.findByRole('form', { name: 'ตั้งแจ้งเตือนราคา NVDA' })).toBeInTheDocument()
+    })
+  })
+
   describe('an asset the app does not know', () => {
     const nvidia = { id: 'US:NVDA', name: 'NVIDIA Corporation', exchange: 'NasdaqGS', assetType: 'stock' as const, currency: 'USD', points: [] }
 

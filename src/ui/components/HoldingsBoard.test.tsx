@@ -1,6 +1,6 @@
-import { render, screen, within } from '@testing-library/react'
-import { MemoryRouter } from 'react-router'
-import { describe, expect, it } from 'vitest'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router'
+import { describe, expect, it, vi } from 'vitest'
 import { D } from '../../domain/decimal'
 import type { HoldingsBoardRow } from '../holdingsBoard'
 import { assetPath } from '../nav'
@@ -69,4 +69,26 @@ describe('HoldingsBoard', () => {
     expect(within(board).getByRole('link', { name: /PTT/ })).toHaveTextContent('1 ต.ค. 2026')
     expect(within(board).getByRole('link', { name: /NVDA/ })).not.toHaveTextContent('26 ต.ค.')
   })
+
+  it('opens the alert form of a row held down, and follows a plain tap as before', () => {
+    vi.useFakeTimers()
+    function Where() {
+      const location = useLocation()
+      return <p>{`at ${location.pathname}${location.search}`}</p>
+    }
+    render(
+      <MemoryRouter>
+        <Routes>
+          <Route path="/" element={<HoldingsBoard rows={[nvda]} today="2026-10-27" />} />
+          <Route path="*" element={<Where />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    const row = screen.getByRole('link', { name: /NVDA/ })
+    fireEvent.pointerDown(row)
+    act(() => vi.advanceTimersByTime(600))
+    expect(screen.getByText(`at ${assetPath('US:NVDA')}?alert=1`)).toBeInTheDocument()
+    vi.useRealTimers()
+  })
 })
+

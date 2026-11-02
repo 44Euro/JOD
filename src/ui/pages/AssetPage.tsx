@@ -1,7 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ChevronLeft, Copy, Pencil, Plus, Star } from 'lucide-react'
+import { Bell, ChevronLeft, Copy, Pencil, Plus, Star } from 'lucide-react'
 import { useState } from 'react'
-import { Link, useParams } from 'react-router'
+import { Link, useParams, useSearchParams } from 'react-router'
 import { Badge } from '../../components/ui/badge'
 import { Button } from '../../components/ui/button'
 import { buttonVariants } from '../../components/ui/button-variants'
@@ -19,6 +19,7 @@ import { MarketError, marketClient, type Financials } from '../../market/client'
 import { MoneyRoute } from '../components/MoneyRoute'
 import { RateCell } from '../components/RateCell'
 import { RenameInstrument } from '../components/RenameInstrument'
+import { AlertForm, AlertList } from '../components/Alerts'
 import { StockBigMoney } from '../components/BigMoney'
 import { MarketCard } from '../components/MarketCard'
 import { NEWS_SOURCE, NewsBody } from '../components/NewsList'
@@ -68,6 +69,9 @@ export function AssetPage() {
   // The history table is cut off beside the sidebar on a tablet, so rows are used until 1024px.
   const isDesktop = useIsDesktop(1024)
   const [renamingId, setRenamingId] = useState<string>()
+  const [searchParams] = useSearchParams()
+  // A long press on the held-price board, or the watchlist's bell, opens the page with its alert form showing.
+  const [alertingId, setAlertingId] = useState(searchParams.get('alert') === '1' ? id : undefined)
   const [idMarket, idSymbol = ''] = id.split(':')
   const market = MARKETS.find((m) => m === idMarket)
   // The JOD server prices and charts US and Thai shares; other markets show what the app has stored.
@@ -190,6 +194,19 @@ export function AssetPage() {
               <span className="max-md:sr-only">{t('เปลี่ยนชื่อ/สัญลักษณ์')}</span>
             </Button>
           )}
+          {market && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="aria-expanded:bg-muted max-md:w-11 max-md:px-0"
+              aria-expanded={alertingId === id}
+              onClick={() => setAlertingId(alertingId === id ? undefined : id)}
+            >
+              <Bell aria-hidden />
+              <span className="max-md:sr-only">{t('แจ้งเตือนราคา')}</span>
+            </Button>
+          )}
           <Button type="button" variant="outline" size="sm" className="max-md:w-11 max-md:px-0" aria-pressed={watchItem !== undefined} onClick={() => void toggleWatch()}>
             <Star aria-hidden className={cn(watchItem && 'fill-current text-primary')} />
             <span className="max-md:sr-only">{t('จับตา')}</span>
@@ -211,6 +228,13 @@ export function AssetPage() {
       />
 
       {instrument && renamingId === id && <RenameInstrument instrument={instrument} onClose={() => setRenamingId(undefined)} />}
+
+      {market && alertingId === id && (
+        <Card className="grid gap-3">
+          <AlertForm instrumentId={id} settings={data.settings} />
+          <AlertList alerts={(data.settings.alerts ?? []).filter((a) => a.instrumentId === id)} settings={data.settings} label={t('แจ้งเตือนของ {0}', symbol)} />
+        </Card>
+      )}
 
       <SectionChips key={id} sections={sections} />
 
