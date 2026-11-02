@@ -232,6 +232,7 @@ export const EN: Record<string, string> = {
   "คริปโต": "Crypto",
   "คาดการณ์": "Expected",
   "คาดจากปันผลที่ได้รับใน 12 เดือนที่ผ่านมา × จำนวนหุ้นที่ถืออยู่ · หลังหักภาษี · ยอดเงินบาทใช้เรทตอนได้รับครั้งก่อน": "Expected from the dividends of the past 12 months × the units held now · after tax · baht amounts use the rate of the last payment",
+  "คำถามนี้ต้องค้นข้อมูลหลายรอบเกินไป ลองถามให้แคบลง": "This question needs too many lookups. Try asking something narrower.",
   "คำนวณจากตัวเลขที่คุณใส่ ไม่ใช่คำแนะนำการลงทุน": "Worked out from the numbers you enter; not investment advice",
   "ค้นล่าสุด": "Recent",
   "ค้นหาจากเซิร์ฟเวอร์ไม่ได้ตอนนี้": "The server search cannot be reached right now",
