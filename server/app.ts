@@ -2,6 +2,8 @@ import { createHash, randomBytes, scrypt, timingSafeEqual } from 'node:crypto'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { promisify } from 'node:util'
 import { createMarket, type Market } from './market.ts'
+import type { Push } from './push.ts'
+import type { PushAlert } from './store.ts'
 import { RECORD_KINDS, type IncomingRecord, type SealedKeys, type Store, type User } from './store.ts'
 
 const scryptAsync = promisify(scrypt) as (password: string, salt: string, length: number) => Promise<Buffer>
@@ -28,6 +30,8 @@ export interface AppOptions {
   appUrl?: string
   sendMail?: (to: string, subject: string, text: string) => Promise<void>
   market?: Market
+  // Price-alert pushes; absent until a Firebase service account is configured.
+  push?: Push
 }
 
 // Until a mail service is set up the email goes to the server log, which is enough on a developer's machine.
@@ -62,7 +66,7 @@ async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> 
 
 // The server never sees the password or the data: the app sends a key derived from the password for signing in, and
 // each record sealed on the device with a key the server never gets.
-export function createApp({ store, origin = '*', appUrl = 'http://localhost:5173', sendMail = logMail, market = createMarket() }: AppOptions) {
+export function createApp({ store, origin = '*', appUrl = 'http://localhost:5173', sendMail = logMail, market = createMarket(), push }: AppOptions) {
   const attempts = new Map<string, { count: number; resetAt: number }>()
 
   function limited(ip: string) {
@@ -119,6 +123,22 @@ export function createApp({ store, origin = '*', appUrl = 'http://localhost:5173
       if (!kind || typeof record.id !== 'string' || record.id === '' || record.id.length > 200) throw new HttpError(400, 'bad records')
       if (record.sealed !== null && typeof record.sealed !== 'string') throw new HttpError(400, 'bad records')
       return { kind, id: record.id, sealed: record.sealed }
+    })
+  }
+
+  function pushAlerts(value: unknown): PushAlert[] {
+    if (!Array.isArray(value) || value.length > 100) throw new HttpError(400, 'bad alerts')
+    return value.map((item) => {
+      const a = item as Record<string, unknown>
+      const ok =
+        typeof a.id === 'string' &&
+        typeof a.instrumentId === 'string' &&
+        /^[A-Z]{2,6}:[A-Z0-9.&-]{1,20}$/.test(a.instrumentId) &&
+        (a.direction === 'above' || a.direction === 'below') &&
+        typeof a.price === 'string' &&
+        /^\d+(\.\d+)?$/.test(a.price)
+      if (!ok) throw new HttpError(400, 'bad alerts')
+      return { id: a.id as string, instrumentId: a.instrumentId as string, direction: a.direction as PushAlert['direction'], price: a.price as string }
     })
   }
 
@@ -297,6 +317,23 @@ export function createApp({ store, origin = '*', appUrl = 'http://localhost:5173
           throw new HttpError(502, 'market source failed')
         })
         return { status: 200, body: { bigMoney } }
+      }
+      // Only for a device whose person opted in; the opt-in screen says the server learns each alert's symbol and price.
+      case 'POST /api/push/register': {
+        const { userId } = await userOf(req)
+        if (!push) throw new HttpError(503, 'push not set')
+        const body = await readJson(req)
+        const token = typeof body.token === 'string' ? body.token : ''
+        if (!token || token.length > 4096 || (body.platform !== 'ios' && body.platform !== 'android')) throw new HttpError(400, 'bad device')
+        await push.register(userId, { token, platform: body.platform, alerts: pushAlerts(body.alerts) })
+        return { status: 204, body: null }
+      }
+      case 'DELETE /api/push/register': {
+        const { userId } = await userOf(req)
+        if (!push) throw new HttpError(503, 'push not set')
+        const token = String((await readJson(req)).token ?? '')
+        await push.unregister(userId, token)
+        return { status: 204, body: null }
       }
       case 'DELETE /api/account': {
         const { userId } = await userOf(req)

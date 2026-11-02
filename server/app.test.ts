@@ -4,6 +4,7 @@ import type { AddressInfo } from 'node:net'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createApp } from './app.ts'
 import type { Market } from './market.ts'
+import { createPush } from './push.ts'
 import type { Store } from './store.ts'
 import { createTestStore } from './testStore.ts'
 
@@ -64,7 +65,8 @@ beforeEach(async () => {
   newsReady = true
   financialsReady = true
   const sendMail = async (to: string, _subject: string, text: string) => void mails.push({ to, text })
-  server = createServer(createApp({ store, sendMail, appUrl: 'https://jod.test', market }))
+  const push = createPush({ store, market, send: async () => {} })
+  server = createServer(createApp({ store, sendMail, appUrl: 'https://jod.test', market, push }))
   await new Promise<void>((resolve) => server.listen(0, resolve))
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
 })
@@ -242,4 +244,28 @@ describe('sync server', () => {
     searchFails = true
     expect((await call('GET', '/api/market/bigmoney', undefined, body.token)).status).toBe(502)
   })
+
+  it('keeps the alerts of a device that opts in to pushes, and forgets them when it opts out', async () => {
+    const alert = { id: 'a1', instrumentId: 'SET:PTT', direction: 'below', price: '35' }
+    expect((await call('POST', '/api/push/register', { token: 'tok-1', platform: 'ios', alerts: [alert] })).status).toBe(401)
+    const { body } = await call('POST', '/api/signup', { email: 'a@x.io', loginKey: key('a') })
+    expect((await call('POST', '/api/push/register', { token: 'tok-1', platform: 'ios', alerts: [alert] }, body.token)).status).toBe(204)
+    expect((await store.pushDevices()).map((d) => [d.token, d.platform, d.alerts])).toEqual([['tok-1', 'ios', [alert]]])
+    expect((await call('POST', '/api/push/register', { token: 'tok-1', platform: 'web', alerts: [] }, body.token)).status).toBe(400)
+    expect((await call('POST', '/api/push/register', { token: 'tok-1', platform: 'ios', alerts: [{ ...alert, price: 'x' }] }, body.token)).status).toBe(400)
+    expect((await call('DELETE', '/api/push/register', { token: 'tok-1' }, body.token)).status).toBe(204)
+    expect(await store.pushDevices()).toEqual([])
+  })
+
+  it('says pushes are not switched on with 503 when the server has no Firebase account', async () => {
+    const plain = createServer(createApp({ store, market }))
+    await new Promise<void>((resolve) => plain.listen(0, resolve))
+    const plainBase = `http://127.0.0.1:${(plain.address() as AddressInfo).port}`
+    const { body } = await call('POST', '/api/signup', { email: 'a@x.io', loginKey: key('a') })
+    const res = await fetch(`${plainBase}/api/push/register`, { method: 'POST', headers: { authorization: `Bearer ${body.token}`, 'content-type': 'application/json' }, body: JSON.stringify({ token: 't', platform: 'ios', alerts: [] }) })
+    expect(res.status).toBe(503)
+    expect(await store.pushDevices()).toEqual([])
+    await new Promise<void>((resolve) => plain.close(() => resolve()))
+  })
 })
+

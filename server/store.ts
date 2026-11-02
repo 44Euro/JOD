@@ -31,6 +31,21 @@ export interface StoredRecord {
   change: number
 }
 
+// One alert a device asked the server to watch, as the opt-in sends it.
+export interface PushAlert {
+  id: string
+  instrumentId: string
+  direction: 'above' | 'below'
+  price: string
+}
+
+export interface PushDevice {
+  token: string
+  userId: string
+  platform: string
+  alerts: PushAlert[]
+}
+
 export interface IncomingRecord {
   kind: RecordKind
   id: string
@@ -161,4 +176,22 @@ export class Store {
   async removeRecords(userId: string): Promise<void> {
     await this.db.syncRecord.deleteMany({ where: { userId } })
   }
+
+  // A device has one registration, whoever signed in on it last.
+  async putPushDevice(device: PushDevice): Promise<void> {
+    const { token, userId, platform } = device
+    // Prisma's JSON input type has no room for a typed interface; the alerts are plain JSON already.
+    const alerts = device.alerts as unknown as object[]
+    await this.db.pushDevice.upsert({ where: { token }, create: { token, userId, platform, alerts }, update: { userId, platform, alerts } })
+  }
+
+  async removePushDevice(userId: string, token: string): Promise<void> {
+    await this.db.pushDevice.deleteMany({ where: { userId, token } })
+  }
+
+  async pushDevices(): Promise<PushDevice[]> {
+    const rows = await this.db.pushDevice.findMany({ orderBy: { token: 'asc' } })
+    return rows.map((row) => ({ token: row.token, userId: row.userId, platform: row.platform, alerts: row.alerts as unknown as PushAlert[] }))
+  }
 }
+

@@ -24,8 +24,9 @@ model User {
   changeCount       Int      @default(0) @map("change_count")
   createdAt         DateTime @default(now()) @map("created_at")
 
-  sessions Session[]
-  records  SyncRecord[]
+  sessions    Session[]
+  records     SyncRecord[]
+  pushDevices PushDevice[]
 
   @@map("users")
 }
@@ -78,3 +79,18 @@ model SyncRecord {
   @@index([userId, change])
   @@map("sync_records")
 }
+
+// A phone that opted in to price-alert pushes: its push token and the alerts it asked to be watched. Unlike the sealed
+// records, the symbol and target price of each alert are readable here, which the opt-in tells the person.
+model PushDevice {
+  token     String   @id
+  userId    String   @map("user_id") @db.Uuid
+  platform  String
+  alerts    Json
+  updatedAt DateTime @updatedAt @map("updated_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_devices")
+}
+
