@@ -39,6 +39,12 @@ describe('privacy and problem reports', () => {
     expect(screen.getByText(/อ่านรายงานสาธารณะของ SEC และสภาผู้แทนฯ สหรัฐ/)).toBeInTheDocument()
   })
 
+  it('says what price alerts keep and what an opted-in push tells the server', async () => {
+    renderRoute('/privacy')
+    expect(await screen.findByText('แจ้งเตือนราคา')).toBeInTheDocument()
+    expect(screen.getByText(/ถ้าเปิด push ในแอปมือถือ เซิร์ฟเวอร์จะเก็บสัญลักษณ์และราคาของแจ้งเตือนแต่ละรายการ/)).toBeInTheDocument()
+  })
+
   it('says which symbols news asks about and that the calendar is filtered on the device', async () => {
     renderRoute('/privacy')
     expect(await screen.findByText('ข่าวและปฏิทินงบ')).toBeInTheDocument()
