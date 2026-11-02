@@ -18,6 +18,7 @@ import { AiKeyCard } from '../components/AiKeyCard'
 import { ErrorReportCard } from '../components/ErrorReportCard'
 import { LockCard } from '../components/LockCard'
 import { PriceSourcesCard } from '../components/PriceSourcesCard'
+import { PushCard } from '../components/PushCard'
 import { SyncCard } from '../components/SyncCard'
 import { DataSection } from '../components/DataSection'
 import { PageHeader } from '../components/PageHeader'
@@ -182,6 +183,8 @@ export function SettingsPage() {
           <AiKeyCard />
 
           <PriceSourcesCard settings={data.settings} />
+
+          <PushCard alerts={data.settings.alerts ?? []} />
 
           <Card className="grid gap-3">
             <h2 className="text-lg font-semibold">{t('ภาษา · Language')}</h2>

@@ -6,6 +6,7 @@ import { AutoPriceUpdater } from './AutoPriceUpdater'
 import { AutoSync } from './AutoSync'
 import { DailyValueRecorder } from './DailyValueRecorder'
 import { GlobalSearch } from './GlobalSearch'
+import { PushAlertSync } from './components/PushCard'
 import {
   HOME,
   MARKET,
@@ -97,6 +98,7 @@ function Shell() {
       <AutoSync />
       <ThemeSync />
       <GlobalSearch />
+      <PushAlertSync />
       <aside className="sticky top-0 hidden h-dvh print:hidden flex-col gap-0.5 overflow-y-auto border-r bg-card px-4 py-[26px] md:flex">
         <p className="shrink-0 px-2 font-display text-[30px] font-semibold leading-none">
           JOD
