@@ -1,4 +1,4 @@
-import { SEARCH_RECENT_STORAGE_KEY, writeLocal } from '../ai/apiKey'
+import { CHAT_HISTORY_STORAGE_KEY, SEARCH_RECENT_STORAGE_KEY, writeLocal } from '../ai/apiKey'
 import { db } from '../db/db'
 import { t } from '../i18n'
 import { clearLock } from '../security/lock'
@@ -140,4 +140,5 @@ async function clearDevice() {
   clearPending()
   clearLock()
   writeLocal(SEARCH_RECENT_STORAGE_KEY, '')
+  writeLocal(CHAT_HISTORY_STORAGE_KEY, '')
 }

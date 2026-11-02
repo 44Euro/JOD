@@ -3,7 +3,7 @@ import type { AddressInfo } from 'node:net'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createApp } from '../../server/app.ts'
 import { createTestStore } from '../../server/testStore.ts'
-import { SEARCH_RECENT_STORAGE_KEY, readLocal, writeLocal } from '../ai/apiKey'
+import { CHAT_HISTORY_STORAGE_KEY, SEARCH_RECENT_STORAGE_KEY, readLocal, writeLocal } from '../ai/apiKey'
 import { db } from '../db/db'
 import { resetDb } from '../test/render'
 import { createSyncClient } from './client'
@@ -62,12 +62,14 @@ describe('accounts and password reset', () => {
     expect(readSync()!.recoveryCode).toBeUndefined()
   })
 
-  it('forgets the recent searches when signing out, so the next person does not see them', async () => {
+  it('forgets the recent searches and the chat when signing out, so the next person does not see them', async () => {
     await signIn('signup', 'a@x.io', 'first password')
     confirmRecoverySaved()
     writeLocal(SEARCH_RECENT_STORAGE_KEY, JSON.stringify([{ market: 'US', symbol: 'NVDA', name: 'NVIDIA', assetType: 'stock' }]))
+    writeLocal(CHAT_HISTORY_STORAGE_KEY, JSON.stringify([{ role: 'user', text: 'พอร์ตฉันเป็นไง' }]))
     expect(await signOut()).toBe('done')
     expect(readLocal(SEARCH_RECENT_STORAGE_KEY)).toBe('')
+    expect(readLocal(CHAT_HISTORY_STORAGE_KEY)).toBe('')
   })
 
   it('opens the same data on a second device with the password alone', async () => {

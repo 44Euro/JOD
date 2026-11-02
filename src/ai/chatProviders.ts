@@ -1,3 +1,4 @@
+import { createContext } from 'react'
 import { sseData, type ChatModel, type ChatSession } from './chat'
 import { failure, post, type ProviderSettings } from './otherReaders'
 import { AiError, type ReaderMode } from './reader'
@@ -160,3 +161,5 @@ export function createChatModel(mode: ReaderMode, settings: ProviderSettings): C
       return createOpenAiChat({ ...settings, baseUrl: undefined })
   }
 }
+
+export const ChatModelContext = createContext<(mode: ReaderMode, settings: ProviderSettings) => ChatModel>(createChatModel)
