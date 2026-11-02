@@ -14,7 +14,7 @@ export interface ProviderSettings {
 
 const ASK = 'Read every holding or transaction in these files.'
 
-function failure(status: number, provider: string): AiError {
+export function failure(status: number, provider: string): AiError {
   if (status === 401 || status === 403) return new AiError(t('API key ของ {0} ไม่ถูกต้องหรือไม่มีสิทธิ์ ตรวจในหน้าตั้งค่า', provider))
   if (status === 404) return new AiError(t('{0} ไม่รู้จักรุ่นที่ตั้งไว้ ตรวจชื่อรุ่นในหน้าตั้งค่า', provider))
   if (status === 429) return new AiError(t('{0} จำกัดจำนวนครั้งหรือเครดิตหมด รอสักครู่แล้วลองใหม่', provider))
@@ -22,7 +22,7 @@ function failure(status: number, provider: string): AiError {
   return new AiError(t('บริการ {0} ไม่ว่างตอนนี้ ลองใหม่อีกครั้ง', provider))
 }
 
-async function post(fetchFn: typeof fetch, url: string, headers: Record<string, string>, body: unknown, signal?: AbortSignal): Promise<Response> {
+export async function post(fetchFn: typeof fetch, url: string, headers: Record<string, string>, body: unknown, signal?: AbortSignal): Promise<Response> {
   try {
     return await fetchFn(url, { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify(body), signal })
   } catch {

@@ -18,7 +18,7 @@ function messageFor(error: unknown): string {
 }
 
 // The SDK's errors become the app's own here, so the pages can explain them without loading the SDK.
-async function translated<T>(call: () => Promise<T>): Promise<T> {
+export async function translated<T>(call: () => Promise<T>): Promise<T> {
   try {
     return await call()
   } catch (error) {
@@ -28,7 +28,7 @@ async function translated<T>(call: () => Promise<T>): Promise<T> {
   }
 }
 
-function contentFor(file: PreparedFile): Anthropic.ContentBlockParam {
+export function contentFor(file: PreparedFile): Anthropic.ContentBlockParam {
   if (file.kind === 'image') return { type: 'image', source: { type: 'base64', media_type: file.mediaType, data: file.data } }
   if (file.kind === 'pdf') return { type: 'document', title: file.name, source: { type: 'base64', media_type: 'application/pdf', data: file.data } }
   return { type: 'document', title: file.name, source: { type: 'text', media_type: 'text/plain', data: file.data } }

@@ -2,10 +2,12 @@ import type { PreparedFile } from './files'
 import { AiError } from './reader'
 import { t } from '../i18n'
 
+export type ChatImage = Extract<PreparedFile, { kind: 'image' }>
+
 export interface ChatMessage {
   role: 'user' | 'assistant'
   text: string
-  image?: PreparedFile
+  image?: ChatImage
 }
 
 export interface ToolCall {
