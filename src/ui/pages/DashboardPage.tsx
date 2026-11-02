@@ -15,6 +15,7 @@ import { PortfolioHistoryCard } from '../components/HistoryCards'
 import { HoldingsTable } from '../components/HoldingsTable'
 import { MiniRoute, MoneyRoute } from '../components/MoneyRoute'
 import { PageHeader } from '../components/PageHeader'
+import { AlertStrip } from '../components/Alerts'
 import { HoldingsBoard } from '../components/HoldingsBoard'
 import { MorningNews } from '../components/MorningNews'
 import { Stat, SummaryPanel } from '../components/Summary'
@@ -132,6 +133,8 @@ export function DashboardPage() {
       {topNotices.map((notice) => (
         <NoticeAlert key={notice.id} notice={notice} />
       ))}
+
+      <AlertStrip settings={data.settings} instruments={data.instruments} />
 
       <div
         className={cn(

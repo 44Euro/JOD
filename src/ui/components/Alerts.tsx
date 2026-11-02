@@ -7,10 +7,12 @@ import { Input } from '../../components/ui/input'
 import { Segmented } from '../../components/ui/segmented'
 import { db } from '../../db/db'
 import { newId, saveSettings } from '../../db/repo'
-import { validateAlert } from '../../domain/alerts'
+import { crossedAlerts, validateAlert } from '../../domain/alerts'
 import { parseDecimalInput } from '../../domain/decimal'
-import type { PriceAlert, Settings } from '../../domain/types'
+import type { Instrument, PriceAlert, Settings } from '../../domain/types'
+import { marketClient } from '../../market/client'
 import { fmtPrice } from '../format'
+import { useMarket } from '../useMarket'
 import { t } from '../../i18n'
 
 const DIRECTIONS = [
@@ -83,5 +85,36 @@ export function AlertList({ alerts, settings, label = t('แจ้งเตื�
         </li>
       ))}
     </ul>
+  )
+}
+
+// เช้านี้'s strip: every alert the price has reached, until the person says they have seen it, after which it never
+// fires again. US and Thai prices are asked of the JOD server; anything else, or a failed answer, uses the stored price.
+export function AlertStrip({ settings, instruments }: { settings: Settings; instruments: readonly Instrument[] }) {
+  const active = (settings.alerts ?? []).filter((a) => !a.firedAt)
+  const ids = [...new Set(active.map((a) => a.instrumentId).filter((id) => /^(US|SET):/.test(id)))]
+  const quotes = useMarket(`alert-quotes:${ids.join(',')}`, async () => (ids.length > 0 ? marketClient.quotes(ids) : []))
+  const quoted = new Map(quotes.status === 'ready' ? quotes.data.map((q) => [q.id, q.price]) : [])
+  const stored = new Map(instruments.map((i) => [i.id, i.lastPrice ?? null]))
+  const hits = crossedAlerts(active, (id) => quoted.get(id) ?? stored.get(id) ?? null)
+  if (hits.length === 0) return null
+  const dismiss = (alert: PriceAlert) =>
+    saveAlerts(
+      settings,
+      (settings.alerts ?? []).map((a) => (a.id === alert.id ? { ...a, firedAt: new Date().toISOString() } : a)),
+    )
+  return (
+    <section aria-label={t('ราคาถึงที่ตั้งไว้')} className="grid gap-2">
+      {hits.map(({ alert, price }) => (
+        <Alert key={alert.id}>
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+            <span>{t('{0} แล้ว · ล่าสุด {1}', alertLabel(alert), fmtPrice(price))}</span>
+            <Button type="button" variant="outline" size="sm" aria-label={t('รับทราบ {0}', alertLabel(alert))} onClick={() => void dismiss(alert)}>
+              {t('รับทราบ')}
+            </Button>
+          </div>
+        </Alert>
+      ))}
+    </section>
   )
 }

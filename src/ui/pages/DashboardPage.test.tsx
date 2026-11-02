@@ -123,6 +123,32 @@ describe('DashboardPage', () => {
     expect(await screen.findByText(/ข่าวและปฏิทินงบยังไม่เปิด/)).toBeInTheDocument()
   })
 
+  it('shows a crossed price alert above the board until it is dismissed', async () => {
+    vi.spyOn(marketClient, 'news').mockResolvedValue([])
+    vi.spyOn(marketClient, 'quotes').mockResolvedValue([{ id: 'US:NVDA', price: '205', currency: 'USD', at: '2026-11-02T01:00:00.000Z', previousClose: '200', previousCloseAt: null, source: 'Yahoo' }])
+    await seedDime()
+    await saveSettings(db, {
+      ...(await getSettings(db)),
+      alerts: [
+        { id: 'a1', instrumentId: 'US:NVDA', direction: 'above', price: '200', createdAt: '2026-11-01T00:00:00.000Z' },
+        { id: 'a2', instrumentId: 'US:AAPL', direction: 'below', price: '130', createdAt: '2026-11-01T00:00:00.000Z' },
+        { id: 'a3', instrumentId: 'US:AAPL', direction: 'below', price: '100', createdAt: '2026-11-01T00:00:00.000Z' },
+      ],
+    })
+    const user = userEvent.setup()
+    renderRoute('/', usd())
+    const strip = await screen.findByRole('region', { name: 'ราคาถึงที่ตั้งไว้' })
+    expect(await within(strip).findByText(/NVDA สูงกว่า 200.00 แล้ว · ล่าสุด 205.00/)).toBeInTheDocument()
+    // AAPL is stored at 120 and no live quote came for it, so the stored price decides.
+    expect(within(strip).getByText(/AAPL ต่ำกว่า 130.00 แล้ว · ล่าสุด 120.00/)).toBeInTheDocument()
+    expect(strip).not.toHaveTextContent('100.00')
+    const board = screen.getByRole('region', { name: 'ราคาที่ถืออยู่' })
+    expect(strip.compareDocumentPosition(board) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    await user.click(within(strip).getByRole('button', { name: 'รับทราบ NVDA สูงกว่า 200.00' }))
+    await waitFor(async () => expect((await getSettings(db)).alerts?.find((a) => a.id === 'a1')?.firedAt).toBeTruthy())
+    expect(within(strip).queryByText(/NVDA/)).not.toBeInTheDocument()
+  })
+
   it('keeps the currency board off the home page', async () => {
     setToday(2024, 6, 1)
     await seedDime()
