@@ -45,6 +45,13 @@ describe('privacy and problem reports', () => {
     expect(screen.getByText(/ถ้าเปิด push ในแอปมือถือ เซิร์ฟเวอร์จะเก็บสัญลักษณ์และราคาของแจ้งเตือนแต่ละรายการ/)).toBeInTheDocument()
   })
 
+  it('says the chat sends the question and the figures the AI asks for straight to the chosen provider', async () => {
+    renderRoute('/privacy')
+    expect(await screen.findByText('ถาม JOD')).toBeInTheDocument()
+    expect(screen.getByText(/ถูกส่งตรงไปยังผู้ให้บริการ AI ที่คุณเลือก ด้วย API key ของคุณ ไม่ผ่านเซิร์ฟเวอร์ JOD/)).toBeInTheDocument()
+    expect(screen.getByText(/ประวัติแชตอยู่ในเครื่องนี้เท่านั้น/)).toBeInTheDocument()
+  })
+
   it('says which symbols news asks about and that the calendar is filtered on the device', async () => {
     renderRoute('/privacy')
     expect(await screen.findByText('ข่าวและปฏิทินงบ')).toBeInTheDocument()
