@@ -1,6 +1,6 @@
 import { ArrowUp, Plus, Square, Trash2, X } from 'lucide-react'
 import { useContext, useEffect, useId, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
-import { CHAT_HISTORY_STORAGE_KEY, providerReady, readLocal, useProviderSettings, useReaderMode, writeLocal } from '../../ai/apiKey'
+import { CHAT_HISTORY_STORAGE_KEY, chatReady, readLocal, useProviderSettings, useReaderMode, writeLocal } from '../../ai/apiKey'
 import { ask, type ChatImage, type ChatMessage } from '../../ai/chat'
 import { ChatModelContext } from '../../ai/chatProviders'
 import { FileError, prepareFile } from '../../ai/files'
@@ -72,10 +72,17 @@ export function ChatOrb() {
   const mode = useReaderMode()
   const settings = useProviderSettings(mode)
   const [open, setOpen] = useState(false)
-  if (mode === 'local' || !providerReady(mode, settings)) return null
+  const orb = useRef<HTMLButtonElement>(null)
+  if (!chatReady(mode, settings)) return null
+  // The orb takes the focus back itself: a cleanup in the sheet would also run on React's development remount.
+  const close = () => {
+    setOpen(false)
+    orb.current?.focus()
+  }
   return (
     <>
       <button
+        ref={orb}
         type="button"
         aria-label={t('ถาม JOD')}
         aria-haspopup="dialog"
@@ -84,7 +91,7 @@ export function ChatOrb() {
       >
         <RouteMark />
       </button>
-      {open && <ChatSheet provider={providerName(mode, settings)} mode={mode} settings={settings} onClose={() => setOpen(false)} />}
+      {open && <ChatSheet provider={providerName(mode, settings)} mode={mode} settings={settings} onClose={close} />}
     </>
   )
 }
@@ -109,16 +116,14 @@ function ChatSheet({ provider, mode, settings, onClose }: { provider: string; mo
   const [error, setError] = useState('')
   const running = useRef<AbortController | null>(null)
   const log = useRef<HTMLOListElement>(null)
-  // Read while rendering, before the composer's autoFocus moves the focus into the sheet.
-  const [opener] = useState(() => document.activeElement)
 
-  useEffect(
-    () => () => {
-      running.current?.abort()
-      ;(opener as HTMLElement | null)?.focus?.()
-    },
-    [opener],
-  )
+  useEffect(() => () => running.current?.abort(), [])
+  // Escape closes the sheet wherever the focus is, including after a click on the text left it on the page.
+  useEffect(() => {
+    const onKey = (event: globalThis.KeyboardEvent) => event.key === 'Escape' && onClose()
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
   useEffect(() => {
     log.current?.lastElementChild?.scrollIntoView?.({ block: 'end' })
   }, [history, pending])
@@ -208,13 +213,12 @@ function ChatSheet({ provider, mode, settings, onClose }: { provider: string; mo
         role="dialog"
         aria-modal="true"
         aria-labelledby={`${id}-title`}
-        onKeyDown={(e) => e.key === 'Escape' && onClose()}
         className="flex h-[88dvh] w-full flex-col rounded-t-[28px] bg-board pb-[max(env(safe-area-inset-bottom),12px)] text-white shadow-[0_-12px_40px_-12px_rgb(11_31_58/0.6)] md:h-[min(720px,calc(100dvh-64px))] md:max-w-[440px] md:rounded-[20px] md:pb-0 md:shadow-[0_24px_56px_-20px_rgb(11_31_58/0.6)]"
       >
         <div className="mx-auto mt-2.5 h-1 w-10 rounded-full bg-board-line md:hidden" aria-hidden />
         <div className="flex items-start gap-1 border-b border-board-line py-3 pr-3 pl-5">
           <div className="min-w-0 flex-1 pt-1">
-            <h2 id={`${id}-title`} className="truncate text-[17px] font-semibold">
+            <h2 id={`${id}-title`} className="truncate text-lg font-semibold">
               {t('ถาม JOD · {0}', provider)}
             </h2>
             <p className="text-[12.5px] text-board-muted">{t('ใช้ key ของคุณ · ประวัติเก็บในเครื่องนี้เท่านั้น')}</p>
@@ -260,20 +264,20 @@ function ChatSheet({ provider, mode, settings, onClose }: { provider: string; mo
             )}
           </ol>
           {error && (
-            <p role="alert" className="mt-4 text-[14px] text-board-loss">
+            <p role="alert" className="mt-4 text-[15px] text-board-loss">
               {error}
             </p>
           )}
         </div>
 
         {suggestions.length > 0 && (
-          <div role="group" aria-label={t('คำถามแนะนำ')} className="flex gap-2 overflow-x-auto px-4 pb-3 [scrollbar-width:none]">
+          <div role="group" aria-label={t('คำถามแนะนำ')} className="flex flex-wrap gap-2 px-4 pb-3">
             {suggestions.map((s) => (
               <button
                 key={s}
                 type="button"
                 onClick={() => void send(s)}
-                className="shrink-0 rounded-full border border-board-line px-3.5 py-2 text-[13.5px] text-board-mine transition-colors hover:bg-board-line focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-board-mine/60"
+                className="rounded-full border border-board-line px-3.5 py-2 text-left text-[13px] text-board-mine transition-colors hover:bg-board-line focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-board-mine/60"
               >
                 {s}
               </button>
@@ -282,7 +286,7 @@ function ChatSheet({ provider, mode, settings, onClose }: { provider: string; mo
         )}
 
         {image && (
-          <div className="flex items-center gap-2 px-4 pb-2 text-[13px] text-board-mine">
+          <div className="flex items-center gap-2 px-4 pb-2 text-[12.5px] text-board-mine">
             <img src={image.previewUrl} alt="" className="size-8 rounded-md object-cover" />
             <span className="min-w-0 truncate">{image.name}</span>
             <button type="button" aria-label={t('เอารูปออก')} className={cn(ICON_BUTTON, 'size-8')} onClick={() => setImage(null)}>
@@ -327,7 +331,7 @@ function ChatSheet({ provider, mode, settings, onClose }: { provider: string; mo
             </button>
           )}
         </form>
-        <p className="px-5 pt-2 pb-1 text-[11.5px] text-board-muted md:pb-3">{t('คำถามและตัวเลขที่ AI ขอดูส่งไปที่ {0} โดยตรง ไม่ผ่านเซิร์ฟเวอร์ JOD', provider)}</p>
+        <p className="px-5 pt-2 pb-1 text-[12px] text-board-muted md:pb-3">{t('คำถามและตัวเลขที่ AI ขอดูส่งไปที่ {0} โดยตรง ไม่ผ่านเซิร์ฟเวอร์ JOD', provider)}</p>
       </div>
     </div>
   )

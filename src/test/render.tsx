@@ -1,4 +1,5 @@
 import { render } from '@testing-library/react'
+import { StrictMode } from 'react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import type { ChatModel } from '../ai/chat'
 import { ChatModelContext } from '../ai/chatProviders'
@@ -16,17 +17,19 @@ const offlineReader: AiReader = {
 
 const offlineChat: ChatModel = () => ({ next: () => Promise.reject(new Error('no AI in tests')), give: () => {} })
 
-export function renderRoute(path: string, provider: FxProvider = fakeFxProvider({}).provider, reader: AiReader = offlineReader, chat: ChatModel = offlineChat) {
+// strict renders as the app does in development, where React runs each effect's cleanup once right after mounting.
+export function renderRoute(path: string, provider: FxProvider = fakeFxProvider({}).provider, reader: AiReader = offlineReader, chat: ChatModel = offlineChat, strict = false) {
   const router = createMemoryRouter(routes, { initialEntries: [path] })
-  render(
+  const tree = (
     <FxProviderContext.Provider value={provider}>
       <AiReaderContext.Provider value={() => reader}>
         <ChatModelContext.Provider value={() => chat}>
           <RouterProvider router={router} />
         </ChatModelContext.Provider>
       </AiReaderContext.Provider>
-    </FxProviderContext.Provider>,
+    </FxProviderContext.Provider>
   )
+  render(strict ? <StrictMode>{tree}</StrictMode> : tree)
   return router
 }
 

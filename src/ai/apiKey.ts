@@ -118,3 +118,13 @@ export function providerReady(mode: ReaderMode, settings: ProviderSettings): boo
   if (mode === 'compatible') return Boolean(settings.baseUrl && settings.model)
   return Boolean(settings.apiKey && settings.model)
 }
+
+// ถาม JOD can be offered once a provider other than reading on the device has what it needs.
+export function chatReady(mode: ReaderMode, settings: ProviderSettings): boolean {
+  return mode !== 'local' && providerReady(mode, settings)
+}
+
+export function useChatReady(): boolean {
+  const mode = useReaderMode()
+  return chatReady(mode, useProviderSettings(mode))
+}

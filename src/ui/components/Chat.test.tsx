@@ -108,6 +108,24 @@ describe('ถาม JOD', () => {
     expect(within(sheet).queryByRole('group', { name: 'คำถามแนะนำ' })).not.toBeInTheDocument()
   })
 
+  it('puts the focus in the question box on opening, as the app renders in development', async () => {
+    useClaude()
+    renderRoute('/', fakeFxProvider({}).provider, undefined, scripted([]).model, true)
+    await user().click(await screen.findByRole('button', { name: 'ถาม JOD' }))
+    const sheet = await screen.findByRole('dialog', { name: 'ถาม JOD · Claude (Anthropic)' })
+    expect(within(sheet).getByRole('textbox', { name: 'คำถาม' })).toHaveFocus()
+  })
+
+  it('closes on Escape after a click on the text has left the focus outside the box', async () => {
+    useClaude()
+    const { u, sheet } = await openChat(scripted([]).model)
+    await u.click(within(sheet).getByText(/ถามเรื่องพอร์ต ปันผล/))
+    ;(document.activeElement as HTMLElement | null)?.blur()
+    await u.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(screen.getByRole('button', { name: 'ถาม JOD' })).toHaveFocus()
+  })
+
   it('keeps the conversation on this device across reopening until it is cleared', async () => {
     useClaude()
     const { model, seen } = scripted([{ text: 'สวัสดี' }, { text: 'PTT 30 บาท' }])
