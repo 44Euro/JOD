@@ -364,7 +364,7 @@ export function patchRow(row: ReviewRow, patch: Partial<ReviewRow>, ctx: ReviewC
     next.fxRate = ''
     next.fxSource = 'auto'
   }
-  if ('quantity' in patch && next.kind === 'opening' && next.value) next.price = averageOf(next.amount, next.quantity)
+  if ('quantity' in patch && next.kind === 'opening' && next.value && positive(next.amount)) next.price = averageOf(next.amount, next.quantity)
   const touched = Object.keys(patch) as (keyof ReviewRow)[]
   next.uncertain = next.uncertain.filter((field) => !touched.includes(field))
   if (touched.some((f) => f !== 'include')) next.duplicate = findDuplicate(next, ctx)

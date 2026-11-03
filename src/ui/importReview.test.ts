@@ -190,6 +190,11 @@ describe('patchRow', () => {
     const [listed] = toReviewRows(extraction([raw({ symbol: 'TSM', quantity: null, price: null, value: '118.8', amount: '119.43' })]), ctx)
     expect(patchRow(listed, { quantity: '0.2980326' }, ctx).price).toBe('400.727974')
   })
+
+  it('keeps a typed average cost when the picture gave no total cost', () => {
+    const [listed] = toReviewRows(extraction([raw({ symbol: 'TSM', quantity: null, price: null, value: '118.8', amount: null })]), ctx)
+    expect(patchRow({ ...listed, price: '400' }, { quantity: '0.3' }, ctx).price).toBe('400')
+  })
 })
 
 describe('priceUpdates', () => {
