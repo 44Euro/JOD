@@ -54,7 +54,7 @@ export function PriceSourcesCard({ settings }: { settings: Settings }) {
       <div>
         <h2 className="text-lg font-semibold">{t('ราคาอัตโนมัติ')}</h2>
         <p className="text-[12.5px] text-muted-foreground">
-          {t('หุ้น US และหุ้นไทยดึงผ่านเซิร์ฟเวอร์ JOD จาก Yahoo (ช้าราว 15 นาที) · คริปโตจาก CoinGecko · key Finnhub ใช้สำรองเมื่อเซิร์ฟเวอร์ต่อไม่ได้ · กองทุนยังต้องกรอกเองหรืออัปเดตจากรูป · key เก็บในเครื่องนี้เท่านั้น')}
+          {t('หุ้น US และหุ้นไทยดึงจาก Yahoo ผ่านเซิร์ฟเวอร์ JOD ช้าราว 15 นาที คริปโตจาก CoinGecko กองทุนยังต้องกรอกเองหรืออัปเดตจากรูป')}
         </p>
       </div>
       <KeyField id="finnhub-key" label="Finnhub API key" storageKey={FINNHUB_KEY_STORAGE_KEY} hint={t('สำรองสำหรับหุ้นสหรัฐและดัชนีที่ใช้เทียบ')} />
@@ -65,7 +65,7 @@ export function PriceSourcesCard({ settings }: { settings: Settings }) {
             {t('ดึงราคาวันละครั้งเมื่อเปิดแอป')}
           </span>
           <span id="auto-prices-hint" className="block text-[12.5px] text-muted-foreground">
-            {t('แอปจะส่งชื่อสินทรัพย์ที่ถือไปถามราคา ไม่ส่งจำนวนหรือมูลค่า')}
+            {t('ส่งแค่ชื่อสินทรัพย์ที่ถือไปถามราคา ไม่ส่งจำนวนหรือมูลค่า')}
           </span>
         </span>
         <Switch

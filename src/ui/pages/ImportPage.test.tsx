@@ -36,7 +36,7 @@ describe('ImportPage', () => {
   it('reads an export on the device, leaves a repeat unticked and saves the rest as one batch that can be undone', async () => {
     await db.transactions.add(makeTx({ id: 'mine', date: '2024-01-15', quantity: '1' }))
     renderRoute('/import', fx(), local)
-    expect(await screen.findByText(/ไม่มีค่าใช้จ่าย ไฟล์ไม่ออกจากเครื่อง/)).toBeInTheDocument()
+    expect(await screen.findByText(/ไฟล์ไม่ออกจากเครื่อง/)).toBeInTheDocument()
     const user = await upload(orders)
     await user.click(screen.getByRole('button', { name: 'อ่านไฟล์' }))
 

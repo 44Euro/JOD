@@ -258,7 +258,7 @@ export function FxPage() {
       {cashRows.length > 0 && (
         <Section id="fx-cash-title" title={t('เงินสดต่างประเทศ')}>
           {board.length === 0 && caption && <p className="mb-3 text-[13px] text-muted-foreground">{caption}</p>}
-          <p className="mb-3 text-[13px] text-muted-foreground">{t('เฉพาะเงินสดที่ยังถืออยู่ · ไม่รวมส่วนที่ใช้ไปแล้ว')}</p>
+          <p className="mb-3 text-[13px] text-muted-foreground">{t('เฉพาะเงินสดที่ยังถืออยู่')}</p>
           <div role="group" aria-label={t('เงินแต่ละสกุล')} className="mb-4 grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
             {fxWallet(cashRows).map((w) => (
               <div key={w.currency} className="grid gap-0.5 rounded-xl border bg-background px-4 py-3">

@@ -116,7 +116,7 @@ export function WatchlistCard({ data }: { data: AppData }) {
           </Button>
         </div>
       </form>
-      <p className="text-[12px] text-muted-foreground">{t('ราคาล่าสุดขึ้นเมื่อมีสินทรัพย์นี้ในแอปและอัปเดตราคาแล้ว')}</p>
+      <p className="text-[12px] text-muted-foreground">{t('ราคาล่าสุดขึ้นเมื่อสินทรัพย์นี้มีราคาในแอป')}</p>
     </Card>
   )
 }

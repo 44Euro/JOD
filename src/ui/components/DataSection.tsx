@@ -22,8 +22,8 @@ const REMIND_AFTER_DAYS = 7
 
 const STORAGE_LABELS: Record<StorageStatus, string> = {
   persisted: t('เบราว์เซอร์จะไม่ลบข้อมูลนี้เอง'),
-  'not-persisted': t('เบราว์เซอร์อาจลบข้อมูลเมื่อพื้นที่เต็ม · ควรสำรองข้อมูลเป็นประจำ'),
-  unsupported: t('เบราว์เซอร์นี้ไม่รองรับการป้องกันการลบข้อมูล · ควรสำรองข้อมูลเป็นประจำ'),
+  'not-persisted': t('เบราว์เซอร์อาจลบข้อมูลเมื่อพื้นที่เต็ม'),
+  unsupported: t('เบราว์เซอร์นี้กันข้อมูลไม่ให้ถูกลบไม่ได้'),
 }
 
 export function DataSection({ data }: { data: AppData }) {
@@ -121,8 +121,8 @@ export function DataSection({ data }: { data: AppData }) {
   return (
     <Card className="grid gap-3">
       <div>
-        <h2 className="text-lg font-semibold">{t('ข้อมูลของคุณ')}</h2>
-        <p className="text-[12.5px] text-muted-foreground">{t('ข้อมูลทั้งหมดอยู่ในเครื่องนี้เท่านั้น ควรสำรองเป็นไฟล์อย่างสม่ำเสมอ')}</p>
+        <h2 className="text-lg font-semibold">{t('ข้อมูลในเครื่อง')}</h2>
+        <p className="text-[12.5px] text-muted-foreground">{t('สำรองเป็นไฟล์ไว้เป็นระยะ')}</p>
       </div>
       {needsBackup ? (
         <Alert role="note">{lastBackup ? t('สำรองล่าสุด {0} · {1} วันก่อน', fmtDate(lastBackup), age) : t('ยังไม่เคยสำรองข้อมูล')}</Alert>
@@ -158,7 +158,7 @@ export function DataSection({ data }: { data: AppData }) {
         {t('เข้ารหัสไฟล์สำรองด้วยรหัสผ่าน')}
       </label>
       {seal && (
-        <Field id="seal-passphrase" label={t('รหัสผ่านไฟล์สำรอง')} hint={t('อย่างน้อย 8 ตัวอักษร · ลืมรหัสผ่านแล้วเปิดไฟล์ไม่ได้อีก แอปกู้ให้ไม่ได้')}>
+        <Field id="seal-passphrase" label={t('รหัสผ่านไฟล์สำรอง')} hint={t('อย่างน้อย 8 ตัวอักษร ลืมรหัสผ่านแล้วจะเปิดไฟล์นี้ไม่ได้อีก')}>
           <Input id="seal-passphrase" type="password" autoComplete="new-password" value={passphrase} onChange={(e) => setPassphrase(e.target.value)} />
         </Field>
       )}

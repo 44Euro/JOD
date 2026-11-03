@@ -236,7 +236,7 @@ function ChatSheet({ provider, mode, settings, onClose }: { provider: string; mo
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
           {history.length === 0 && !pending && (
             <p className="max-w-[34ch] text-[15px] leading-relaxed text-board-muted">
-              {t('ถามเรื่องพอร์ต ปันผล ข่าว หรือราคาหุ้นได้ JOD จะเปิดตัวเลขในเครื่องให้ AI ดูเท่าที่คำถามต้องใช้')}
+              {t('ถามเรื่องพอร์ต ปันผล ข่าว หรือราคาหุ้นได้')}
             </p>
           )}
           <ol ref={log} aria-label={t('บทสนทนา')} aria-busy={pending !== null} className="grid gap-4">

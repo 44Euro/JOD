@@ -46,7 +46,7 @@ export function MarketNote({ state, offText }: { state: MarketState<unknown>; of
   return <p className="text-[13.5px] text-muted-foreground">{text}</p>
 }
 
-export const NEWS_SOURCE = t('ที่มา Finnhub · เปิดอ่านที่เว็บต้นทาง')
+export const NEWS_SOURCE = t('ที่มา Finnhub')
 
 export function NewsBody({ state, today, limit }: { state: MarketState<readonly NewsItem[]>; today: string; limit?: number }) {
   if (state.status !== 'ready') return <MarketNote state={state} />

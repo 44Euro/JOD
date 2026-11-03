@@ -12,11 +12,11 @@ import { t } from '../../i18n'
 type Status = { tone: 'ok' | 'error'; text: string } | null
 
 const NOTES: Record<ReaderMode, string> = {
-  local: t('ไม่มีค่าใช้จ่าย ไฟล์ไม่ออกจากเครื่อง · CSV อ่านได้ตรงตามไฟล์ ส่วนรูปและ PDF อ่านด้วย OCR ต้องตรวจทุกช่องก่อนบันทึก · ครั้งแรกที่อ่านรูปจะโหลดชุดอ่านภาษาไทยและอังกฤษหนึ่งครั้ง'),
-  claude: t('แม่นกว่ากับรูปแคปและ statement · ใช้ API key ของ Anthropic ของคุณเอง คิดเงินกับบัญชีของคุณ ประมาณ 1–3 บาทต่อรูป · key เก็บไว้ในเครื่องนี้เท่านั้น ไม่อยู่ในไฟล์สำรอง · ขอ key ได้ที่ console.anthropic.com'),
-  openai: t('ใช้ API key ของ OpenAI ของคุณเอง คิดเงินตามราคาของ OpenAI · key เก็บไว้ในเครื่องนี้เท่านั้น · ขอ key ได้ที่ platform.openai.com'),
-  gemini: t('ใช้ API key ของ Google AI Studio ของคุณเอง คิดเงินตามราคาของ Google · key เก็บไว้ในเครื่องนี้เท่านั้น · ขอ key ได้ที่ aistudio.google.com'),
-  compatible: t('บริการใดก็ได้ที่ใช้ API แบบ OpenAI เช่น OpenRouter หรือ Ollama ในเครื่อง · ใส่ที่อยู่ API ชื่อรุ่นที่อ่านรูปได้ และ key ถ้าบริการนั้นต้องใช้'),
+  local: t('ไฟล์ไม่ออกจากเครื่อง รูปและ PDF อ่านด้วย OCR จึงต้องตรวจทุกช่องก่อนบันทึก'),
+  claude: t('อ่านรูปแคปและ statement ได้แม่นกว่า ใช้ key ของ Anthropic คิดเงินกับบัญชีของคุณราว 1–3 บาทต่อรูป ขอ key ได้ที่ console.anthropic.com'),
+  openai: t('ใช้ key ของ OpenAI คิดเงินตามราคาของ OpenAI ขอ key ได้ที่ platform.openai.com'),
+  gemini: t('ใช้ key จาก Google AI Studio คิดเงินตามราคาของ Google ขอ key ได้ที่ aistudio.google.com'),
+  compatible: t('บริการที่ใช้ API แบบ OpenAI เช่น OpenRouter หรือ Ollama ในเครื่อง ใส่ที่อยู่ API กับชื่อรุ่นที่อ่านรูปได้ ส่วน key ใส่เมื่อบริการนั้นต้องใช้'),
 }
 
 function ProviderForm({ mode }: { mode: Exclude<ReaderMode, 'local'> }) {
@@ -56,7 +56,7 @@ function ProviderForm({ mode }: { mode: Exclude<ReaderMode, 'local'> }) {
         </Field>
       )}
       {mode !== 'claude' && (
-        <Field id="ai-model" label={t('ชื่อรุ่น')} hint={t('ต้องเป็นรุ่นที่อ่านรูปได้ · เปลี่ยนตามที่ผู้ให้บริการกำหนด')}>
+        <Field id="ai-model" label={t('ชื่อรุ่น')} hint={t('ต้องเป็นรุ่นที่อ่านรูปได้')}>
           <Input id="ai-model" autoComplete="off" spellCheck={false} value={model} onChange={(e) => setModel(e.target.value)} />
         </Field>
       )}

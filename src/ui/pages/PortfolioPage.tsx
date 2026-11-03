@@ -81,7 +81,7 @@ export function PortfolioPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Segmented label={t('มุมมอง')} options={VIEWS} value={view} onChange={setView} />
         {hasPriceInput && (
-          <span className="text-[13px] text-muted-foreground max-md:hidden">{t('ราคาที่เก่ากว่า 7 วันมีป้ายเตือน · แตะราคาเพื่อแก้')}</span>
+          <span className="text-[13px] text-muted-foreground max-md:hidden">{t('แตะราคาเพื่อแก้')}</span>
         )}
       </div>
 

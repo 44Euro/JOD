@@ -49,7 +49,7 @@ const stubWidth = (px: number) =>
   }))
 const phone = () => stubWidth(0)
 
-const board = () => screen.findByRole('region', { name: 'กระดานเรทของคุณ' })
+const board = () => screen.findByRole('region', { name: 'กระดานเรท' })
 const card = (name: string) => screen.findByRole('region', { name })
 // The sentence is several no-wrap parts, so it is found by the text of the line that holds them.
 const sentence = (scope: HTMLElement, text: string) =>
@@ -109,7 +109,7 @@ describe('FxPage', () => {
       expect([...heads.children].map((cell) => cell.textContent)).toEqual([
         'สกุลที่ถือ',
         'ถืออยู่',
-        'เรทเฉลี่ยของคุณ',
+        'เรทเฉลี่ยที่แลก',
         'เรทวันนี้',
         'ส่วนต่าง',
         'ผลต่อพอร์ต',
@@ -175,7 +175,7 @@ describe('FxPage', () => {
       ])
       renderRoute('/fx', usd())
       const cash = await card('เงินสดต่างประเทศ')
-      expect(screen.queryByRole('region', { name: 'กระดานเรทของคุณ' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('region', { name: 'กระดานเรท' })).not.toBeInTheDocument()
       const line = sentence(cash, 'ค่าเงินทำให้พอร์ตลดลง −1,000 ฿ จากเงินสดที่ถืออยู่')
       expect(line).toHaveClass('text-muted-foreground')
       expect(cash.firstElementChild?.nextElementSibling).toBe(line)
@@ -287,7 +287,7 @@ describe('FxPage', () => {
       await seedFx()
       renderRoute('/fx', usd())
       const cash = await card('เงินสดต่างประเทศ')
-      const hint = within(cash).getByText('เฉพาะเงินสดที่ยังถืออยู่ · ไม่รวมส่วนที่ใช้ไปแล้ว')
+      const hint = within(cash).getByText('เฉพาะเงินสดที่ยังถืออยู่')
       expect(hint).toHaveClass('text-muted-foreground')
       expect(hint.previousElementSibling).toContainElement(within(cash).getByRole('heading', { name: 'เงินสดต่างประเทศ' }))
     })

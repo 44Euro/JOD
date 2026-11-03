@@ -106,7 +106,7 @@ export function WelcomePage() {
         </p>
         <Stations steps={STEPS} step={step} />
         <p className="text-[12.5px] text-muted-foreground">
-          {t('ข้อมูลเก็บในเครื่องนี้และซิงก์แบบเข้ารหัส ไม่มีตัวติดตาม ·')}{' '}
+          {t('ข้อมูลเก็บในเครื่องนี้และซิงก์แบบเข้ารหัส ไม่มีตัวติดตาม')}{' '}
           <Link to="/privacy" className="font-semibold text-primary-ink underline underline-offset-[3px]">
             {t('นโยบายความเป็นส่วนตัว')}
           </Link>
@@ -140,7 +140,7 @@ export function WelcomePage() {
           <Card className="grid gap-4">
             <div>
               <h1 className="text-[26px] font-semibold md:text-[28px]">{t('เพิ่มบัญชีแรก')}</h1>
-              <p className="mt-1 text-muted-foreground">{t('เลือกโบรกเกอร์ที่ใช้อยู่ แอปจะตั้งสกุลเงินและค่าธรรมเนียมเริ่มต้นให้ แก้ได้ทีหลัง')}</p>
+              <p className="mt-1 text-muted-foreground">{t('เลือกโบรกเกอร์ที่ใช้อยู่ สกุลเงินและค่าธรรมเนียมเริ่มต้นจะตั้งตามโบรก แก้ทีหลังได้')}</p>
             </div>
             <div role="group" aria-label={t('โบรกเกอร์')} className="grid grid-cols-2 gap-2.5 sm:grid-cols-[repeat(auto-fill,minmax(130px,1fr))]">
               {BROKER_PRESETS.map((preset) => (

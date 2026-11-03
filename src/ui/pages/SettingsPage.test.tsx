@@ -226,7 +226,7 @@ describe('SettingsPage', () => {
     renderRoute('/settings')
     const picker = await screen.findByLabelText('ใช้อ่านด้วย')
     expect(picker).toHaveValue('local')
-    expect(screen.getByText(/ไม่มีค่าใช้จ่าย ไฟล์ไม่ออกจากเครื่อง/)).toBeInTheDocument()
+    expect(screen.getByText(/ไฟล์ไม่ออกจากเครื่อง/)).toBeInTheDocument()
     expect(screen.queryByLabelText('API key')).not.toBeInTheDocument()
     await user.selectOptions(picker, 'claude')
     expect(localStorage.getItem(READER_MODE_STORAGE_KEY)).toBe('claude')

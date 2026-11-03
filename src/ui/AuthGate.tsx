@@ -44,7 +44,7 @@ function RecoveryCodeScreen({ code }: { code: string }) {
       <div className="grid gap-1">
         <h1 className="text-[26px] leading-tight font-semibold">{t('จดรหัสกู้คืนเก็บไว้')}</h1>
         <p className="text-sm text-muted-foreground">
-          {t('ถ้าลืมรหัสผ่านและไม่มีเครื่องไหนเข้าแอปอยู่ รหัสนี้คือทางเดียวที่จะเปิดข้อมูลเดิมได้ แอปจะไม่แสดงรหัสนี้อีก')}
+          {t('ถ้าลืมรหัสผ่านและไม่มีเครื่องไหนเข้าแอปอยู่ ต้องใช้รหัสนี้เปิดข้อมูลเดิม และรหัสนี้จะไม่แสดงอีก')}
         </p>
       </div>
       <div className="grid gap-3 rounded-2xl border bg-card p-5">
@@ -235,7 +235,7 @@ function SignInScreen({ initialMode = 'login', onForgot }: { initialMode?: 'logi
             onChange={(e) => setEmail(e.target.value)}
           />
         </Field>
-        <Field id="auth-password" label={t('รหัสผ่าน')} hint={signup ? t('อย่างน้อย 10 ตัวอักษร · ใช้เข้ารหัสข้อมูลของคุณ ลืมแล้วตั้งใหม่ทางอีเมลได้') : undefined}>
+        <Field id="auth-password" label={t('รหัสผ่าน')} hint={signup ? t('อย่างน้อย 10 ตัวอักษร ใช้เข้ารหัสข้อมูล ลืมแล้วตั้งใหม่ทางอีเมลได้') : undefined}>
           <IconInput
             id="auth-password"
             icon={LockKeyhole}

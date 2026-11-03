@@ -83,7 +83,7 @@ export function TaxPage() {
             <Line label={t('เงินที่โอนกลับเข้าไทย ปีภาษี {0}', year + 543)} note={t('จากรายการถอนที่ติ๊ก โอนกลับเข้าไทย')} value={money(remitted)} />
           </dl>
           <p className="mt-2 text-[12px] text-muted-foreground">
-            {t('เงินได้จากต่างประเทศที่เกิดตั้งแต่ปี 2567 ต้องนำมารวมคำนวณภาษีในปีที่นำเข้าไทย · แอปไม่รู้ว่าเงินที่โอนกลับเป็นเงินต้นหรือกำไรเท่าไหร่ ตรวจกับหลักฐานของคุณ')}
+            {t('เงินได้จากต่างประเทศที่เกิดตั้งแต่ปี 2567 ต้องนำมารวมคำนวณภาษีในปีที่นำเข้าไทย ยอดนี้ไม่ได้แยกว่าเงินที่โอนกลับเป็นเงินต้นหรือกำไรเท่าไร ตรวจกับหลักฐานการโอน')}
           </p>
         </Card>
 
@@ -140,7 +140,7 @@ export function TaxPage() {
               ))}
             </ul>
           )}
-          <p className="text-[12px] text-muted-foreground">{t('นับแบบซื้อก่อนขายก่อนตามที่ บลจ. ใช้ · RMF ต้องถือถึงอายุ 55 ปีด้วย แอปไม่รู้อายุของคุณ')}</p>
+          <p className="text-[12px] text-muted-foreground">{t('นับแบบซื้อก่อนขายก่อนตามที่ บลจ. ใช้ RMF ต้องถือถึงอายุ 55 ปีด้วย ซึ่งไม่ได้นับในนี้')}</p>
           {fundInstruments.length > 0 && (
             <details className="text-sm">
               <summary className="min-h-11 cursor-pointer py-2 font-semibold text-primary-ink">{t('กำหนดประเภทกองทุนเอง')}</summary>

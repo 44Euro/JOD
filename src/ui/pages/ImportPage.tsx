@@ -237,7 +237,7 @@ export function ImportPage() {
             >
               <ImagePlus className="size-6 text-ink-2" aria-hidden />
               <span className="font-semibold">{t('ใส่รูปแคป, PDF หรือ CSV')}</span>
-              <span className="text-[12.5px] text-muted-foreground">{t('ใส่ได้หลายไฟล์ · ใส่รูปแล้วครอปหรือปิดเลขบัญชีได้ · Excel ให้บันทึกเป็น CSV ก่อน')}</span>
+              <span className="text-[12.5px] text-muted-foreground">{t('ใส่ได้หลายไฟล์ ครอปหรือปิดเลขบัญชีในรูปได้ ไฟล์ Excel ให้บันทึกเป็น CSV ก่อน')}</span>
             </button>
             {files.length > 0 && (
               <ul className="grid gap-2 sm:grid-cols-2" aria-label={t('ไฟล์ที่จะอ่าน')}>
@@ -274,7 +274,7 @@ export function ImportPage() {
             {t('อ่านด้วย: ')}<b className="text-ink-2">{READER_MODE_LABELS[mode]}</b>
             {' · '}
             {mode === 'local'
-              ? t('ไม่มีค่าใช้จ่าย ไฟล์ไม่ออกจากเครื่อง')
+              ? t('ไฟล์ไม่ออกจากเครื่อง')
               : t('ไฟล์จะถูกส่งไปให้ {0} อ่าน{1}', READER_MODE_LABELS[mode], cost ? t(' · {0} ไฟล์ ≈ {1} {2}', files.length, cost, base === 'THB' ? 'บาท' : base) : '')}
             {' · '}
             <Link to="/settings" className="font-semibold text-primary-ink underline underline-offset-[3px]">

@@ -175,7 +175,7 @@ export function GoalsCard({ data }: { data: AppData }) {
       )}
       {adding && <GoalForm data={data} onDone={() => setAdding(false)} />}
       {goals.length === 0 && !adding && (
-        <p className="text-[15px] text-ink-2">{t('ตั้งเป้า เช่น เงินดาวน์ ฿1,000,000 ภายในปี 2028 แล้ว JOD จะบอกว่าต้องออมเดือนละเท่าไร')}</p>
+        <p className="text-[15px] text-ink-2">{t('ตั้งเป้า เช่น เงินดาวน์ ฿1,000,000 ภายในปี 2028 แล้วดูว่าต้องออมเดือนละเท่าไร')}</p>
       )}
       {body}
     </Card>

@@ -157,7 +157,7 @@ describe('DashboardPage', () => {
     await seedDime()
     renderRoute('/', usd())
     await screen.findByRole('region', { name: 'ราคาที่ถืออยู่' })
-    expect(screen.queryByRole('region', { name: 'กระดานเรทของคุณ' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'กระดานเรท' })).not.toBeInTheDocument()
   })
 
   it('shows an empty board with a record button when nothing is held', async () => {

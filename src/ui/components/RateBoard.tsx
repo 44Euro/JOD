@@ -40,7 +40,7 @@ export function RateBoard({ rows, base, caption = t('เรทเฉลี่ย
     >
       <div className="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <h2 id="rate-board-title" className="text-lg font-semibold text-white">
-          {t('กระดานเรทของคุณ')}
+          {t('กระดานเรท')}
         </h2>
         <p className="text-[12.5px] text-board-muted">{caption}</p>
       </div>
@@ -49,7 +49,7 @@ export function RateBoard({ rows, base, caption = t('เรทเฉลี่ย
           <div aria-hidden className={cn('hidden gap-2 pt-1.5 pb-2 text-xs text-board-muted', layout.head)}>
             <span>{t('สกุลที่ถือ')}</span>
             <span>{t('ถืออยู่')}</span>
-            <span>{t('เรทเฉลี่ยของคุณ')}</span>
+            <span>{t('เรทเฉลี่ยที่แลก')}</span>
             <span>{t('เรทวันนี้')}</span>
             <span>{t('ส่วนต่าง')}</span>
             <span>{t('ผลต่อพอร์ต')}</span>

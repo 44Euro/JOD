@@ -87,7 +87,7 @@ function TargetsCard({ data }: { data: AppData }) {
       <Field
         id="rebalance-cash"
         label={t('เงินที่จะเติมเข้าพอร์ต ({0})', base)}
-        hint={t('ไม่บังคับ · ใส่แล้วแอปบอกว่าควรซื้ออะไรเท่าไหร่โดยไม่ต้องขาย')}
+        hint={t('ไม่บังคับ ใส่แล้วจะเห็นว่าควรซื้ออะไรเท่าไรโดยไม่ต้องขาย')}
         className="sm:max-w-xs"
       >
         <Input id="rebalance-cash" inputMode="decimal" value={cash} onChange={(e) => setCash(e.target.value)} />
@@ -125,7 +125,7 @@ function TargetsCard({ data }: { data: AppData }) {
         <Alert>{t('เป้าหมายรวมกันได้ ')}{fmtPct(plan.targetSum, 1)} {t(' ส่วนที่เหลือเป็นของตัวที่ไม่ได้ตั้งเป้า')}</Alert>
       )}
       <p className="text-[12px] text-muted-foreground">
-        {t('ใส่ % ที่ต้องการในช่องของแต่ละตัว · มูลค่าคิดจากราคาล่าสุดที่บันทึกไว้ อัปเดตราคาก่อนเพื่อให้ตัวเลขตรง')}
+        {t('มูลค่าคิดจากราคาล่าสุดที่บันทึกไว้ อัปเดตราคาก่อนเพื่อให้ตัวเลขตรง')}
       </p>
     </Card>
   )
@@ -280,7 +280,7 @@ function PlansCard({ data }: { data: AppData }) {
         </div>
       </form>
       <p className="text-[12px] text-muted-foreground">
-        {t('แอปนับจากรายการซื้อที่บันทึกในบัญชีและสกุลเดียวกับแผน รวมค่าธรรมเนียม · ซื้อถึง 99% ของยอดนับว่าครบงวด')}
+        {t('นับจากรายการซื้อในบัญชีและสกุลเดียวกับแผน รวมค่าธรรมเนียม ซื้อถึง 99% ของยอดถือว่าครบงวด')}
       </p>
     </Card>
   )
