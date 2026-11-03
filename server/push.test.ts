@@ -2,7 +2,7 @@
 import { createPublicKey, createVerify, generateKeyPairSync } from 'node:crypto'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Market, MarketQuote } from './market.ts'
-import { createFcmSender, createPush, type PushAlert } from './push.ts'
+import { createFcmSender, createPush, serviceAccountJson, type PushAlert } from './push.ts'
 import type { Store } from './store.ts'
 import { createTestStore } from './testStore.ts'
 
@@ -37,6 +37,21 @@ describe('price alert pushes', () => {
     expect((await store.pushDevices()).map((d) => d.alerts.map((a) => a.id))).toEqual([['a3']])
     await push().unregister(userId, 'tok-1')
     expect(await store.pushDevices()).toEqual([])
+  })
+})
+
+describe('serviceAccountJson', () => {
+  it('takes the JSON as it is, as hosting secrets hold it', () => {
+    expect(serviceAccountJson(' {"project_id":"jod"} ', () => 'unused')).toBe('{"project_id":"jod"}')
+  })
+
+  it('reads the key file a path points at, which a .env file can hold where the JSON itself breaks', () => {
+    const read: string[] = []
+    const json = serviceAccountJson('/keys/jod-firebase.json', (path) => {
+      read.push(path)
+      return '{"project_id":"jod"}\n'
+    })
+    expect([json, read]).toEqual(['{"project_id":"jod"}\n', ['/keys/jod-firebase.json']])
   })
 })
 

@@ -2,7 +2,7 @@ import { createServer } from 'node:http'
 import { PrismaPg } from '@prisma/adapter-pg'
 import { createApp } from './app.ts'
 import { createMarket } from './market.ts'
-import { createFcmSender, createPush } from './push.ts'
+import { createFcmSender, createPush, serviceAccountJson } from './push.ts'
 import { PrismaClient } from './generated/prisma/client.ts'
 import { Store } from './store.ts'
 
@@ -16,10 +16,10 @@ const market = createMarket({ finnhubKey: process.env.FINNHUB_API_KEY, secUserAg
 const warmUp = () => void market.warmUp().catch((error: unknown) => console.error('market warm-up failed', error))
 warmUp()
 setInterval(warmUp, 24 * 3_600_000).unref()
-// Price-alert pushes stay off until a Firebase service account (JSON) is set; the push_devices table comes from
+// Price-alert pushes stay off until a Firebase service account (its JSON or the path of its key file) is set; the push_devices table comes from
 // `npm run db:migrate`.
 const firebase = process.env.FIREBASE_SERVICE_ACCOUNT
-const push = firebase ? createPush({ store, market, send: createFcmSender(firebase) }) : undefined
+const push = firebase ? createPush({ store, market, send: createFcmSender(serviceAccountJson(firebase)) }) : undefined
 if (push) setInterval(() => void push.check().catch((error: unknown) => console.error('push check failed', error)), 15 * 60_000).unref()
 createServer(createApp({ store, origin: process.env.ALLOW_ORIGIN ?? '*', appUrl: process.env.APP_URL, market, push })).listen(port, () => {
   console.log(`JOD sync server on http://localhost:${port}`)

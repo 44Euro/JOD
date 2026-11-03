@@ -1,10 +1,18 @@
 import { createSign } from 'node:crypto'
+import { readFileSync } from 'node:fs'
 import type { Market } from './market.ts'
 import type { PushAlert, Store } from './store.ts'
 
 export type { PushAlert }
 
 export type SendPush = (token: string, title: string, body: string) => Promise<void>
+
+// FIREBASE_SERVICE_ACCOUNT holds the key's JSON (as a hosting secret) or the path of the key file: Node's .env reader
+// turns the \n escapes in the private key into line breaks, so in a .env file only the path survives.
+export function serviceAccountJson(value: string, readFile: (path: string) => string = (path) => readFileSync(path, 'utf8')): string {
+  const trimmed = value.trim()
+  return trimmed.startsWith('{') ? trimmed : readFile(trimmed)
+}
 
 const DIRECTION = { above: 'สูงกว่า', below: 'ต่ำกว่า' }
 
