@@ -146,7 +146,10 @@ describe('DashboardPage', () => {
     expect(strip.compareDocumentPosition(board) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     await user.click(within(strip).getByRole('button', { name: 'รับทราบ NVDA สูงกว่า 200.00' }))
     await waitFor(async () => expect((await getSettings(db)).alerts?.find((a) => a.id === 'a1')?.firedAt).toBeTruthy())
-    expect(within(strip).queryByText(/NVDA/)).not.toBeInTheDocument()
+    // The screen redraws a moment after the save, so the strip is awaited, not checked at once.
+    const shown = () => screen.getByRole('region', { name: 'ราคาถึงที่ตั้งไว้' })
+    await waitFor(() => expect(within(shown()).queryByText(/NVDA/)).not.toBeInTheDocument())
+    expect(shown()).toHaveTextContent('AAPL ต่ำกว่า 130.00')
   })
 
   it('keeps the currency board off the home page', async () => {
