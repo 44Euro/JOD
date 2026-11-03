@@ -15,6 +15,7 @@ import { Segmented } from '../../components/ui/segmented'
 import { db } from '../../db/db'
 import { todayLocal } from '../../domain/dates'
 import { peekCachedQuote } from '../../fx/fxService'
+import { marketClient } from '../../market/client'
 import { ComparePanel, PriceReviewPanel } from '../components/import/CheckPanels'
 import { ImageEditor } from '../components/import/ImageEditor'
 import { ImportHistory } from '../components/import/ImportHistory'
@@ -22,7 +23,7 @@ import { ImportReviewPanel } from '../components/import/ImportReviewPanel'
 import { PageHeader } from '../components/PageHeader'
 import { Stations } from '../components/Stations'
 import { useAppData } from '../hooks'
-import { toReviewRows, type ReviewRow } from '../importReview'
+import { fillFromPrices, pricedIds, toReviewRows, type ReviewRow } from '../importReview'
 import { READER_MODE_LABELS } from '../labels'
 import { NEW_TRANSACTION } from '../nav'
 import { t } from '../../i18n'
@@ -61,6 +62,16 @@ function FileChip({ file, edited, onEdit, onRemove }: { file: PreparedFile; edit
       </Button>
     </li>
   )
+}
+
+const QUOTES_PER_ASK = 50
+
+// Null when the market cannot be asked (not signed in, offline), so nothing is called unknown for want of an answer.
+async function marketQuotes(ids: string[], signal: AbortSignal) {
+  if (!marketClient.ready() || ids.length === 0) return null
+  const asks = []
+  for (let i = 0; i < ids.length; i += QUOTES_PER_ASK) asks.push(marketClient.quotes(ids.slice(i, i + QUOTES_PER_ASK), signal))
+  return Promise.all(asks).then((parts) => parts.flat(), () => null)
 }
 
 export function ImportPage() {
@@ -149,7 +160,10 @@ export function ImportPage() {
     setPhase({ name: 'reading' })
     try {
       const extraction = await readerFor(mode, settings).read(files, todayLocal(), controller.signal)
-      setPhase({ name: 'review', extraction, rows: toReviewRows(extraction, ctx) })
+      const rows = toReviewRows(extraction, ctx)
+      const quotes = await marketQuotes(pricedIds(rows), controller.signal)
+      controller.signal.throwIfAborted()
+      setPhase({ name: 'review', extraction, rows: fillFromPrices(rows, quotes, ctx.instruments) })
     } catch (error) {
       setPhase({ name: 'pick' })
       if (!isAbort(error)) setReadError(describeAiError(error))

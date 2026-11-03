@@ -124,6 +124,9 @@ export function ReviewRowEditor({
         ) : (
           <NumberField row={row} field="amount" label={t('จำนวนเงิน')} value={row.amount} onChange={(amount) => onChange({ amount })} />
         )}
+        {row.kind === 'opening' && (
+          <NumberField row={row} field="lastPrice" label={t('ราคาล่าสุด')} value={row.lastPrice} onChange={(lastPrice) => onChange({ lastPrice })} />
+        )}
         <NumberField row={row} field="fees" label={t('ค่าธรรมเนียม')} value={row.fees} onChange={(fees) => onChange({ fees })} />
         {row.kind !== 'opening' && (
           <NumberField row={row} field="tax" label={t('ภาษี')} value={row.tax} onChange={(tax) => onChange({ tax })} />

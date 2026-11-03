@@ -131,12 +131,15 @@ export function ComparePanel({
               {STATE_TEXT[line.state].label}
             </Badge>
             <span className="col-span-2 text-[13px] text-muted-foreground tabular-nums">
-              {t('ในโบรก ')}{line.broker ? fmtNumber(line.broker, 8) : '—'} {t(' · ในแอป ')}{line.app ? fmtNumber(line.app, 8) : '—'}
+              {t('ในโบรก ')}{line.broker ? `${line.approx ? '≈' : ''}${fmtNumber(line.broker, 8)}` : '—'} {t(' · ในแอป ')}{line.app ? fmtNumber(line.app, 8) : '—'}
               {line.state === 'differ' && line.broker && line.app && t(' · ต่าง {0}', fmtNumber(line.broker.minus(line.app), 8))}
             </span>
           </li>
         ))}
       </ul>
+      {lines.some((l) => l.approx) && (
+        <p className="text-[12.5px] text-muted-foreground">{t('จำนวนที่มี ≈ คิดจากมูลค่าในรูป ต่างกันไม่เกิน 1% นับว่าตรง')}</p>
+      )}
       {lines.some((l) => l.state === 'differ' || l.state === 'not_in_app') && (
         <p className="text-[12.5px] text-muted-foreground">{t('ตัวที่ไม่ตรงมักมาจากรายการที่ลืมจด หรือปันผลเป็นหุ้น ลองดูในหน้ารายการของบัญชีนี้')}</p>
       )}

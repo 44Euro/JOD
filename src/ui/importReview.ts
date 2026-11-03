@@ -1,10 +1,10 @@
-import type { Extraction, RowField, RowKind } from '../ai/extraction'
+import type { ExtractedRow, Extraction, RowField, RowKind } from '../ai/extraction'
 import { MARKET_CURRENCY } from '../domain/currencies'
 import { D, Decimal, parseDecimalInput } from '../domain/decimal'
 import { computeLedger } from '../domain/ledger'
 import { instrumentKey, type AssetType, type FxSource, type Instrument, type Market, type Transaction } from '../domain/types'
 import { validateSymbol } from '../domain/validation'
-import { fmtDate } from './format'
+import { fmtDate, fmtNumber, fmtPrice } from './format'
 import { TX_TYPE_LABELS } from './labels'
 import { issueText } from './transactionText'
 import { t } from '../i18n'
@@ -91,8 +91,37 @@ export function findDuplicate(row: ReviewRow, ctx: ReviewContext): string {
   return match ? t('อาจซ้ำกับรายการ{0} {1} ที่มีอยู่แล้ว', TX_TYPE_LABELS[match.type], fmtDate(match.date)) : ''
 }
 
+function holdingKey(raw: ExtractedRow): string | null {
+  return raw.kind === 'opening' && raw.symbol ? instrumentKey(raw.market ?? guessMarket(raw.currency), raw.symbol) : null
+}
+
+// Pictures of one portfolio overlap, so each holding is kept once, from the picture that shows its units.
+function oneHoldingEach(rows: readonly ExtractedRow[]): ExtractedRow[] {
+  const best = new Map<string, ExtractedRow>()
+  for (const raw of rows) {
+    const key = holdingKey(raw)
+    if (key && (!best.has(key) || (!best.get(key)!.quantity && raw.quantity))) best.set(key, raw)
+  }
+  return rows.flatMap((raw) => {
+    const key = holdingKey(raw)
+    if (!key) return [raw]
+    const kept = best.get(key)
+    best.delete(key)
+    return kept ? [kept] : []
+  })
+}
+
+const sameRecord = (a: ReviewRow, b: ReviewRow) =>
+  a.kind === b.kind &&
+  a.date === b.date &&
+  a.currency === b.currency &&
+  instrumentIdOf(a) === instrumentIdOf(b) &&
+  a.quantity === b.quantity &&
+  a.price === b.price &&
+  a.amount === b.amount
+
 export function toReviewRows(extraction: Extraction, ctx: ReviewContext): ReviewRow[] {
-  return extraction.rows.map((raw, index) => {
+  const rows = oneHoldingEach(extraction.rows).map((raw, index) => {
     const uncertain = new Set(raw.uncertain)
     const market = raw.market ?? guessMarket(raw.currency)
     if (!raw.market) uncertain.add('market')
@@ -124,6 +153,55 @@ export function toReviewRows(extraction: Extraction, ctx: ReviewContext): Review
     row.duplicate = findDuplicate(row, ctx)
     row.include = !row.duplicate
     return row
+  })
+  rows.forEach((row, index) => {
+    if (row.duplicate || !rows.slice(0, index).some((earlier) => sameRecord(earlier, row))) return
+    row.duplicate = t('ซ้ำกับแถวด้านบน')
+    row.include = false
+  })
+  return rows
+}
+
+const QUOTED_MARKETS: readonly Market[] = ['US', 'SET', 'CRYPTO']
+
+export function pricedIds(rows: readonly ReviewRow[]): string[] {
+  return [...new Set(rows.flatMap((row) => (QUOTED_MARKETS.includes(row.market) && instrumentIdOf(row) ? [instrumentIdOf(row)!] : [])))]
+}
+
+function averageOf(cost: string, quantity: string): string {
+  return positive(cost) && positive(quantity) ? D(num(cost)).div(D(num(quantity))).toDecimalPlaces(6).toString() : ''
+}
+
+// A holding shown only by its value takes its units from the market price, or from the price the app already has. A
+// symbol the market does not know is flagged, since OCR reads stray marks as symbols; quotes is null when the market
+// could not be asked.
+export function fillFromPrices(rows: readonly ReviewRow[], quotes: readonly { id: string; price: string }[] | null, instruments: readonly Instrument[]): ReviewRow[] {
+  return rows.map((row) => {
+    const id = instrumentIdOf(row)
+    if (!id) return row
+    const quoted = quotes?.find((q) => q.id === id)?.price
+    const known = instruments.find((i) => i.id === id)
+    const next = { ...row }
+    const flags = new Set(row.uncertain)
+    const notes = row.note ? [row.note] : []
+    if (quotes && !quoted && !known && QUOTED_MARKETS.includes(row.market)) {
+      flags.add('symbol')
+      notes.push(t('ไม่พบ {0} ในตลาด ตรวจสัญลักษณ์', row.symbol))
+    }
+    if (row.kind === 'opening' && positive(row.value) && !row.quantity.trim()) {
+      const price = quoted ?? known?.lastPrice
+      if (price && positive(price)) {
+        next.quantity = D(num(row.value)).div(price).toDecimalPlaces(8).toString()
+        next.price = averageOf(row.amount, next.quantity)
+        notes.push(t('คิดจำนวนหุ้นจากมูลค่า ÷ ราคา {0} {1} ตรวจกับแอปโบรก', fmtPrice(price), row.currency))
+      } else {
+        notes.push(t('รูปนี้มีแต่มูลค่า {0} และทุนรวม {1} {2} ใส่จำนวนหุ้นเอง หรือใส่รูปที่เปิดดูตัวนี้', fmtNumber(row.value), fmtNumber(row.amount), row.currency))
+      }
+      flags.add('quantity').add('price')
+    }
+    next.uncertain = [...flags]
+    next.note = notes.join(' · ')
+    return next
   })
 }
 
@@ -286,6 +364,7 @@ export function patchRow(row: ReviewRow, patch: Partial<ReviewRow>, ctx: ReviewC
     next.fxRate = ''
     next.fxSource = 'auto'
   }
+  if ('quantity' in patch && next.kind === 'opening' && next.value) next.price = averageOf(next.amount, next.quantity)
   const touched = Object.keys(patch) as (keyof ReviewRow)[]
   next.uncertain = next.uncertain.filter((field) => !touched.includes(field))
   if (touched.some((f) => f !== 'include')) next.duplicate = findDuplicate(next, ctx)
@@ -324,10 +403,13 @@ export interface CompareLine {
   broker: Decimal | null
   app: Decimal | null
   state: CompareState
+  // The broker's units were worked out from the value the screen shows, so they are only close.
+  approx: boolean
 }
 
 // What the broker shows against what the app counts for the same account; a holding missing from the screen may
-// only be scrolled off it, so it is listed rather than called wrong.
+// only be scrolled off it, so it is listed rather than called wrong. Units worked out from a value carry the rounding
+// of the value and the move of the price since the picture, so they match within one percent.
 export function compareHoldings(
   rows: readonly ReviewRow[],
   positions: readonly { accountId: string; instrumentId: string; quantity: Decimal }[],
@@ -344,12 +426,14 @@ export function compareHoldings(
     const position = instrument && held.find((p) => p.instrumentId === instrument.id)
     if (instrument) seen.add(instrument.id)
     const app = position ? position.quantity : null
-    const state: CompareState = !app ? 'not_in_app' : broker !== null && app.eq(broker) ? 'match' : 'differ'
-    lines.push({ symbol: row.symbol, broker: broker === null ? null : D(broker), app, state })
+    const approx = row.value !== ''
+    const close = app !== null && broker !== null && (approx ? app.minus(broker).abs().lte(D(broker).times('0.01')) : app.eq(broker))
+    const state: CompareState = !app ? 'not_in_app' : close ? 'match' : 'differ'
+    lines.push({ symbol: row.symbol, broker: broker === null ? null : D(broker), app, state, approx })
   }
   for (const p of held) {
     if (!seen.has(p.instrumentId)) {
-      lines.push({ symbol: instruments.find((i) => i.id === p.instrumentId)?.symbol ?? p.instrumentId, broker: null, app: p.quantity, state: 'not_on_screen' })
+      lines.push({ symbol: instruments.find((i) => i.id === p.instrumentId)?.symbol ?? p.instrumentId, broker: null, app: p.quantity, state: 'not_on_screen', approx: false })
     }
   }
   return lines

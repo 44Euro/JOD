@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { API_KEY_STORAGE_KEY, READER_MODE_STORAGE_KEY } from '../../ai/apiKey'
 import { AiError, type AiReader } from '../../ai/reader'
 import { createLocalReader } from '../../ai/localReader'
+import { rowsFromLines } from '../../ai/textRows'
 import { db } from '../../db/db'
 import { makeTx } from '../../test/fixtures'
 import { fakeFxProvider } from '../../test/fakeFx'
@@ -15,6 +16,9 @@ const fx = () => fakeFxProvider({ 'USD|THB': '33.58' }).provider
 
 const orders = 'Trade Date,Symbol,Side,Quantity,Price,Commission,Currency\n10/15/2024,AAPL,Buy,10,172.40,1.50,USD\n01/15/2024,AAPL,Buy,1,100,0,USD'
 const holdings = 'Symbol,Shares,Average Cost,Market Price,Currency\nVOO,40,455.20,512.30,USD\nAAPL,15,172.40,185,USD'
+// Dime's list read by OCR: a value, and the profit in brackets on the line under it.
+const dimeList: AiReader = { read: async () => rowsFromLines(['TSM 118.80 ง -0.52%', '© 34.32% = 4,000.16 THB (-0.63 USD)']), test: async () => {} }
+const tsm = { id: 'US:TSM', market: 'US' as const, symbol: 'TSM', name: 'TSM', assetType: 'stock' as const, currency: 'USD', lastPrice: '398.63' }
 
 async function upload(text: string, name = 'export.csv') {
   const user = userEvent.setup()
@@ -65,7 +69,8 @@ describe('ImportPage', () => {
     renderRoute('/import', fx(), local)
     const user = await upload(holdings)
     await user.click(screen.getByRole('button', { name: 'อ่านไฟล์' }))
-    await screen.findByRole('list', { name: 'รายการที่อ่านได้' })
+    const list = await screen.findByRole('list', { name: 'รายการที่อ่านได้' })
+    expect(within(list).getAllByLabelText('ราคาล่าสุด').map((input) => (input as HTMLInputElement).value)).toEqual(['512.3', '185'])
     await user.click(screen.getByRole('button', { name: 'ยืนยันบันทึก 2 รายการ' }))
     expect(await screen.findByText('ใส่เรทเฉลี่ยตอนซื้อของ USD')).toBeInTheDocument()
     expect(await db.transactions.count()).toBe(0)
@@ -81,6 +86,17 @@ describe('ImportPage', () => {
       ['opening', 'US:AAPL', 'estimated', '33.58'],
     ])
     expect((await db.instruments.get('US:VOO'))?.lastPrice).toBe('512.3')
+  })
+
+  it('works out the units of a holding the screen shows only by its value', async () => {
+    await db.instruments.add(tsm)
+    renderRoute('/import', fx(), dimeList)
+    const user = await upload(holdings)
+    await user.click(screen.getByRole('button', { name: 'อ่านไฟล์' }))
+    const list = await screen.findByRole('list', { name: 'รายการที่อ่านได้' })
+    expect(within(list).getByLabelText('จำนวน')).toHaveValue('0.29802072')
+    expect(within(list).getByLabelText('ทุนเฉลี่ย')).toHaveValue('400.743948')
+    expect(within(list).getByText(/คิดจำนวนหุ้นจากมูลค่า ÷ ราคา 398\.63 USD ตรวจกับแอปโบรก/)).toBeInTheDocument()
   })
 
   it('asks for a key before reading with Claude', async () => {
@@ -115,6 +131,17 @@ describe('ImportPage', () => {
     expect(within(result).getByText('จำนวนไม่ตรง')).toBeInTheDocument()
     expect(within(result).getByText(/ในโบรก 15 · ในแอป 10 · ต่าง 5/)).toBeInTheDocument()
     expect(await db.transactions.count()).toBe(2)
+  })
+
+  it('counts units worked out from a value as matching when they are within a percent', async () => {
+    await db.instruments.add(tsm)
+    await db.transactions.add(makeTx({ id: 't', instrumentId: 'US:TSM', quantity: '0.2980326' }))
+    renderRoute('/import?purpose=compare', fx(), dimeList)
+    const user = await upload(holdings)
+    await user.click(screen.getByRole('button', { name: 'อ่านไฟล์' }))
+    const result = await screen.findByRole('list', { name: 'ผลการเทียบยอด' })
+    expect(screen.getByText('ตรงกัน 1 จาก 1 ตัว')).toBeInTheDocument()
+    expect(within(result).getByText(/ในโบรก ≈0\.29802072 · ในแอป 0\.2980326/)).toBeInTheDocument()
   })
 
   it('updates the latest prices of held assets from a portfolio file', async () => {

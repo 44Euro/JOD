@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Extraction, ExtractedRow } from '../ai/extraction'
 import { makeTx } from '../test/fixtures'
 import { D } from '../domain/decimal'
-import { buildImport, checkTotal, compareHoldings, guessAssetType, patchRow, priceUpdates, rowProblems, toReviewRows, type BuildContext, type ReviewRow } from './importReview'
+import { buildImport, checkTotal, compareHoldings, fillFromPrices, guessAssetType, patchRow, pricedIds, priceUpdates, rowProblems, toReviewRows, type BuildContext, type ReviewRow } from './importReview'
 
 function raw(overrides: Partial<ExtractedRow> = {}): ExtractedRow {
   return {
@@ -48,6 +48,60 @@ describe('toReviewRows', () => {
     expect(row.uncertain).toEqual(['market'])
     const [noCurrency] = toReviewRows(extraction([raw({ currency: null })]), ctx)
     expect([noCurrency.currency, noCurrency.uncertain]).toEqual(['USD', ['currency']])
+  })
+})
+
+describe('toReviewRows across pictures', () => {
+  const listed = (symbol: string, value: string, amount: string) => raw({ symbol, quantity: null, price: null, lastPrice: null, value, amount })
+
+  it('keeps one holding per asset, taking the picture that shows its units', () => {
+    const rows = toReviewRows(
+      extraction([listed('TSM', '118.8', '119.43'), listed('AAPL', '64.74', '58.67'), raw({ symbol: 'TSM', quantity: '0.2980326', price: '400.728' }), listed('AAPL', '64.74', '58.67')]),
+      ctx,
+    )
+    expect(rows.map((r) => [r.symbol, r.quantity, r.value])).toEqual([
+      ['TSM', '0.2980326', ''],
+      ['AAPL', '', '64.74'],
+    ])
+  })
+
+  it('leaves an order read twice from overlapping pictures unticked', () => {
+    const buy = raw({ kind: 'buy', symbol: 'AAPL', date: '2024-01-15', quantity: '1', price: '100', lastPrice: null })
+    const rows = toReviewRows(extraction([buy, buy, { ...buy, quantity: '2' }]), ctx)
+    expect(rows.map((r) => r.include)).toEqual([true, false, true])
+    expect(rows[1].duplicate).toBe('ซ้ำกับแถวด้านบน')
+  })
+})
+
+describe('fillFromPrices', () => {
+  const tsm = { id: 'US:TSM', market: 'US' as const, symbol: 'TSM', name: 'TSM', assetType: 'stock' as const, currency: 'USD', lastPrice: '398.63' }
+  const listed = () => toReviewRows(extraction([raw({ symbol: 'TSM', quantity: null, price: null, lastPrice: null, value: '118.8', amount: '119.43' })]), ctx)
+
+  it('asks the market for every asset it can price', () => {
+    const rows = toReviewRows(extraction([raw(), raw({ symbol: 'PTT', market: 'SET' }), raw({ symbol: 'K-INDIA', market: 'FUND' }), raw({ kind: 'interest', symbol: null })]), ctx)
+    expect(pricedIds(rows)).toEqual(['US:VOO', 'SET:PTT'])
+  })
+
+  it('works out the units and average cost of a holding shown by its value, from the market price', () => {
+    const [row] = fillFromPrices(listed(), [{ id: 'US:TSM', price: '398.63' }], [])
+    expect([row.quantity, row.price]).toEqual(['0.29802072', '400.743948'])
+    expect(row.uncertain).toEqual(expect.arrayContaining(['quantity', 'price']))
+    expect(row.note).toBe('คิดจำนวนหุ้นจากมูลค่า ÷ ราคา 398.63 USD ตรวจกับแอปโบรก')
+  })
+
+  it('falls back to the price the app already has, and asks for the units when there is none', () => {
+    expect(fillFromPrices(listed(), null, [tsm])[0].quantity).toBe('0.29802072')
+    const [row] = fillFromPrices(listed(), null, [])
+    expect([row.quantity, row.price]).toEqual(['', ''])
+    expect(row.note).toBe('รูปนี้มีแต่มูลค่า 118.8 และทุนรวม 119.43 USD ใส่จำนวนหุ้นเอง หรือใส่รูปที่เปิดดูตัวนี้')
+  })
+
+  it('flags a symbol the market does not know, unless the market could not be asked', () => {
+    const rows = toReviewRows(extraction([raw({ symbol: 'ARO' }), raw({ symbol: 'K-INDIA', market: 'FUND' })]), ctx)
+    const [aro, fund] = fillFromPrices(rows, [], [])
+    expect([aro.uncertain.includes('symbol'), aro.note]).toEqual([true, 'ไม่พบ ARO ในตลาด ตรวจสัญลักษณ์'])
+    expect(fund.uncertain.includes('symbol')).toBe(false)
+    expect(fillFromPrices(rows, null, [])[0].uncertain.includes('symbol')).toBe(false)
   })
 })
 
@@ -131,6 +185,11 @@ describe('patchRow', () => {
   it('stops flagging a field once the user has edited it', () => {
     expect(patchRow(row, { price: '118.50' }, ctx).uncertain).toEqual([])
   })
+
+  it('works out the average cost from the total when units are typed for a holding shown by its value', () => {
+    const [listed] = toReviewRows(extraction([raw({ symbol: 'TSM', quantity: null, price: null, value: '118.8', amount: '119.43' })]), ctx)
+    expect(patchRow(listed, { quantity: '0.2980326' }, ctx).price).toBe('400.727974')
+  })
 })
 
 describe('priceUpdates', () => {
@@ -160,6 +219,15 @@ describe('compareHoldings', () => {
       ['AAPL', 'differ'],
       ['NVDA', 'not_in_app'],
       ['TSLA', 'not_on_screen'],
+    ])
+  })
+
+  it('allows for rounding when the units were worked out from a value', () => {
+    const listed = [raw({ quantity: null, price: null, value: '20480', amount: '18208' }), raw({ symbol: 'AAPL', quantity: null, price: null, value: '2775', amount: '2586' })]
+    const rows = fillFromPrices(toReviewRows(extraction(listed), ctx), [{ id: 'US:VOO', price: '512.3' }, { id: 'US:AAPL', price: '185' }], instruments)
+    expect(compareHoldings(rows, positions, instruments, 'acc-1').slice(0, 2).map((l) => [l.symbol, l.state, l.approx])).toEqual([
+      ['VOO', 'match', true],
+      ['AAPL', 'differ', true],
     ])
   })
 })
