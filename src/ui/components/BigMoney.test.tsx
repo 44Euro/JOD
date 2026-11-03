@@ -2,7 +2,7 @@ import { render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { describe, expect, it } from 'vitest'
 import type { BigMoney, BigMoneyFor, CongressTrade } from '../../market/client'
-import { BigMoneySection, StockBigMoney } from './BigMoney'
+import { BigMoneySection, StockBigMoney, fundAction } from './BigMoney'
 
 const trade = (ticker: string, type: CongressTrade['type'], member = 'Josh Gottheimer'): CongressTrade => ({
   ticker,
@@ -68,6 +68,11 @@ describe('BigMoneySection', () => {
   it('says 13F is not switched on when the server has no SEC user agent', () => {
     expect(show({ status: 'ready', data: { ...data, funds: null } })).toHaveTextContent('ข้อมูล 13F ยังไม่เปิด')
   })
+})
+
+it('says a fund holding the same number of shares holds steady, without a count of nought', () => {
+  const steady = { issuer: 'APPLE INC', ticker: 'AAPL', shares: '227900000', value: '1', change: 'same' as const, sharesChange: '0', valueChange: '0' }
+  expect(fundAction(steady)).toEqual({ text: 'ถือเท่าเดิม', tone: 'text-ink-2' })
 })
 
 describe('StockBigMoney', () => {

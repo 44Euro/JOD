@@ -22,7 +22,8 @@ function action(sign: '+' | '−' | '', text: string) {
 }
 
 export function fundAction(move: FundMove) {
-  const sign = move.change === 'new' || move.change === 'add' ? '+' : move.change === 'same' ? '' : '−'
+  if (move.change === 'same') return action('', FUND_ACTIONS.same)
+  const sign = move.change === 'new' || move.change === 'add' ? '+' : '−'
   return action(sign, `${FUND_ACTIONS[move.change]} ${fmtCompact(String(Math.abs(Number(move.sharesChange))))} ${t('หุ้น')}`)
 }
 
