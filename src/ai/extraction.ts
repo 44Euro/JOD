@@ -6,10 +6,10 @@ import { t } from '../i18n'
 export const ROW_KINDS = ['opening', 'buy', 'sell', 'dividend', 'interest'] as const
 export type RowKind = (typeof ROW_KINDS)[number]
 
-export const ROW_FIELDS = ['market', 'symbol', 'date', 'quantity', 'price', 'amount', 'fees', 'tax', 'currency', 'lastPrice'] as const
+export const ROW_FIELDS = ['market', 'symbol', 'date', 'quantity', 'price', 'amount', 'fees', 'tax', 'currency', 'lastPrice', 'value'] as const
 export type RowField = (typeof ROW_FIELDS)[number]
 
-const DECIMAL_FIELDS = ['quantity', 'price', 'amount', 'fees', 'tax', 'lastPrice'] as const
+const DECIMAL_FIELDS = ['quantity', 'price', 'amount', 'fees', 'tax', 'lastPrice', 'value'] as const
 
 export interface ExtractedRow {
   kind: RowKind
@@ -24,6 +24,8 @@ export interface ExtractedRow {
   tax: string | null
   currency: string | null
   lastPrice: string | null
+  // A holding's market value, for a screen that shows it instead of the units; its amount is then the total cost.
+  value: string | null
   uncertain: RowField[]
   note: string
 }
@@ -65,6 +67,7 @@ export const EXTRACTION_SCHEMA = {
           tax: nullable(text),
           currency: nullable(text),
           lastPrice: nullable(text),
+          value: nullable(text),
           uncertain: { type: 'array', items: { type: 'string', enum: [...ROW_FIELDS] } },
           note: text,
         },
@@ -83,11 +86,13 @@ Today is ${today}. Return every holding or transaction you can see as one row.
 
 Kinds of row:
 - opening: a holding shown on a portfolio screen (symbol, quantity, average cost as price, latest price as lastPrice). Its date is null.
+  When the screen shows a holding's market value and profit but not its quantity, leave quantity and price null, put the market value in value and the total cost (value minus profit) in amount.
 - buy / sell: an executed order or trade confirmation (date, quantity, price per unit, fees, tax).
 - dividend / interest: cash received (date, amount before tax, tax withheld).
 
 Rules:
 - Numbers are plain decimal strings with "." as the decimal point and no thousand separators, e.g. "1234.50". Fees and tax are positive.
+- Several files may show the same holding (an expanded view and the list around it). Return each holding once, from the file that shows its quantity.
 - Never guess a number. When a digit or a value is unreadable, set it to null, add the field to "uncertain" and say what is wrong in "note" in Thai.
 - Also list in "uncertain" any field you read but are not sure of.
 - Dates are YYYY-MM-DD in the Gregorian calendar. Thai brokers write Buddhist-era years (15/10/67 or 15/10/2567 is 2024-10-15): subtract 543. US brokers write month/day/year.
@@ -133,6 +138,7 @@ function parseRow(value: unknown): ExtractedRow | null {
     tax: null,
     currency: stringOrNull(raw.currency)?.toUpperCase() ?? null,
     lastPrice: null,
+    value: null,
     uncertain: [],
     note: stringOrNull(raw.note) ?? '',
   }

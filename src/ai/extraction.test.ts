@@ -14,6 +14,7 @@ const row = {
   tax: null,
   currency: 'usd',
   lastPrice: null,
+  value: null,
   uncertain: [],
   note: '',
 }
@@ -53,6 +54,11 @@ describe('parseExtraction', () => {
     const [r] = parse([{ ...row, date: '10/15/24', uncertain: ['price', 'bogus'] }]).rows
     expect(r.date).toBeNull()
     expect(r.uncertain).toEqual(['date', 'price'])
+  })
+
+  it('keeps the value and total cost of a holding shown without its units', () => {
+    const [holding] = parse([{ ...row, kind: 'opening', date: null, quantity: null, price: null, value: '118.80', amount: '119.43' }]).rows
+    expect([holding.quantity, holding.price, holding.value, holding.amount]).toEqual([null, null, '118.8', '119.43'])
   })
 
   it('drops rows of a kind it does not know and an unknown market', () => {

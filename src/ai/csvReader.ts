@@ -162,6 +162,7 @@ export function readCsv(text: string): Extraction {
       tax: number('tax'),
       currency: cell(line, 'currency').toUpperCase() || null,
       lastPrice: number('lastPrice'),
+      value: null,
       uncertain: [...uncertain],
       note: '',
     })

@@ -25,6 +25,7 @@ export interface ReviewRow {
   tax: string
   currency: string
   lastPrice: string
+  value: string
   fxRate: string
   fxSource: FxSource
   uncertain: RowField[]
@@ -113,6 +114,7 @@ export function toReviewRows(extraction: Extraction, ctx: ReviewContext): Review
       tax: raw.tax ?? '',
       currency,
       lastPrice: raw.lastPrice ?? '',
+      value: raw.value ?? '',
       fxRate: currency === ctx.baseCurrency ? '1' : '',
       fxSource: currency === ctx.baseCurrency ? 'same' : 'auto',
       uncertain: [...uncertain],

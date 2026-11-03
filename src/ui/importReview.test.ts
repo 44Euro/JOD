@@ -7,7 +7,7 @@ import { buildImport, checkTotal, compareHoldings, guessAssetType, patchRow, pri
 function raw(overrides: Partial<ExtractedRow> = {}): ExtractedRow {
   return {
     kind: 'opening', market: 'US', symbol: 'VOO', name: 'Vanguard S&P 500', date: null, quantity: '40', price: '455.20', amount: null,
-    fees: null, tax: null, currency: 'USD', lastPrice: '512.3', uncertain: [], note: '', ...overrides,
+    fees: null, tax: null, currency: 'USD', lastPrice: '512.3', value: null, uncertain: [], note: '', ...overrides,
   }
 }
 
