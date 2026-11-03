@@ -1,5 +1,9 @@
 import UIKit
 import Capacitor
+#if canImport(FirebaseMessaging)
+import FirebaseCore
+import FirebaseMessaging
+#endif
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -7,8 +11,37 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Override point for customization after application launch.
+        #if canImport(FirebaseMessaging)
+        // Firebase cannot start without GoogleService-Info.plist in the app; price-alert pushes then stay off.
+        if Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist") != nil {
+            FirebaseApp.configure()
+        }
+        #endif
         return true
+    }
+
+    // The JOD server sends price alerts through Firebase (FCM), which needs Firebase's token rather than the APNs one
+    // iOS hands over, so registration fails plainly when Firebase is not in this build.
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        #if canImport(FirebaseMessaging)
+        if FirebaseApp.app() != nil {
+            Messaging.messaging().apnsToken = deviceToken
+            Messaging.messaging().token { token, error in
+                if let token {
+                    NotificationCenter.default.post(name: .capacitorDidRegisterForRemoteNotifications, object: token)
+                } else {
+                    NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
+                }
+            }
+            return
+        }
+        #endif
+        let notSetUp = NSError(domain: "JOD", code: 1, userInfo: [NSLocalizedDescriptionKey: "Firebase is not set up in this build"])
+        NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: notSetUp)
+    }
+
+    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        NotificationCenter.default.post(name: .capacitorDidFailToRegisterForRemoteNotifications, object: error)
     }
 
     func applicationWillResignActive(_ application: UIApplication) {
