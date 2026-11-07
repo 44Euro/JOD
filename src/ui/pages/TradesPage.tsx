@@ -136,7 +136,7 @@ function GroupTable({
                 {groupName(by, group.key)}
               </b>
               <span className={cn('font-display font-semibold', plClass(group.totalBase))}>{fmtSigned(group.totalBase, 0)}</span>
-              <span className="col-span-2 text-[12.5px] text-muted-foreground">
+              <span className="col-span-2 text-[13px] text-muted-foreground">
                 {t('{0} เทรด · ชนะ {1}', group.count, fmtPct(group.winRatePct, 0))}
               </span>
             </li>
@@ -417,7 +417,7 @@ function TradesView({ data, ledger }: { data: AppData; ledger: Ledger }) {
         </Card>
       ) : (
         <>
-          <div className="grid items-stretch gap-3.5 md:gap-[22px] xl:grid-cols-2">
+          <div className="grid items-stretch gap-3.5 md:gap-6 xl:grid-cols-2">
             <GroupTable
               title={t('กลยุทธ์ไหนทำเงิน')}
               head={t('กลยุทธ์')}
@@ -445,7 +445,7 @@ function TradesView({ data, ledger }: { data: AppData; ledger: Ledger }) {
             />
           </div>
 
-          <div className="grid items-start gap-3.5 md:gap-[22px] xl:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="grid items-start gap-3.5 md:gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
             <Card>
               <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                 <h2 ref={recentHeading} tabIndex={-1} className="text-lg font-semibold focus:outline-none">
@@ -513,7 +513,7 @@ function TradesView({ data, ledger }: { data: AppData; ledger: Ledger }) {
                           <span className={cn('justify-self-end font-display font-semibold', plClass(trade.realizedBase))}>
                             {fmtSigned(trade.realizedBase, 0)}
                           </span>
-                          <span className="flex min-w-0 gap-1 text-[12.5px] text-muted-foreground">
+                          <span className="flex min-w-0 gap-1 text-[13px] text-muted-foreground">
                             <span className="min-w-0 truncate" title={trade.strategy}>
                               {trade.strategy ?? '—'}
                             </span>
@@ -545,7 +545,7 @@ function TradesView({ data, ledger }: { data: AppData; ledger: Ledger }) {
                   ))}
                 </ul>
               )}
-              <p className="mt-2.5 text-[12.5px] text-muted-foreground">
+              <p className="mt-2.5 text-[13px] text-muted-foreground">
                 <Dotted parts={extremes} />
               </p>
             </Card>
@@ -588,7 +588,7 @@ function TradesView({ data, ledger }: { data: AppData; ledger: Ledger }) {
                 >
                   {assetOf(trade)}
                   <span className="text-[13px] text-muted-foreground">{t('ถือมา {0}', days(daysBetween(trade.openDate, today)))}</span>
-                  <span className="col-span-2 truncate text-[12.5px] text-muted-foreground" title={trade.strategy}>
+                  <span className="col-span-2 truncate text-[13px] text-muted-foreground" title={trade.strategy}>
                     {t('เปิดเมื่อ {0}{1}', fmtDate(trade.openDate), trade.strategy ? ` · ${trade.strategy}` : '')}
                   </span>
                 </li>
@@ -598,7 +598,7 @@ function TradesView({ data, ledger }: { data: AppData; ledger: Ledger }) {
         </Card>
       )}
       <RealizedHistoryCard events={ledger.realized} base={data.settings.baseCurrency} today={today} />
-      <div className="grid items-start gap-3.5 md:gap-[22px] xl:grid-cols-2">
+      <div className="grid items-start gap-3.5 md:gap-6 xl:grid-cols-2">
         <RiskSummaryCard closed={closed} transactions={transactions} />
         <PositionSizeCard base={data.settings.baseCurrency} />
       </div>

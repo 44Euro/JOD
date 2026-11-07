@@ -14,7 +14,7 @@ export function ErrorReportCard() {
     <Card className="grid gap-3">
       <div>
         <h2 className="text-lg font-semibold">{t('รายงานปัญหา')}</h2>
-        <p className="text-[12.5px] text-muted-foreground">
+        <p className="text-[13px] text-muted-foreground">
           {t('ปัญหาที่เกิดถูกจดไว้ในเครื่องนี้ ไม่ส่งไปไหนเอง รายงานไม่มีตัวเลขหรือรายการ จึงส่งให้ผู้พัฒนาได้')}
         </p>
       </div>
@@ -25,7 +25,7 @@ export function ErrorReportCard() {
           <p className="text-sm">
             {t('มี ')}{errors.length} {t(' ปัญหา · ล่าสุด ')}{fmtDate(errors[0].at.slice(0, 10))}
           </p>
-          <ul aria-label={t('ปัญหาล่าสุด')} className="grid gap-1 text-[12.5px] text-muted-foreground">
+          <ul aria-label={t('ปัญหาล่าสุด')} className="grid gap-1 text-[13px] text-muted-foreground">
             {errors.slice(0, 3).map((e) => (
               <li key={e.at + e.message} className="truncate">
                 {e.page} · {e.message}

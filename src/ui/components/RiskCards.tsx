@@ -20,14 +20,14 @@ export function RiskSummaryCard({ closed, transactions }: { closed: readonly Tra
       <h2 className="text-lg font-semibold">{t('ความเสี่ยง')}</h2>
       <dl className="grid grid-cols-2 gap-3 text-sm">
         <div>
-          <dt className="text-[12.5px] text-muted-foreground">{t('ได้เฉลี่ยกี่เท่าของความเสี่ยง (R)')}</dt>
+          <dt className="text-[13px] text-muted-foreground">{t('ได้เฉลี่ยกี่เท่าของความเสี่ยง (R)')}</dt>
           <dd className={cn('font-display text-xl font-semibold', plClass(r?.avg))}>{r ? `${fmtRatio(r.avg)}R` : '—'}</dd>
           <dd className="text-[12px] text-muted-foreground">
             {r ? t('จาก {0} เทรดที่ใส่ Stop loss ตอนซื้อ', r.count) : t('ใส่ Stop loss ตอนบันทึกซื้อ แอปจึงคิด R ให้ได้')}
           </dd>
         </div>
         <div>
-          <dt className="text-[12.5px] text-muted-foreground">{t('ขาดทุนสะสมหนักสุด')}</dt>
+          <dt className="text-[13px] text-muted-foreground">{t('ขาดทุนสะสมหนักสุด')}</dt>
           <dd className={cn('font-display text-xl font-semibold', plClass(drawdown))}>
             {drawdown.isZero() ? t('ไม่มี') : fmtSigned(drawdown, 0)}
           </dd>
@@ -117,11 +117,11 @@ export function LotsCard({
                 {manyAccounts && <span className="text-muted-foreground"> · {names.get(lot.accountId)}</span>}
               </span>
               <span className="text-right tabular-nums">{fmtNumber(lot.quantity, 8)} {t(' หน่วย')}</span>
-              <span className="text-[12.5px] text-muted-foreground tabular-nums">
+              <span className="text-[13px] text-muted-foreground tabular-nums">
                 {t('ทุน ')}{fmtPrice(lot.costQuote.div(lot.quantity))} {instrument.currency}
                 {!lot.costQuote.isZero() && t(' · เรท {0}', fmtRate(lot.costBase.div(lot.costQuote)))}
               </span>
-              <span className="text-right text-[12.5px] tabular-nums">{fmtValue(lot.costBase)}</span>
+              <span className="text-right text-[13px] tabular-nums">{fmtValue(lot.costBase)}</span>
             </li>
           ))}
         </ul>

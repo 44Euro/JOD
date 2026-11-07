@@ -178,7 +178,7 @@ describe('AssetPage', () => {
       await db.transactions.add(journaled({ strategy: 'Breakout', emotion: 'fomo', confidence: 4 }))
       renderRoute('/assets/US%3AVOO', usd)
       const line = (await screen.findByText('Breakout')).parentElement!
-      expect(line).toHaveClass('flex', 'min-w-0', 'text-[12.5px]', 'text-muted-foreground')
+      expect(line).toHaveClass('flex', 'min-w-0', 'text-[13px]', 'text-muted-foreground')
       expect(line).toHaveTextContent(/^Breakout · FOMO$/)
       const [, , description] = within(line.closest('tr')!).getAllByRole('cell')
       expect(description).toHaveTextContent('1 × 410.00Breakout · FOMO')
@@ -209,7 +209,7 @@ describe('AssetPage', () => {
       renderRoute('/assets/US%3AVOO', usd)
       const list = await screen.findByRole('list', { name: 'ทุกรายการของ VOO' })
       const line = within(list).getByText('Breakout').parentElement!
-      expect(line).toHaveClass('col-span-2', 'flex', 'min-w-0', 'text-[12.5px]', 'text-muted-foreground')
+      expect(line).toHaveClass('col-span-2', 'flex', 'min-w-0', 'text-[13px]', 'text-muted-foreground')
       expect(line).toHaveTextContent(/^Breakout · FOMO$/)
       expect(line.previousElementSibling).toHaveTextContent('ซื้อ 1 × 410.00 · เรท 34.00')
       expect(screen.queryByRole('table')).not.toBeInTheDocument()

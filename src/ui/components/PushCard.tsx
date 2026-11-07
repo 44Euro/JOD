@@ -52,13 +52,13 @@ export function PushCard({
             <span id={`${id}-label`}>{t('ส่งแจ้งเตือนราคามาที่เครื่องนี้')}</span>
             <Switch checked={on} disabled={busy} aria-labelledby={`${id}-label`} onCheckedChange={(next) => void toggle(next)} />
           </div>
-          <p className="text-[12.5px] text-muted-foreground">
+          <p className="text-[13px] text-muted-foreground">
             {t('เซิร์ฟเวอร์ JOD จะรู้สัญลักษณ์และราคาของแจ้งเตือนแต่ละรายการ กับรหัสสำหรับส่งแจ้งเตือนของเครื่องนี้ ไม่รู้ข้อมูลพอร์ต ปิดเมื่อไรเซิร์ฟเวอร์ก็ลบทิ้ง')}
           </p>
-          {message && <p className="text-[13.5px] text-ink-2">{message}</p>}
+          {message && <p className="text-[13px] text-ink-2">{message}</p>}
         </>
       ) : (
-        <p className="text-[13.5px] text-muted-foreground">{t('ใช้ได้ในแอปมือถือ ในเบราว์เซอร์แจ้งเตือนจะขึ้นในหน้าเช้านี้')}</p>
+        <p className="text-[13px] text-muted-foreground">{t('ใช้ได้ในแอปมือถือ ในเบราว์เซอร์แจ้งเตือนจะขึ้นในหน้าเช้านี้')}</p>
       )}
     </Card>
   )

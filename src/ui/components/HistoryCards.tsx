@@ -87,11 +87,11 @@ export function PortfolioHistoryCard({ base, today }: { base: string; today: str
           </ChartSlot>
           <dl className="grid grid-cols-2 gap-3 text-sm sm:flex sm:gap-8">
             <div>
-              <dt className="text-[12.5px] text-muted-foreground">{t('ผลตอบแทนช่วงนี้ (ตัดผลเงินเข้าออก)')}</dt>
+              <dt className="text-[13px] text-muted-foreground">{t('ผลตอบแทนช่วงนี้ (ตัดผลเงินเข้าออก)')}</dt>
               <dd className={cn('font-display text-lg font-semibold', plClass(growth))}>{pct(growth)}</dd>
             </div>
             <div>
-              <dt className="text-[12.5px] text-muted-foreground">{t('ลดลงหนักสุดจากจุดสูงสุด')}</dt>
+              <dt className="text-[13px] text-muted-foreground">{t('ลดลงหนักสุดจากจุดสูงสุด')}</dt>
               <dd className="font-display text-lg font-semibold">
                 <span className={plClass(drawdown?.pct)}>{drawdown ? pct(drawdown.pct) : t('ไม่มี')}</span>
                 {drawdown && (
@@ -103,7 +103,7 @@ export function PortfolioHistoryCard({ base, today }: { base: string; today: str
             </div>
             {benchmark && (
               <div>
-                <dt className="text-[12.5px] text-muted-foreground">{benchmark.symbol} {t(' ช่วงเดียวกัน')}</dt>
+                <dt className="text-[13px] text-muted-foreground">{benchmark.symbol} {t(' ช่วงเดียวกัน')}</dt>
                 <dd className={cn('font-display text-lg font-semibold', plClass(benchmark.change))}>{pct(benchmark.change)}</dd>
                 <dd className="text-[12px] text-muted-foreground">{t('ตั้งแต่ ')}{fmtDate(benchmark.from)}</dd>
               </div>
@@ -144,7 +144,7 @@ export function PlCalendar({ events, base, today }: { events: readonly RealizedE
       </div>
       <div role="grid" aria-label={t('กำไรขาดทุนรายวัน {0}', fmtMonth(month, true))} className="grid grid-cols-7 gap-1 text-center">
         {WEEKDAYS.map((d) => (
-          <span key={d} role="columnheader" className="text-[11.5px] text-muted-foreground">
+          <span key={d} role="columnheader" className="text-[12px] text-muted-foreground">
             {d}
           </span>
         ))}

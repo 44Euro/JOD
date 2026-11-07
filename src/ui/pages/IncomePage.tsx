@@ -89,7 +89,7 @@ function AssetCell({
       <span className="flex min-w-0 items-center gap-2.5">
         <CashPill label={currencies.join('/')} />
         <b className="truncate font-display text-base font-semibold">{accountName}</b>
-        {!compact && <span className="truncate text-[12.5px] text-muted-foreground">{t('ดอกเบี้ยเงินสด')}</span>}
+        {!compact && <span className="truncate text-[13px] text-muted-foreground">{t('ดอกเบี้ยเงินสด')}</span>}
       </span>
     )
   }
@@ -98,9 +98,9 @@ function AssetCell({
       <MarketPill market={instrument?.market ?? marketOf(row.instrumentId)} assetType={instrument?.assetType} />
       <b className="font-display text-base font-semibold">{instrument?.symbol ?? row.instrumentId.split(':')[1]}</b>
       {row.kinds.length === 1 && row.kinds[0] === 'interest' && (
-        <span className="truncate text-[12.5px] text-muted-foreground">{t('ดอกเบี้ย/คูปอง')}</span>
+        <span className="truncate text-[13px] text-muted-foreground">{t('ดอกเบี้ย/คูปอง')}</span>
       )}
-      {receiveTag && <span className="truncate text-[12.5px] text-muted-foreground">{receiveTag}</span>}
+      {receiveTag && <span className="truncate text-[13px] text-muted-foreground">{receiveTag}</span>}
     </span>
   )
 }
@@ -185,7 +185,7 @@ export function IncomePage() {
           <>
             <div className="mb-2.5 flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-lg font-semibold">{period === 'all' ? t('รายปี') : t('รายเดือน')}</h2>
-              <p className="flex flex-wrap gap-4 text-[12.5px] text-ink-2">
+              <p className="flex flex-wrap gap-4 text-[13px] text-ink-2">
                 {INCOME_KINDS.map((kind) => (
                   <span key={kind} className="flex items-center gap-1.5">
                     <i aria-hidden className={cn('size-2.5 rounded-[3px]', INCOME_SERIES[kind].className)} />
@@ -214,7 +214,7 @@ export function IncomePage() {
 
       <DividendCalendar months={dividendCalendar(ledger, today)} symbols={new Map(data.instruments.map((i) => [i.id, i.symbol]))} base={base} />
 
-      <div className="grid items-start gap-3.5 md:gap-[22px] xl:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="grid items-start gap-3.5 md:gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
         <Card>
           <h2 className="mb-3 text-lg font-semibold">{t('ตามสินทรัพย์')}</h2>
           {isDesktop ? (
@@ -247,7 +247,7 @@ export function IncomePage() {
                 >
                   {assetCell(row, true)}
                   <span className="font-display font-semibold">{fmtValue(row.netBase)}</span>
-                  <span className="col-span-2 text-[12.5px] text-muted-foreground">
+                  <span className="col-span-2 text-[13px] text-muted-foreground">
                     {row.instrumentId ? t('ปันผล/ทุน {0}', fmtYield(yieldOf(row))) : t('ดอกเบี้ยเงินสด')}
                     {!row.taxBase.isZero() && t(' · หัก {0}', fmtValue(row.taxBase))}
                   </span>
@@ -266,7 +266,7 @@ export function IncomePage() {
                   <span className="block truncate">
                     {e.instrumentId ? `${symbolOf(e.instrumentId)} ${TX_TYPE_LABELS[e.kind]}` : t('{0} ดอกเบี้ย', accountNames.get(e.accountId) ?? '—')}
                   </span>
-                  <span className="block text-[12.5px] text-muted-foreground">
+                  <span className="block text-[13px] text-muted-foreground">
                     {fmtDate(e.date)}
                     {receivedLine(e)}
                     {!e.taxQuote.isZero() && t(' · หัก {0}', e.currency === base ? fmtNumber(e.taxQuote) : fmtMoney(e.taxQuote, e.currency))}

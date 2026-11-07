@@ -72,7 +72,7 @@ export function StockHeader({
       : []
   const about = [name && name !== symbol ? name : '', exchange].filter(Boolean).join(' · ')
   return (
-    <section aria-labelledby={id} className="grid gap-4 rounded-[18px] bg-board p-4 text-[#e8eef8] md:grid-cols-[minmax(0,1fr)_240px] md:items-end md:rounded-[20px] md:px-[26px] md:py-[22px]">
+    <section aria-labelledby={id} className="grid gap-4 rounded-[18px] bg-board p-4 text-[#e8eef8] md:grid-cols-[minmax(0,1fr)_240px] md:items-end md:rounded-[20px] md:px-6 md:py-6">
       <div className="min-w-0">
         <div className="flex min-w-0 flex-nowrap items-center gap-3">
           <MarketPill market={market} assetType={assetType} />
@@ -80,20 +80,20 @@ export function StockHeader({
             {symbol}
           </h1>
         </div>
-        {about && <p className="mt-0.5 truncate text-[13.5px] text-board-muted">{about}</p>}
-        {previousSymbols && previousSymbols.length > 0 && <p className="text-[12.5px] text-board-muted">{t('เดิม: ')}{previousSymbols.join(', ')}</p>}
+        {about && <p className="mt-0.5 truncate text-[13px] text-board-muted">{about}</p>}
+        {previousSymbols && previousSymbols.length > 0 && <p className="text-[13px] text-board-muted">{t('เดิม: ')}{previousSymbols.join(', ')}</p>}
         {price ? (
           <>
             <p className="mt-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
               <span className="font-display text-[34px] font-semibold leading-none text-white md:text-[44px]">{fmtPrice(price)}</span>
-              <span className="text-[13.5px] text-board-muted">{live?.currency ?? instrument?.currency}</span>
+              <span className="text-[13px] text-board-muted">{live?.currency ?? instrument?.currency}</span>
               {change && previous && (
                 <span className={cn('font-display text-[17px] font-semibold', change.lessThan(0) ? 'text-board-loss' : 'text-board-gain')}>
                   {`${fmtSigned(change, 2)} (${fmtSignedPct(change.div(previous).times(100), 2)})`}
                 </span>
               )}
             </p>
-            <p className="mt-1.5 text-[12.5px] text-board-muted">{source.filter(Boolean).join(' · ')}</p>
+            <p className="mt-1.5 text-[13px] text-board-muted">{source.filter(Boolean).join(' · ')}</p>
           </>
         ) : (
           <p className="mt-4 text-[15px] text-board-muted">{t('ยังไม่มีราคา')}</p>

@@ -20,7 +20,7 @@ const PILLS: Record<Market, { label: string; className: string }> = {
 }
 
 const pillBase =
-  'inline-flex shrink-0 items-center rounded-full px-[9px] py-0.5 font-display text-[11px] font-semibold leading-4 text-white'
+  'inline-flex shrink-0 items-center rounded-full px-2 py-0.5 font-display text-[11px] font-semibold leading-4 text-white'
 
 // Funds get their own colour whatever market they trade in, matching the legend in the sidebar.
 export function MarketPill({ market, assetType }: { market: Market; assetType?: AssetType }) {

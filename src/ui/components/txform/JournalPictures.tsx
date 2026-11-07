@@ -27,7 +27,7 @@ export function JournalPictures({ txId, pending, setPending }: { txId?: string; 
   const input = useRef<HTMLInputElement>(null)
   return (
     <div className="grid gap-2">
-      <span className="text-[13.5px] font-semibold text-ink-2">{t('รูปประกอบ (ไม่บังคับ)')}</span>
+      <span className="text-[13px] font-semibold text-ink-2">{t('รูปประกอบ (ไม่บังคับ)')}</span>
       <ul className="flex flex-wrap gap-3" aria-label={t('รูปประกอบเทรด')}>
         {(saved ?? []).map((p) => (
           <Thumb key={p.id} blob={p.blob} label={p.name} onRemove={() => void deletePicture(db, p.id)} />

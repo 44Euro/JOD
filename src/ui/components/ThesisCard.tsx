@@ -82,7 +82,7 @@ export function ThesisCard({ instrument, today }: { instrument: Instrument; toda
           <Pencil aria-hidden />
         </Button>
       </div>
-      <p className="text-[14.5px] whitespace-pre-line">
+      <p className="text-[15px] whitespace-pre-line">
         {instrument.holdReason ?? <span className="text-muted-foreground">{t('ยังไม่ได้เขียนเหตุผล · กดปุ่มแก้ไขเพื่อจดไว้')}</span>}
       </p>
       <dl className="mt-2.5 grid text-sm">

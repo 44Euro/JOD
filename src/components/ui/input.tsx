@@ -6,7 +6,7 @@ const fieldBase =
   'w-full rounded-xl border border-input bg-card px-3.5 text-base text-foreground placeholder:text-placeholder focus-visible:border-primary focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-primary/20 disabled:bg-muted disabled:text-muted-foreground aria-[invalid=true]:border-destructive'
 
 export function Input({ className, ...props }: ComponentProps<'input'>) {
-  return <input className={cn(fieldBase, 'h-[46px]', className)} {...props} />
+  return <input className={cn(fieldBase, 'h-12', className)} {...props} />
 }
 
 export function Textarea({ className, ...props }: ComponentProps<'textarea'>) {
@@ -14,5 +14,5 @@ export function Textarea({ className, ...props }: ComponentProps<'textarea'>) {
 }
 
 export function NativeSelect({ className, ...props }: ComponentProps<'select'>) {
-  return <select className={cn(fieldBase, 'h-[46px]', className)} {...props} />
+  return <select className={cn(fieldBase, 'h-12', className)} {...props} />
 }

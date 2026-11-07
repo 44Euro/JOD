@@ -128,7 +128,7 @@ export function FeeTaxFields({
           // the fee, where a hint of the field would be.
           <p
             className={cn(
-              'col-span-2 text-[12.5px] text-muted-foreground sm:col-span-1 sm:row-start-2 sm:-mt-2',
+              'col-span-2 text-[13px] text-muted-foreground sm:col-span-1 sm:row-start-2 sm:-mt-2',
               showsSelect ? 'sm:col-start-2' : 'sm:col-start-1',
             )}
           >

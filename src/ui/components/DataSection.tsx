@@ -122,7 +122,7 @@ export function DataSection({ data }: { data: AppData }) {
     <Card className="grid gap-3">
       <div>
         <h2 className="text-lg font-semibold">{t('ข้อมูลในเครื่อง')}</h2>
-        <p className="text-[12.5px] text-muted-foreground">{t('สำรองเป็นไฟล์ไว้เป็นระยะ')}</p>
+        <p className="text-[13px] text-muted-foreground">{t('สำรองเป็นไฟล์ไว้เป็นระยะ')}</p>
       </div>
       {needsBackup ? (
         <Alert role="note">{lastBackup ? t('สำรองล่าสุด {0} · {1} วันก่อน', fmtDate(lastBackup), age) : t('ยังไม่เคยสำรองข้อมูล')}</Alert>
@@ -148,7 +148,7 @@ export function DataSection({ data }: { data: AppData }) {
           <Field id="open-passphrase" label={t('ไฟล์นี้เข้ารหัสไว้ · ใส่รหัสผ่าน')}>
             <Input id="open-passphrase" type="password" autoComplete="off" value={openWith} onChange={(e) => setOpenWith(e.target.value)} />
           </Field>
-          <Button type="submit" className="h-[46px]" disabled={!openWith}>
+          <Button type="submit" className="h-12" disabled={!openWith}>
             {t('เปิดไฟล์')}
           </Button>
         </form>
@@ -191,7 +191,7 @@ export function DataSection({ data }: { data: AppData }) {
         />
       </div>
       {storage === 'persisted' ? (
-        <p className="flex flex-wrap items-center gap-2 text-[12.5px] text-muted-foreground">
+        <p className="flex flex-wrap items-center gap-2 text-[13px] text-muted-foreground">
           <Badge variant="ok">
             <ShieldCheck aria-hidden />
             {t('ป้องกันแล้ว')}
@@ -199,7 +199,7 @@ export function DataSection({ data }: { data: AppData }) {
           {STORAGE_LABELS.persisted}
         </p>
       ) : (
-        storage && <p className="text-[12.5px] text-warning-fg">{STORAGE_LABELS[storage]}</p>
+        storage && <p className="text-[13px] text-warning-fg">{STORAGE_LABELS[storage]}</p>
       )}
     </Card>
   )

@@ -37,7 +37,7 @@ const LEGEND = [
   { label: t('ผลจากค่าเงิน'), className: 'bg-fx' },
 ]
 
-const SIDE_CLASS = 'flex items-center gap-3 rounded-[10px] px-3 py-[9px] text-[15.5px] text-ink-2 hover:bg-muted'
+const SIDE_CLASS = 'flex items-center gap-3 rounded-[10px] px-3 py-2 text-[15px] text-ink-2 hover:bg-muted'
 const SIDE_ACTIVE_CLASS = 'bg-primary-soft font-semibold text-primary-ink hover:bg-primary-soft'
 
 // NavLink only marks aria-current for its own route, so a link that also stands for other pages is a plain Link.
@@ -69,7 +69,7 @@ const TAB_ACTIVE_CLASS = 'font-semibold text-primary'
 function TabLink({ to, label, icon: Icon, active }: NavItem & { active?: boolean }) {
   const content = (
     <>
-      <Icon className="size-[22px]" aria-hidden />
+      <Icon className="size-6" aria-hidden />
       {label}
     </>
   )
@@ -103,7 +103,7 @@ function Shell() {
       <GlobalSearch />
       <PushAlertSync />
       <ChatOrb />
-      <aside className="sticky top-0 hidden h-dvh print:hidden flex-col gap-0.5 overflow-y-auto border-r bg-card px-4 py-[26px] md:flex">
+      <aside className="sticky top-0 hidden h-dvh print:hidden flex-col gap-0.5 overflow-y-auto border-r bg-card px-4 py-6 md:flex">
         <p className="shrink-0 px-2 font-display text-[30px] font-semibold leading-none">
           JOD
           <span className="mt-1 block font-sans text-xs font-normal text-muted-foreground">{t('จดทุกเทรด รู้ทุกบาท')}</span>
@@ -112,7 +112,7 @@ function Shell() {
           to={NEW_TRANSACTION}
           aria-keyshortcuts="N"
           title={t('บันทึกรายการ (N)')}
-          className={cn(buttonVariants(), 'mt-[22px] mb-4 h-12 shrink-0 text-base md:h-12')}
+          className={cn(buttonVariants(), 'mt-6 mb-4 h-12 shrink-0 text-base md:h-12')}
         >
           <Plus aria-hidden />
           {t('บันทึกรายการ')}
@@ -126,7 +126,7 @@ function Shell() {
             />
           ))}
         </nav>
-        <div className="mt-auto grid shrink-0 gap-[7px] border-t px-2.5 pt-3.5 text-[12.5px] text-muted-foreground [@media(max-height:779px)]:hidden">
+        <div className="mt-auto grid shrink-0 gap-2 border-t px-2.5 pt-3.5 text-[13px] text-muted-foreground [@media(max-height:779px)]:hidden">
           <p className="font-semibold text-ink-2">{t('สีประจำตลาด')}</p>
           {LEGEND.map((item) => (
             <p key={item.label} className="flex items-center gap-2.5">
@@ -138,12 +138,12 @@ function Shell() {
       </aside>
       <main
         className={cn(
-          'min-w-0 px-4 pt-3.5 pb-[calc(112px+env(safe-area-inset-bottom))] md:px-11 md:pt-[30px] md:pb-16',
+          'min-w-0 px-4 pt-3.5 pb-[calc(112px+env(safe-area-inset-bottom))] md:px-11 md:pt-8 md:pb-16',
           // Room below the last row so the ถาม JOD orb never sits on a figure.
           chatOn && 'pb-[calc(176px+env(safe-area-inset-bottom))] md:pb-28',
         )}
       >
-        <div className="mx-auto grid max-w-[1240px] content-start gap-3.5 md:gap-[22px] [&>*]:min-w-0">
+        <div className="mx-auto grid max-w-[1240px] content-start gap-3.5 md:gap-6 [&>*]:min-w-0">
           <Outlet />
         </div>
       </main>
@@ -154,7 +154,7 @@ function Shell() {
         <TabLink {...HOME} />
         <TabLink {...MARKET} />
         <NavLink to={NEW_TRANSACTION} className="flex flex-col items-center gap-0.5 text-[11px] text-muted-foreground">
-          <span className="-mt-5 grid size-[54px] place-items-center rounded-[17px] bg-primary text-primary-foreground shadow-[0_8px_18px_rgba(29,78,216,.3)]">
+          <span className="-mt-5 grid size-14 place-items-center rounded-[17px] bg-primary text-primary-foreground shadow-[0_8px_18px_rgba(29,78,216,.3)]">
             <Plus className="size-6" aria-hidden />
           </span>
           {t('บันทึก')}

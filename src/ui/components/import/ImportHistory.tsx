@@ -38,13 +38,13 @@ export function ImportHistory({ accounts }: { accounts: readonly Account[] }) {
               <span className="block">
                 {fmtDate(todayLocal(new Date(batch.createdAt)))} · {names.get(batch.accountId) ?? t('บัญชีที่ลบไปแล้ว')}
               </span>
-              <span className="block text-[12.5px] text-muted-foreground">
+              <span className="block text-[13px] text-muted-foreground">
                 {IMPORT_SOURCE_LABELS[batch.source]} {batch.fileCount} {t(' ไฟล์ · ')}{batch.count} {t(' รายการ')}
               </span>
             </span>
             <button
               type="button"
-              className="inline-flex min-h-11 items-center gap-1.5 justify-self-start text-[13.5px] font-semibold text-primary-ink underline-offset-[3px] hover:underline"
+              className="inline-flex min-h-11 items-center gap-1.5 justify-self-start text-[13px] font-semibold text-primary-ink underline-offset-[3px] hover:underline"
               onClick={() => void undo(batch.id, batch.count)}
             >
               <Undo2 className="size-4" aria-hidden />

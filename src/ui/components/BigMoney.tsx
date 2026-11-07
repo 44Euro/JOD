@@ -49,11 +49,11 @@ export function Row({ label, symbol, actor, act, meta, link = true }: { label: s
           ) : (
             symbol
           )}
-          <span className="min-w-0 truncate text-[13.5px] text-ink-2">{actor}</span>
+          <span className="min-w-0 truncate text-[13px] text-ink-2">{actor}</span>
         </span>
         <span className={cn('font-display text-[14px] font-semibold', act.tone)}>{act.text}</span>
       </div>
-      <p className="text-[12.5px] text-muted-foreground">{meta}</p>
+      <p className="text-[13px] text-muted-foreground">{meta}</p>
     </li>
   )
 }
@@ -96,7 +96,7 @@ export function FundRow({ fund, period, filedAt, move }: { fund: string; period:
 const BIG_MONEY_SOURCE = t('ที่มา SEC (13F) · สภาผู้แทนฯ สหรัฐ')
 
 function Heading({ children }: { children: ReactNode }) {
-  return <h3 className="mt-1 mb-2 text-[13.5px] font-semibold text-muted-foreground">{children}</h3>
+  return <h3 className="mt-1 mb-2 text-[13px] font-semibold text-muted-foreground">{children}</h3>
 }
 
 // ตลาด's look at the big money: the newest moves of the followed funds, then what House members traded.
@@ -118,9 +118,9 @@ export function BigMoneySection({ state }: { state: MarketState<BigMoney> }) {
 }
 
 export function FundMoves({ funds, limit }: { funds: BigMoney['funds']; limit?: number }) {
-  if (funds === null) return <p className="text-[13.5px] text-muted-foreground">{t('ข้อมูล 13F ยังไม่เปิด: เซิร์ฟเวอร์ยังไม่ได้ตั้ง SEC_USER_AGENT')}</p>
+  if (funds === null) return <p className="text-[13px] text-muted-foreground">{t('ข้อมูล 13F ยังไม่เปิด: เซิร์ฟเวอร์ยังไม่ได้ตั้ง SEC_USER_AGENT')}</p>
   const moves = [...funds].sort((a, b) => b.filedAt.localeCompare(a.filedAt)).flatMap((f) => f.moves.map((move) => ({ f, move })))
-  if (moves.length === 0) return <p className="text-[13.5px] text-muted-foreground">{t('ยังไม่มีการเปลี่ยนแปลงใน 13F ล่าสุด')}</p>
+  if (moves.length === 0) return <p className="text-[13px] text-muted-foreground">{t('ยังไม่มีการเปลี่ยนแปลงใน 13F ล่าสุด')}</p>
   return (
     <ul>
       {moves.slice(0, limit).map(({ f, move }) => (
@@ -137,8 +137,8 @@ function spread(trades: readonly CongressTrade[]): CongressTrade[] {
 }
 
 export function CongressTrades({ trades, limit }: { trades: BigMoney['congress']; limit?: number }) {
-  if (trades === null) return <p className="text-[13.5px] text-muted-foreground">{t('ดึงรายงานสภาผู้แทนฯ ไม่ได้ตอนนี้')}</p>
-  if (trades.length === 0) return <p className="text-[13.5px] text-muted-foreground">{t('ยังไม่มีรายงานการซื้อขายหุ้น')}</p>
+  if (trades === null) return <p className="text-[13px] text-muted-foreground">{t('ดึงรายงานสภาผู้แทนฯ ไม่ได้ตอนนี้')}</p>
+  if (trades.length === 0) return <p className="text-[13px] text-muted-foreground">{t('ยังไม่มีรายงานการซื้อขายหุ้น')}</p>
   return (
     <>
       <ul>
@@ -146,7 +146,7 @@ export function CongressTrades({ trades, limit }: { trades: BigMoney['congress']
           <CongressRow key={`${trade.url}:${i}`} trade={trade} />
         ))}
       </ul>
-      <p className="text-[12.5px] text-muted-foreground">{CONGRESS_DELAY}</p>
+      <p className="text-[13px] text-muted-foreground">{CONGRESS_DELAY}</p>
     </>
   )
 }
@@ -194,7 +194,7 @@ export function StockBigMoney({ data }: { data: BigMoneyFor }) {
                 <CongressRow key={`${trade.url}:${i}`} trade={trade} link={false} />
               ))}
             </ul>
-            <p className="text-[12.5px] text-muted-foreground">{CONGRESS_DELAY}</p>
+            <p className="text-[13px] text-muted-foreground">{CONGRESS_DELAY}</p>
           </>
         )}
       </div>

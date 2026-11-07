@@ -12,7 +12,7 @@ import { t } from '../../i18n'
 
 const SCORES = ['1', '2', '3', '4', '5'].map((value) => ({ value, label: value }))
 
-const labelClass = 'text-[13.5px] font-semibold text-ink-2'
+const labelClass = 'text-[13px] font-semibold text-ink-2'
 
 // journal is the one of the sell that closed the trade, which is where the review is written.
 export function TradeReviewForm({

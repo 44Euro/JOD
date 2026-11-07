@@ -54,7 +54,7 @@ export function MoneyRoute({ label, stations }: { label: string; stations: reado
             <span
               aria-hidden
               className={cn(
-                'absolute top-0.5 -left-9 size-[22px] rounded-full border-[5px] bg-card @min-[768px]:static @min-[768px]:size-8 @min-[768px]:border-[6px]',
+                'absolute top-0.5 -left-9 size-6 rounded-full border-[5px] bg-card @min-[768px]:static @min-[768px]:size-8 @min-[768px]:border-[6px]',
                 i === stations.length - 1
                   ? '@min-[768px]:-mt-1 @min-[768px]:mb-0.5 @min-[768px]:size-10'
                   : '@min-[768px]:mb-1.5',
@@ -81,13 +81,13 @@ export function MiniRoute({ from, via, to }: { from: string; via: string; to: st
   return (
     <div>
       <div aria-hidden className="flex items-center">
-        <span className="size-[22px] shrink-0 rounded-full border-[5px] border-foreground bg-card" />
+        <span className="size-6 shrink-0 rounded-full border-[5px] border-foreground bg-card" />
         <span className="h-1.5 flex-1 rounded-full bg-route-neutral" />
         <span className="size-7 shrink-0 rounded-full border-[5px] border-fx bg-card" />
         <span className="h-1.5 flex-1 rounded-full bg-market-us" />
-        <span className="size-[22px] shrink-0 rounded-full border-[5px] border-foreground bg-card" />
+        <span className="size-6 shrink-0 rounded-full border-[5px] border-foreground bg-card" />
       </div>
-      <p className="mt-2 flex justify-between gap-2 text-[12.5px] text-ink-2">
+      <p className="mt-2 flex justify-between gap-2 text-[13px] text-ink-2">
         <span>{from}</span>
         <span className="text-fx">{via}</span>
         <span>{to}</span>

@@ -25,7 +25,7 @@ export function FxRateBox({
   const estimates = openingAsset || USD_PEGGED.includes(draft.currency)
   const baseWord = base === 'THB' ? t('บาท') : ` ${base} `
   return (
-    <div className="grid gap-2 rounded-2xl bg-fx-soft px-[18px] py-4">
+    <div className="grid gap-2 rounded-2xl bg-fx-soft px-4 py-4">
       <Field
         id="tx-fx"
         label={`${openingAsset ? t('เรทเฉลี่ยตอนซื้อ') : t('เรทแลกเปลี่ยน')} (1 ${draft.currency} = ? ${base})`}

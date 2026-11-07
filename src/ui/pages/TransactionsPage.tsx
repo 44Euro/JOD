@@ -62,7 +62,7 @@ function AssetLabel({
       >
         {symbol}
       </b>
-      {withAccount && <span className={cn('truncate text-[12.5px] text-muted-foreground', struck && 'line-through')}>{accountName}</span>}
+      {withAccount && <span className={cn('truncate text-[13px] text-muted-foreground', struck && 'line-through')}>{accountName}</span>}
     </span>
   )
 }
@@ -90,7 +90,7 @@ function UndoButton({ label, className, onUndo }: { label: string; className?: s
       type="button"
       aria-label={t('ย้อนกลับการลบ {0}', label)}
       className={cn(
-        'inline-flex min-h-11 items-center gap-1.5 rounded-xl px-2 text-[13.5px] font-semibold text-primary-ink underline-offset-[3px] hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/35 focus-visible:outline-none [&_svg]:size-4',
+        'inline-flex min-h-11 items-center gap-1.5 rounded-xl px-2 text-[13px] font-semibold text-primary-ink underline-offset-[3px] hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/35 focus-visible:outline-none [&_svg]:size-4',
         className,
       )}
       onClick={onUndo}
@@ -206,7 +206,7 @@ export function TransactionsPage() {
             autoFocus={focusSearch}
             aria-label={t('ค้นหา')}
             placeholder={t('ค้นหาสัญลักษณ์ หรือหมายเหตุ')}
-            className="h-11 pl-10 md:h-[42px]"
+            className="h-11 pl-10 md:h-11"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
@@ -276,7 +276,7 @@ export function TransactionsPage() {
                 const newDay = index === 0 || shown[index - 1].date !== tx.date
                 const dayHeading = newDay && (
                   <tr>
-                    <th colSpan={7} scope="colgroup" className="px-2 pt-4 pb-1 text-left text-[12.5px] font-semibold text-muted-foreground">
+                    <th colSpan={7} scope="colgroup" className="px-2 pt-4 pb-1 text-left text-[13px] font-semibold text-muted-foreground">
                       {fmtDay(tx.date)}
                     </th>
                   </tr>
@@ -332,7 +332,7 @@ export function TransactionsPage() {
                         {describeMain(tx, accountNames, instruments)}
                         {!namesCurrency(tx) && <span className="text-muted-foreground"> {tx.currency}</span>}
                         {notes.map((note) => (
-                          <span key={note} className="block text-[12.5px] text-muted-foreground">
+                          <span key={note} className="block text-[13px] text-muted-foreground">
                             {note}
                           </span>
                         ))}
@@ -362,7 +362,7 @@ export function TransactionsPage() {
                     </tr>
                     {issue && (
                       <tr className="bg-warning-bg">
-                        <td colSpan={7} className="px-2 pb-3 text-[12.5px] text-warning-fg">
+                        <td colSpan={7} className="px-2 pb-3 text-[13px] text-warning-fg">
                           <span>{issue}</span> {t(' · แก้รายการนี้ หรือรายการก่อนหน้าที่เกี่ยวข้อง แล้วตัวเลขพอร์ตจะกลับมาครบ')}
                         </td>
                       </tr>
@@ -380,7 +380,7 @@ export function TransactionsPage() {
               const issue = issues.get(tx.id)
               const net = netOf(tx, issue !== undefined)
               const newDay = index === 0 || shown[index - 1].date !== tx.date
-              const dayHeading = newDay && <li className="pt-4 pb-1 text-[12.5px] font-semibold text-muted-foreground">{fmtDay(tx.date)}</li>
+              const dayHeading = newDay && <li className="pt-4 pb-1 text-[13px] font-semibold text-muted-foreground">{fmtDay(tx.date)}</li>
               if (pendingIds.has(tx.id)) {
                 return (
                   <Fragment key={tx.id}>
@@ -390,7 +390,7 @@ export function TransactionsPage() {
                         {assetOf(tx, false, true)}
                         <Badge variant="void">{t('ยกเลิกแล้ว')}</Badge>
                       </div>
-                      <div className="flex items-center justify-between gap-2 text-[12.5px] text-muted-foreground">
+                      <div className="flex items-center justify-between gap-2 text-[13px] text-muted-foreground">
                         <span className="min-w-0">
                           {TX_TYPE_SHORT_LABELS[tx.type] ?? TX_TYPE_LABELS[tx.type]} ·{' '}
                           <span className="line-through">
@@ -415,7 +415,7 @@ export function TransactionsPage() {
                         <span className="shrink-0 text-[13px] text-muted-foreground">{TX_TYPE_SHORT_LABELS[tx.type] ?? TX_TYPE_LABELS[tx.type]}</span>
                       </span>
                       <span className={cn('shrink-0 font-display font-semibold', net.className)}>{net.text}</span>
-                      <span className="col-span-2 flex flex-wrap items-center gap-x-1.5 text-[12.5px] text-muted-foreground">
+                      <span className="col-span-2 flex flex-wrap items-center gap-x-1.5 text-[13px] text-muted-foreground">
                         {tx.instrumentId && <span>{accountNames.get(tx.accountId) ?? '—'} ·</span>}
                         {/* The dot is drawn after this part, joined by a no-break space, so a wrapped line never starts with one. */}
                         <span className={cn(showsRate(tx) && "after:content-[' ·']")}>
@@ -430,7 +430,7 @@ export function TransactionsPage() {
                           </span>
                         )}
                       </span>
-                      {issue && <span className="col-span-2 text-[12.5px] text-warning-fg">{issue}</span>}
+                      {issue && <span className="col-span-2 text-[13px] text-warning-fg">{issue}</span>}
                     </Link>
                   </li>
                 </Fragment>

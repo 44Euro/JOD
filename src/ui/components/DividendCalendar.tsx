@@ -16,7 +16,7 @@ export function DividendCalendar({ months, symbols, base }: { months: readonly D
         <h2 id={id} className="text-lg font-semibold">
           {t('ปันผล 12 เดือนข้างหน้า')}
         </h2>
-        <p className="text-[13.5px] text-ink-2">{t('รวม 12 เดือน ≈ {0}', fmtHeadline(sumBy(months, (m) => m.totalBase), base))}</p>
+        <p className="text-[13px] text-ink-2">{t('รวม 12 เดือน ≈ {0}', fmtHeadline(sumBy(months, (m) => m.totalBase), base))}</p>
       </div>
       <ol className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-4">
         {months.map((m) => {
@@ -25,8 +25,8 @@ export function DividendCalendar({ months, symbols, base }: { months: readonly D
           return (
             <li key={m.month} aria-label={label} className="grid content-start gap-1.5 rounded-xl border p-2.5">
               <div className="flex items-baseline justify-between gap-2">
-                <span className="text-[13.5px] font-semibold">{label}</span>
-                {m.items.length > 0 && <span className="font-display text-[13.5px] font-semibold">{`${estimated ? '≈ ' : ''}${fmtHeadline(m.totalBase, base)}`}</span>}
+                <span className="text-[13px] font-semibold">{label}</span>
+                {m.items.length > 0 && <span className="font-display text-[13px] font-semibold">{`${estimated ? '≈ ' : ''}${fmtHeadline(m.totalBase, base)}`}</span>}
               </div>
               {m.items.length === 0 ? (
                 <p className="text-muted-foreground">—</p>
@@ -54,7 +54,7 @@ export function DividendCalendar({ months, symbols, base }: { months: readonly D
           )
         })}
       </ol>
-      <p className="text-[12.5px] text-muted-foreground">{t('คาดจากปันผลที่ได้รับใน 12 เดือนที่ผ่านมา × จำนวนหุ้นที่ถืออยู่ · หลังหักภาษี · ยอดเงินบาทใช้เรทตอนได้รับครั้งก่อน')}</p>
+      <p className="text-[13px] text-muted-foreground">{t('คาดจากปันผลที่ได้รับใน 12 เดือนที่ผ่านมา × จำนวนหุ้นที่ถืออยู่ · หลังหักภาษี · ยอดเงินบาทใช้เรทตอนได้รับครั้งก่อน')}</p>
     </Card>
   )
 }

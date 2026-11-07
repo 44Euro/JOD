@@ -89,7 +89,7 @@ export function WelcomePage() {
     <button
       type="button"
       disabled={busy}
-      className="min-h-11 justify-self-start text-[13.5px] font-semibold text-primary-ink underline-offset-[3px] hover:underline disabled:opacity-50"
+      className="min-h-11 justify-self-start text-[13px] font-semibold text-primary-ink underline-offset-[3px] hover:underline disabled:opacity-50"
       onClick={() => void trySample()}
     >
       {t('ลองดูด้วยข้อมูลตัวอย่างก่อน')}
@@ -99,13 +99,13 @@ export function WelcomePage() {
   return (
     <div className="grid min-h-dvh content-start justify-items-center bg-background px-4 pt-10 pb-16">
       <ThemeSync />
-      <main className="grid w-full max-w-[640px] gap-[22px]">
+      <main className="grid w-full max-w-[640px] gap-6">
         <p className="font-display text-[30px] font-semibold leading-none">
           JOD
           <span className="mt-1 block font-sans text-xs font-normal text-muted-foreground">{t('จดทุกเทรด รู้ทุกบาท')}</span>
         </p>
         <Stations steps={STEPS} step={step} />
-        <p className="text-[12.5px] text-muted-foreground">
+        <p className="text-[13px] text-muted-foreground">
           {t('ข้อมูลเก็บในเครื่องนี้และซิงก์แบบเข้ารหัส ไม่มีตัวติดตาม')}{' '}
           <Link to="/privacy" className="font-semibold text-primary-ink underline underline-offset-[3px]">
             {t('นโยบายความเป็นส่วนตัว')}
@@ -183,9 +183,9 @@ export function WelcomePage() {
             </div>
             {broker && broker.key !== 'custom' && (
               <div className="grid gap-1">
-                <p className="text-[13.5px] font-semibold text-ink-2">{t('ค่าธรรมเนียมเริ่มต้น')}</p>
+                <p className="text-[13px] font-semibold text-ink-2">{t('ค่าธรรมเนียมเริ่มต้น')}</p>
                 <p>{feeTemplateSummary({ ...broker.template, currency })}</p>
-                <p className="text-[12.5px] text-muted-foreground">
+                <p className="text-[13px] text-muted-foreground">
                   {broker.note} · {CHECK_WITH_BROKER}
                 </p>
               </div>

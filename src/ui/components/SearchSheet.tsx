@@ -154,7 +154,7 @@ function OpenSheet({ onClose, onPick, instruments, market = marketClient }: Sear
         <div id={`${id}-list`} role="listbox" aria-label={t('ผลการค้นหา')} className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
           {shown.map((group) => (
             <div key={group.label} role="group" aria-label={group.label} className="pb-1">
-              <p className="px-3 pt-2 pb-1 text-[12.5px] font-semibold text-muted-foreground" aria-hidden>
+              <p className="px-3 pt-2 pb-1 text-[13px] font-semibold text-muted-foreground" aria-hidden>
                 {group.label}
               </p>
               {group.items.map((item) => {
@@ -176,13 +176,13 @@ function OpenSheet({ onClose, onPick, instruments, market = marketClient }: Sear
                   >
                     <MarketPill market={item.market} assetType={item.assetType} />
                     <span className="font-display text-[15px] font-semibold text-foreground">{item.symbol}</span>
-                    <span className="min-w-0 truncate text-[13.5px] text-muted-foreground">{item.name}</span>
+                    <span className="min-w-0 truncate text-[13px] text-muted-foreground">{item.name}</span>
                   </div>
                 )
               })}
             </div>
           ))}
-          <p role="status" className={cn('px-3 text-[13.5px] text-muted-foreground', status && 'py-3')}>
+          <p role="status" className={cn('px-3 text-[13px] text-muted-foreground', status && 'py-3')}>
             {status}
           </p>
         </div>

@@ -53,7 +53,7 @@ export function EarningsWeek({
                   aria-current={day === today ? 'date' : undefined}
                   className={cn('min-w-0 rounded-xl px-1.5 py-2 md:px-2.5', day === today && 'bg-primary-soft')}
                 >
-                  <p className={cn('mb-1.5 text-[12.5px]', day === today ? 'font-semibold text-primary-ink' : 'text-muted-foreground')}>
+                  <p className={cn('mb-1.5 text-[13px]', day === today ? 'font-semibold text-primary-ink' : 'text-muted-foreground')}>
                     {`${SHORT_DAYS[i]} ${Number(day.slice(8))}`}
                   </p>
                   {reports.length > 0 ? (
@@ -72,7 +72,7 @@ export function EarningsWeek({
               )
             })}
           </ol>
-          <p className="mt-2 text-[13.5px] text-ink-2">{t('ทั้งตลาดสัปดาห์นี้ {0} บริษัท', new Set(state.data.map((e) => e.symbol)).size)}</p>
+          <p className="mt-2 text-[13px] text-ink-2">{t('ทั้งตลาดสัปดาห์นี้ {0} บริษัท', new Set(state.data.map((e) => e.symbol)).size)}</p>
         </>
       )}
     </MarketCard>

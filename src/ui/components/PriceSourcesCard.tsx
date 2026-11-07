@@ -18,7 +18,7 @@ function KeyField({ id, label, storageKey, hint }: { id: string; label: string; 
     return (
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span>
-          <span className="block text-[13.5px] font-semibold text-ink-2">{label}</span>
+          <span className="block text-[13px] font-semibold text-ink-2">{label}</span>
           <span className="font-mono text-sm">{maskApiKey(stored)}</span>
         </span>
         <Button type="button" variant="ghost" onClick={() => writeLocal(storageKey, '')}>
@@ -39,7 +39,7 @@ function KeyField({ id, label, storageKey, hint }: { id: string; label: string; 
       <Field id={id} label={label} hint={hint}>
         <Input id={id} type="password" autoComplete="off" spellCheck={false} value={draft} onChange={(e) => setDraft(e.target.value)} />
       </Field>
-      <Button type="submit" variant="outline" className="h-[46px]" disabled={!draft.trim()}>
+      <Button type="submit" variant="outline" className="h-12" disabled={!draft.trim()}>
         {t('บันทึก')}
       </Button>
     </form>
@@ -53,7 +53,7 @@ export function PriceSourcesCard({ settings }: { settings: Settings }) {
     <Card className="grid gap-3">
       <div>
         <h2 className="text-lg font-semibold">{t('ราคาอัตโนมัติ')}</h2>
-        <p className="text-[12.5px] text-muted-foreground">
+        <p className="text-[13px] text-muted-foreground">
           {t('หุ้น US และหุ้นไทยดึงจาก Yahoo ผ่านเซิร์ฟเวอร์ JOD ช้าราว 15 นาที คริปโตจาก CoinGecko กองทุนยังต้องกรอกเองหรืออัปเดตจากรูป')}
         </p>
       </div>
@@ -64,7 +64,7 @@ export function PriceSourcesCard({ settings }: { settings: Settings }) {
           <span id="auto-prices-label" className="block">
             {t('ดึงราคาวันละครั้งเมื่อเปิดแอป')}
           </span>
-          <span id="auto-prices-hint" className="block text-[12.5px] text-muted-foreground">
+          <span id="auto-prices-hint" className="block text-[13px] text-muted-foreground">
             {t('ส่งแค่ชื่อสินทรัพย์ที่ถือไปถามราคา ไม่ส่งจำนวนหรือมูลค่า')}
           </span>
         </span>

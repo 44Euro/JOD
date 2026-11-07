@@ -154,7 +154,7 @@ export function ReviewRowEditor({
         )}
       </div>
       {(row.note || row.duplicate || (row.include && problems.length > 0)) && (
-        <p className="text-[12.5px] text-warning-fg">
+        <p className="text-[13px] text-warning-fg">
           {[row.note, row.duplicate && `${row.duplicate}${row.include ? '' : t(' · ไม่ได้เลือกไว้')}`, row.include && problems.join(' · ')]
             .filter(Boolean)
             .join(' · ')}

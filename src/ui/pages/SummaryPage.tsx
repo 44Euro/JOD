@@ -65,7 +65,7 @@ export function SummaryPage() {
         {t('ปี ค.ศ. ')}{year} {t(' · พ.ศ. ')}{year + 543} {t(' · คิดเป็น ')}{base} {t(' ที่เรทของแต่ละรายการ · ทำเมื่อ ')}{fmtDate(today)}
       </p>
 
-      <div className="grid items-start gap-3.5 md:gap-[22px] lg:grid-cols-2 print:grid-cols-2">
+      <div className="grid items-start gap-3.5 md:gap-6 lg:grid-cols-2 print:grid-cols-2">
         <Card>
           <h2 className="mb-2 text-lg font-semibold">{t('มูลค่าพอร์ต')}</h2>
           <dl className="text-sm">

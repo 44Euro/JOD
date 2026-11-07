@@ -441,10 +441,10 @@ describe('TransactionsPage', () => {
     renderRoute('/transactions')
     const table = await screen.findByRole('table')
     const note = await within(table).findByText('หัก ณ ที่จ่าย 120')
-    expect(note).toHaveClass('block', 'text-[12.5px]', 'text-muted-foreground')
+    expect(note).toHaveClass('block', 'text-[13px]', 'text-muted-foreground')
     expect(note.closest('td')).toHaveTextContent(/^1,200 USDหัก ณ ที่จ่าย 120$/)
     const interest = within(table).getByText('หัก ณ ที่จ่าย 50')
-    expect(interest).toHaveClass('block', 'text-[12.5px]', 'text-muted-foreground')
+    expect(interest).toHaveClass('block', 'text-[13px]', 'text-muted-foreground')
     expect(interest.closest('td')).toHaveTextContent(/^500 USDหัก ณ ที่จ่าย 50$/)
     expect(within(table).getAllByText(/หัก ณ ที่จ่าย/)).toHaveLength(2)
     expect(within(table).getByText('300').closest('td')).toHaveTextContent(/^300 USD$/)
@@ -857,7 +857,7 @@ describe('TransactionsPage', () => {
       const table = await screen.findByRole('table')
       const row = (await within(table).findByText('SOL', { selector: 'b' })).closest('tr')!
       expect(row.cells[3]).toHaveTextContent(/^0\.5 × 150\.00 · ปันผลเป็นหุ้น USDหัก ณ ที่จ่าย 1$/)
-      expect(within(row.cells[3]).getByText('หัก ณ ที่จ่าย 1')).toHaveClass('block', 'text-[12.5px]', 'text-muted-foreground')
+      expect(within(row.cells[3]).getByText('หัก ณ ที่จ่าย 1')).toHaveClass('block', 'text-[13px]', 'text-muted-foreground')
       expect(row.cells[5]).toHaveTextContent(/^\+2,572\.50$/)
     })
 
@@ -929,12 +929,12 @@ describe('TransactionsPage', () => {
       renderRoute('/transactions')
       const table = await screen.findByRole('table')
       const note = await within(table).findByText('ค่าธรรมเนียม 0.001 BNB')
-      expect(note).toHaveClass('block', 'text-[12.5px]', 'text-muted-foreground')
+      expect(note).toHaveClass('block', 'text-[13px]', 'text-muted-foreground')
       const paid = note.closest('td')!
       expect(paid).toHaveTextContent(/^0\.5 × 2,600\.00 USDค่าธรรมเนียม 0\.001 BNB$/)
       expect(within(paid).getByText('USD')).toHaveClass('text-muted-foreground')
       const takenNote = within(table).getByText('หัก 0.002 ETH')
-      expect(takenNote).toHaveClass('block', 'text-[12.5px]', 'text-muted-foreground')
+      expect(takenNote).toHaveClass('block', 'text-[13px]', 'text-muted-foreground')
       expect(takenNote.closest('td')).toHaveTextContent(/^1 × 2,000\.00 USDหัก 0\.002 ETH$/)
     })
 

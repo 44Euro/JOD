@@ -63,7 +63,7 @@ export function TaxPage() {
         {t('ตัวเลขช่วยเตรียมยื่นภาษีจากรายการที่บันทึก ใช้เงื่อนไขกองทุนลดหย่อนตามที่ประกาศสำหรับการซื้อตั้งแต่ปี ')}{TAX_RULES_YEAR + 543} {t(' · ไม่ใช่คำแนะนำทางภาษี ตรวจกับหนังสือรับรองจากโบรก บลจ. และกรมสรรพากรก่อนยื่น')}
       </Alert>
 
-      <div className="grid items-start gap-3.5 md:gap-[22px] lg:grid-cols-2">
+      <div className="grid items-start gap-3.5 md:gap-6 lg:grid-cols-2">
         <Card>
           <h2 className="mb-2 text-lg font-semibold">{t('เงินได้จากการลงทุนในไทย')}</h2>
           <dl className="text-sm">

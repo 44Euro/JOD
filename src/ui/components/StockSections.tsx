@@ -54,7 +54,7 @@ export function FinancialsSection({ state }: { state: MarketState<Financials> })
             onChange={setView}
           />
           {periods.length === 0 ? (
-            <p className="text-[13.5px] text-muted-foreground">{t('ไม่มีตัวเลขช่วงนี้ใน SEC')}</p>
+            <p className="text-[13px] text-muted-foreground">{t('ไม่มีตัวเลขช่วงนี้ใน SEC')}</p>
           ) : (
             <>
               <div aria-hidden className="grid grid-flow-col auto-cols-fr items-end gap-2">
@@ -81,7 +81,7 @@ export function FinancialsSection({ state }: { state: MarketState<Financials> })
                 <tbody>
                   {[...periods].reverse().map((p) => (
                     <tr key={p.period}>
-                      <Th scope="row" className="border-t border-muted py-3 text-[13.5px] text-ink-2">
+                      <Th scope="row" className="border-t border-muted py-3 text-[13px] text-ink-2">
                         {periodLabel(p.period)}
                       </Th>
                       {ROWS.map((row) => (
@@ -151,7 +151,7 @@ function Valuation({ financials, price }: { financials: Financials; price: strin
       </div>
       {value ? (
         <div>
-          <p className="text-[13.5px] text-muted-foreground">{t('มูลค่าที่ประเมินได้ต่อหุ้น')}</p>
+          <p className="text-[13px] text-muted-foreground">{t('มูลค่าที่ประเมินได้ต่อหุ้น')}</p>
           <p className="font-display text-[34px] font-semibold leading-tight">
             {fmtPrice(value.perShare.toDecimalPlaces(2))} <span className="text-[15px] font-normal text-muted-foreground">USD</span>
           </p>
@@ -165,11 +165,11 @@ function Valuation({ financials, price }: { financials: Financials; price: strin
       ) : (
         <p className="text-[15px] text-ink-2">{answer}</p>
       )}
-      <p className="text-[12.5px] text-muted-foreground">
+      <p className="text-[13px] text-muted-foreground">
         {flow && t('FCF ปีล่าสุด {0} · ', fmtCompact(flow.toString()))}
         {t('หลังจากนั้นโตปีละ {0}% · ไม่รวมเงินสดและหนี้', TERMINAL_GROWTH_PCT.toString())}
       </p>
-      <p className="text-[12.5px] font-semibold text-ink-2">{t('คำนวณจากตัวเลขที่คุณใส่ ไม่ใช่คำแนะนำการลงทุน')}</p>
+      <p className="text-[13px] font-semibold text-ink-2">{t('คำนวณจากตัวเลขที่คุณใส่ ไม่ใช่คำแนะนำการลงทุน')}</p>
     </div>
   )
 }

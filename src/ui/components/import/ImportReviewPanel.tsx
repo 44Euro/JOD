@@ -211,7 +211,7 @@ export function ImportReviewPanel({
               </Field>
             )
           })}
-          <p className="text-[12.5px] text-muted-foreground sm:col-span-2">
+          <p className="text-[13px] text-muted-foreground sm:col-span-2">
             {extraction.costIncludesFees === false
               ? t('รูปบอกว่าทุนเฉลี่ยยังไม่รวมค่าคอม ใส่ค่าคอมที่จ่ายไปในช่องค่าธรรมเนียมของแต่ละแถวได้')
               : t('ทุนเฉลี่ยในแอปโบรกบางเจ้ารวมค่าคอมแล้ว บางเจ้ายังไม่รวม ถ้ายังไม่รวม ใส่ค่าคอมในช่องค่าธรรมเนียมของแต่ละแถว')}

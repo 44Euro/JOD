@@ -51,7 +51,7 @@ function JournalLine({ journal, className }: { journal: Transaction['journal']; 
   const emotion = journal?.emotion && EMOTION_LABELS[journal.emotion]
   if (!strategy && !emotion) return null
   return (
-    <span className={cn('flex min-w-0 gap-1 text-[12.5px] text-muted-foreground', className)}>
+    <span className={cn('flex min-w-0 gap-1 text-[13px] text-muted-foreground', className)}>
       {strategy && (
         <span title={strategy} className="min-w-0 truncate">
           {strategy}
@@ -239,7 +239,7 @@ export function AssetPage() {
       <SectionChips key={id} sections={sections} />
 
       {known && (
-        <div id="stock-mine" className="grid scroll-mt-16 gap-3.5 md:gap-[22px] [&>*]:min-w-0">
+        <div id="stock-mine" className="grid scroll-mt-16 gap-3.5 md:gap-6 [&>*]:min-w-0">
 
         {stats && (
           <SummaryPanel
@@ -254,7 +254,7 @@ export function AssetPage() {
                 <>
                   <h2 className="mb-4 text-lg font-semibold">{t('เส้นทางเงินของ ')}{symbol}</h2>
                   <MoneyRoute label={t('เส้นทางเงินของ {0}', symbol)} stations={route} />
-                  <p className="mt-[18px] flex flex-wrap gap-2">
+                  <p className="mt-5 flex flex-wrap gap-2">
                     <Badge variant={badgeOf(stats.priceEffectBase)}>{t('จากหุ้น ')}{fmtSigned(stats.priceEffectBase, 0)}</Badge>
                     {stats.currency !== base && <Badge variant="auto">{t('จากค่าเงิน ')}{fmtSigned(stats.fxEffectBase, 0)}</Badge>}
                     <Badge>{t('ปันผล ')}{fmtSigned(stats.incomeBase, 0)}</Badge>
@@ -282,7 +282,7 @@ export function AssetPage() {
           </SummaryPanel>
         )}
 
-        <div className="grid items-start gap-3.5 md:gap-[22px] xl:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="grid items-start gap-3.5 md:gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
           <Card>
             <div className="mb-3.5 flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-lg font-semibold">{t('ทุกรายการของ ')}{symbol}</h2>
@@ -334,7 +334,7 @@ export function AssetPage() {
                       <Link to={`/transactions/${tx.id}`} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2.5 py-3">
                         <span>{fmtDate(tx.date)}</span>
                         <span className={cn('font-display font-semibold', net.className)}>{net.text}</span>
-                        <span className="col-span-2 text-[12.5px] text-muted-foreground">
+                        <span className="col-span-2 text-[13px] text-muted-foreground">
                           {feeRow ? `${FEE_PAID_ROW_LABEL} ${describeFeePaid(tx)}` : `${TX_TYPE_LABELS[tx.type]} ${describeAmount(tx, accountNames, instruments)}`}
                           {tx.fxSource !== 'same' && !feeFreeTransfer(tx) && ` · ${tx.fxSource === 'estimated' ? t('เรทประมาณ') : t('เรท')} ${fmtPrice(tx.fxRate)}`}
                         </span>
@@ -378,7 +378,7 @@ export function AssetPage() {
       )}
 
       {(hasFilings || us) && (
-        <div className="grid items-start gap-3.5 md:gap-[22px] xl:grid-cols-2">
+        <div className="grid items-start gap-3.5 md:gap-6 xl:grid-cols-2">
           {hasFilings && (
             <div id="stock-financials" className="min-w-0 scroll-mt-16">
               <FinancialsSection state={filingsState} />

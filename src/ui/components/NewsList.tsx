@@ -21,7 +21,7 @@ export function NewsList({ items, today }: { items: readonly NewsItem[]; today: 
           >
             {item.headline}
           </a>
-          <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[12.5px] text-muted-foreground">
+          <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[13px] text-muted-foreground">
             <span>{`${item.source} · ${fmtWhen(item.publishedAt, today)}`}</span>
             {item.symbols.slice(0, MAX_SYMBOLS).map((symbol) => (
               <span key={symbol} className="inline-flex items-center gap-1 font-display font-semibold text-ink-2">
@@ -43,13 +43,13 @@ export function MarketNote({ state, offText }: { state: MarketState<unknown>; of
       : state.status === 'failed'
         ? t('ดึงข้อมูลตลาดไม่ได้ตอนนี้ ลองใหม่ภายหลัง')
         : t('กำลังดึงข้อมูลตลาด…')
-  return <p className="text-[13.5px] text-muted-foreground">{text}</p>
+  return <p className="text-[13px] text-muted-foreground">{text}</p>
 }
 
 export const NEWS_SOURCE = t('ที่มา Finnhub')
 
 export function NewsBody({ state, today, limit }: { state: MarketState<readonly NewsItem[]>; today: string; limit?: number }) {
   if (state.status !== 'ready') return <MarketNote state={state} />
-  if (state.data.length === 0) return <p className="text-[13.5px] text-muted-foreground">{t('ยังไม่มีข่าวตอนนี้')}</p>
+  if (state.data.length === 0) return <p className="text-[13px] text-muted-foreground">{t('ยังไม่มีข่าวตอนนี้')}</p>
   return <NewsList items={state.data.slice(0, limit)} today={today} />
 }

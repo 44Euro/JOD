@@ -33,7 +33,7 @@ const VIEWS = [
 ] as const satisfies readonly { value: View; label: string }[]
 
 function UnpricedNote({ className }: { className?: string }) {
-  return <p className={cn('text-[12.5px] text-muted-foreground', className)}>{t('ตัวที่ยังไม่มีราคานับตามต้นทุน')}</p>
+  return <p className={cn('text-[13px] text-muted-foreground', className)}>{t('ตัวที่ยังไม่มีราคานับตามต้นทุน')}</p>
 }
 
 export function PortfolioPage() {
@@ -151,7 +151,7 @@ export function PortfolioPage() {
                   {fmtMoney(row.amount, row.currency)}
                 </span>
                 {row.base !== null && row.currency !== base && (
-                  <span className="col-span-2 text-[12.5px] text-muted-foreground">≈ {fmtHeadline(row.base, base)}</span>
+                  <span className="col-span-2 text-[13px] text-muted-foreground">≈ {fmtHeadline(row.base, base)}</span>
                 )}
               </li>
             ))}
@@ -179,10 +179,10 @@ export function PortfolioPage() {
           </Table>
         )}
         {unrated.length > 0 && (
-          <p className="mt-3 text-[12.5px] text-muted-foreground">{t('ยังไม่มีเรทวันนี้ของ ')}{unrated.join(', ')} {t(' จึงยังไม่รวมในยอดรวม')}</p>
+          <p className="mt-3 text-[13px] text-muted-foreground">{t('ยังไม่มีเรทวันนี้ของ ')}{unrated.join(', ')} {t(' จึงยังไม่รวมในยอดรวม')}</p>
         )}
         {tradeOnly && (
-          <p className="mt-3 text-[12.5px] text-muted-foreground">
+          <p className="mt-3 text-[13px] text-muted-foreground">
             {t('บัญชีที่จดแค่ซื้อขาย ไม่นับเงินสด (ไม่มีรายการฝาก ถอน หรือแลกเงิน)')}
           </p>
         )}

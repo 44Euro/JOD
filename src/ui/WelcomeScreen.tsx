@@ -33,7 +33,7 @@ function RateBoard() {
 function Station({ ring, amount, label }: { ring: string; amount: string; label: string }) {
   return (
     <div className="grid grid-cols-[22px_1fr] items-center gap-x-4">
-      <span className={cn('size-[22px] rounded-full border-[5px] bg-board', ring)} />
+      <span className={cn('size-6 rounded-full border-[5px] bg-board', ring)} />
       <span className="font-mono text-[17px] text-white tabular-nums">{amount}</span>
       <span />
       <span className="text-[13px] text-board-muted">{label}</span>
@@ -119,7 +119,7 @@ export function WelcomeScreen({ onChoose }: { onChoose: (mode: 'login' | 'signup
               <div className="grid place-items-center">{slide.art}</div>
               <div>
                 <h1 className="font-display text-[30px] leading-[1.15] font-semibold text-balance">{slide.title}</h1>
-                <p className="mt-3 text-[15.5px] leading-relaxed text-board-muted text-pretty">{slide.body}</p>
+                <p className="mt-3 text-[15px] leading-relaxed text-board-muted text-pretty">{slide.body}</p>
               </div>
             </section>
           ))}

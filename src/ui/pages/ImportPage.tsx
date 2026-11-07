@@ -215,7 +215,7 @@ export function ImportPage() {
               </NativeSelect>
             </Field>
             <div className="grid content-start gap-1.5">
-              <span className="text-[13.5px] font-semibold text-ink-2">{t('ทำอะไร')}</span>
+              <span className="text-[13px] font-semibold text-ink-2">{t('ทำอะไร')}</span>
               <Segmented
                 label={t('ทำอะไร')}
                 options={PURPOSES.map((value) => ({ value, label: PURPOSE_LABELS[value] }))}
@@ -251,7 +251,7 @@ export function ImportPage() {
             >
               <ImagePlus className="size-6 text-ink-2" aria-hidden />
               <span className="font-semibold">{t('ใส่รูปแคป, PDF หรือ CSV')}</span>
-              <span className="text-[12.5px] text-muted-foreground">{t('ใส่ได้หลายไฟล์ ครอปหรือปิดเลขบัญชีในรูปได้ ไฟล์ Excel ให้บันทึกเป็น CSV ก่อน')}</span>
+              <span className="text-[13px] text-muted-foreground">{t('ใส่ได้หลายไฟล์ ครอปหรือปิดเลขบัญชีในรูปได้ ไฟล์ Excel ให้บันทึกเป็น CSV ก่อน')}</span>
             </button>
             {files.length > 0 && (
               <ul className="grid gap-2 sm:grid-cols-2" aria-label={t('ไฟล์ที่จะอ่าน')}>
@@ -325,7 +325,7 @@ export function ImportPage() {
       )}
 
       {phase.name === 'review' && (
-        <div className="grid items-start gap-3.5 md:gap-[22px] xl:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+        <div className="grid items-start gap-3.5 md:gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
           <Card className="order-last grid content-start gap-3 xl:order-first">
             <h2 className="text-base font-semibold">{t('ไฟล์จาก ')}{account.name}</h2>
             <ul className="grid gap-3">
@@ -342,7 +342,7 @@ export function ImportPage() {
                 </li>
               ))}
             </ul>
-            <p className="text-[12.5px] text-muted-foreground">{t('ช่องสีเหลืองคือจุดที่ต้องตรวจกับไฟล์')}</p>
+            <p className="text-[13px] text-muted-foreground">{t('ช่องสีเหลืองคือจุดที่ต้องตรวจกับไฟล์')}</p>
           </Card>
           <Card>
             <h2 className="mb-3 text-lg font-semibold">{PURPOSE_LABELS[purpose]}</h2>

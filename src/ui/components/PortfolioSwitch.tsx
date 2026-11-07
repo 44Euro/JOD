@@ -4,7 +4,7 @@ import { PORTFOLIO, TRADES } from '../nav'
 import { t } from '../../i18n'
 
 const ITEM =
-  'grid h-11 min-w-11 grow place-items-center rounded-[9px] px-3.5 text-[13.5px] text-ink-2 transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/35 md:h-8 md:grow-0'
+  'grid h-11 min-w-11 grow place-items-center rounded-[9px] px-3.5 text-[13px] text-ink-2 transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/35 md:h-8 md:grow-0'
 const ACTIVE = 'bg-card font-semibold text-foreground shadow-sm shadow-foreground/10'
 
 // Holdings and trades are two views of the same พอร์ต tab, styled like the segmented control but each its own page.

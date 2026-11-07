@@ -36,13 +36,13 @@ export function RateBoard({ rows, base, caption = t('เรทเฉลี่ย
   return (
     <section
       aria-labelledby="rate-board-title"
-      className="@container rounded-[18px] bg-board p-4 text-[#e8eef8] md:rounded-[20px] md:px-[26px] md:py-[22px]"
+      className="@container rounded-[18px] bg-board p-4 text-[#e8eef8] md:rounded-[20px] md:px-6 md:py-6"
     >
       <div className="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <h2 id="rate-board-title" className="text-lg font-semibold text-white">
           {t('กระดานเรท')}
         </h2>
-        <p className="text-[12.5px] text-board-muted">{caption}</p>
+        <p className="text-[13px] text-board-muted">{caption}</p>
       </div>
       {rows.length > 0 && (
         <>

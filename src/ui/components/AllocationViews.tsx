@@ -26,7 +26,7 @@ function MarketName({ row }: { row: HoldingGroup }) {
       <MarketPill market={market} />
       <span className="flex min-w-0 items-center gap-2.5 md:max-lg:flex-col md:max-lg:items-start md:max-lg:gap-0">
         <span className="truncate">{MARKET_LABELS[market]}</span>
-        <span className="shrink-0 text-[12.5px] text-muted-foreground">{row.count} {t(' ตัว')}</span>
+        <span className="shrink-0 text-[13px] text-muted-foreground">{row.count} {t(' ตัว')}</span>
       </span>
     </span>
   )
@@ -75,14 +75,14 @@ export function MarketView({ groups, base }: { groups: readonly HoldingGroup[]; 
             <li key={row.key} className={phoneRow}>
               <MarketName row={row} />
               <span className="font-display font-semibold">{fmtPct(row.pct, 1, 1)}</span>
-              <span className="col-span-2 text-[12.5px] text-muted-foreground">
+              <span className="col-span-2 text-[13px] text-muted-foreground">
                 {fmtValue(row.totalBase)} {t(' · ยังไม่ขาย ')}<span className={plClass(row.unrealizedBase)}>{fmtSigned(row.unrealizedBase, 0)}</span>
               </span>
             </li>
           ))}
         </ul>
       )}
-      <p className="mt-3 text-[12.5px] text-muted-foreground">{t('สัดส่วนจากมูลค่าสินทรัพย์ ไม่รวมเงินสด')}</p>
+      <p className="mt-3 text-[13px] text-muted-foreground">{t('สัดส่วนจากมูลค่าสินทรัพย์ ไม่รวมเงินสด')}</p>
     </>
   )
 }
@@ -126,14 +126,14 @@ export function CurrencyView({ rows, base }: { rows: readonly AllocationRow[]; b
                 <CashPill label={row.key} />
               </span>
               <span className="font-display font-semibold">{fmtPct(row.pct, 1, 1)}</span>
-              <span className="col-span-2 text-[12.5px] text-muted-foreground">
+              <span className="col-span-2 text-[13px] text-muted-foreground">
                 {t('สินทรัพย์ ')}{fmtValue(row.assetsBase)} {t(' · เงินสด ')}{fmtValue(row.cashBase)}
               </span>
             </li>
           ))}
         </ul>
       )}
-      <p className="mt-3 text-[12.5px] text-muted-foreground">{t('สินทรัพย์นับตามสกุลที่ซื้อขาย รวมเงินสดตามสกุล')}</p>
+      <p className="mt-3 text-[13px] text-muted-foreground">{t('สินทรัพย์นับตามสกุลที่ซื้อขาย รวมเงินสดตามสกุล')}</p>
     </>
   )
 }

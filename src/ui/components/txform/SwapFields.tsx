@@ -91,7 +91,7 @@ export function SwapFields({
 
 export function SwapSummary({ draft, outcome }: { draft: Draft; outcome: SwapOutcome }) {
   return (
-    <p className="rounded-2xl bg-muted px-[18px] py-3 text-[13px]">
+    <p className="rounded-2xl bg-muted px-4 py-3 text-[13px]">
       {t('ต้นทุน ')}{draft.toSymbol.trim().toUpperCase()} {fmtPrice(outcome.unitCost)} {draft.currency} {t(' ต่อหน่วย · กำไรที่ขายแล้วของ')}{' '}
       {draft.symbol.trim().toUpperCase()}{' '}
       <span className={plClass(outcome.realizedQuote)}>

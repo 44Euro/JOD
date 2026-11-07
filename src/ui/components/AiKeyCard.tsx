@@ -100,7 +100,7 @@ export function AiKeyCard() {
           ))}
         </NativeSelect>
       </Field>
-      <p className="text-[12.5px] text-muted-foreground">{NOTES[mode]}</p>
+      <p className="text-[13px] text-muted-foreground">{NOTES[mode]}</p>
       {mode !== 'local' && <ProviderForm key={mode} mode={mode} />}
     </Card>
   )

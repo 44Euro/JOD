@@ -67,7 +67,7 @@ export function ConvertFields({
 
 export function ConvertSummary({ draft, summary }: { draft: Draft; summary: FxConvertSummary }) {
   return (
-    <p className="rounded-2xl bg-fx-soft px-[18px] py-3 text-[13px] text-fx">
+    <p className="rounded-2xl bg-fx-soft px-4 py-3 text-[13px] text-fx">
       {t('เรทที่ได้ 1 ')}{draft.toCurrency} = {fmtPrice(summary.effectiveRate)} {draft.currency}
       {summary.marketRate && t(' · เรทตลาด {0}', fmtPrice(summary.marketRate))}
       {summary.spreadPct && ` · ${spreadText(summary.spreadPct)}`}

@@ -36,10 +36,10 @@ export function BigMoneyPage() {
         </Card>
       ) : funds === null ? (
         <Card>
-          <p className="text-[13.5px] text-muted-foreground">{t('ข้อมูล 13F ยังไม่เปิด: เซิร์ฟเวอร์ยังไม่ได้ตั้ง SEC_USER_AGENT')}</p>
+          <p className="text-[13px] text-muted-foreground">{t('ข้อมูล 13F ยังไม่เปิด: เซิร์ฟเวอร์ยังไม่ได้ตั้ง SEC_USER_AGENT')}</p>
         </Card>
       ) : (
-        <div className="grid items-start gap-3.5 md:gap-[22px] xl:grid-cols-2">
+        <div className="grid items-start gap-3.5 md:gap-6 xl:grid-cols-2">
           {funds.map((fund) => (
             <MarketCard key={fund.cik} title={fund.name} source={t('ที่มา SEC · 13F ไตรมาส {0} · ยื่น {1}', fmtDate(fund.period), fmtDate(fund.filedAt))}>
               {fund.moves.length > 0 ? (
@@ -49,7 +49,7 @@ export function BigMoneyPage() {
                   ))}
                 </ul>
               ) : (
-                <p className="text-[13.5px] text-muted-foreground">{t('ยังไม่มีการเปลี่ยนแปลงใน 13F ล่าสุด')}</p>
+                <p className="text-[13px] text-muted-foreground">{t('ยังไม่มีการเปลี่ยนแปลงใน 13F ล่าสุด')}</p>
               )}
             </MarketCard>
           ))}

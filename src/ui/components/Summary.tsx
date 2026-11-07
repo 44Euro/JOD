@@ -28,7 +28,7 @@ export function SummaryPanel({
           </div>
         )}
       </div>
-      {footer && <div className="mt-6 md:mt-[26px]">{footer}</div>}
+      {footer && <div className="mt-6 md:mt-6">{footer}</div>}
     </Card>
   )
 }
@@ -57,7 +57,7 @@ export function Stat({
         <p className={cn('font-display text-[19px] font-semibold leading-tight md:text-[28px]', tone, valueClassName)}>{value}</p>
         {flag && <Badge variant="warning">{flag}</Badge>}
       </div>
-      {note && <p className="text-[12.5px] text-muted-foreground max-md:hidden">{note}</p>}
+      {note && <p className="text-[13px] text-muted-foreground max-md:hidden">{note}</p>}
     </div>
   )
 }

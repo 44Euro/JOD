@@ -16,11 +16,11 @@ export function Field({
 }) {
   return (
     <div className={cn('grid min-w-0 content-start gap-1.5', className)}>
-      <label htmlFor={id} className="text-[13.5px] font-semibold text-ink-2">
+      <label htmlFor={id} className="text-[13px] font-semibold text-ink-2">
         {label}
       </label>
       {children}
-      {hint && <p className="text-[12.5px] text-muted-foreground">{hint}</p>}
+      {hint && <p className="text-[13px] text-muted-foreground">{hint}</p>}
     </div>
   )
 }

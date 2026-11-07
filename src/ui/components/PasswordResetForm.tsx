@@ -126,7 +126,7 @@ export function PasswordResetForm({ email: givenEmail = '', code: givenCode = ''
         />
       </Field>
       {signedInHere ? (
-        <p className="text-[12.5px] text-muted-foreground">{t('เครื่องนี้ยังเข้าบัญชีอยู่ ข้อมูลทั้งหมดจะอยู่ครบหลังเปลี่ยนรหัสผ่าน')}</p>
+        <p className="text-[13px] text-muted-foreground">{t('เครื่องนี้ยังเข้าบัญชีอยู่ ข้อมูลทั้งหมดจะอยู่ครบหลังเปลี่ยนรหัสผ่าน')}</p>
       ) : fresh ? (
         <Alert tone="error">
           {t('ตั้งรหัสผ่านใหม่โดยไม่มีรหัสกู้คืน ข้อมูลที่ซิงก์ไว้บนเซิร์ฟเวอร์จะถูกลบ และบัญชีจะเริ่มใหม่ว่างเปล่า ถ้ายังมีเครื่องอื่นที่เข้าแอปได้ ให้ตั้งรหัสใหม่จากเครื่องนั้นแทน')}

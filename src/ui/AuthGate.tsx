@@ -48,7 +48,7 @@ function RecoveryCodeScreen({ code }: { code: string }) {
         </p>
       </div>
       <div className="grid gap-3 rounded-2xl border bg-card p-5">
-        <p className="flex items-center gap-2 text-[12.5px] font-semibold text-muted-foreground">
+        <p className="flex items-center gap-2 text-[13px] font-semibold text-muted-foreground">
           <ShieldCheck className="size-4" strokeWidth={1.75} aria-hidden />
           {t('รหัสกู้คืน')}
         </p>
@@ -74,7 +74,7 @@ function RecoveryCodeScreen({ code }: { code: string }) {
           {copied ? t('คัดลอกแล้ว') : t('คัดลอก')}
         </Button>
       </div>
-      <p className="text-[12.5px] text-muted-foreground">{t('เขียนลงกระดาษหรือเก็บในตัวจัดการรหัสผ่าน อย่าเก็บไว้ในแอปนี้')}</p>
+      <p className="text-[13px] text-muted-foreground">{t('เขียนลงกระดาษหรือเก็บในตัวจัดการรหัสผ่าน อย่าเก็บไว้ในแอปนี้')}</p>
       <label className="flex min-h-11 items-center gap-2.5 text-sm text-ink-2">
         <input type="checkbox" className="size-5 accent-primary" checked={saved} onChange={(e) => setSaved(e.target.checked)} />
         {t('ฉันจดรหัสนี้เก็บไว้แล้ว')}
@@ -106,7 +106,7 @@ function PinScreen({ intro, footer, children }: { intro: ReactNode; footer?: Rea
 // Setting a PIN is two stops on the money route: choose it, then confirm it.
 function PinSteps({ step }: { step: 1 | 2 }) {
   return (
-    <div aria-hidden className="mb-5 grid grid-cols-[auto_64px_auto] items-center gap-x-2 gap-y-2 text-[12.5px]">
+    <div aria-hidden className="mb-5 grid grid-cols-[auto_64px_auto] items-center gap-x-2 gap-y-2 text-[13px]">
       <span className={cn('size-4 justify-self-center rounded-full border-4', step === 1 ? 'border-white bg-board' : 'border-board-mine bg-board-mine')} />
       <span className={cn('h-1 rounded-full transition-colors duration-300', step === 2 ? 'bg-board-mine' : 'bg-board-muted/35')} />
       <span className={cn('size-4 justify-self-center rounded-full border-4 bg-board', step === 2 ? 'border-white' : 'border-board-muted/45')} />
@@ -144,7 +144,7 @@ function BoardRoute() {
         ),
         <span
           key={`dot-${i}`}
-          className={cn('size-[22px] rounded-full border-[5px] bg-board motion-safe:animate-[station-in_0.4s_cubic-bezier(0.16,1,0.3,1)_both]', station.ring)}
+          className={cn('size-6 rounded-full border-[5px] bg-board motion-safe:animate-[station-in_0.4s_cubic-bezier(0.16,1,0.3,1)_both]', station.ring)}
           style={{ animationDelay: `${i * 260}ms` }}
         />,
       ])}
@@ -152,7 +152,7 @@ function BoardRoute() {
         <span
           key={`label-${i}`}
           className={cn(
-            'text-[12.5px] text-board-muted',
+            'text-[13px] text-board-muted',
             i === 0 && 'col-start-1 justify-self-start',
             i === 1 && 'col-start-3 justify-self-center text-board-fx',
             i === 2 && 'col-start-5 justify-self-end',
@@ -306,7 +306,7 @@ function SetPinScreen() {
         </>
       }
       footer={
-        <p className="flex items-center gap-1.5 text-[12.5px] text-board-muted">
+        <p className="flex items-center gap-1.5 text-[13px] text-board-muted">
           <ShieldCheck className="size-4 shrink-0" strokeWidth={1.75} aria-hidden />
           {t('PIN นี้ใช้เฉพาะเครื่องนี้ ไม่ส่งขึ้นเซิร์ฟเวอร์')}
         </p>

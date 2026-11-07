@@ -52,7 +52,7 @@ export function SyncCard() {
       <h2 className="text-lg font-semibold">{t('บัญชีและการซิงก์')}</h2>
       <p className="text-sm">
         {state.email}
-        <span className="block text-[12.5px] text-muted-foreground">
+        <span className="block text-[13px] text-muted-foreground">
           {state.syncedAt ? t('ซิงก์ล่าสุด {0}', fmtDate(state.syncedAt.slice(0, 10))) : t('ยังไม่เคยซิงก์')}
           {dirty && ` · ${t('มีการแก้ไขที่ยังไม่ได้ส่ง')}`}
         </span>
@@ -93,7 +93,7 @@ export function SyncCard() {
       <div className="grid gap-3 border-t pt-4">
         <div>
           <h3 className="text-[15px] font-semibold">{t('รหัสผ่านและรหัสกู้คืน')}</h3>
-          <p className="text-[12.5px] text-muted-foreground">{t('ตั้งรหัสผ่านใหม่ด้วยรหัสที่ส่งไปที่อีเมล ข้อมูลในบัญชีอยู่ครบ')}</p>
+          <p className="text-[13px] text-muted-foreground">{t('ตั้งรหัสผ่านใหม่ด้วยรหัสที่ส่งไปที่อีเมล ข้อมูลในบัญชีอยู่ครบ')}</p>
         </div>
         {resetting ? (
           <PasswordResetForm

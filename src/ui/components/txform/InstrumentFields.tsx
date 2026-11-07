@@ -74,7 +74,7 @@ export function InstrumentFields({
             onChange={(e) => onSymbol(e.target.value)}
           />
           {onFound && (
-            <Button type="button" variant="outline" className="h-[46px] shrink-0" onClick={() => setSearching(true)}>
+            <Button type="button" variant="outline" className="h-12 shrink-0" onClick={() => setSearching(true)}>
               <Search aria-hidden />
               {t('ค้นหา')}
             </Button>

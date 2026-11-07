@@ -394,10 +394,10 @@ function TransactionForm({
   const totalPanel = total && <TotalPanel total={total} currency={draft.currency} base={base} rate={rate} />
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="grid gap-3.5 md:gap-[22px]">
+    <form onSubmit={handleSubmit} noValidate className="grid gap-3.5 md:gap-6">
       <PageHeader title={existing ? t('แก้ไขรายการ') : t('บันทึกรายการ')} />
-      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-3.5 md:gap-[22px] xl:grid-cols-[minmax(0,1fr)_340px]">
-        <Card className="grid gap-[18px]">
+      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-3.5 md:gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <Card className="grid gap-5">
           {copiedFrom && (
             <p className="flex items-center gap-2 text-[13px] text-muted-foreground">
               <Copy className="size-4 shrink-0" aria-hidden />

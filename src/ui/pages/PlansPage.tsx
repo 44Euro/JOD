@@ -259,7 +259,7 @@ function PlansCard({ data }: { data: AppData }) {
           <Input id="plan-start" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
         </Field>
         <div className="grid content-start gap-1.5 sm:col-span-2">
-          <span className="text-[13.5px] font-semibold text-ink-2">{t('ความถี่')}</span>
+          <span className="text-[13px] font-semibold text-ink-2">{t('ความถี่')}</span>
           <Segmented
             label={t('ความถี่')}
             options={PLAN_FREQUENCIES.map((value) => ({
@@ -293,7 +293,7 @@ export function PlansPage() {
     <>
       <PageHeader title={t('แผน')} />
       <GoalsCard data={data} />
-      <div className="grid items-start gap-3.5 md:gap-[22px] xl:grid-cols-2">
+      <div className="grid items-start gap-3.5 md:gap-6 xl:grid-cols-2">
         <TargetsCard data={data} />
         <PlansCard data={data} />
         <ChecklistCard data={data} />

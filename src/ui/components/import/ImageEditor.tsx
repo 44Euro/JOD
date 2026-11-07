@@ -54,7 +54,7 @@ export function ImageEditor({
   return (
     <div className="grid gap-3 rounded-2xl border bg-background p-3">
       <Segmented label={t('เครื่องมือแก้รูป')} options={(['cover', 'crop'] as const).map((value) => ({ value, label: TOOL_LABELS[value] }))} value={tool} onChange={setTool} />
-      <p className="text-[12.5px] text-muted-foreground">
+      <p className="text-[13px] text-muted-foreground">
         {tool === 'cover' ? t('ลากคลุมเลขบัญชี ชื่อ หรือสิ่งที่ไม่อยากให้อ่าน ส่วนที่ปิดจะถูกลบออกจากรูปจริง') : t('ลากกรอบส่วนที่จะเก็บไว้')}
       </p>
       <div

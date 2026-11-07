@@ -13,7 +13,7 @@ import { t } from '../../../i18n'
 
 const SCALE = ['1', '2', '3', '4', '5'].map((value) => ({ value, label: value }))
 
-const labelClass = 'text-[13.5px] font-semibold text-ink-2'
+const labelClass = 'text-[13px] font-semibold text-ink-2'
 
 // The visible name is hidden from screen readers because the group carries the same one.
 function Choices({ label, children }: { label: string; children: ReactNode }) {
@@ -119,7 +119,7 @@ export function TradeJournalFields({
                   {item}
                 </label>
               ))}
-              <span className="text-[12.5px] text-muted-foreground">
+              <span className="text-[13px] text-muted-foreground">
                 {t('ติ๊กแล้ว ')}{journal.checked.filter((c) => checklist.includes(c)).length} {t(' จาก ')}{checklist.length} {t(' ข้อ')}
               </span>
             </fieldset>

@@ -18,7 +18,7 @@ export function IncomeBars({ buckets, base }: { buckets: readonly IncomeBucket[]
   const max = buckets.reduce((top, b) => (b.netBase.greaterThan(top) ? b.netBase : top), D(0))
   return (
     <div>
-      <ol aria-label={t('รายได้แต่ละช่วง')} className="flex h-[130px] items-end gap-1 border-b pt-2.5 md:h-[170px] md:gap-2.5">
+      <ol aria-label={t('รายได้แต่ละช่วง')} className="flex h-[132px] items-end gap-1 border-b pt-2.5 md:h-[168px] md:gap-2.5">
         {buckets.map((bucket) => (
           <li key={bucket.key} className="flex h-full min-w-0 flex-1 items-end">
             <span

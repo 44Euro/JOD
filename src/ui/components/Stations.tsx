@@ -20,7 +20,7 @@ export function Stations({ steps, step }: { steps: readonly string[]; step: numb
             <span
               aria-hidden
               className={cn(
-                'size-[26px] shrink-0 rounded-full border-4 bg-card',
+                'size-7 shrink-0 rounded-full border-4 bg-card',
                 index < step && 'border-foreground bg-foreground',
                 index === step && 'border-primary',
                 index > step && 'border-input',

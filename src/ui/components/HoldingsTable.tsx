@@ -57,7 +57,7 @@ function AssetName({ instrumentId, instrument, tight }: { instrumentId: string; 
       <MarketPill market={instrument?.market ?? marketOf(instrumentId)} assetType={instrument?.assetType} />
       <b className="font-display text-base font-semibold">{instrument?.symbol ?? instrumentId}</b>
       {instrument && instrument.name !== instrument.symbol && (
-        <span className={cn('truncate text-[12.5px] text-muted-foreground', tight && 'md:max-[1366px]:hidden')}>{instrument.name}</span>
+        <span className={cn('truncate text-[13px] text-muted-foreground', tight && 'md:max-[1366px]:hidden')}>{instrument.name}</span>
       )}
     </Link>
   )
@@ -92,7 +92,7 @@ function PriceInput({ instrument, rowCurrency }: { instrument: Instrument; rowCu
         aria-label={t('ราคาล่าสุด {0}', instrument.symbol)}
         aria-invalid={invalid}
         inputMode="decimal"
-        className="h-[46px] w-28 rounded-[10px] px-2.5 md:h-[34px]"
+        className="h-12 w-28 rounded-[10px] px-2.5 md:h-9"
         value={value}
         onChange={(e) => {
           edited.current = true
@@ -103,7 +103,7 @@ function PriceInput({ instrument, rowCurrency }: { instrument: Instrument; rowCu
           if (e.key === 'Enter') void commit()
         }}
       />
-      {instrument.currency !== rowCurrency && <span className="text-[12.5px] text-muted-foreground">{instrument.currency}</span>}
+      {instrument.currency !== rowCurrency && <span className="text-[13px] text-muted-foreground">{instrument.currency}</span>}
       {age !== null && age > STALE_PRICE_DAYS && <Badge variant="warning">{age} {t(' วันก่อน')}</Badge>}
     </span>
   )
@@ -126,7 +126,7 @@ export function HoldingsTable({ valuations, instruments, accountNames, base, rat
             >
               <AssetName instrumentId={p.instrumentId} instrument={instrument} />
               <span className="font-display font-semibold">{fmtValue(v.marketValueBase)}</span>
-              <span className="col-span-2 text-[12.5px] text-muted-foreground">
+              <span className="col-span-2 text-[13px] text-muted-foreground">
                 {stats ? (
                   <>
                     <span className="whitespace-nowrap">
@@ -154,7 +154,7 @@ export function HoldingsTable({ valuations, instruments, accountNames, base, rat
                 )}
               </span>
               {editablePrice && instrument && (
-                <span className="col-span-2 flex items-center gap-2 text-[12.5px] text-muted-foreground">
+                <span className="col-span-2 flex items-center gap-2 text-[13px] text-muted-foreground">
                   <span className="shrink-0 whitespace-nowrap">{t('ราคาล่าสุด')}</span>
                   <PriceInput key={priceInputKey(instrument)} instrument={instrument} rowCurrency={p.currency} />
                 </span>

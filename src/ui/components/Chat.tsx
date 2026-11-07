@@ -87,7 +87,7 @@ export function ChatOrb() {
         aria-label={t('ถาม JOD')}
         aria-haspopup="dialog"
         onClick={() => setOpen(true)}
-        className="fixed right-4 bottom-[calc(max(env(safe-area-inset-bottom),22px)+72px)] z-20 grid size-14 place-items-center rounded-full bg-board text-white shadow-[0_10px_24px_-6px_rgb(11_31_58/0.55)] transition-transform hover:scale-[1.04] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-board-mine/70 active:scale-95 md:right-8 md:bottom-8 print:hidden"
+        className="fixed right-4 bottom-[calc(max(env(safe-area-inset-bottom),22px)+72px)] z-20 grid size-14 place-items-center rounded-full bg-board text-white shadow-[0_4px_12px_-4px_rgb(11_31_58/0.35)] transition-[background-color,transform] duration-150 ease-out hover:bg-board-line focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-board-mine/70 active:scale-[0.97] md:right-8 md:bottom-8 print:hidden"
       >
         <RouteMark />
       </button>
@@ -221,7 +221,7 @@ function ChatSheet({ provider, mode, settings, onClose }: { provider: string; mo
             <h2 id={`${id}-title`} className="truncate text-lg font-semibold">
               {t('ถาม JOD · {0}', provider)}
             </h2>
-            <p className="text-[12.5px] text-board-muted">{t('ใช้ key ของคุณ · ประวัติเก็บในเครื่องนี้เท่านั้น')}</p>
+            <p className="text-[13px] text-board-muted">{t('ใช้ key ของคุณ · ประวัติเก็บในเครื่องนี้เท่านั้น')}</p>
           </div>
           {history.length > 0 && !pending && (
             <button type="button" aria-label={t('ล้างประวัติแชต')} className={ICON_BUTTON} onClick={() => keep([])}>
@@ -286,7 +286,7 @@ function ChatSheet({ provider, mode, settings, onClose }: { provider: string; mo
         )}
 
         {image && (
-          <div className="flex items-center gap-2 px-4 pb-2 text-[12.5px] text-board-mine">
+          <div className="flex items-center gap-2 px-4 pb-2 text-[13px] text-board-mine">
             <img src={image.previewUrl} alt="" className="size-8 rounded-md object-cover" />
             <span className="min-w-0 truncate">{image.name}</span>
             <button type="button" aria-label={t('เอารูปออก')} className={cn(ICON_BUTTON, 'size-8')} onClick={() => setImage(null)}>

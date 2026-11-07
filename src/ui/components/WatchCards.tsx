@@ -82,7 +82,7 @@ export function WatchlistCard({ data }: { data: AppData }) {
       )}
       {(data.settings.alerts ?? []).some((a) => !a.firedAt) && (
         <div className="border-t pt-3">
-          <h3 className="mb-1 text-[13.5px] font-semibold text-muted-foreground">{t('แจ้งเตือนราคา')}</h3>
+          <h3 className="mb-1 text-[13px] font-semibold text-muted-foreground">{t('แจ้งเตือนราคา')}</h3>
           <AlertList alerts={data.settings.alerts ?? []} settings={data.settings} />
         </div>
       )}
@@ -129,7 +129,7 @@ export function ChecklistCard({ data }: { data: AppData }) {
     <Card className="grid gap-3">
       <div>
         <h2 className="text-lg font-semibold">{t('เช็คลิสต์ก่อนเข้าเทรด')}</h2>
-        <p className="text-[12.5px] text-muted-foreground">{t('ขึ้นให้ติ๊กตอนบันทึกการซื้อ ข้อที่ติ๊กเก็บไว้ในบันทึกเทรด')}</p>
+        <p className="text-[13px] text-muted-foreground">{t('ขึ้นให้ติ๊กตอนบันทึกการซื้อ ข้อที่ติ๊กเก็บไว้ในบันทึกเทรด')}</p>
       </div>
       {items.length > 0 && (
         <ol aria-label={t('ข้อในเช็คลิสต์')} className="grid gap-1.5">
@@ -158,7 +158,7 @@ export function ChecklistCard({ data }: { data: AppData }) {
         <Field id="checklist-item" label={t('เพิ่มข้อ')}>
           <Input id="checklist-item" placeholder={t('เช่น ตามแผนที่เขียนไว้, ตั้ง Stop loss แล้ว')} value={draft} onChange={(e) => setDraft(e.target.value)} />
         </Field>
-        <Button type="submit" variant="outline" className="h-[46px]" disabled={!draft.trim()}>
+        <Button type="submit" variant="outline" className="h-12" disabled={!draft.trim()}>
           {t('เพิ่ม')}
         </Button>
       </form>

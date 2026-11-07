@@ -143,7 +143,7 @@ function CashRows({
         >
           <CashLabel currency={row.currency} accountName={nameOf(row)} />
           <span className="font-display font-semibold text-fx">{fmtSigned(row.effectBase, 0)}</span>
-          <span className="col-span-2 text-[12.5px] text-muted-foreground">
+          <span className="col-span-2 text-[13px] text-muted-foreground">
             {t('{0} {1} · ต้นทุน {2} · วันนี้ {3}', fmtAmount(row.amount), row.currency, fmtNumber(row.costBase, 0), fmtNumber(row.valueBase, 0))}
           </span>
         </li>
@@ -190,7 +190,7 @@ function HistoryRows({ rows, base, isDesktop }: { rows: readonly ConvertRow[]; b
         >
           <span>{fmtDate(row.date)}</span>
           <span className="font-display font-semibold">{fmtRate(row.effectiveRate)}</span>
-          <span className="col-span-2 text-[12.5px] text-muted-foreground">
+          <span className="col-span-2 text-[13px] text-muted-foreground">
             {`${fmtAmount(row.amount)}${row.from === base ? '' : ` ${row.from}`} → ${fmtAmount(row.toAmount)} ${row.to}`}
             {row.marketRate && t(' · ตลาด {0}', fmtRate(row.marketRate))}
             {row.spreadPct && (
@@ -277,7 +277,7 @@ export function FxPage() {
       )}
 
       {(summaries.length > 0 || remittances.length > 0) && (
-        <div className="grid items-start gap-3.5 md:gap-[22px] xl:grid-cols-2">
+        <div className="grid items-start gap-3.5 md:gap-6 xl:grid-cols-2">
           {summaries.length > 0 && (
             <Section id="fx-summary-title" title={t('สรุปการแลกเงิน')}>
               <div className="[&>dl+dl]:mt-3 [&>dl+dl]:border-t [&>dl+dl]:border-muted">
@@ -313,11 +313,11 @@ export function FxPage() {
                 {remittances.map((year) => (
                   <Line key={year.taxYear} label={t('ปีภาษี {0} ({1})', year.taxYear + 543, year.taxYear)} plain>
                     <span className="font-display font-semibold">{fmtHeadline(year.totalBase, base)}</span>{' '}
-                    <span className="text-[12.5px] text-muted-foreground">{t('· {0} ครั้ง', year.count)}</span>
+                    <span className="text-[13px] text-muted-foreground">{t('· {0} ครั้ง', year.count)}</span>
                   </Line>
                 ))}
               </dl>
-              <p className="mt-2.5 text-[12.5px] text-muted-foreground">
+              <p className="mt-2.5 text-[13px] text-muted-foreground">
                 {t('ใช้เตรียมข้อมูลเงินได้จากต่างประเทศที่นำเข้าไทย ไม่ใช่คำแนะนำภาษี')}
               </p>
             </Section>

@@ -118,7 +118,7 @@ export function DashboardPage() {
         {hasSampleData(data.accounts) && (
           <Link
             to="/settings"
-            className="inline-flex h-8 items-center rounded-full border bg-card px-3 text-[12.5px] font-semibold text-ink-2 hover:bg-muted max-md:h-11"
+            className="inline-flex h-8 items-center rounded-full border bg-card px-3 text-[13px] font-semibold text-ink-2 hover:bg-muted max-md:h-11"
           >
             {t('ข้อมูลตัวอย่าง')}
           </Link>
@@ -138,7 +138,7 @@ export function DashboardPage() {
 
       <div
         className={cn(
-          'grid grid-cols-[minmax(0,1fr)] items-start gap-3.5 md:gap-[22px]',
+          'grid grid-cols-[minmax(0,1fr)] items-start gap-3.5 md:gap-6',
           hasSideColumn && 'xl:grid-cols-[minmax(0,1fr)_340px]',
         )}
       >
@@ -157,7 +157,7 @@ export function DashboardPage() {
           // Placed explicitly so on desktop it stays beside the board and the headlines, while phones read it after them.
           <div className="grid min-w-0 content-start gap-4 xl:col-start-2 xl:row-span-2 xl:row-start-1">
             {showRoute && (
-              <Link to={assetPath(largestId)} className="block rounded-[18px] border bg-card p-4 hover:bg-muted md:rounded-[20px] md:px-[26px] md:py-[22px]">
+              <Link to={assetPath(largestId)} className="block rounded-[18px] border bg-card p-4 hover:bg-muted md:rounded-[20px] md:px-6 md:py-6">
                 <h2 className="mb-4 text-lg font-semibold">{t('เส้นทางเงิน · ')}{largestSymbol}</h2>
                 <MiniRoute
                   from={base === 'THB' ? t('บาท') : base}

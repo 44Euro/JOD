@@ -46,12 +46,12 @@ export function HoldingsBoard({ rows, today }: { rows: readonly HoldingsBoardRow
   const press = useLongPress((id) => navigate(`${assetPath(id)}?alert=1`))
   const sources = [...new Set(rows.flatMap((row) => (row.source ? [row.source] : [])))]
   return (
-    <section aria-labelledby="holdings-board-title" className="rounded-[18px] bg-board p-4 text-[#e8eef8] md:rounded-[20px] md:px-[26px] md:py-[22px]">
+    <section aria-labelledby="holdings-board-title" className="rounded-[18px] bg-board p-4 text-[#e8eef8] md:rounded-[20px] md:px-6 md:py-6">
       <div className="mb-1 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <h2 id="holdings-board-title" className="text-lg font-semibold text-white">
           {t('ราคาที่ถืออยู่')}
         </h2>
-        <p className="text-[12.5px] text-board-muted">
+        <p className="text-[13px] text-board-muted">
           {compared ? t('เทียบราคาก่อนหน้า {0}', fmtDate(compared)) : t('เทียบราคาก่อนหน้า')}
         </p>
       </div>

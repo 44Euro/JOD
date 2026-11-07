@@ -14,7 +14,7 @@ function shortDate(iso: string): string {
 
 function TooltipBox({ title, lines }: { title: string; lines: { label: string; value: string; color: string }[] }) {
   return (
-    <div className="rounded-xl border bg-card px-3 py-2 text-[12.5px] shadow-sm">
+    <div className="rounded-xl border bg-card px-3 py-2 text-[13px] shadow-sm">
       <p className="mb-1 font-semibold">{title}</p>
       {lines.map((l) => (
         <p key={l.label} className="flex items-center gap-1.5 tabular-nums">

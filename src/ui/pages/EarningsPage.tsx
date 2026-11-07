@@ -35,7 +35,7 @@ export function EarningsPage() {
         {state.status !== 'ready' ? (
           <MarketNote state={state} />
         ) : shown.length === 0 ? (
-          <p className="text-[13.5px] text-muted-foreground">{all ? t('สัปดาห์นี้ไม่มีบริษัทประกาศงบ') : t('ไม่มีหุ้นที่ถือหรือจับตาประกาศงบสัปดาห์นี้')}</p>
+          <p className="text-[13px] text-muted-foreground">{all ? t('สัปดาห์นี้ไม่มีบริษัทประกาศงบ') : t('ไม่มีหุ้นที่ถือหรือจับตาประกาศงบสัปดาห์นี้')}</p>
         ) : (
           week.map((day) => {
             const reports = shown.filter((e) => e.date === day)
@@ -48,9 +48,9 @@ export function EarningsPage() {
                     <li key={e.symbol} className="flex min-h-11 items-center justify-between gap-3 border-t py-2 first:border-t-0">
                       <span className="flex min-w-0 items-baseline gap-2">
                         <EarningsSymbol symbol={e.symbol} held={heldSet.has(e.symbol)} />
-                        {e.time && <span className="text-[12.5px] text-muted-foreground">{EARNINGS_TIMES[e.time]}</span>}
+                        {e.time && <span className="text-[13px] text-muted-foreground">{EARNINGS_TIMES[e.time]}</span>}
                       </span>
-                      <span className="text-right text-[13.5px] text-ink-2">
+                      <span className="text-right text-[13px] text-ink-2">
                         {[e.epsEstimate && t('EPS คาด {0}', e.epsEstimate), e.epsActual && t('จริง {0}', e.epsActual)].filter(Boolean).join(' · ')}
                       </span>
                     </li>

@@ -8,13 +8,13 @@ import { t } from '../../../i18n'
 
 export function TotalPanel({ total, currency, base, rate }: { total: Decimal; currency: string; base: string; rate: string | null }) {
   return (
-    <div className="flex flex-wrap items-baseline justify-between gap-3 rounded-2xl bg-board px-[18px] py-4 text-white">
+    <div className="flex flex-wrap items-baseline justify-between gap-3 rounded-2xl bg-board px-4 py-4 text-white">
       <div>
-        <p className="text-[12.5px] text-board-muted">{t('รวม')}</p>
+        <p className="text-[13px] text-board-muted">{t('รวม')}</p>
         <p className="font-display text-[28px] font-semibold leading-tight">{fmtMoney(total, currency)}</p>
       </div>
       {rate && (
-        <p className="text-[12.5px] text-board-muted">
+        <p className="text-[13px] text-board-muted">
           ≈ {fmtMoney(total.times(D(rate)), base)} {t(' ที่เรท ')}{fmtPrice(rate)}
         </p>
       )}

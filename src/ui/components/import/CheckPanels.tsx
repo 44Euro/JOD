@@ -76,7 +76,7 @@ export function PriceReviewPanel({
           ))}
         </ul>
       )}
-      {unknown.length > 0 && <p className="text-[12.5px] text-muted-foreground">{t('ไม่มีในพอร์ต จึงข้ามไป: ')}{unknown.join(', ')}</p>}
+      {unknown.length > 0 && <p className="text-[13px] text-muted-foreground">{t('ไม่มีในพอร์ต จึงข้ามไป: ')}{unknown.join(', ')}</p>}
       {error && <Alert tone="error">{error}</Alert>}
       <div className="flex flex-wrap gap-2">
         <Button type="button" disabled={chosen.length === 0} onClick={() => void save()}>
@@ -138,10 +138,10 @@ export function ComparePanel({
         ))}
       </ul>
       {lines.some((l) => l.approx) && (
-        <p className="text-[12.5px] text-muted-foreground">{t('จำนวนที่มี ≈ คิดจากมูลค่าในรูป ต่างกันไม่เกิน 1% นับว่าตรง')}</p>
+        <p className="text-[13px] text-muted-foreground">{t('จำนวนที่มี ≈ คิดจากมูลค่าในรูป ต่างกันไม่เกิน 1% นับว่าตรง')}</p>
       )}
       {lines.some((l) => l.state === 'differ' || l.state === 'not_in_app') && (
-        <p className="text-[12.5px] text-muted-foreground">{t('ตัวที่ไม่ตรงมักมาจากรายการที่ลืมจด หรือปันผลเป็นหุ้น ลองดูในหน้ารายการของบัญชีนี้')}</p>
+        <p className="text-[13px] text-muted-foreground">{t('ตัวที่ไม่ตรงมักมาจากรายการที่ลืมจด หรือปันผลเป็นหุ้น ลองดูในหน้ารายการของบัญชีนี้')}</p>
       )}
       <div>
         <Button type="button" variant="outline" onClick={onDone}>

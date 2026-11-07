@@ -29,7 +29,7 @@ import { chooseLanguage, language, t } from '../../i18n'
 function FeeTemplateLine({ template }: { template: FeeTemplate }) {
   const { body, minimum } = feeTemplateParts(template)
   return (
-    <span className="text-[12.5px] text-muted-foreground">
+    <span className="text-[13px] text-muted-foreground">
       {body}
       {minimum && (
         <>
@@ -77,7 +77,7 @@ export function SettingsPage() {
   return (
     <>
       <PageHeader title={t('ตั้งค่า')} />
-      <div className="grid items-start gap-3.5 md:gap-[22px] lg:grid-cols-2">
+      <div className="grid items-start gap-3.5 md:gap-6 lg:grid-cols-2">
         <div className="grid content-start gap-3.5 md:gap-4">
           <Card className="grid gap-3">
             <h2 className="text-lg font-semibold">{t('สกุลเงินหลักของพอร์ต')}</h2>
@@ -127,7 +127,7 @@ export function SettingsPage() {
                           {account.feeTemplate ? (
                             <FeeTemplateLine template={account.feeTemplate} />
                           ) : (
-                            account.broker && <span className="text-[12.5px] text-muted-foreground">{account.broker}</span>
+                            account.broker && <span className="text-[13px] text-muted-foreground">{account.broker}</span>
                           )}
                         </span>
                         <span className="flex shrink-0">
@@ -169,7 +169,7 @@ export function SettingsPage() {
               <Field id="account-broker" label={t('โบรกเกอร์')}>
                 <Input id="account-broker" value={broker} onChange={(e) => setBroker(e.target.value)} />
               </Field>
-              <Button type="submit" className="h-[46px]">
+              <Button type="submit" className="h-12">
                 {t('เพิ่มบัญชี')}
               </Button>
             </form>
@@ -220,7 +220,7 @@ export function SettingsPage() {
                 <span id="hide-numbers-label" className="block">
                   {t('ซ่อนตัวเลขทุกครั้งที่เปิดแอป')}
                 </span>
-                <span id="hide-numbers-hint" className="block text-[12.5px] text-muted-foreground">
+                <span id="hide-numbers-hint" className="block text-[13px] text-muted-foreground">
                   {t('แสดงเป็น ••• จนกว่าจะแตะรูปตา')}
                 </span>
               </span>

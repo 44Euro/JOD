@@ -23,11 +23,11 @@ import { t } from '../../i18n'
 function GoalRoute({ sharePct, reached }: { sharePct: number; reached: boolean }) {
   return (
     <div aria-hidden className="flex items-center">
-      <span className="size-[22px] shrink-0 rounded-full border-[5px] border-foreground bg-card" />
+      <span className="size-6 shrink-0 rounded-full border-[5px] border-foreground bg-card" />
       <span className="relative h-[5px] flex-1 rounded-full bg-route-neutral">
         <span className="absolute inset-y-0 left-0 rounded-full bg-foreground" style={{ width: `${sharePct}%` }} />
       </span>
-      <span className={cn('size-[22px] shrink-0 rounded-full border-[5px] bg-card', reached ? 'border-foreground' : 'border-route-neutral')} />
+      <span className={cn('size-6 shrink-0 rounded-full border-[5px] bg-card', reached ? 'border-foreground' : 'border-route-neutral')} />
     </div>
   )
 }
@@ -64,7 +64,7 @@ function GoalForm({ data, onDone }: { data: AppData; onDone(): void }) {
       </Field>
       {data.accounts.length > 1 && (
         <fieldset className="grid gap-1.5 sm:col-span-3">
-          <legend className="mb-1.5 text-[13.5px] font-semibold text-ink-2">{t('นับจากบัญชี (ไม่เลือก = ทุกบัญชี)')}</legend>
+          <legend className="mb-1.5 text-[13px] font-semibold text-ink-2">{t('นับจากบัญชี (ไม่เลือก = ทุกบัญชี)')}</legend>
           <div className="flex flex-wrap gap-2">
             {data.accounts.map((a) => (
               <Chip key={a.id} active={accountIds.includes(a.id)} onClick={() => setAccountIds((ids) => (ids.includes(a.id) ? ids.filter((x) => x !== a.id) : [...ids, a.id]))}>
@@ -120,10 +120,10 @@ export function GoalsCard({ data }: { data: AppData }) {
       <div className="grid gap-3">
         <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
           <p className="text-[15px] font-semibold">{shown.name}</p>
-          <p className="text-[13.5px] text-ink-2">{t('เป้า {0} ภายใน {1}', fmtHeadline(shown.target, base), fmtDate(shown.targetDate))}</p>
+          <p className="text-[13px] text-ink-2">{t('เป้า {0} ภายใน {1}', fmtHeadline(shown.target, base), fmtDate(shown.targetDate))}</p>
         </div>
         <GoalRoute sharePct={plan.sharePct.toNumber()} reached={plan.reached} />
-        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-[13.5px]">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-[13px]">
           <span className="font-semibold">{t('มีแล้ว {0} · {1}', fmtHeadline(value, base), fmtPct(plan.sharePct, 0))}</span>
           <span className="text-muted-foreground">{names ? t('นับจาก {0}', names.join(', ')) : t('นับจากทุกบัญชี')}</span>
         </div>

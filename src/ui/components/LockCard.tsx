@@ -53,7 +53,7 @@ export function LockCard() {
     <Card className="grid gap-3">
       <div>
         <h2 className="text-lg font-semibold">{t('PIN เข้าแอป')}</h2>
-        <p className="text-[12.5px] text-muted-foreground">{t('ถาม PIN 6 หลักทุกครั้งที่เปิดแอป และเมื่อออกไปนานกว่า 5 นาที')}</p>
+        <p className="text-[13px] text-muted-foreground">{t('ถาม PIN 6 หลักทุกครั้งที่เปิดแอป และเมื่อออกไปนานกว่า 5 นาที')}</p>
       </div>
       <div className="flex flex-wrap gap-2">
         <Button type="button" variant="outline" onClick={lockNow}>
