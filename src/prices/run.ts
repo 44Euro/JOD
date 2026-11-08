@@ -1,5 +1,4 @@
 import { useMemo } from 'react'
-import { COINGECKO_KEY_STORAGE_KEY, useLocal } from '../ai/apiKey'
 import type { JodDB } from '../db/db'
 import { recordBenchmark } from '../db/repo'
 import type { Ledger } from '../domain/ledger'
@@ -12,8 +11,7 @@ import { t } from '../i18n'
 export const DEFAULT_BENCHMARK = 'SPY'
 
 export function usePriceSources(): PriceSource[] {
-  const gecko = useLocal(COINGECKO_KEY_STORAGE_KEY)
-  return useMemo(() => [createJodServer(marketClient), createCoinGecko(undefined, gecko)], [gecko])
+  return useMemo(() => [createJodServer(marketClient), createCoinGecko()], [])
 }
 
 export function heldInstruments(ledger: Ledger, instruments: readonly Instrument[]): Instrument[] {

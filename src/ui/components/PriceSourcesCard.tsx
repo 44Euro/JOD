@@ -1,6 +1,5 @@
 import { useState } from 'react'
-import { AUTO_PRICES_STORAGE_KEY, COINGECKO_KEY_STORAGE_KEY, maskApiKey, useLocal, writeLocal } from '../../ai/apiKey'
-import { Button } from '../../components/ui/button'
+import { AUTO_PRICES_STORAGE_KEY, useLocal, writeLocal } from '../../ai/apiKey'
 import { Card } from '../../components/ui/card'
 import { Field } from '../../components/ui/field'
 import { Input } from '../../components/ui/input'
@@ -10,41 +9,6 @@ import { saveSettings } from '../../db/repo'
 import type { Settings } from '../../domain/types'
 import { DEFAULT_BENCHMARK } from '../../prices/run'
 import { t } from '../../i18n'
-
-function KeyField({ id, label, storageKey, hint }: { id: string; label: string; storageKey: string; hint: string }) {
-  const stored = useLocal(storageKey)
-  const [draft, setDraft] = useState('')
-  if (stored) {
-    return (
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <span>
-          <span className="block text-[13px] font-semibold text-ink-2">{label}</span>
-          <span className="font-mono text-sm">{maskApiKey(stored)}</span>
-        </span>
-        <Button type="button" variant="ghost" onClick={() => writeLocal(storageKey, '')}>
-          {t('ลบ key')}
-        </Button>
-      </div>
-    )
-  }
-  return (
-    <form
-      className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-end"
-      onSubmit={(e) => {
-        e.preventDefault()
-        if (draft.trim()) writeLocal(storageKey, draft.trim())
-        setDraft('')
-      }}
-    >
-      <Field id={id} label={label} hint={hint}>
-        <Input id={id} type="password" autoComplete="off" spellCheck={false} value={draft} onChange={(e) => setDraft(e.target.value)} />
-      </Field>
-      <Button type="submit" variant="outline" className="h-12" disabled={!draft.trim()}>
-        {t('บันทึก')}
-      </Button>
-    </form>
-  )
-}
 
 export function PriceSourcesCard({ settings }: { settings: Settings }) {
   const auto = useLocal(AUTO_PRICES_STORAGE_KEY) === 'on'
@@ -57,7 +21,6 @@ export function PriceSourcesCard({ settings }: { settings: Settings }) {
           {t('หุ้น US และหุ้นไทยดึงจาก Yahoo ผ่านเซิร์ฟเวอร์ JOD ช้าราว 15 นาที คริปโตจาก CoinGecko กองทุนยังต้องกรอกเองหรืออัปเดตจากรูป')}
         </p>
       </div>
-      <KeyField id="coingecko-key" label={t('CoinGecko demo key (ไม่บังคับ)')} storageKey={COINGECKO_KEY_STORAGE_KEY} hint={t('ใส่เมื่อดึงราคาคริปโตแล้วโดนจำกัดจำนวนครั้ง')} />
       <div className="flex items-center justify-between gap-3">
         <span className="min-w-0">
           <span id="auto-prices-label" className="block">

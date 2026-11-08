@@ -280,12 +280,13 @@ describe('SettingsPage', () => {
     expect(screen.queryByText(/sk-ant-…1234/)).not.toBeInTheDocument()
   })
 
-  it('asks for no Finnhub key, since the server has one, and saves the benchmark', async () => {
+  it('asks for no price or news key, since the server has them, and saves the benchmark', async () => {
     localStorage.removeItem(AUTO_PRICES_STORAGE_KEY)
     const user = userEvent.setup()
     renderRoute('/settings')
     await screen.findByRole('switch', { name: 'ดึงราคาวันละครั้งเมื่อเปิดแอป' })
     expect(screen.queryByLabelText('Finnhub API key')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/CoinGecko/)).not.toBeInTheDocument()
     await user.click(screen.getByRole('switch', { name: 'ดึงราคาวันละครั้งเมื่อเปิดแอป' }))
     expect(localStorage.getItem(AUTO_PRICES_STORAGE_KEY)).toBe('on')
     const benchmark = screen.getByLabelText('ดัชนีที่ใช้เทียบผลตอบแทน')
