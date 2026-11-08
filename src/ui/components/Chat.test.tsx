@@ -161,14 +161,32 @@ describe('ถาม JOD', () => {
     expect(within(sheet).getByText('ครึ่งคำตอบ').closest('li')).toHaveTextContent('หยุดไว้')
   })
 
-  it('puts the question back in the box when the answer fails', async () => {
+  it('keeps a failed question in the conversation and sends it again from the error', async () => {
+    useClaude()
+    const { model, seen } = scripted([{ fail: new AiError('API key ไม่ถูกต้อง ตรวจอีกครั้งในหน้าตั้งค่า') }, { text: 'พอร์ตกำไร 2%' }])
+    const { u, sheet } = await openChat(model)
+    await u.type(within(sheet).getByRole('textbox', { name: 'คำถาม' }), 'พอร์ตเป็นไง{Enter}')
+    const alert = await within(sheet).findByRole('alert')
+    expect(alert).toHaveTextContent('API key ไม่ถูกต้อง')
+    expect(within(sheet).getByRole('list', { name: 'บทสนทนา' })).toHaveTextContent('พอร์ตเป็นไง')
+    expect(within(sheet).getByText('พอร์ตเป็นไง').closest('li')).toHaveTextContent('ส่งไม่สำเร็จ')
+    expect(readLocal(CHAT_HISTORY_STORAGE_KEY)).toBe('')
+
+    await u.click(within(alert).getByRole('button', { name: 'ลองอีกครั้ง' }))
+    await within(sheet).findByText('พอร์ตกำไร 2%')
+    expect(seen[1].history).toEqual([{ role: 'user', text: 'พอร์ตเป็นไง' }])
+    expect(within(sheet).queryByRole('alert')).not.toBeInTheDocument()
+    expect(within(sheet).queryByText('ส่งไม่สำเร็จ')).not.toBeInTheDocument()
+  })
+
+  it('takes the person to the settings from an error about the provider', async () => {
     useClaude()
     const { model } = scripted([{ fail: new AiError('API key ไม่ถูกต้อง ตรวจอีกครั้งในหน้าตั้งค่า') }])
     const { u, sheet } = await openChat(model)
     await u.type(within(sheet).getByRole('textbox', { name: 'คำถาม' }), 'พอร์ตเป็นไง{Enter}')
-    expect(await within(sheet).findByRole('alert')).toHaveTextContent('API key ไม่ถูกต้อง')
-    expect(within(sheet).getByRole('textbox', { name: 'คำถาม' })).toHaveValue('พอร์ตเป็นไง')
-    expect(readLocal(CHAT_HISTORY_STORAGE_KEY)).toBe('')
+    await u.click(within(await within(sheet).findByRole('alert')).getByRole('link', { name: 'ไปหน้าตั้งค่า' }))
+    expect(await screen.findByRole('heading', { name: 'ตั้งค่า', level: 1 })).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
   it('sends an attached screenshot with the question', async () => {

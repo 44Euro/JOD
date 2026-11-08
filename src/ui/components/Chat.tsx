@@ -1,5 +1,6 @@
-import { ArrowUp, Plus, Square, Trash2, X } from 'lucide-react'
+import { ArrowUp, CircleAlert, Plus, RotateCw, Square, Trash2, X } from 'lucide-react'
 import { useContext, useEffect, useId, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
+import { Link } from 'react-router'
 import { CHAT_HISTORY_STORAGE_KEY, chatReady, readLocal, useProviderSettings, useReaderMode, writeLocal } from '../../ai/apiKey'
 import { ask, type ChatImage, type ChatMessage } from '../../ai/chat'
 import { ChatModelContext } from '../../ai/chatProviders'
@@ -54,6 +55,9 @@ function providerName(mode: ReaderMode, settings: ProviderSettings): string {
 
 const ICON_BUTTON =
   'grid size-10 shrink-0 place-items-center rounded-full text-board-mine transition-colors hover:bg-board-line focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-board-mine/60 disabled:opacity-40'
+
+const RECOVER =
+  'inline-flex h-11 items-center gap-1.5 rounded-full border border-board-line px-4 text-[13px] text-white transition-colors hover:bg-board-line focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-board-mine/60'
 
 // The money-route mark: a white station, a violet currency station and a white one, joined by the route.
 function RouteMark() {
@@ -113,7 +117,8 @@ function ChatSheet({ provider, mode, settings, onClose }: { provider: string; mo
   const [draft, setDraft] = useState('')
   const [image, setImage] = useState<ChatImage | null>(null)
   const [pending, setPending] = useState<{ question: Said; text: string; tool?: string } | null>(null)
-  const [error, setError] = useState('')
+  // A failed question stays in view with its picture, so it can be sent again as it was.
+  const [error, setError] = useState<{ message: string; failed?: { question: Said; image: ChatImage | null } } | null>(null)
   const running = useRef<AbortController | null>(null)
   const log = useRef<HTMLOListElement>(null)
 
@@ -134,8 +139,9 @@ function ChatSheet({ provider, mode, settings, onClose }: { provider: string; mo
     setHistory(kept)
   }
 
-  async function send(typed: string) {
+  async function send(typed: string, attached: ChatImage | null = image) {
     const text = typed.trim()
+    const image = attached
     if (!snapshot || pending || (!text && !image)) return
     const question: Said = { role: 'user', text: text || t('ช่วยดูรูปนี้ให้หน่อย'), ...(image ? { image: true } : {}) }
     const controller = new AbortController()
@@ -144,7 +150,7 @@ function ChatSheet({ provider, mode, settings, onClose }: { provider: string; mo
     let streamed = ''
     setDraft('')
     setImage(null)
-    setError('')
+    setError(null)
     setPending({ question, text: '' })
     try {
       const answer = await ask(
@@ -168,10 +174,11 @@ function ChatSheet({ provider, mode, settings, onClose }: { provider: string; mo
     } catch (caught) {
       if (isAbort(caught) && streamed.trim()) {
         keep([...history, question, { role: 'assistant', text: streamed.trim(), used: [...used], stopped: true }])
-      } else {
-        // The question goes back into the box so it can be sent again as it was.
+      } else if (isAbort(caught)) {
         setDraft(text)
-        if (!isAbort(caught)) setError(caught instanceof AiError ? caught.message : t('ตอบไม่สำเร็จ ลองใหม่อีกครั้ง'))
+        setImage(image)
+      } else {
+        setError({ message: caught instanceof AiError ? caught.message : t('ตอบไม่สำเร็จ ลองใหม่อีกครั้ง'), failed: { question, image } })
       }
     } finally {
       running.current = null
@@ -181,13 +188,13 @@ function ChatSheet({ provider, mode, settings, onClose }: { provider: string; mo
 
   async function attach(file: File | undefined) {
     if (!file) return
-    setError('')
+    setError(null)
     try {
       const prepared = await prepareFile(file)
       if (prepared.kind !== 'image') throw new FileError(t('แนบได้เฉพาะรูป'))
       setImage(prepared)
     } catch (caught) {
-      setError(caught instanceof FileError ? caught.message : t('เปิดรูป {0} ไม่ได้', file.name))
+      setError({ message: caught instanceof FileError ? caught.message : t('เปิดรูป {0} ไม่ได้', file.name) })
     }
   }
 
@@ -256,6 +263,13 @@ function ChatSheet({ provider, mode, settings, onClose }: { provider: string; mo
                 </li>
               ),
             )}
+            {error?.failed && (
+              <li className="ml-auto max-w-[85%] rounded-2xl rounded-br-md bg-board-line/60 px-3.5 py-2 text-[15px] whitespace-pre-wrap">
+                {error.failed.question.image && <span className="mb-0.5 block text-[12px] text-board-muted">{t('แนบรูป')}</span>}
+                {error.failed.question.text}
+                <span className="mt-0.5 block text-[12px] text-board-loss">{t('ส่งไม่สำเร็จ')}</span>
+              </li>
+            )}
             {pending && (
               <li className="grid gap-1.5">
                 {pending.text && <p className="text-[15px] leading-relaxed whitespace-pre-wrap">{pending.text}</p>}
@@ -264,9 +278,23 @@ function ChatSheet({ provider, mode, settings, onClose }: { provider: string; mo
             )}
           </ol>
           {error && (
-            <p role="alert" className="mt-4 text-[15px] text-board-loss">
-              {error}
-            </p>
+            <div role="alert" className="mt-4 flex gap-2.5 rounded-xl border border-board-loss/40 bg-board-loss/10 px-3.5 py-3 text-[15px] text-board-loss">
+              <CircleAlert className="mt-0.5 size-[18px] shrink-0" aria-hidden />
+              <div className="grid min-w-0 gap-2.5">
+                <p>{error.message}</p>
+                {error.failed && (
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" className={RECOVER} onClick={() => error.failed && void send(error.failed.question.text, error.failed.image)}>
+                      <RotateCw className="size-4" aria-hidden />
+                      {t('ลองอีกครั้ง')}
+                    </button>
+                    <Link to="/settings" className={RECOVER} onClick={onClose}>
+                      {t('ไปหน้าตั้งค่า')}
+                    </Link>
+                  </div>
+                )}
+              </div>
+            </div>
           )}
         </div>
 
