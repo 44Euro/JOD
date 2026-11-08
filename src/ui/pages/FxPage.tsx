@@ -17,6 +17,7 @@ import { useAppData, useInvestor } from '../hooks'
 import { buildRateBoard } from '../rateBoard'
 import { useIsDesktop } from '../useIsDesktop'
 import { t } from '../../i18n'
+import { PageLoading } from '../components/PageLoading'
 
 const NEW_EXCHANGE = '/transactions/new?type=fx_convert'
 
@@ -210,7 +211,7 @@ export function FxPage() {
   const data = useAppData()
   const { ledger, valuations, rates, investor } = useInvestor(data)
   const isDesktop = useIsDesktop(TABLE_MIN_WIDTH)
-  if (!data || !ledger || !investor) return <p className="text-muted-foreground">{t('กำลังโหลด…')}</p>
+  if (!data || !ledger || !investor) return <PageLoading />
 
   const base = data.settings.baseCurrency
   const mark = currencyMark(base)

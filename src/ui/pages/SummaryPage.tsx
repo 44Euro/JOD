@@ -15,6 +15,7 @@ import { PageHeader } from '../components/PageHeader'
 import { fmtDate, fmtHeadline, fmtPct, fmtSigned, plClass } from '../format'
 import { useAppData, useLedger } from '../hooks'
 import { t } from '../../i18n'
+import { PageLoading } from '../components/PageLoading'
 
 function Row({ label, value, tone, note }: { label: string; value: string; tone?: string; note?: string }) {
   return (
@@ -34,7 +35,7 @@ export function SummaryPage() {
   const days = useLiveQuery(() => db.dailyValues.toArray(), [])
   const today = todayLocal()
   const [chosen, setChosen] = useState<number | null>(null)
-  if (!data || !ledger || !days) return <p className="text-muted-foreground">{t('กำลังโหลด…')}</p>
+  if (!data || !ledger || !days) return <PageLoading />
 
   const years = yearsWithData(data.transactions, today)
   const year = chosen ?? years[0]

@@ -16,6 +16,7 @@ import { PageHeader } from '../components/PageHeader'
 import { fmtDate, fmtHeadline, fmtNumber } from '../format'
 import { useAppData, useLedger } from '../hooks'
 import { t } from '../../i18n'
+import { PageLoading } from '../components/PageLoading'
 
 function Line({ label, value, note }: { label: string; value: string; note?: ReactNode }) {
   return (
@@ -35,7 +36,7 @@ export function TaxPage() {
   const today = todayLocal()
   const [chosen, setChosen] = useState<number | null>(null)
   const [income, setIncome] = useState('')
-  if (!data || !ledger) return <p className="text-muted-foreground">{t('กำลังโหลด…')}</p>
+  if (!data || !ledger) return <PageLoading />
 
   const years = yearsWithData(data.transactions, today)
   const year = chosen ?? years[0]

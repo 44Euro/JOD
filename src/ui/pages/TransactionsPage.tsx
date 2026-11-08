@@ -27,6 +27,7 @@ import { SEARCH_INPUT_ID } from '../shortcuts'
 import { deleteWithUndo, settleRestored, undoDelete, usePendingDeletes } from '../undoDelete'
 import { useIsDesktop } from '../useIsDesktop'
 import { t } from '../../i18n'
+import { PageLoading } from '../components/PageLoading'
 
 // The phone row has no room for the account beside the symbol, so it puts the account on its second line instead, and
 // a symbol that is still too long is cut with an ellipsis.
@@ -145,7 +146,7 @@ export function TransactionsPage() {
     return back.length === 0 ? rows : sortTransactions([...rows, ...back]).reverse()
   }, [rows, waiting, matches])
 
-  if (!data || !ledger) return <p className="text-muted-foreground">{t('กำลังโหลด…')}</p>
+  if (!data || !ledger) return <PageLoading />
   const base = data.settings.baseCurrency
   const accountNames = new Map(data.accounts.map((a) => [a.id, a.name]))
   const instruments = new Map(data.instruments.map((i) => [i.id, i]))

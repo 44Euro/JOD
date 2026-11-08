@@ -34,6 +34,7 @@ import { useAppData, useLedger, type AppData } from '../hooks'
 import { EMOTION_LABELS, MISTAKE_LABELS, TRADE_PERIOD_LABELS, marketOf } from '../labels'
 import { useIsDesktop } from '../useIsDesktop'
 import { t } from '../../i18n'
+import { PageLoading } from '../components/PageLoading'
 
 const PERIODS = (['month', 'year', 'all'] as const).map((value) => ({ value, label: TRADE_PERIOD_LABELS[value] }))
 
@@ -224,7 +225,7 @@ function UnreviewedToggle({
 export function TradesPage() {
   const data = useAppData()
   const ledger = useLedger(data)
-  if (!data || !ledger) return <p className="text-muted-foreground">{t('กำลังโหลด…')}</p>
+  if (!data || !ledger) return <PageLoading />
   return <TradesView data={data} ledger={ledger} />
 }
 

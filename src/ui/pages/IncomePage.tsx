@@ -33,6 +33,7 @@ import { useAppData, useLedger } from '../hooks'
 import { INCOME_SERIES, RECEIVE_KIND_LABELS, TX_TYPE_LABELS, marketOf } from '../labels'
 import { useIsDesktop } from '../useIsDesktop'
 import { t } from '../../i18n'
+import { PageLoading } from '../components/PageLoading'
 
 const PERIODS = [
   { value: 'year', label: t('ปีนี้') },
@@ -114,7 +115,7 @@ export function IncomePage() {
   // Yield on cost only needs the cost of what is held, so no price or rate is fetched here.
   const valuations = useMemo(() => (ledger ? ledger.positions.map((p) => valuePosition(p)) : []), [ledger])
 
-  if (!data || !ledger) return <p className="text-muted-foreground">{t('กำลังโหลด…')}</p>
+  if (!data || !ledger) return <PageLoading />
   const base = data.settings.baseCurrency
   const events = ledger.income
   const header = (

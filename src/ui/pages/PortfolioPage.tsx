@@ -22,6 +22,7 @@ import { marketOf } from '../labels'
 import { EyeButton } from '../privacy'
 import { useIsDesktop } from '../useIsDesktop'
 import { t } from '../../i18n'
+import { PageLoading } from '../components/PageLoading'
 
 type View = 'asset' | 'account' | 'market' | 'currency'
 
@@ -41,7 +42,7 @@ export function PortfolioPage() {
   const { ledger, valuations, summary, rates, investor } = useInvestor(data)
   const isDesktop = useIsDesktop()
   const [view, setView] = useState<View>('asset')
-  if (!data || !ledger || !investor) return <p className="text-muted-foreground">{t('กำลังโหลด…')}</p>
+  if (!data || !ledger || !investor) return <PageLoading />
 
   const base = data.settings.baseCurrency
   const today = todayLocal()

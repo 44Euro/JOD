@@ -30,6 +30,7 @@ import { EyeButton } from '../privacy'
 import { buildHoldingsBoard } from '../holdingsBoard'
 import { buildRateBoard } from '../rateBoard'
 import { t } from '../../i18n'
+import { PageLoading } from '../components/PageLoading'
 
 function byValue(a: PositionValuation, b: PositionValuation): number {
   return positionValueBase(b).comparedTo(positionValueBase(a))
@@ -66,7 +67,7 @@ export function DashboardPage() {
   const data = useAppData()
   const { ledger, valuations, rates, investor } = useInvestor(data)
   const { held: heldSymbols } = useMySymbols(data)
-  if (!data || !ledger || !investor) return <p className="text-muted-foreground">{t('กำลังโหลด…')}</p>
+  if (!data || !ledger || !investor) return <PageLoading />
 
   if (data.accounts.length === 0) return <Navigate to="/welcome" replace />
 

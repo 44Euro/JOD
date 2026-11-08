@@ -39,6 +39,7 @@ import { describeAmount, describeFeePaid, feeFreeTransfer, feePaidNet, issueText
 import { useIsDesktop } from '../useIsDesktop'
 import { useMarket, type MarketState } from '../useMarket'
 import { t } from '../../i18n'
+import { PageLoading } from '../components/PageLoading'
 
 function badgeOf(value: Decimal | null): 'ok' | 'loss' | 'default' {
   if (!value) return 'default'
@@ -93,7 +94,7 @@ export function AssetPage() {
   const bigMoney = useMarket(`stock-bigmoney:${id}`, async () => (us ? marketClient.bigMoneyFor(idSymbol) : null))
   // Coming back to an asset after visiting another must not find its form still open.
   if (renamingId !== undefined && renamingId !== id) setRenamingId(undefined)
-  if (!data || !ledger || !ready) return <p className="text-muted-foreground">{t('กำลังโหลด…')}</p>
+  if (!data || !ledger || !ready) return <PageLoading />
 
   const base = data.settings.baseCurrency
   const today = todayLocal()

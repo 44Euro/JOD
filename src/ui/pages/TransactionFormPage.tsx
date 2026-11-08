@@ -70,12 +70,13 @@ import {
 import { deleteWithUndo } from '../undoDelete'
 import { useIsDesktop } from '../useIsDesktop'
 import { t } from '../../i18n'
+import { PageLoading } from '../components/PageLoading'
 
 export function TransactionFormPage() {
   const { id } = useParams()
   const [searchParams] = useSearchParams()
   const data = useAppData()
-  if (!data) return <p className="text-muted-foreground">{t('กำลังโหลด…')}</p>
+  if (!data) return <PageLoading />
   if (data.accounts.length === 0) {
     return (
       <Card>

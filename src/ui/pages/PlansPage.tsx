@@ -23,6 +23,7 @@ import { fmtDate, fmtHeadline, fmtMonth, fmtPct, fmtPrice, fmtValue } from '../f
 import { useAppData, usePortfolio, type AppData } from '../hooks'
 import { marketOf } from '../labels'
 import { t } from '../../i18n'
+import { PageLoading } from '../components/PageLoading'
 
 const FREQUENCY_LABELS: Record<PlanFrequency, string> = {
   weekly: t('ทุกสัปดาห์'),
@@ -288,7 +289,7 @@ function PlansCard({ data }: { data: AppData }) {
 
 export function PlansPage() {
   const data = useAppData()
-  if (!data) return <p className="text-muted-foreground">{t('กำลังโหลด…')}</p>
+  if (!data) return <PageLoading />
   return (
     <>
       <PageHeader title={t('แผน')} />

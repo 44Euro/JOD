@@ -14,6 +14,7 @@ import { useAppData } from '../hooks'
 import { foundPath } from '../nav'
 import { useMarket, useMySymbols } from '../useMarket'
 import { t } from '../../i18n'
+import { PageLoading } from '../components/PageLoading'
 
 export function MarketPage() {
   const data = useAppData()
@@ -56,7 +57,7 @@ export function MarketPage() {
           <WatchlistCard data={data} />
         </div>
       ) : (
-        <p className="text-muted-foreground">{t('กำลังโหลด…')}</p>
+        <PageLoading />
       )}
     </>
   )

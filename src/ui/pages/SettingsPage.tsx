@@ -26,6 +26,7 @@ import { SectionChips } from '../components/StockSections'
 import { feeTemplateParts } from '../feeTemplateText'
 import { useAppData } from '../hooks'
 import { chooseLanguage, language, t } from '../../i18n'
+import { PageLoading } from '../components/PageLoading'
 
 const SECTION = 'grid scroll-mt-16 content-start gap-3.5 md:gap-4'
 // Almost everyone keeps baht or dollars, so those two lead the long list.
@@ -62,7 +63,7 @@ export function SettingsPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const refocusId = useRef<string | null>(null)
 
-  if (!data) return <p className="text-muted-foreground">{t('กำลังโหลด…')}</p>
+  if (!data) return <PageLoading />
   const hasTransactions = data.transactions.length > 0
 
   async function handleAddAccount(event: FormEvent) {
