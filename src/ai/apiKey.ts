@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import type { ProviderSettings } from './otherReaders'
-import { READER_MODES, type ReaderMode } from './reader'
+import { AI_MODEL, READER_MODES, type ReaderMode } from './reader'
 
 // Kept in localStorage rather than the database, so neither ends up in a backup file.
 export const API_KEY_STORAGE_KEY = 'jod-anthropic-key'
@@ -89,7 +89,7 @@ const providerKey = (mode: ReaderMode) => `jod-ai-${mode}`
 // Key, model and address of a provider other than Claude, kept on this device like the Claude key.
 export function readProviderSettings(mode: ReaderMode): ProviderSettings {
   if (mode === 'local') return { apiKey: '', model: '' }
-  if (mode === 'claude') return { apiKey: readApiKey(), model: 'claude-opus-5-5' }
+  if (mode === 'claude') return { apiKey: readApiKey(), model: AI_MODEL }
   const defaults = PROVIDER_DEFAULTS[mode]
   try {
     const stored = JSON.parse(read(providerKey(mode)) || '{}') as Partial<ProviderSettings>

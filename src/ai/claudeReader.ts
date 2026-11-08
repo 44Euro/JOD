@@ -47,7 +47,7 @@ export function createClaudeReader(apiKey: string, fetch?: typeof globalThis.fet
               model: AI_MODEL,
               max_tokens: 32_000,
               system: extractionPrompt(today),
-              output_config: { effort: 'medium', format: { type: 'json_schema', schema: EXTRACTION_SCHEMA } },
+              output_config: { effort: 'low', format: { type: 'json_schema', schema: EXTRACTION_SCHEMA } },
               messages: [
                 {
                   role: 'user',

@@ -34,8 +34,9 @@ describe('createClaudeReader', () => {
     const { fetch, calls } = fakeFetch(sse(JSON.stringify(answer)))
     const result = await createClaudeReader('sk-ant-test', fetch).read([image, csv], '2026-10-25')
     expect(result.problems).toEqual(['รูปถูกตัด'])
-    const body = calls[0].body as { model: string; output_config: { format: { type: string } }; messages: { content: { type: string; source?: { type: string } }[] }[]; system: string }
-    expect(body.model).toBe('claude-opus-5-5')
+    const body = calls[0].body as { model: string; output_config: { effort: string; format: { type: string } }; messages: { content: { type: string; source?: { type: string } }[] }[]; system: string }
+    expect(body.model).toBe('claude-sonnet-5-5')
+    expect(body.output_config.effort).toBe('low')
     expect(body.output_config.format.type).toBe('json_schema')
     expect(body.messages[0].content.map((c) => [c.type, c.source?.type])).toEqual([['image', 'base64'], ['document', 'text'], ['text', undefined]])
     expect(body.system).toContain('Today is 2026-10-25')

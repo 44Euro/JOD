@@ -24,7 +24,7 @@ export function createClaudeChat(apiKey: string, fetch?: typeof globalThis.fetch
         const message = await translated(() =>
           client.messages
             .stream(
-              { model: AI_MODEL, max_tokens: 16_000, system, thinking: { type: 'adaptive' }, output_config: { effort: 'medium' }, tools: declared, messages },
+              { model: AI_MODEL, max_tokens: 16_000, system, thinking: { type: 'adaptive' }, output_config: { effort: 'low' }, tools: declared, messages },
               { signal },
             )
             .on('text', (delta) => onText(delta))

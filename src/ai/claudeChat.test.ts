@@ -60,9 +60,10 @@ describe('Claude chat', () => {
     const result = await ask(createClaudeChat('sk-ant-test', fetch), 'be brief', [{ role: 'user', text: 'What do I hold?', image }], [holdings], { text: (d) => streamed.push(d) })
     expect(result).toEqual({ text: 'You hold AAPL.', used: ['holdings'] })
     expect(streamed).toEqual(['You hold ', 'AAPL.'])
-    const first = calls[0] as { model: string; system: string; stream: boolean; thinking: unknown; tools: Record<string, unknown>[]; messages: { content: { type: string }[] }[] }
-    expect([first.model, first.system, first.stream]).toEqual(['claude-opus-5-5', 'be brief', true])
+    const first = calls[0] as { model: string; system: string; stream: boolean; thinking: unknown; output_config: unknown; tools: Record<string, unknown>[]; messages: { content: { type: string }[] }[] }
+    expect([first.model, first.system, first.stream]).toEqual(['claude-sonnet-5-5', 'be brief', true])
     expect(first.thinking).toEqual({ type: 'adaptive' })
+    expect(first.output_config).toEqual({ effort: 'low' })
     expect(first.tools[0]).toEqual({ name: 'holdings', description: 'The holdings.', input_schema: holdings.schema, eager_input_streaming: true })
     expect(first.messages[0].content.map((c) => c.type)).toEqual(['image', 'text'])
     const second = calls[1] as { messages: { role: string; content: Record<string, unknown>[] }[] }
