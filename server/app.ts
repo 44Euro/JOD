@@ -235,11 +235,12 @@ export function createApp({
           await store.putReset({ email, codeHash: sha256(code), expiresAt, attempts: 0 })
           const shown = `${code.slice(0, 4)}-${code.slice(4)}`
           const link = `${appUrl.replace(/\/+$/, '')}/#/reset?email=${encodeURIComponent(email)}&code=${shown}`
+          // A failed send is logged, not answered: an error only for real accounts would tell who has one.
           await sendMail(
             email,
             'JOD: ตั้งรหัสผ่านใหม่',
             `รหัสสำหรับตั้งรหัสผ่านใหม่: ${shown}\nหรือเปิดลิงก์นี้: ${link}\nใช้ได้ ${RESET_MINUTES} นาที ถ้าไม่ได้ขอ ไม่ต้องทำอะไร`,
-          )
+          ).catch((error: unknown) => console.error('reset mail failed', error))
         }
         return { status: 204, body: null }
       }

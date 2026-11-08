@@ -309,6 +309,19 @@ describe('sync server hardening', () => {
     await app.close()
   })
 
+  it('answers a reset request the same way when the mail service fails, so it cannot reveal an account', async () => {
+    const app = await serve({
+      sendMail: async () => {
+        throw new Error('mail failed: 500')
+      },
+    })
+    await fetch(`${app.url}/api/signup`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'a@x.io', loginKey: key('a') }) })
+    const ask = (email: string) => fetch(`${app.url}/api/reset/request`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email }) }).then((r) => r.status)
+    expect(await ask('a@x.io')).toBe(204)
+    expect(await ask('nobody@x.io')).toBe(204)
+    await app.close()
+  })
+
   it('reports the database in the health check, for an uptime monitor', async () => {
     expect((await call('GET', '/api/health')).body).toEqual({ ok: true })
     store.ping = async () => {
