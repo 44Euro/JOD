@@ -20,7 +20,7 @@ export function PriceUpdateButton({ data, ledger }: { data: AppData; ledger: Led
     try {
       const held = heldInstruments(ledger, data.instruments)
       const result = await runPriceUpdate(db, held, sources, data.settings.benchmarkSymbol ?? DEFAULT_BENCHMARK, todayLocal())
-      setMessage(describeUpdate(result, held))
+      setMessage(describeUpdate(result))
     } finally {
       setBusy(false)
     }

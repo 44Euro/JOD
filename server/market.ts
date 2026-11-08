@@ -269,6 +269,22 @@ export function createMarket({ fetchFn = (i, o) => fetch(i, o), now = Date.now, 
     return chart ? toQuote(id, chart) : null
   }
 
+  // Yahoo's endpoint is unofficial and sometimes refuses; the operator's Finnhub key covers US shares then.
+  async function finnhubQuote(id: string): Promise<MarketQuote | null> {
+    if (!finnhubKey || !id.startsWith('US:')) return null
+    const body = (await finnhub(`quote?symbol=${encodeURIComponent(id.slice(3))}`, QUOTE_TTL)) as { c?: number; pc?: number; t?: number }
+    if (typeof body.c !== 'number' || body.c <= 0 || typeof body.t !== 'number') return null
+    return {
+      id,
+      price: plain(body.c),
+      currency: 'USD',
+      at: new Date(body.t * 1000).toISOString(),
+      previousClose: typeof body.pc === 'number' && body.pc > 0 ? plain(body.pc) : null,
+      previousCloseAt: null,
+      source: 'Finnhub',
+    }
+  }
+
   async function yahooSearch(query: string): Promise<FoundAsset[]> {
     const body = (await cached(
       `https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&quotesCount=10&newsCount=0`,
@@ -382,7 +398,7 @@ export function createMarket({ fetchFn = (i, o) => fetch(i, o), now = Date.now, 
       return found.flatMap((f) => (f.status === 'fulfilled' ? f.value : []))
     },
     async quotes(ids) {
-      const quotes = await Promise.all(ids.map((id) => quote(id).catch(() => null)))
+      const quotes = await Promise.all(ids.map(async (id) => (await quote(id).catch(() => null)) ?? finnhubQuote(id).catch(() => null)))
       return quotes.filter((q) => q !== null)
     },
   }

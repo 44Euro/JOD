@@ -69,23 +69,6 @@ export function createCoinGecko(fetchFn: typeof fetch = (i, o) => fetch(i, o), a
   }
 }
 
-// Finnhub's free plan quotes US shares and ETFs; the key is the user's own.
-export function createFinnhub(apiKey: string, fetchFn: typeof fetch = (i, o) => fetch(i, o)): PriceSource {
-  return {
-    name: 'Finnhub',
-    covers: (i) => Boolean(apiKey) && i.market === 'US',
-    async quote(instrument, signal) {
-      const data = (await getJson(
-        fetchFn,
-        `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(instrument.symbol)}&token=${encodeURIComponent(apiKey)}`,
-        {},
-        signal,
-      )) as { c?: number }
-      return typeof data.c === 'number' && data.c > 0 ? { price: toPlain(data.c), currency: 'USD' } : null
-    },
-  }
-}
-
 // US and Thai shares through the JOD server, which asks Yahoo once for everyone and adds the previous close.
 export function createJodServer(market: MarketClient): PriceSource {
   return {

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { AUTO_PRICES_STORAGE_KEY, COINGECKO_KEY_STORAGE_KEY, FINNHUB_KEY_STORAGE_KEY, maskApiKey, useLocal, writeLocal } from '../../ai/apiKey'
+import { AUTO_PRICES_STORAGE_KEY, COINGECKO_KEY_STORAGE_KEY, maskApiKey, useLocal, writeLocal } from '../../ai/apiKey'
 import { Button } from '../../components/ui/button'
 import { Card } from '../../components/ui/card'
 import { Field } from '../../components/ui/field'
@@ -57,7 +57,6 @@ export function PriceSourcesCard({ settings }: { settings: Settings }) {
           {t('หุ้น US และหุ้นไทยดึงจาก Yahoo ผ่านเซิร์ฟเวอร์ JOD ช้าราว 15 นาที คริปโตจาก CoinGecko กองทุนยังต้องกรอกเองหรืออัปเดตจากรูป')}
         </p>
       </div>
-      <KeyField id="finnhub-key" label="Finnhub API key" storageKey={FINNHUB_KEY_STORAGE_KEY} hint={t('สำรองสำหรับหุ้นสหรัฐและดัชนีที่ใช้เทียบ')} />
       <KeyField id="coingecko-key" label={t('CoinGecko demo key (ไม่บังคับ)')} storageKey={COINGECKO_KEY_STORAGE_KEY} hint={t('ใส่เมื่อดึงราคาคริปโตแล้วโดนจำกัดจำนวนครั้ง')} />
       <div className="flex items-center justify-between gap-3">
         <span className="min-w-0">

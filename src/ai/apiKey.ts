@@ -32,7 +32,6 @@ function subscribe(listener: () => void): () => void {
 }
 
 // Keys of the user's own price sources and on/off switches that belong to this device only.
-export const FINNHUB_KEY_STORAGE_KEY = 'jod-finnhub-key'
 export const COINGECKO_KEY_STORAGE_KEY = 'jod-coingecko-key'
 export const AUTO_PRICES_STORAGE_KEY = 'jod-auto-prices'
 // What the person picked in the asset search lately; it belongs to the account, so signing out clears it.

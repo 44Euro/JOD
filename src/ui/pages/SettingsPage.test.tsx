@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { db } from '../../db/db'
 import { getSettings } from '../../db/repo'
 import { makeTx } from '../../test/fixtures'
-import { API_KEY_STORAGE_KEY, AUTO_PRICES_STORAGE_KEY, FINNHUB_KEY_STORAGE_KEY, READER_MODE_STORAGE_KEY } from '../../ai/apiKey'
+import { API_KEY_STORAGE_KEY, AUTO_PRICES_STORAGE_KEY, READER_MODE_STORAGE_KEY } from '../../ai/apiKey'
 import { renderRoute, resetDb } from '../../test/render'
 
 const account = { id: 'acc-1', name: 'Dime US', broker: 'Dime', note: '', createdAt: '2024-01-01T00:00:00.000Z' }
@@ -271,14 +271,12 @@ describe('SettingsPage', () => {
     expect(screen.queryByText(/sk-ant-…1234/)).not.toBeInTheDocument()
   })
 
-  it('keeps price source keys on this device and saves the benchmark', async () => {
-    localStorage.removeItem(FINNHUB_KEY_STORAGE_KEY)
+  it('asks for no Finnhub key, since the server has one, and saves the benchmark', async () => {
     localStorage.removeItem(AUTO_PRICES_STORAGE_KEY)
     const user = userEvent.setup()
     renderRoute('/settings')
-    await user.type(await screen.findByLabelText('Finnhub API key'), 'abcdefghijklmnop')
-    await user.click(within(screen.getByLabelText('Finnhub API key').closest('form')!).getByRole('button', { name: 'บันทึก' }))
-    expect(localStorage.getItem(FINNHUB_KEY_STORAGE_KEY)).toBe('abcdefghijklmnop')
+    await screen.findByRole('switch', { name: 'ดึงราคาวันละครั้งเมื่อเปิดแอป' })
+    expect(screen.queryByLabelText('Finnhub API key')).not.toBeInTheDocument()
     await user.click(screen.getByRole('switch', { name: 'ดึงราคาวันละครั้งเมื่อเปิดแอป' }))
     expect(localStorage.getItem(AUTO_PRICES_STORAGE_KEY)).toBe('on')
     const benchmark = screen.getByLabelText('ดัชนีที่ใช้เทียบผลตอบแทน')

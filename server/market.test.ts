@@ -52,6 +52,15 @@ describe('market quotes', () => {
     ])
   })
 
+  it("falls back to Finnhub with the server's key when Yahoo has no US quote", async () => {
+    const { fetchFn, urls } = fakeFetch({ '/chart/AAPL': 500, 'finnhub.io/api/v1/quote?symbol=AAPL': { c: 338.32, pc: 344.6, t: 1793736000 } })
+    expect(await createMarket({ fetchFn, finnhubKey: 'fh' }).quotes(['US:AAPL'])).toEqual([
+      { id: 'US:AAPL', price: '338.32', currency: 'USD', at: '2026-11-03T20:00:00.000Z', previousClose: '344.6', previousCloseAt: null, source: 'Finnhub' },
+    ])
+    expect(urls[1]).toContain('token=fh')
+    expect((await createMarket({ fetchFn: fakeFetch({ '/chart/AAPL': 500 }).fetchFn }).quotes(['US:AAPL']))).toEqual([])
+  })
+
   it('has no previous close for a share with no earlier bar', async () => {
     const listed = chart({ closes: [10.2], times: ['2026-10-27T03:00:00Z'], at: '2026-10-27T09:39:00Z' })
     const { fetchFn } = fakeFetch({ '/chart/NEW.BK': listed })
