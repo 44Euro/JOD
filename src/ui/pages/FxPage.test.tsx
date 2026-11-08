@@ -452,7 +452,7 @@ describe('FxPage', () => {
       const link = within(await card('ประวัติการแลกเงิน')).getByRole('link', { name: 'บันทึกการแลกเงิน' })
       expect(link).toHaveAttribute('href', '/transactions/new?type=fx_convert')
       await user.click(link)
-      expect(router.state.location.pathname).toBe('/transactions/new')
+      await waitFor(() => expect(router.state.location.pathname).toBe('/transactions/new'))
       expect(await screen.findByRole('button', { name: 'แลกเงิน' })).toHaveAttribute('aria-pressed', 'true')
     })
   })
