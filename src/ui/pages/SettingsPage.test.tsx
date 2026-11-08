@@ -12,6 +12,15 @@ const account = { id: 'acc-1', name: 'Dime US', broker: 'Dime', note: '', create
 describe('SettingsPage', () => {
   beforeEach(resetDb)
 
+  it('splits the page into sections to jump to and lists THB and USD first', async () => {
+    renderRoute('/settings')
+    const nav = await screen.findByRole('navigation', { name: 'ส่วนของหน้า' })
+    expect(within(nav).getAllByRole('button').map((b) => b.textContent)).toEqual(['บัญชี', 'ข้อมูลและซิงก์', 'AI และแชต', 'ราคาและแจ้งเตือน', 'ทั่วไป'])
+    const options = within(screen.getByLabelText('สกุลเงินหลัก')).getAllByRole('option').map((o) => o.textContent)
+    expect(options.slice(0, 2)).toEqual(['THB', 'USD'])
+    expect(new Set(options).size).toBe(options.length)
+  })
+
   it('adds an account and lists it', async () => {
     const user = userEvent.setup()
     renderRoute('/settings')

@@ -22,9 +22,22 @@ import { PushCard } from '../components/PushCard'
 import { SyncCard } from '../components/SyncCard'
 import { DataSection } from '../components/DataSection'
 import { PageHeader } from '../components/PageHeader'
+import { SectionChips } from '../components/StockSections'
 import { feeTemplateParts } from '../feeTemplateText'
 import { useAppData } from '../hooks'
 import { chooseLanguage, language, t } from '../../i18n'
+
+const SECTION = 'grid scroll-mt-16 content-start gap-3.5 md:gap-4'
+// Almost everyone keeps baht or dollars, so those two lead the long list.
+const BASE_CHOICES = ['THB', 'USD', ...AUTO_FX_CURRENCIES.filter((c) => c !== 'THB' && c !== 'USD')]
+// Labels are read at render so a language switch changes them.
+const sections = () => [
+  { id: 'set-accounts', label: t('บัญชี') },
+  { id: 'set-data', label: t('ข้อมูลและซิงก์') },
+  { id: 'set-ai', label: t('AI และแชต') },
+  { id: 'set-prices', label: t('ราคาและแจ้งเตือน') },
+  { id: 'set-app', label: t('ทั่วไป') },
+]
 
 function FeeTemplateLine({ template }: { template: FeeTemplate }) {
   const { body, minimum } = feeTemplateParts(template)
@@ -77,8 +90,9 @@ export function SettingsPage() {
   return (
     <>
       <PageHeader title={t('ตั้งค่า')} />
+      <SectionChips sections={sections()} />
       <div className="grid items-start gap-3.5 md:gap-6 lg:grid-cols-2">
-        <div className="grid content-start gap-3.5 md:gap-4">
+        <div id="set-accounts" className={SECTION}>
           <Card className="grid gap-3">
             <h2 className="text-lg font-semibold">{t('สกุลเงินหลักของพอร์ต')}</h2>
             <Field
@@ -102,7 +116,7 @@ export function SettingsPage() {
                 disabled={hasTransactions}
                 onChange={(e) => void saveSettings(db, { ...data.settings, baseCurrency: e.target.value })}
               >
-                {AUTO_FX_CURRENCIES.map((currency) => (
+                {BASE_CHOICES.map((currency) => (
                   <option key={currency}>{currency}</option>
                 ))}
               </NativeSelect>
@@ -176,65 +190,71 @@ export function SettingsPage() {
           </Card>
         </div>
         <div className="grid content-start gap-3.5 md:gap-4">
-          <DataSection data={data} />
+          <div id="set-data" className={SECTION}>
+            <DataSection data={data} />
+            <SyncCard />
+          </div>
 
-          <SyncCard />
+          <div id="set-ai" className={SECTION}>
+            <AiKeyCard />
+          </div>
 
-          <AiKeyCard />
+          <div id="set-prices" className={SECTION}>
+            <PriceSourcesCard settings={data.settings} />
+            <PushCard alerts={data.settings.alerts ?? []} />
+          </div>
 
-          <PriceSourcesCard settings={data.settings} />
-
-          <PushCard alerts={data.settings.alerts ?? []} />
-
-          <Card className="grid gap-3">
-            <h2 className="text-lg font-semibold">{t('ภาษา · Language')}</h2>
-            <Segmented
-              label={t('ภาษา · Language')}
-              options={[
-                { value: 'th' as const, label: t('ไทย') },
-                { value: 'en' as const, label: 'English' },
-              ]}
-              value={language()}
-              onChange={chooseLanguage}
-            />
-          </Card>
-
-          <Card className="grid gap-3">
-            <h2 className="text-lg font-semibold">{t('ธีม')}</h2>
-            <Segmented
-              label={t('ธีม')}
-              options={THEME_CHOICES.map((value) => ({ value, label: THEME_LABELS[value] }))}
-              value={data.settings.theme ?? 'system'}
-              onChange={(theme) => void saveSettings(db, { ...data.settings, theme })}
-            />
-          </Card>
-
-          <LockCard />
-
-          <ErrorReportCard />
-
-          <Card className="grid gap-3">
-            <h2 className="text-lg font-semibold">{t('ความเป็นส่วนตัว')}</h2>
-            <div className="flex items-center justify-between gap-3">
-              <span className="min-w-0">
-                <span id="hide-numbers-label" className="block">
-                  {t('ซ่อนตัวเลขทุกครั้งที่เปิดแอป')}
-                </span>
-                <span id="hide-numbers-hint" className="block text-[13px] text-muted-foreground">
-                  {t('แสดงเป็น ••• จนกว่าจะแตะรูปตา')}
-                </span>
-              </span>
-              <Switch
-                checked={data.settings.hideNumbersOnLaunch === true}
-                aria-labelledby="hide-numbers-label"
-                aria-describedby="hide-numbers-hint"
-                onCheckedChange={(hide) => void saveSettings(db, { ...data.settings, hideNumbersOnLaunch: hide })}
+          <div id="set-app" className={SECTION}>
+            <Card className="grid gap-3">
+              <h2 className="text-lg font-semibold">{t('ภาษา · Language')}</h2>
+              <Segmented
+                label={t('ภาษา · Language')}
+                options={[
+                  { value: 'th' as const, label: t('ไทย') },
+                  { value: 'en' as const, label: 'English' },
+                ]}
+                value={language()}
+                onChange={chooseLanguage}
               />
-            </div>
-            <Link to="/privacy" className="inline-flex min-h-11 items-center text-sm font-semibold text-primary-ink underline underline-offset-[3px]">
-              {t('อ่านนโยบายความเป็นส่วนตัว')}
-            </Link>
-          </Card>
+            </Card>
+
+            <Card className="grid gap-3">
+              <h2 className="text-lg font-semibold">{t('ธีม')}</h2>
+              <Segmented
+                label={t('ธีม')}
+                options={THEME_CHOICES.map((value) => ({ value, label: THEME_LABELS[value] }))}
+                value={data.settings.theme ?? 'system'}
+                onChange={(theme) => void saveSettings(db, { ...data.settings, theme })}
+              />
+            </Card>
+
+            <LockCard />
+
+            <ErrorReportCard />
+
+            <Card className="grid gap-3">
+              <h2 className="text-lg font-semibold">{t('ความเป็นส่วนตัว')}</h2>
+              <div className="flex items-center justify-between gap-3">
+                <span className="min-w-0">
+                  <span id="hide-numbers-label" className="block">
+                    {t('ซ่อนตัวเลขทุกครั้งที่เปิดแอป')}
+                  </span>
+                  <span id="hide-numbers-hint" className="block text-[13px] text-muted-foreground">
+                    {t('แสดงเป็น ••• จนกว่าจะแตะรูปตา')}
+                  </span>
+                </span>
+                <Switch
+                  checked={data.settings.hideNumbersOnLaunch === true}
+                  aria-labelledby="hide-numbers-label"
+                  aria-describedby="hide-numbers-hint"
+                  onCheckedChange={(hide) => void saveSettings(db, { ...data.settings, hideNumbersOnLaunch: hide })}
+                />
+              </div>
+              <Link to="/privacy" className="inline-flex min-h-11 items-center text-sm font-semibold text-primary-ink underline underline-offset-[3px]">
+                {t('อ่านนโยบายความเป็นส่วนตัว')}
+              </Link>
+            </Card>
+          </div>
         </div>
       </div>
     </>
