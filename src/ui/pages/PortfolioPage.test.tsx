@@ -118,7 +118,7 @@ describe('PortfolioPage', () => {
       expect(within(binance).getByText('THB')).toBeInTheDocument()
       expect(within(bitkub).getAllByText('THB')).toHaveLength(1)
       const input = within(binance).getByLabelText('ราคาล่าสุด ETH')
-      expect(input).toHaveValue('120000')
+      expect(input).toHaveValue('120000.00')
       await user.clear(input)
       await user.type(input, '125000{Enter}')
       await waitFor(async () => expect((await db.instruments.get('CRYPTO:ETH'))?.lastPrice).toBe('125000'))
@@ -204,6 +204,7 @@ describe('PortfolioPage', () => {
     const user = userEvent.setup()
     renderRoute('/portfolio', fakeFxProvider({ 'USD|THB': '33' }).provider)
     const [first] = await screen.findAllByLabelText('ราคาล่าสุด AAPL')
+    expect(first).toHaveValue('100.00')
     await user.clear(first)
     await user.type(first, '120')
     await user.click(document.body)
@@ -213,7 +214,8 @@ describe('PortfolioPage', () => {
     await user.click(second)
     await user.click(document.body)
 
-    await waitFor(() => expect(screen.getAllByLabelText('ราคาล่าสุด AAPL')[1]).toHaveValue('120'))
+    await waitFor(() => expect(screen.getAllByLabelText('ราคาล่าสุด AAPL')[1]).toHaveValue('120.00'))
+    expect(first).toHaveValue('120')
     expect((await db.instruments.get('US:AAPL'))?.lastPrice).toBe('120')
   })
 

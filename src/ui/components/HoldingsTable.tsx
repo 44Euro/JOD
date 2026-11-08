@@ -69,8 +69,14 @@ function priceInputKey(instrument: Instrument) {
 
 // The price is always the instrument's own, in its own currency. When the row is held in another currency the
 // currency is named beside the input, so the number is not taken for one in the row's currency.
+// Prices start with at least two decimals so a column reads 35.90 beside 338.32; finer prices keep their digits.
+function twoDecimals(price: string): string {
+  const [whole, fraction = ''] = price.split('.')
+  return fraction.length >= 2 ? price : `${whole}.${fraction.padEnd(2, '0')}`
+}
+
 function PriceInput({ instrument, rowCurrency }: { instrument: Instrument; rowCurrency: string }) {
-  const [value, setValue] = useState(instrument.lastPrice ?? '')
+  const [value, setValue] = useState(instrument.lastPrice ? twoDecimals(instrument.lastPrice) : '')
   const [invalid, setInvalid] = useState(false)
   // Typing the same price again is how someone says it has not moved, and that is what clears the old-price warning;
   // tabbing past the field says nothing.
