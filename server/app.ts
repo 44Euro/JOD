@@ -24,8 +24,12 @@ const CODE_LETTERS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
 
 export interface AppOptions {
   store: Store
-  // Origins allowed to call the API from a browser; '*' allows any.
+  // Comma-separated origins allowed to call the API from a browser, the app shells included; '*' allows any.
   origin?: string
+  // Behind a proxy every request comes from the proxy, so the visitor's address is read from the header it sets.
+  trustProxy?: boolean
+  // One line per request; off in tests.
+  log?: (line: string) => void
   // Where the reset link in an email points.
   appUrl?: string
   sendMail?: (to: string, subject: string, text: string) => Promise<void>
@@ -66,14 +70,37 @@ async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> 
 
 // The server never sees the password or the data: the app sends a key derived from the password for signing in, and
 // each record sealed on the device with a key the server never gets.
-export function createApp({ store, origin = '*', appUrl = 'http://localhost:5173', sendMail = logMail, market = createMarket(), push }: AppOptions) {
+export function createApp({
+  store,
+  origin = '*',
+  trustProxy = false,
+  log = () => {},
+  appUrl = 'http://localhost:5173',
+  sendMail = logMail,
+  market = createMarket(),
+  push,
+}: AppOptions) {
   const attempts = new Map<string, { count: number; resetAt: number }>()
+  const allowed = origin.split(',').map((o) => o.trim()).filter(Boolean)
 
-  function limited(ip: string) {
+  function ipOf(req: IncomingMessage): string {
+    if (trustProxy) {
+      const fly = req.headers['fly-client-ip']
+      if (typeof fly === 'string' && fly) return fly
+      // The proxy appends the address it saw, so the last entry is the one nobody outside could have written.
+      const forwarded = String(req.headers['x-forwarded-for'] ?? '').split(',').map((a) => a.trim()).filter(Boolean)
+      if (forwarded.length > 0) return forwarded[forwarded.length - 1]
+    }
+    return req.socket.remoteAddress ?? ''
+  }
+
+  function limited(key: string) {
     const now = Date.now()
-    const entry = attempts.get(ip)
+    // Old entries go once the map grows, so a flood of addresses cannot fill the memory.
+    if (attempts.size > 10_000) for (const [k, e] of attempts) if (e.resetAt < now) attempts.delete(k)
+    const entry = attempts.get(key)
     if (!entry || entry.resetAt < now) {
-      attempts.set(ip, { count: 1, resetAt: now + 60_000 })
+      attempts.set(key, { count: 1, resetAt: now + 60_000 })
       return false
     }
     entry.count += 1
@@ -165,10 +192,15 @@ export function createApp({ store, origin = '*', appUrl = 'http://localhost:5173
   async function route(req: IncomingMessage): Promise<{ status: number; body: unknown }> {
     const url = new URL(req.url ?? '/', 'http://local')
     const key = `${req.method} ${url.pathname}`
-    const ip = req.socket.remoteAddress ?? ''
+    const ip = ipOf(req)
     switch (key) {
       case 'GET /api/health':
-        return { status: 200, body: { ok: true } }
+        try {
+          await store.ping()
+          return { status: 200, body: { ok: true } }
+        } catch {
+          return { status: 503, body: { ok: false } }
+        }
       case 'POST /api/signup': {
         if (limited(ip)) throw new HttpError(429, 'slow down')
         const body = await readJson(req)
@@ -181,6 +213,8 @@ export function createApp({ store, origin = '*', appUrl = 'http://localhost:5173
       case 'POST /api/login': {
         if (limited(ip)) throw new HttpError(429, 'slow down')
         const { email, loginKey } = credentials(await readJson(req))
+        // Tries spread over many addresses still meet this per-email count.
+        if (limited(`email:${email}`)) throw new HttpError(429, 'slow down')
         const user = await store.findUser(email)
         const hash = await scryptAsync(loginKey, user?.salt ?? 'no-user-salt', 32)
         if (!user || !timingSafeEqual(hash, Buffer.from(user.hash, 'hex'))) throw new HttpError(401, 'wrong email or password')
@@ -346,7 +380,18 @@ export function createApp({ store, origin = '*', appUrl = 'http://localhost:5173
   }
 
   return async function handle(req: IncomingMessage, res: ServerResponse) {
-    res.setHeader('Access-Control-Allow-Origin', origin)
+    const started = Date.now()
+    res.on('finish', () => log(`${req.method} ${(req.url ?? '').split('?')[0]} ${res.statusCode} ${Date.now() - started}ms`))
+    res.setHeader('X-Content-Type-Options', 'nosniff')
+    res.setHeader('X-Frame-Options', 'DENY')
+    res.setHeader('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'")
+    res.setHeader('Strict-Transport-Security', 'max-age=63072000; includeSubDomains')
+    res.setHeader('Referrer-Policy', 'no-referrer')
+    res.setHeader('Cache-Control', 'no-store')
+    const from = req.headers.origin
+    if (allowed.includes('*')) res.setHeader('Access-Control-Allow-Origin', '*')
+    else if (from && allowed.includes(from)) res.setHeader('Access-Control-Allow-Origin', from)
+    res.setHeader('Vary', 'Origin')
     res.setHeader('Access-Control-Allow-Headers', 'authorization, content-type')
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
     if (req.method === 'OPTIONS') {

@@ -269,3 +269,51 @@ describe('sync server', () => {
   })
 })
 
+
+describe('sync server hardening', () => {
+  async function serve(options: Partial<Parameters<typeof createApp>[0]>) {
+    const app = createServer(createApp({ store, market, ...options }))
+    await new Promise<void>((resolve) => app.listen(0, resolve))
+    return { url: `http://127.0.0.1:${(app.address() as AddressInfo).port}`, close: () => new Promise<void>((resolve) => app.close(() => resolve())) }
+  }
+
+  it('answers browsers only from the allowed origins, the app shells included', async () => {
+    const app = await serve({ origin: 'https://jod.app, capacitor://localhost' })
+    const from = (origin: string) => fetch(`${app.url}/api/health`, { headers: { origin } })
+    const ours = await from('capacitor://localhost')
+    expect(ours.headers.get('access-control-allow-origin')).toBe('capacitor://localhost')
+    expect(ours.headers.get('vary')).toContain('Origin')
+    expect((await from('https://evil.test')).headers.get('access-control-allow-origin')).toBeNull()
+    await app.close()
+  })
+
+  it('sends headers that stop sniffing, framing, caching and plain http', async () => {
+    const res = await fetch(`${base}/api/health`)
+    expect(res.headers.get('x-content-type-options')).toBe('nosniff')
+    expect(res.headers.get('x-frame-options')).toBe('DENY')
+    expect(res.headers.get('content-security-policy')).toBe("default-src 'none'; frame-ancestors 'none'")
+    expect(res.headers.get('strict-transport-security')).toBe('max-age=63072000; includeSubDomains')
+    expect(res.headers.get('cache-control')).toBe('no-store')
+    expect(res.headers.get('referrer-policy')).toBe('no-referrer')
+  })
+
+  it('counts sign-in tries per visitor behind a trusted proxy, and per email across visitors', async () => {
+    const app = await serve({ trustProxy: true })
+    const login = (ip: string, email = 'a@x.io') =>
+      fetch(`${app.url}/api/login`, { method: 'POST', headers: { 'content-type': 'application/json', 'fly-client-ip': ip }, body: JSON.stringify({ email, loginKey: key('c') }) }).then((r) => r.status)
+    for (let i = 0; i < 10; i += 1) await login('1.1.1.1', `u${i}@x.io`)
+    expect(await login('1.1.1.1', 'z@x.io')).toBe(429)
+    expect(await login('2.2.2.2', 'z@x.io')).toBe(401)
+    for (let i = 0; i < 9; i += 1) await login(`3.3.3.${i}`, 'z@x.io')
+    expect(await login('4.4.4.4', 'z@x.io')).toBe(429)
+    await app.close()
+  })
+
+  it('reports the database in the health check, for an uptime monitor', async () => {
+    expect((await call('GET', '/api/health')).body).toEqual({ ok: true })
+    store.ping = async () => {
+      throw new Error('db down')
+    }
+    expect(await call('GET', '/api/health')).toEqual({ status: 503, body: { ok: false } })
+  })
+})

@@ -77,6 +77,10 @@ export class Store {
     this.db = db
   }
 
+  async ping(): Promise<void> {
+    await this.db.$queryRaw`SELECT 1`
+  }
+
   async findUser(email: string): Promise<User | undefined> {
     return toUser(await this.db.user.findUnique({ where: { email } }))
   }
