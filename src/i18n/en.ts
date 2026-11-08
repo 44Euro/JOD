@@ -706,6 +706,7 @@ export const EN: Record<string, string> = {
   "มูลค่าวันนี้": "Value today",
   "มูลค่าวันนี้ (": "Value today (",
   "มูลค่าวันนี้ · {0} {1} × {2} {3}": "Value today · {0} {1} × {2} {3}",
+  "มูลค่าตามราคา {0} · {1} {2} × {3} {4}": "Value at the {0} price · {1} {2} × {3} {4}",
   "มูลค่าวันนี้ · สินทรัพย์ + เงินสด": "Value today · assets + cash",
   "มูลค่าสินทรัพย์ · ไม่รวมเงินสด": "Asset value · excluding cash",
   "ยกมา": "Opening",

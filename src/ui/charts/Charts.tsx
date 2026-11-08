@@ -95,12 +95,21 @@ export interface PriceDatum {
 const MARK_COLORS = { buy: 'var(--gain)', sell: 'var(--loss)', opening: 'var(--primary)', last: 'var(--muted-foreground)' }
 const MARK_LABELS = { buy: t('ซื้อ'), sell: t('ขาย'), opening: t('ยอดยกมา'), last: t('ราคาล่าสุด') }
 
-export function PriceChart({ data, currency }: { data: PriceDatum[]; currency: string }) {
+// Trades share a day often, so the x axis is time with one tick per day rather than one label per point.
+export function dayAxis<T extends { date: string }>(points: readonly T[]) {
+  const data = points.map((p) => ({ ...p, day: Date.parse(`${p.date}T00:00:00Z`) }))
+  const ticks = [...new Set(data.map((d) => d.day))]
+  const label = (day: number) => shortDate(new Date(day).toISOString().slice(0, 10))
+  return { data, ticks, label }
+}
+
+export function PriceChart({ data: points, currency }: { data: PriceDatum[]; currency: string }) {
+  const { data, ticks, label } = dayAxis(points)
   return (
     <ResponsiveContainer width="100%" height={200} initialDimension={{ width: 600, height: 200 }}>
       <ComposedChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
         <CartesianGrid stroke="var(--border)" vertical={false} />
-        <XAxis dataKey="date" tickFormatter={shortDate} minTickGap={24} {...AXIS} />
+        <XAxis dataKey="day" type="number" scale="time" domain={['dataMin', 'dataMax']} ticks={ticks} tickFormatter={label} minTickGap={24} {...AXIS} />
         <YAxis width={56} domain={['auto', 'auto']} tickFormatter={(v: number) => fmtPrice(String(v))} {...AXIS} />
         <Tooltip
           content={({ active, payload }) => {

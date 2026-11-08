@@ -43,6 +43,12 @@ describe('AssetPage', () => {
     expect(await screen.findByText('฿132,000', { selector: 'p' })).toBeInTheDocument()
   })
 
+  it('names the day of the price the value uses when it is not today', async () => {
+    await db.instruments.add({ ...voo, lastPriceAt: '2024-10-14T05:00:00.000Z' })
+    renderRoute('/assets/US%3AVOO', usd)
+    expect(await screen.findByText('มูลค่าตามราคา 14 ต.ค. 2024 · 8 หน่วย × 500.00 USD')).toBeInTheDocument()
+  })
+
   it('sums the asset up with its total return including dividends', async () => {
     await db.instruments.add(voo)
     renderRoute('/assets/US%3AVOO', usd)

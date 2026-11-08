@@ -151,6 +151,8 @@ export function AssetPage() {
   const lastPrice = stats?.currency === null ? ownPrice : (valuations.find((v) => v.position.instrumentId === id)?.lastPrice ?? null)
   const priceCurrency = stats?.currency ?? instrument?.currency ?? ''
   const todayRate = stats?.currency && rates[stats.currency] ? D(rates[stats.currency].rate) : null
+  // The header can show a newer live quote, so the value line says which day's price it was worked out from.
+  const priceDay = instrument?.lastPriceAt ? todayLocal(new Date(instrument.lastPriceAt)) : null
   const route = stats ? assetRoute(stats, lastPrice, todayRate, base, instrument) : []
 
   async function toggleWatch() {
@@ -246,7 +248,9 @@ export function AssetPage() {
             label={
               stats.quantity.isZero()
                 ? t('ขายหมดแล้ว')
-                : t('มูลค่าวันนี้ · {0} {1} × {2} {3}', fmtNumber(stats.quantity, 8), unitLabel(instrument), fmtPrice(lastPrice), priceCurrency)
+                : priceDay && priceDay !== today
+                  ? t('มูลค่าตามราคา {0} · {1} {2} × {3} {4}', fmtDate(priceDay), fmtNumber(stats.quantity, 8), unitLabel(instrument), fmtPrice(lastPrice), priceCurrency)
+                  : t('มูลค่าวันนี้ · {0} {1} × {2} {3}', fmtNumber(stats.quantity, 8), unitLabel(instrument), fmtPrice(lastPrice), priceCurrency)
             }
             value={fmtHeadline(stats.valueBase, base)}
             footer={
