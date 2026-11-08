@@ -191,3 +191,15 @@
     inset: -12px -8px;
   }
 }
+
+/* iOS WebKit gives date and time inputs a fixed native width that runs past their card; let them size like text. */
+input[type='date'],
+input[type='time'] {
+  appearance: none;
+  min-width: 0;
+  text-align: left;
+}
+input[type='date']::-webkit-date-and-time-value,
+input[type='time']::-webkit-date-and-time-value {
+  text-align: left;
+}
