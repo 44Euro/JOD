@@ -80,6 +80,19 @@ export function ChatOrb() {
   const ready = chatReady(mode, settings)
   // The record form fills the screen with controls the orb would cover, and questions come after recording anyway.
   const onForm = useLocation().pathname.startsWith('/transactions/')
+  // Scrolling down hides it so it never sits on the end of a row being read; scrolling up brings it back.
+  const [away, setAway] = useState(false)
+  useEffect(() => {
+    let last = window.scrollY
+    const onScroll = () => {
+      const y = window.scrollY
+      if (Math.abs(y - last) < 8) return
+      setAway(y > last && y > 80)
+      last = y
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
   if (onForm) return null
   // The orb takes the focus back itself: a cleanup in the sheet would also run on React's development remount.
   const close = () => {
@@ -93,8 +106,10 @@ export function ChatOrb() {
         type="button"
         aria-label={t('ถาม JOD')}
         aria-haspopup="dialog"
+        data-away={away || undefined}
+        tabIndex={away ? -1 : undefined}
         onClick={() => setOpen(true)}
-        className="fixed right-4 bottom-[calc(max(env(safe-area-inset-bottom),22px)+72px)] z-20 grid size-14 place-items-center rounded-full bg-board text-white shadow-[0_4px_12px_-4px_rgb(11_31_58/0.35)] transition-[background-color,transform] duration-150 ease-out hover:bg-board-line focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-board-mine/70 active:scale-[0.97] md:right-8 md:bottom-8 print:hidden"
+        className="fixed right-4 bottom-[calc(max(env(safe-area-inset-bottom),22px)+72px)] z-20 grid size-14 place-items-center rounded-full bg-board text-white shadow-[0_4px_12px_-4px_rgb(11_31_58/0.35)] transition-[background-color,transform,opacity] duration-150 ease-out hover:bg-board-line data-[away]:pointer-events-none data-[away]:translate-y-24 data-[away]:opacity-0 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-board-mine/70 active:scale-[0.97] md:right-8 md:bottom-8 print:hidden"
       >
         <RouteMark />
       </button>

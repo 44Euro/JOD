@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CHAT_HISTORY_STORAGE_KEY, readLocal, writeApiKey, writeReaderMode } from '../../ai/apiKey'
@@ -78,6 +78,21 @@ async function openChat(chat: ChatModel) {
 }
 
 describe('ถาม JOD', () => {
+  it('steps the orb aside while the page scrolls down and brings it back on the way up', async () => {
+    useClaude()
+    renderRoute('/')
+    const orb = await screen.findByRole('button', { name: 'ถาม JOD' })
+    const scrollTo = (y: number) => act(() => {
+      Object.defineProperty(window, 'scrollY', { value: y, configurable: true })
+      window.dispatchEvent(new Event('scroll'))
+    })
+    scrollTo(300)
+    expect(orb).toHaveAttribute('data-away', 'true')
+    expect(orb).toHaveAttribute('tabindex', '-1')
+    scrollTo(200)
+    expect(orb).not.toHaveAttribute('data-away')
+  })
+
   it('leaves the orb off the record form, where it would sit on the form controls', async () => {
     useClaude()
     renderRoute('/transactions/new')
