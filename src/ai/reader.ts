@@ -5,7 +5,7 @@ import { createLocalReader } from './localReader'
 import { createGeminiReader, createOpenAiReader, type ProviderSettings } from './otherReaders'
 import { t } from '../i18n'
 
-export const AI_MODEL = 'claude-sonnet-5-5'
+export const AI_MODEL = 'claude-opus-5-5'
 
 // The app reads files only through this, so another reader (a server-side one before others use the app, or one for
 // the mobile app) can stand in without touching the pages.
