@@ -1,0 +1,11 @@
+node_modules
+dist
+dev-dist
+coverage
+ios
+android
+server/generated
+sync-data
+.env
+.env.*
+.git
