@@ -78,6 +78,13 @@ async function openChat(chat: ChatModel) {
 }
 
 describe('ถาม JOD', () => {
+  it('leaves the orb off the record form, where it would sit on the form controls', async () => {
+    useClaude()
+    renderRoute('/transactions/new')
+    await screen.findByRole('heading', { name: 'บันทึกรายการ' })
+    expect(screen.queryByRole('button', { name: 'ถาม JOD' })).not.toBeInTheDocument()
+  })
+
   it('shows the orb before any AI is set up and points to the settings that turn chat on', async () => {
     renderRoute('/')
     const u = user()

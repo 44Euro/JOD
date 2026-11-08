@@ -1,6 +1,6 @@
 import { ArrowUp, CircleAlert, Plus, RotateCw, Square, Trash2, X } from 'lucide-react'
 import { useContext, useEffect, useId, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
-import { Link } from 'react-router'
+import { Link, useLocation } from 'react-router'
 import { CHAT_HISTORY_STORAGE_KEY, chatReady, readLocal, useProviderSettings, useReaderMode, writeLocal } from '../../ai/apiKey'
 import { ask, type ChatImage, type ChatMessage } from '../../ai/chat'
 import { ChatModelContext } from '../../ai/chatProviders'
@@ -78,6 +78,9 @@ export function ChatOrb() {
   const [open, setOpen] = useState(false)
   const orb = useRef<HTMLButtonElement>(null)
   const ready = chatReady(mode, settings)
+  // The record form fills the screen with controls the orb would cover, and questions come after recording anyway.
+  const onForm = useLocation().pathname.startsWith('/transactions/')
+  if (onForm) return null
   // The orb takes the focus back itself: a cleanup in the sheet would also run on React's development remount.
   const close = () => {
     setOpen(false)
