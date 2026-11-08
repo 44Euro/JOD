@@ -72,7 +72,7 @@ export function CongressRow({ trade, link = true }: { trade: CongressTrade; link
         <>
           {t('ซื้อขาย {0} · แจ้ง {1}', fmtDate(trade.tradedAt), fmtDate(trade.notifiedAt))}
           {' · '}
-          <a href={trade.url} target="_blank" rel="noopener noreferrer" className="underline underline-offset-[3px]">
+          <a href={trade.url} target="_blank" rel="noopener noreferrer" className="hit-area underline underline-offset-[3px]">
             {t('รายงาน')}
           </a>
         </>

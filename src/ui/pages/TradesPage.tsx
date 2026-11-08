@@ -177,7 +177,7 @@ function ReviewButton({
       aria-label={t('{0} {1} ปิด {2}', reviewed ? t('แก้รีวิว') : t('รีวิว'), symbol, closed)}
       aria-expanded={open}
       onClick={onClick}
-      className={cn('inline-flex items-center justify-center rounded-lg', focusRing, list && listTarget)}
+      className={cn('inline-flex items-center justify-center rounded-lg', focusRing, list ? listTarget : 'hit-area')}
     >
       {reviewed ? (
         <Badge variant="ok" className={open ? 'bg-gain-ink text-gain-soft' : undefined}>

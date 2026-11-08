@@ -13,7 +13,7 @@ export function MarketCard({ title, more, source, children }: { title: string; m
           {title}
         </h2>
         {more && (
-          <Link to={more} className="text-[13px] font-semibold text-primary underline-offset-[3px] hover:underline">
+          <Link to={more} className="hit-area text-[13px] font-semibold text-primary underline-offset-[3px] hover:underline">
             {t('ดูทั้งหมด')}
           </Link>
         )}

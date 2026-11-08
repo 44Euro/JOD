@@ -291,7 +291,7 @@ export function ImportPage() {
               ? t('ไฟล์ไม่ออกจากเครื่อง')
               : t('ไฟล์จะถูกส่งไปให้ {0} อ่าน{1}', READER_MODE_LABELS[mode], cost ? t(' · {0} ไฟล์ ≈ {1} {2}', files.length, cost, base === 'THB' ? 'บาท' : base) : '')}
             {' · '}
-            <Link to="/settings" className="font-semibold text-primary-ink underline underline-offset-[3px]">
+            <Link to="/settings" className="hit-area font-semibold text-primary-ink underline underline-offset-[3px]">
               {t('เปลี่ยน')}
             </Link>
           </p>

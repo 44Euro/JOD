@@ -181,3 +181,13 @@
     color: var(--foreground);
   }
 }
+
+/* Small links inside a line of text get a finger-sized hit area without moving the text around them. */
+@utility hit-area {
+  position: relative;
+  &::after {
+    content: '';
+    position: absolute;
+    inset: -12px -8px;
+  }
+}
