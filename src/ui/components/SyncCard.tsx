@@ -11,6 +11,7 @@ import { deleteAccount, renewRecoveryCode, serverClient, signOut } from '../../s
 import { useDirty, useSyncState } from '../../sync/state'
 import { fmtDate } from '../format'
 import { PasswordResetForm } from './PasswordResetForm'
+import { askConfirm } from './confirm'
 
 function describe(outcome: SyncOutcome): string {
   if (outcome.kind === 'pushed') return t('ส่ง {0} รายการจากเครื่องนี้ขึ้นแล้ว', outcome.count)
@@ -79,7 +80,7 @@ export function SyncCard() {
           disabled={busy}
           onClick={() =>
             void run(async () => {
-              if (!window.confirm(t('ลบบัญชีและข้อมูลทั้งหมด ทั้งบนเซิร์ฟเวอร์และในเครื่องนี้? ย้อนกลับไม่ได้'))) return
+              if (!(await askConfirm({ message: t('ลบบัญชีและข้อมูลทั้งหมด ทั้งบนเซิร์ฟเวอร์และในเครื่องนี้? ย้อนกลับไม่ได้'), action: t('ลบบัญชี'), danger: true }))) return
               await deleteAccount()
             })
           }
@@ -115,7 +116,7 @@ export function SyncCard() {
               disabled={busy}
               onClick={() =>
                 void run(async () => {
-                  if (!window.confirm(t('สร้างรหัสกู้คืนใหม่? รหัสเดิมจะใช้ไม่ได้อีก'))) return
+                  if (!(await askConfirm({ message: t('สร้างรหัสกู้คืนใหม่? รหัสเดิมจะใช้ไม่ได้อีก'), action: t('สร้างรหัสใหม่'), danger: true }))) return
                   await renewRecoveryCode()
                 })
               }

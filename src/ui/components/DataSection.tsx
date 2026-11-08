@@ -17,6 +17,7 @@ import type { AppData } from '../hooks'
 import { asEncrypted, decryptText, DecryptError, encryptText, type EncryptedFile } from '../../security/crypto'
 import { ensurePersistentStorage, type StorageStatus } from '../storage'
 import { t } from '../../i18n'
+import { askConfirm } from './confirm'
 
 const REMIND_AFTER_DAYS = 7
 
@@ -62,7 +63,7 @@ export function DataSection({ data }: { data: AppData }) {
   }
 
   async function handleRemoveSample() {
-    if (!window.confirm(t('ลบข้อมูลตัวอย่างทั้งหมด? ข้อมูลที่คุณบันทึกเองจะอยู่ครบ'))) return
+    if (!(await askConfirm({ message: t('ลบข้อมูลตัวอย่างทั้งหมด? ข้อมูลที่คุณบันทึกเองจะอยู่ครบ'), action: t('ลบข้อมูลตัวอย่าง'), danger: true }))) return
     await removeSampleData(db)
     setMessage({ tone: 'ok', text: t('ลบข้อมูลตัวอย่างแล้ว') })
   }
@@ -107,7 +108,7 @@ export function DataSection({ data }: { data: AppData }) {
     try {
       const backup = parseBackup(text)
       const count = backup.data.transactions.length
-      if (!window.confirm(t('กู้คืนจากไฟล์นี้จะแทนที่ข้อมูลทั้งหมดในเครื่อง (ในไฟล์มี {0} รายการ) ต่อไหม?', count))) return
+      if (!(await askConfirm({ message: t('กู้คืนจากไฟล์นี้จะแทนที่ข้อมูลทั้งหมดในเครื่อง (ในไฟล์มี {0} รายการ) ต่อไหม?', count), action: t('กู้คืน'), danger: true }))) return
       await restoreBackup(db, backup)
       setMessage({ tone: 'ok', text: t('กู้คืนแล้ว {0} รายการ', count) })
     } catch (error) {

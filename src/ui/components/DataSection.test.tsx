@@ -5,6 +5,7 @@ import { db } from '../../db/db'
 import { makeTx } from '../../test/fixtures'
 import { encryptText } from '../../security/crypto'
 import { renderRoute, resetDb } from '../../test/render'
+import { acceptConfirm } from '../../test/confirm'
 
 const account = { id: 'acc-1', name: 'Dime US', broker: 'Dime', note: '', createdAt: '2024-01-01T00:00:00.000Z' }
 
@@ -34,7 +35,6 @@ describe('DataSection', () => {
   })
 
   it('replaces the data from a valid backup after confirmation', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
     const other = { ...account, id: 'acc-2', name: 'Bitkub' }
     const backup = {
       app: 'jod',
@@ -45,6 +45,7 @@ describe('DataSection', () => {
     const user = userEvent.setup()
     renderRoute('/settings')
     await user.upload(await screen.findByLabelText('เลือกไฟล์สำรอง'), jsonFile(backup))
+    await acceptConfirm(user, 'กู้คืน')
     expect(await screen.findByText('กู้คืนแล้ว 1 รายการ')).toBeInTheDocument()
     expect(await db.transactions.get('keep-me')).toBeUndefined()
     expect(await db.transactions.get('from-file')).toBeDefined()
@@ -59,10 +60,10 @@ describe('DataSection sample data', () => {
   it('removes the sample data and keeps the user’s own account', async () => {
     const { loadSampleData } = await import('../../db/sampleData')
     await loadSampleData(db, '2024-06-01')
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
     const user = userEvent.setup()
     renderRoute('/settings')
     await user.click(await screen.findByRole('button', { name: 'ลบข้อมูลตัวอย่าง' }))
+    await acceptConfirm(user, 'ลบข้อมูลตัวอย่าง')
     expect(await screen.findByText('ลบข้อมูลตัวอย่างแล้ว')).toBeInTheDocument()
     expect((await db.accounts.toArray()).map((a) => a.id)).toEqual(['acc-1'])
     expect((await db.transactions.toArray()).some((t) => t.id.startsWith('sample-'))).toBe(false)
@@ -75,7 +76,6 @@ describe('DataSection sample data', () => {
   })
 
   it('asks for the passphrase of a sealed backup and restores it only with the right one', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
     const backup = {
       app: 'jod',
       version: 1,
@@ -94,6 +94,7 @@ describe('DataSection sample data', () => {
     await user.clear(field)
     await user.type(field, 'long passphrase')
     await user.click(screen.getByRole('button', { name: 'เปิดไฟล์' }))
+    await acceptConfirm(user, 'กู้คืน')
     expect(await screen.findByText('กู้คืนแล้ว 1 รายการ')).toBeInTheDocument()
     expect(await db.transactions.get('sealed-tx')).toBeDefined()
   })

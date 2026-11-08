@@ -10,6 +10,7 @@ import type { Account } from '../../../domain/types'
 import { fmtDate } from '../../format'
 import { IMPORT_SOURCE_LABELS } from '../../labels'
 import { t } from '../../../i18n'
+import { askConfirm } from '../confirm'
 
 export function ImportHistory({ accounts }: { accounts: readonly Account[] }) {
   const batches = useLiveQuery(() => db.imports.orderBy('createdAt').reverse().toArray(), [])
@@ -18,7 +19,7 @@ export function ImportHistory({ accounts }: { accounts: readonly Account[] }) {
   const names = new Map(accounts.map((a) => [a.id, a.name]))
 
   async function undo(id: string, count: number) {
-    if (!window.confirm(t('ยกเลิกการนำเข้าครั้งนี้? รายการที่นำเข้า {0} รายการจะถูกลบ', count))) return
+    if (!(await askConfirm({ message: t('ยกเลิกการนำเข้าครั้งนี้? รายการที่นำเข้า {0} รายการจะถูกลบ', count), action: t('ลบรายการที่นำเข้า'), danger: true }))) return
     const removed = await undoImport(db, id)
     setMessage(t('ลบ {0} รายการจากการนำเข้าครั้งนั้นแล้ว', removed))
   }

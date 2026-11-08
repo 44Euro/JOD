@@ -9,6 +9,7 @@ import { db } from '../../db/db'
 import { makeTx } from '../../test/fixtures'
 import { fakeFxProvider } from '../../test/fakeFx'
 import { renderRoute, resetDb } from '../../test/render'
+import { acceptConfirm } from '../../test/confirm'
 
 const account = { id: 'acc-1', name: 'Dime US', broker: 'Dime', note: '', createdAt: '2024-01-01T00:00:00.000Z' }
 const local = createLocalReader({ recognize: async () => '', pdfLines: async () => [] })
@@ -57,10 +58,10 @@ describe('ImportPage', () => {
     expect(saved.map((t) => [t.date, t.quantity, t.price, t.fees, t.fxRate, t.fxSource])).toEqual([['2024-10-15', '10', '172.4', '1.5', '33.58', 'auto']])
     expect([batch.source, batch.count, batch.fileCount]).toEqual(['orders', 1, 1])
 
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
     const history = screen.getByRole('heading', { name: 'ประวัติการนำเข้า' }).parentElement!
     expect(within(history).getByText('ประวัติคำสั่ง 1 ไฟล์ · 1 รายการ')).toBeInTheDocument()
     await user.click(within(history).getByRole('button', { name: 'ยกเลิกการนำเข้าครั้งนี้' }))
+    await acceptConfirm(user, 'ลบรายการที่นำเข้า')
     expect(await screen.findByText('ลบ 1 รายการจากการนำเข้าครั้งนั้นแล้ว')).toBeInTheDocument()
     expect((await db.transactions.toArray()).map((t) => t.id)).toEqual(['mine'])
   })
