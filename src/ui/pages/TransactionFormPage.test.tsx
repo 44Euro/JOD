@@ -1352,6 +1352,18 @@ describe('TransactionFormPage', () => {
       expect(screen.getByText('จำนวนที่ได้รับต้องเป็นตัวเลขมากกว่า 0')).toBeInTheDocument()
       expect(screen.getByText('มูลค่าต่อหน่วยต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป')).toBeInTheDocument()
       expect(await db.transactions.count()).toBe(0)
+      const symbol = screen.getByLabelText('สัญลักษณ์')
+      expect(symbol).toHaveAttribute('aria-invalid', 'true')
+      expect(symbol).toHaveFocus()
+      expect(screen.getByLabelText('จำนวนที่ได้รับ')).toHaveAttribute('aria-invalid', 'true')
+      expect(screen.getByLabelText('มูลค่าต่อหน่วย ณ วันที่ได้รับ')).toHaveAttribute('aria-invalid', 'true')
+      expect(screen.getByLabelText('บัญชี')).not.toHaveAttribute('aria-invalid')
+
+      await user.type(symbol, 'arb')
+      await user.type(screen.getByLabelText('จำนวนที่ได้รับ'), '100')
+      await user.click(screen.getByRole('button', { name: 'บันทึก' }))
+      await waitFor(() => expect(screen.getByLabelText('สัญลักษณ์')).not.toHaveAttribute('aria-invalid'))
+      expect(screen.getByLabelText('มูลค่าต่อหน่วย ณ วันที่ได้รับ')).toHaveAttribute('aria-invalid', 'true')
     })
 
     it('opens a saved asset received with its kind, quantity, value and tax', async () => {

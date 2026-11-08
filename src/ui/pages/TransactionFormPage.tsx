@@ -7,6 +7,7 @@ import { buttonVariants } from '../../components/ui/button-variants'
 import { Card } from '../../components/ui/card'
 import { Chip } from '../../components/ui/chip'
 import { Field } from '../../components/ui/field'
+import { markInvalid } from '../formErrors'
 import { Input, NativeSelect, Textarea } from '../../components/ui/input'
 import { db } from '../../db/db'
 import { addPictures } from '../../db/repo'
@@ -211,6 +212,7 @@ function TransactionForm({
     [],
   )
   const [errors, setErrors] = useState<string[]>([])
+  const formRef = useRef<HTMLFormElement>(null)
   const [fxMessage, setFxMessage] = useState('')
   const [noRateFor, setNoRateFor] = useState('')
   // The preview only needs a clock for its placeholder timestamp and today's date; saving reads its own.
@@ -349,6 +351,7 @@ function TransactionForm({
     const at = new Date()
     const prepared = prepareSave(draft, { existing, others, instruments: data.instruments, baseCurrency: base, reinvesting, at })
     const { tx } = prepared
+    markInvalid(formRef.current, prepared.errors)
     if (prepared.errors.length > 0) {
       setErrors(prepared.errors)
       setSavedNote('')
@@ -394,7 +397,7 @@ function TransactionForm({
   const totalPanel = total && <TotalPanel total={total} currency={draft.currency} base={base} rate={rate} />
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="grid gap-3.5 md:gap-6">
+    <form ref={formRef} onSubmit={handleSubmit} noValidate className="grid gap-3.5 md:gap-6">
       <PageHeader title={existing ? t('แก้ไขรายการ') : t('บันทึกรายการ')} />
       <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-3.5 md:gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
         <Card className="grid gap-5">
