@@ -80,11 +80,14 @@ export function maskApiKey(key: string): string {
 
 const PROVIDER_DEFAULTS: Record<Exclude<ReaderMode, 'local' | 'claude'>, { model: string; baseUrl: string }> = {
   openai: { model: 'gpt-4.1', baseUrl: '' },
-  gemini: { model: 'gemini-2.5-flash', baseUrl: '' },
+  gemini: { model: 'gemini-3.6-flash', baseUrl: '' },
   compatible: { model: '', baseUrl: '' },
 }
 
 const providerKey = (mode: ReaderMode) => `jod-ai-${mode}`
+
+// The form saved the default it showed, so a retired default stays stored on devices set up before it changed.
+const RETIRED_DEFAULTS = new Set(['gemini-2.5-flash'])
 
 // Key, model and address of a provider other than Claude, kept on this device like the Claude key.
 export function readProviderSettings(mode: ReaderMode): ProviderSettings {
@@ -93,7 +96,7 @@ export function readProviderSettings(mode: ReaderMode): ProviderSettings {
   const defaults = PROVIDER_DEFAULTS[mode]
   try {
     const stored = JSON.parse(read(providerKey(mode)) || '{}') as Partial<ProviderSettings>
-    return { apiKey: stored.apiKey ?? '', model: stored.model || defaults.model, baseUrl: stored.baseUrl ?? defaults.baseUrl }
+    return { apiKey: stored.apiKey ?? '', model: stored.model && !RETIRED_DEFAULTS.has(stored.model) ? stored.model : defaults.model, baseUrl: stored.baseUrl ?? defaults.baseUrl }
   } catch {
     return { apiKey: '', model: defaults.model, baseUrl: defaults.baseUrl }
   }
