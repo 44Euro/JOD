@@ -68,7 +68,7 @@ export function SyncCard() {
       )}
       {message && <Alert tone={message.tone}>{message.text}</Alert>}
       <div className="flex flex-wrap gap-2">
-        <Button type="button" disabled={busy} onClick={() => void run(async () => show(await syncNow(db, serverClient())))}>
+        <Button type="button" variant="outline" disabled={busy} onClick={() => void run(async () => show(await syncNow(db, serverClient())))}>
           {busy ? t('กำลังซิงก์…') : t('ซิงก์ตอนนี้')}
         </Button>
         <Button type="button" variant="outline" disabled={busy} onClick={() => void run(async () => setUnsent((await signOut()) === 'unsent'))}>

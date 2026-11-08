@@ -184,7 +184,7 @@ export function SettingsPage() {
               <Field id="account-broker" label={t('โบรกเกอร์')}>
                 <Input id="account-broker" value={broker} onChange={(e) => setBroker(e.target.value)} />
               </Field>
-              <Button type="submit" className="h-12">
+              <Button type="submit" variant="outline" className="h-12">
                 {t('เพิ่มบัญชี')}
               </Button>
             </form>

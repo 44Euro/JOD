@@ -64,7 +64,7 @@ function ProviderForm({ mode }: { mode: Exclude<ReaderMode, 'local'> }) {
         <Input id="ai-key" type="password" autoComplete="off" spellCheck={false} value={key} onChange={(e) => setKey(e.target.value)} />
       </Field>
       <div className="flex flex-wrap gap-2">
-        <Button type="submit">{mode === 'claude' ? t('บันทึก key') : t('บันทึกการตั้งค่า AI')}</Button>
+        <Button type="submit" variant="outline">{mode === 'claude' ? t('บันทึก key') : t('บันทึกการตั้งค่า AI')}</Button>
         <Button type="button" variant="outline" disabled={testing} onClick={() => void test()}>
           {testing ? t('กำลังทดสอบ…') : t('ทดสอบการเชื่อมต่อ')}
         </Button>

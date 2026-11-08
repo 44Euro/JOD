@@ -150,8 +150,8 @@ function Shell() {
       >
         <TabLink {...HOME} />
         <TabLink {...MARKET} />
-        <NavLink to={NEW_TRANSACTION} className="flex flex-col items-center gap-0.5 text-[11px] text-muted-foreground">
-          <span className="-mt-5 grid size-14 place-items-center rounded-[17px] bg-primary text-primary-foreground shadow-[0_8px_18px_rgba(29,78,216,.3)]">
+        <NavLink to={NEW_TRANSACTION} end className={({ isActive }) => cn('flex flex-col items-center gap-0.5 text-[11px] text-muted-foreground', isActive && TAB_ACTIVE_CLASS)}>
+          <span className="-mt-5 grid size-14 place-items-center rounded-[17px] bg-primary text-primary-foreground shadow-[0_4px_12px_-4px_rgb(11_31_58/0.35)]">
             <Plus className="size-6" aria-hidden />
           </span>
           {t('บันทึก')}
