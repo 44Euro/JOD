@@ -71,13 +71,13 @@ function RouteMark() {
   )
 }
 
-// Shown only when a provider the person set up with their own key can be asked; reading on the device cannot chat.
+// Always shown so people find the chat; until a provider with the person's own key is set it explains how to turn it on.
 export function ChatOrb() {
   const mode = useReaderMode()
   const settings = useProviderSettings(mode)
   const [open, setOpen] = useState(false)
   const orb = useRef<HTMLButtonElement>(null)
-  if (!chatReady(mode, settings)) return null
+  const ready = chatReady(mode, settings)
   // The orb takes the focus back itself: a cleanup in the sheet would also run on React's development remount.
   const close = () => {
     setOpen(false)
@@ -95,8 +95,42 @@ export function ChatOrb() {
       >
         <RouteMark />
       </button>
-      {open && <ChatSheet provider={providerName(mode, settings)} mode={mode} settings={settings} onClose={close} />}
+      {open && (ready ? <ChatSheet provider={providerName(mode, settings)} mode={mode} settings={settings} onClose={close} /> : <SetupSheet onClose={close} />)}
     </>
+  )
+}
+
+function SetupSheet({ onClose }: { onClose(): void }) {
+  const id = useId()
+  useEffect(() => {
+    const onKey = (event: globalThis.KeyboardEvent) => event.key === 'Escape' && onClose()
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+  return (
+    <div className="fixed inset-0 z-30 flex items-end bg-[rgb(11_31_58/0.45)] md:justify-end md:p-8" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={`${id}-title`}
+        className="grid w-full gap-4 rounded-t-[28px] bg-board px-5 pt-5 pb-[max(env(safe-area-inset-bottom),20px)] text-white md:max-w-[440px] md:rounded-[20px] md:pb-5"
+      >
+        <div className="flex items-start gap-1">
+          <h2 id={`${id}-title`} className="flex-1 pt-1 text-lg font-semibold">
+            {t('ถาม JOD')}
+          </h2>
+          <button type="button" aria-label={t('ปิด')} className={ICON_BUTTON} onClick={onClose}>
+            <X className="size-5" aria-hidden />
+          </button>
+        </div>
+        <p className="text-[15px] leading-relaxed text-board-muted">
+          {t('ถามเรื่องพอร์ต ปันผล ข่าว หรือราคาหุ้นได้ · เลือก AI และใส่ key ของคุณในหน้าตั้งค่าก่อน')}
+        </p>
+        <Link to="/settings" onClick={onClose} className="inline-flex h-11 items-center justify-self-start rounded-full bg-white px-5 text-[15px] font-medium text-board transition-colors hover:bg-board-mine focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-board-mine/60">
+          {t('ไปตั้งค่า AI')}
+        </Link>
+      </div>
+    </div>
   )
 }
 

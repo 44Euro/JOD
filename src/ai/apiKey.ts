@@ -126,7 +126,3 @@ export function chatReady(mode: ReaderMode, settings: ProviderSettings): boolean
   return mode !== 'local' && providerReady(mode, settings)
 }
 
-export function useChatReady(): boolean {
-  const mode = useReaderMode()
-  return chatReady(mode, useProviderSettings(mode))
-}

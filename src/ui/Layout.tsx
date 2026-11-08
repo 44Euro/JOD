@@ -1,12 +1,12 @@
 import { Plus } from 'lucide-react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router'
-import { useChatReady } from '../ai/apiKey'
 import { buttonVariants } from '../components/ui/button-variants'
 import { cn } from '../lib/cn'
 import { AutoPriceUpdater } from './AutoPriceUpdater'
 import { AutoSync } from './AutoSync'
 import { ChatOrb } from './components/Chat'
 import { DailyValueRecorder } from './DailyValueRecorder'
+import { OfflineBar } from './components/OfflineBar'
 import { GlobalSearch } from './GlobalSearch'
 import { PushAlertSync } from './components/PushCard'
 import {
@@ -93,7 +93,6 @@ function Shell() {
   const inMore = isMoreTab(pathname)
   const inAssets = pathname.startsWith('/assets/')
   const editingTransaction = isTransactionEdit(pathname)
-  const chatOn = useChatReady()
   return (
     <div className="min-h-dvh md:grid md:grid-cols-[240px_minmax(0,1fr)] print:block">
       <DailyValueRecorder />
@@ -137,13 +136,11 @@ function Shell() {
         </div>
       </aside>
       <main
-        className={cn(
-          'min-w-0 px-4 pt-3.5 pb-[calc(112px+env(safe-area-inset-bottom))] md:px-11 md:pt-8 md:pb-16',
-          // Room below the last row so the ถาม JOD orb never sits on a figure.
-          chatOn && 'pb-[calc(176px+env(safe-area-inset-bottom))] md:pb-28',
-        )}
+        // Room below the last row so the ถาม JOD orb never sits on a figure.
+        className="min-w-0 px-4 pt-3.5 pb-[calc(176px+env(safe-area-inset-bottom))] md:px-11 md:pt-8 md:pb-28"
       >
         <div className="mx-auto grid max-w-[1240px] content-start gap-3.5 md:gap-6 [&>*]:min-w-0">
+          <OfflineBar />
           <Outlet />
         </div>
       </main>

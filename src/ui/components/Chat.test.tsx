@@ -78,14 +78,16 @@ async function openChat(chat: ChatModel) {
 }
 
 describe('ถาม JOD', () => {
-  it('has no orb while reading stays on the device or no key is set', async () => {
+  it('shows the orb before any AI is set up and points to the settings that turn chat on', async () => {
     renderRoute('/')
-    await screen.findByRole('heading', { name: 'เช้านี้' })
-    expect(screen.queryByRole('button', { name: 'ถาม JOD' })).not.toBeInTheDocument()
-    writeReaderMode('claude')
-    expect(screen.queryByRole('button', { name: 'ถาม JOD' })).not.toBeInTheDocument()
-    writeApiKey('sk-ant-test')
-    expect(await screen.findByRole('button', { name: 'ถาม JOD' })).toBeInTheDocument()
+    const u = user()
+    await u.click(await screen.findByRole('button', { name: 'ถาม JOD' }))
+    const sheet = await screen.findByRole('dialog', { name: 'ถาม JOD' })
+    expect(sheet).toHaveTextContent('เลือก AI และใส่ key ของคุณในหน้าตั้งค่าก่อน')
+    expect(within(sheet).queryByRole('textbox')).not.toBeInTheDocument()
+    await u.click(within(sheet).getByRole('link', { name: 'ไปตั้งค่า AI' }))
+    expect(await screen.findByRole('heading', { name: 'ตั้งค่า', level: 1 })).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
   it('asks a suggestion from the portfolio and shows the streamed answer with the data it used', async () => {
