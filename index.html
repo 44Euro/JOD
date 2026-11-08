@@ -7,14 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#f5f2eb" />
     <title>JOD · จดทุกเทรด รู้ทุกบาท</title>
-    <script>
-      try {
-        var choice = localStorage.getItem('jod-theme') || 'system'
-        var dark = choice === 'dark' || (choice === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)
-        document.documentElement.dataset.theme = dark ? 'dark' : 'light'
-        document.documentElement.style.colorScheme = dark ? 'dark' : 'light'
-      } catch (e) {}
-    </script>
+    <script src="/theme.js"></script>
   </head>
   <body>
     <div id="root"></div>
